@@ -163,6 +163,12 @@ impl Symbols {
     }
 }
 
+impl Default for Symbols {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct SymbolId(#[cfg(test)] pub(crate) u32, #[cfg(not(test))] u32);
 

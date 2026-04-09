@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
@@ -18,7 +20,7 @@ fn three_elements() {
                 Instruction::r#move(2, OperandType::I_32, MemoryKind::ENCODED, 3),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32, OperandType::I_32, OperandType::I_32],
+            return_types: smallvec![OperandType::I_32, OperandType::I_32, OperandType::I_32],
             register_count: 3,
             argument_count: 0,
         }
@@ -36,7 +38,7 @@ fn one_element() {
                 Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }

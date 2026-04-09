@@ -3,7 +3,7 @@ use crate::{
         declarations::{Definition, Visibility},
         types::TypeId,
     },
-    source::{Source, SourceCode},
+    source::{Code, Source},
 };
 
 use super::bind_declarations;
@@ -12,7 +12,7 @@ use super::bind_declarations;
 fn simple() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed("test", "const X: i64 = 42;"));
+    source.add_code(Code::validated_borrowed("test", "const X: i64 = 42;"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let x_symbol = resolver.symbols.add_symbol("X");
@@ -33,7 +33,7 @@ fn simple() {
 fn value_expression_scoped() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "const X: i64 = { let y = 1; y };",
     ));

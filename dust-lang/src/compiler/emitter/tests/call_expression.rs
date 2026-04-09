@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
@@ -16,7 +18,7 @@ fn return_value() {
                 Instruction::call(0, MemoryKind::ENCODED, 1, u16::MAX),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -37,7 +39,7 @@ fn multiple_arguments() {
                 Instruction::call(0, MemoryKind::ENCODED, 1, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 2,
             argument_count: 0,
         }
@@ -59,7 +61,7 @@ fn nested_call() {
                 Instruction::call(0, MemoryKind::ENCODED, 1, 1),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 2,
             argument_count: 1,
         }

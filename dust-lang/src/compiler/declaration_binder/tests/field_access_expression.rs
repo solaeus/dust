@@ -3,7 +3,7 @@ use crate::{
         declarations::{Definition, Visibility},
         types::TypeId,
     },
-    source::{Source, SourceCode, SourceFileId},
+    source::{Code, FileId, Source},
     syntax::{
         components::{FieldAccessExpression, SyntaxComponent},
         node::SyntaxKind,
@@ -16,14 +16,14 @@ use super::bind_declarations;
 fn field_access_binds_field_declaration() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "struct Foo { x: i64 } fn bar() { let f: Foo = Foo { x: 1 }; f.x; }",
     ));
 
     let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 
-    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let tree = syntax.get_tree(FileId::MAIN).unwrap();
     let field_access = tree
         .iter()
         .find(|node| node.node.kind == SyntaxKind::FieldAccessExpression)

@@ -15,79 +15,79 @@ use crate::error::AnnotatedError;
 
 #[derive(Debug, Clone)]
 pub struct Source<'src> {
-    files: Vec<SourceCode<'src>>,
+    code: Vec<Code<'src>>,
 }
 
 impl<'src> Source<'src> {
     pub fn new() -> Self {
-        Self { files: Vec::new() }
+        Self { code: Vec::new() }
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            files: Vec::with_capacity(capacity),
+            code: Vec::with_capacity(capacity),
         }
     }
 
     pub fn file_count(&self) -> usize {
-        self.files.len()
+        self.code.len()
     }
 
-    pub fn files(&self) -> &[SourceCode<'src>] {
-        &self.files
+    pub fn code(&self) -> &[Code<'src>] {
+        &self.code
     }
 
-    pub fn add_file(&mut self, file: SourceCode<'src>) -> SourceFileId {
-        let id = SourceFileId(self.files.len() as u32);
+    pub fn add_code(&mut self, file: Code<'src>) -> FileId {
+        let id = FileId(self.code.len() as u32);
 
-        self.files.push(file);
+        self.code.push(file);
 
         id
     }
 
-    pub fn get_file(&self, file_id: SourceFileId) -> Result<&SourceCode<'src>, SourceError> {
-        self.files
+    pub fn get_code(&self, file_id: FileId) -> Result<&Code<'src>, SourceError> {
+        self.code
             .get(file_id.0 as usize)
             .ok_or(SourceError::MissingSourceFile(file_id))
     }
 
-    pub fn get_file_content(&self, position: &Position) -> Result<&str, SourceError> {
-        self.get_file(position.file_id)?.get_str(position.span)
-    }
-
-    pub fn get_by_index(&self, index: usize) -> Option<(SourceFileId, &SourceCode<'src>)> {
-        self.files
+    pub fn get_code_by_index(&self, index: usize) -> Option<(FileId, &Code<'src>)> {
+        self.code
             .get(index)
-            .map(|file| (SourceFileId(index as u32), file))
+            .map(|file| (FileId(index as u32), file))
     }
 
-    pub fn set_utf8_validated(&mut self, file_id: SourceFileId) {
+    pub fn get_content(&self, position: &Position) -> Result<&str, SourceError> {
+        self.get_code(position.file_id)?.get_str(position.span)
+    }
+
+    pub fn set_utf8_validated(&mut self, file_id: FileId) {
         if let Some(
-            SourceCode::File { utf8_validated, .. }
-            | SourceCode::Borrowed { utf8_validated, .. }
-            | SourceCode::Owned { utf8_validated, .. },
-        ) = self.files.get_mut(file_id.0 as usize)
+            Code::File { utf8_validated, .. }
+            | Code::Borrowed { utf8_validated, .. }
+            | Code::Owned { utf8_validated, .. },
+        ) = self.code.get_mut(file_id.0 as usize)
         {
             *utf8_validated = true;
         }
     }
 
-    pub fn ids(&self) -> impl Iterator<Item = SourceFileId> {
-        (0..self.files.len() as u32).map(SourceFileId)
+    pub fn ids(&self) -> impl Iterator<Item = FileId> {
+        (0..self.code.len() as u32).map(FileId)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (SourceFileId, &SourceCode<'src>)> {
-        self.files
+    pub fn iter(&self) -> impl Iterator<Item = (FileId, &Code<'src>)> {
+        self.code
             .iter()
             .enumerate()
-            .map(|(index, file)| (SourceFileId(index as u32), file))
+            .map(|(index, file)| (FileId(index as u32), file))
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (SourceFileId, &mut SourceCode<'src>)> {
-        self.files
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (FileId, &mut Code<'src>)> {
+        self.code
             .iter_mut()
             .enumerate()
-            .map(|(index, file)| (SourceFileId(index as u32), file))
+            .map(|(index, file)| (FileId(index as u32), file))
     }
 }
 
@@ -98,10 +98,10 @@ impl Default for Source<'_> {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct SourceFileId(u32);
+pub struct FileId(u32);
 
-impl SourceFileId {
-    pub const MAIN: Self = SourceFileId(0);
+impl FileId {
+    pub const MAIN: Self = FileId(0);
 
     pub fn inner(self) -> u32 {
         self.0
@@ -109,7 +109,7 @@ impl SourceFileId {
 }
 
 #[derive(Debug, Clone)]
-pub enum SourceCode<'src> {
+pub enum Code<'src> {
     File {
         path: PathBuf,
         content: Vec<u8>,
@@ -127,20 +127,17 @@ pub enum SourceCode<'src> {
     },
 }
 
-impl<'src> SourceCode<'src> {
-    pub fn file(path: PathBuf) -> Result<Self, SourceError> {
-        let path = if path.is_absolute() {
-            path
-        } else {
-            path.canonicalize().map_err(|_| SourceError::InvalidPath {
-                found: path.display().to_string(),
-            })?
-        };
-        let Ok(metadata) = path.metadata() else {
-            return Err(SourceError::InvalidPath {
-                found: path.display().to_string(),
-            });
-        };
+impl<'src> Code<'src> {
+    pub fn file<P: AsRef<Path>>(path: P) -> Result<Self, SourceError> {
+        let path = path
+            .as_ref()
+            .canonicalize()
+            .map_err(|error| SourceError::CannotOpen {
+                io_error: error.kind(),
+            })?;
+        let metadata = path.metadata().map_err(|error| SourceError::CannotOpen {
+            io_error: error.kind(),
+        })?;
 
         if !metadata.is_file() {
             return Err(SourceError::ExpectedFilePath {
@@ -161,7 +158,7 @@ impl<'src> SourceCode<'src> {
                 io_error: error.kind(),
             })?;
 
-        Ok(SourceCode::File {
+        Ok(Code::File {
             path,
             content,
             utf8_validated: false,
@@ -169,7 +166,7 @@ impl<'src> SourceCode<'src> {
     }
 
     pub fn borrowed(name: &'src str, content: &'src [u8]) -> Self {
-        SourceCode::Borrowed {
+        Code::Borrowed {
             name,
             content,
             utf8_validated: false,
@@ -177,7 +174,7 @@ impl<'src> SourceCode<'src> {
     }
 
     pub const fn validated_borrowed(name: &'src str, content: &'src str) -> Self {
-        SourceCode::Borrowed {
+        Code::Borrowed {
             name,
             content: content.as_bytes(),
             utf8_validated: true,
@@ -185,7 +182,7 @@ impl<'src> SourceCode<'src> {
     }
 
     pub fn owned(name: &'src str, content: Vec<u8>) -> Self {
-        SourceCode::Owned {
+        Code::Owned {
             name,
             content,
             utf8_validated: false,
@@ -193,7 +190,7 @@ impl<'src> SourceCode<'src> {
     }
 
     pub fn validated_owned(name: &'src str, content: String) -> Self {
-        SourceCode::Owned {
+        Code::Owned {
             name,
             content: content.into_bytes(),
             utf8_validated: true,
@@ -334,12 +331,12 @@ impl<'src> SourceCode<'src> {
 /// Represents a slice of a file's content that can be read from the `Source`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Position {
-    pub file_id: SourceFileId,
+    pub file_id: FileId,
     pub span: Span,
 }
 
 impl Position {
-    pub fn new(file_id: SourceFileId, span: Span) -> Self {
+    pub fn new(file_id: FileId, span: Span) -> Self {
         Self { file_id, span }
     }
 
@@ -415,7 +412,7 @@ pub enum SourceError {
     ExpectedUtf8Path { found: String },
     InvalidPath { found: String },
 
-    MissingSourceFile(SourceFileId),
+    MissingSourceFile(FileId),
     FileContentOutOfBounds { span: Span, length: usize },
 }
 

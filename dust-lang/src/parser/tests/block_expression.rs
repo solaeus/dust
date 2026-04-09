@@ -2,7 +2,7 @@ use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceFileId, Span},
+    source::{FileId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxKind::*, SyntaxPayload},
@@ -12,7 +12,7 @@ use crate::{
 #[test]
 fn empty() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("{}")),
     );
     let ParseResult {
@@ -42,7 +42,7 @@ fn empty() {
 #[test]
 fn item() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("{ fn foo() {} }")),
     );
     let ParseResult {
@@ -80,7 +80,7 @@ fn item() {
 #[test]
 fn statement() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("{ let x = 42; }")),
     );
     let ParseResult {
@@ -113,7 +113,7 @@ fn statement() {
 #[test]
 fn expression() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("{ x + y }")),
     );
     let ParseResult {
@@ -148,7 +148,7 @@ fn expression() {
 #[test]
 fn mixed() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("{ fn foo() {} let x = 42; x + y }")),
     );
     let ParseResult {

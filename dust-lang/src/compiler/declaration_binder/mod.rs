@@ -162,7 +162,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_module_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let ModuleItem { public, name, body } = reader.as_component()?;
 
-        let module_name_str = self.source.get_file_content(&name.position())?;
+        let module_name_str = self.source.get_content(&name.position())?;
         let module_symbol_id = self.resolver.symbols.add_symbol(module_name_str);
         let module_scope_id = self.resolver.scopes.add_scope(Scope {
             kind: ScopeKind::Module,
@@ -251,7 +251,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let start = reader.node.span.start();
         let UseItem { public, path } = reader.as_component()?;
 
-        let file = self.source.get_file(path.file_id())?;
+        let file = self.source.get_code(path.file_id())?;
 
         let mut current_scope_id = self.current_scope_id;
         let mut current_declaration_id = None;
@@ -378,7 +378,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
             for type_parameter in type_parameters.children() {
                 let type_parameter_name_str =
-                    self.source.get_file_content(&type_parameter.position())?;
+                    self.source.get_content(&type_parameter.position())?;
                 let type_parameter_symbol_id =
                     self.resolver.symbols.add_symbol(type_parameter_name_str);
                 let type_parameter_declaration_id =
@@ -400,8 +400,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 SmallVec::<[TypeId; 4]>::with_capacity(value_parameters.child_count());
 
             for [parameter_name, parameter_type] in value_parameters.children().array_chunks() {
-                let parameter_name_str =
-                    self.source.get_file_content(&parameter_name.position())?;
+                let parameter_name_str = self.source.get_content(&parameter_name.position())?;
                 let parameter_symbol_id = self.resolver.symbols.add_symbol(parameter_name_str);
                 let parameter_type_id = self.visit_type(parameter_type)?;
                 let parameter_declaration_id =
@@ -440,7 +439,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         } else {
             TypeId::UNIT
         };
-        let function_name_str = self.source.get_file_content(&name.position())?;
+        let function_name_str = self.source.get_content(&name.position())?;
         let function_symbol_id = self.resolver.symbols.add_symbol(function_name_str);
         let function_declaration_id = self.resolver.declarations.add_declaration(Declaration {
             symbol_id: function_symbol_id,
@@ -484,7 +483,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             ..
         } = reader.as_component()?;
 
-        let struct_name_str = self.source.get_file_content(&name.position())?;
+        let struct_name_str = self.source.get_content(&name.position())?;
         let struct_symbol = self.resolver.symbols.add_symbol(struct_name_str);
         let struct_declaration_id = self.resolver.declarations.reserve_declaration_id();
 
@@ -495,7 +494,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
             for type_parameter in type_parameters.children() {
                 let type_parameter_name_str =
-                    self.source.get_file_content(&type_parameter.position())?;
+                    self.source.get_content(&type_parameter.position())?;
                 let type_parameter_symbol_id =
                     self.resolver.symbols.add_symbol(type_parameter_name_str);
                 let type_parameter_declaration_id =
@@ -548,7 +547,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 let StructItemStructFields { name_type_pairs } =
                     StructItemStructFields::from_reader(&fields)?;
 
-                let file = self.source.get_file(name.file_id())?;
+                let file = self.source.get_code(name.file_id())?;
 
                 for [field_name, field_type] in name_type_pairs {
                     let public = field_name.node.modifier.is_public();
@@ -618,7 +617,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             variants,
         } = reader.as_component()?;
 
-        let enum_name_str = self.source.get_file_content(&name.position())?;
+        let enum_name_str = self.source.get_content(&name.position())?;
         let enum_symbol = self.resolver.symbols.add_symbol(enum_name_str);
         let enum_declaration_id = self.resolver.declarations.reserve_declaration_id();
 
@@ -629,7 +628,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
             for type_parameter in type_parameters.children() {
                 let type_parameter_name_str =
-                    self.source.get_file_content(&type_parameter.position())?;
+                    self.source.get_content(&type_parameter.position())?;
                 let type_parameter_symbol_id =
                     self.resolver.symbols.add_symbol(type_parameter_name_str);
                 let type_parameter_declaration_id =
@@ -655,7 +654,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 fields: variant_fields,
             } = variant.as_component()?;
 
-            let variant_name_str = self.source.get_file_content(&variant_name.position())?;
+            let variant_name_str = self.source.get_content(&variant_name.position())?;
             let variant_symbol = self.resolver.symbols.add_symbol(variant_name_str);
 
             let fields = if let Some(variant_fields) = variant_fields {
@@ -690,7 +689,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                         let StructItemStructFields { name_type_pairs } =
                             variant_fields.as_component()?;
 
-                        let file = self.source.get_file(variant_name.file_id())?;
+                        let file = self.source.get_code(variant_name.file_id())?;
 
                         for [field_name, field_type] in name_type_pairs {
                             let field_name_str = file.get_str(field_name.node.span)?;
@@ -724,7 +723,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             let variant_declaration_id = self.resolver.declarations.add_declaration(Declaration {
                 symbol_id: variant_symbol,
                 definition: Definition::Variant {
-                    discriminant: index as u32,
+                    discriminant: index as u16,
                     parent_enum: enum_declaration_id,
                     type_parameters: DeclarationMembers::default(),
                     fields,
@@ -777,7 +776,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         self.visit_expression(value, None)?;
 
-        let const_name_str = self.source.get_file_content(&name.position())?;
+        let const_name_str = self.source.get_content(&name.position())?;
         let const_symbol_id = self.resolver.symbols.add_symbol(const_name_str);
         let type_id = self.visit_type(type_annotation)?;
         let declaration_id = self.resolver.declarations.add_declaration(Declaration {
@@ -808,7 +807,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
             for type_parameter in type_parameters.children() {
                 let type_parameter_name_str =
-                    self.source.get_file_content(&type_parameter.position())?;
+                    self.source.get_content(&type_parameter.position())?;
                 let type_parameter_symbol_id =
                     self.resolver.symbols.add_symbol(type_parameter_name_str);
                 let type_parameter_declaration_id =
@@ -830,7 +829,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .declarations
             .add_declaration_members(type_parameter_declaration_ids);
         let aliased_type_id = self.visit_type(aliased_type)?;
-        let type_alias_name_str = self.source.get_file_content(&name.position())?;
+        let type_alias_name_str = self.source.get_content(&name.position())?;
         let type_alias_symbol_id = self.resolver.symbols.add_symbol(type_alias_name_str);
         let declaration_id = self.resolver.declarations.add_declaration(Declaration {
             symbol_id: type_alias_symbol_id,
@@ -872,7 +871,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
             for type_parameter in type_parameters.children() {
                 let type_parameter_name_str =
-                    self.source.get_file_content(&type_parameter.position())?;
+                    self.source.get_content(&type_parameter.position())?;
                 let type_parameter_symbol_id =
                     self.resolver.symbols.add_symbol(type_parameter_name_str);
                 let type_parameter_declaration_id =
@@ -981,7 +980,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
             for type_parameter in type_parameters.children() {
                 let type_parameter_name_str =
-                    self.source.get_file_content(&type_parameter.position())?;
+                    self.source.get_content(&type_parameter.position())?;
                 let type_parameter_symbol_id =
                     self.resolver.symbols.add_symbol(type_parameter_name_str);
                 let type_parameter_declaration_id =
@@ -1059,7 +1058,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
                         for type_parameter in type_parameters.children() {
                             let type_parameter_name_str =
-                                self.source.get_file_content(&type_parameter.position())?;
+                                self.source.get_content(&type_parameter.position())?;
                             let type_parameter_symbol_id =
                                 self.resolver.symbols.add_symbol(type_parameter_name_str);
                             let type_parameter_declaration_id =
@@ -1083,7 +1082,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                         .declarations
                         .add_declaration_members(type_parameter_declaration_ids);
                     let aliased_type_id = self.visit_type(aliased_type)?;
-                    let type_name_str = self.source.get_file_content(&type_name.position())?;
+                    let type_name_str = self.source.get_content(&type_name.position())?;
                     let type_symbol_id = self.resolver.symbols.add_symbol(type_name_str);
                     let type_declaration_id =
                         self.resolver.declarations.add_declaration(Declaration {
@@ -1174,7 +1173,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
             for type_parameter in type_parameters.children() {
                 let type_parameter_name_str =
-                    self.source.get_file_content(&type_parameter.position())?;
+                    self.source.get_content(&type_parameter.position())?;
                 let type_parameter_symbol_id =
                     self.resolver.symbols.add_symbol(type_parameter_name_str);
                 let type_parameter_declaration_id =
@@ -1262,7 +1261,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
                         for type_parameter in method_type_parameters.children() {
                             let type_parameter_name_str =
-                                self.source.get_file_content(&type_parameter.position())?;
+                                self.source.get_content(&type_parameter.position())?;
                             let type_parameter_symbol_id =
                                 self.resolver.symbols.add_symbol(type_parameter_name_str);
                             let type_parameter_declaration_id =
@@ -1290,7 +1289,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                             method_value_parameters.children().array_chunks()
                         {
                             let parameter_name_str =
-                                self.source.get_file_content(&parameter_name.position())?;
+                                self.source.get_content(&parameter_name.position())?;
                             let parameter_symbol_id =
                                 self.resolver.symbols.add_symbol(parameter_name_str);
                             let parameter_type_id = self.visit_type(parameter_type)?;
@@ -1332,7 +1331,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     } else {
                         TypeId::UNIT
                     };
-                    let method_name_str = self.source.get_file_content(&method_name.position())?;
+                    let method_name_str = self.source.get_content(&method_name.position())?;
                     let method_symbol_id = self.resolver.symbols.add_symbol(method_name_str);
                     let method_declaration_id =
                         self.resolver.declarations.add_declaration(Declaration {
@@ -1387,7 +1386,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
                         for type_parameter in method_type_parameters.children() {
                             let type_parameter_name_str =
-                                self.source.get_file_content(&type_parameter.position())?;
+                                self.source.get_content(&type_parameter.position())?;
                             let type_parameter_symbol_id =
                                 self.resolver.symbols.add_symbol(type_parameter_name_str);
                             let type_parameter_declaration_id =
@@ -1415,7 +1414,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                             method_value_parameters.children().array_chunks()
                         {
                             let parameter_name_str =
-                                self.source.get_file_content(&parameter_name.position())?;
+                                self.source.get_content(&parameter_name.position())?;
                             let parameter_symbol_id =
                                 self.resolver.symbols.add_symbol(parameter_name_str);
                             let parameter_type_id = self.visit_type(parameter_type)?;
@@ -1457,7 +1456,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     } else {
                         TypeId::UNIT
                     };
-                    let method_name_str = self.source.get_file_content(&method_name.position())?;
+                    let method_name_str = self.source.get_content(&method_name.position())?;
                     let method_symbol_id = self.resolver.symbols.add_symbol(method_name_str);
                     let method_declaration_id =
                         self.resolver.declarations.add_declaration(Declaration {
@@ -1503,7 +1502,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                         self.visit_expression(value, None)?;
                     }
 
-                    let const_name_str = self.source.get_file_content(&const_name.position())?;
+                    let const_name_str = self.source.get_content(&const_name.position())?;
                     let const_symbol_id = self.resolver.symbols.add_symbol(const_name_str);
                     let type_id = self.visit_type(type_notation)?;
                     let const_declaration_id =
@@ -1533,7 +1532,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     } else {
                         TypeId::UNIT
                     };
-                    let type_name_str = self.source.get_file_content(&type_name.position())?;
+                    let type_name_str = self.source.get_content(&type_name.position())?;
                     let type_symbol_id = self.resolver.symbols.add_symbol(type_name_str);
                     let type_declaration_id =
                         self.resolver.declarations.add_declaration(Declaration {
@@ -1571,7 +1570,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .declarations
             .add_declaration_members(member_declaration_ids);
 
-        let trait_name_str = self.source.get_file_content(&name.position())?;
+        let trait_name_str = self.source.get_content(&name.position())?;
         let trait_symbol_id = self.resolver.symbols.add_symbol(trait_name_str);
 
         self.resolver.declarations.set_declaration(
@@ -1611,7 +1610,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         self.visit_expression(expression, None)?;
 
-        let identifier = self.source.get_file_content(&name.position())?;
+        let identifier = self.source.get_content(&name.position())?;
         let symbol_id = self.resolver.symbols.add_symbol(identifier);
         let type_id = if let Some(type_notation) = type_notation {
             self.visit_type(type_notation)?
@@ -1648,10 +1647,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     }
 
     fn visit_assignment_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        let AssignmentExpression { target, value } = reader.as_component()?;
+        let AssignmentExpression { target, source } = reader.as_component()?;
 
         self.visit_expression(target, None)?;
-        self.visit_expression(value, None)?;
+        self.visit_expression(source, None)?;
 
         Ok(())
     }
@@ -1817,7 +1816,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .to_vec();
 
         for [field_name, field_value] in name_expression_pairs {
-            let field_name_str = self.source.get_file_content(&field_name.position())?;
+            let field_name_str = self.source.get_content(&field_name.position())?;
             let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
 
             for &field_id in &field_declaration_ids {
@@ -2051,7 +2050,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let operand_type = *self.resolver.types.get_type(type_id)?;
 
-        let field_name_str = self.source.get_file_content(&field_name.position())?;
+        let field_name_str = self.source.get_content(&field_name.position())?;
         let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
 
         let field_declaration_id = match operand_type {
@@ -2158,7 +2157,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 } = reader.as_component()?;
 
                 let element_type_id = self.visit_type(element_type)?;
-                let length_str = self.source.get_file_content(&length.position())?;
+                let length_str = self.source.get_content(&length.position())?;
                 let length = create_usize_from_decimal(length_str)?;
 
                 self.resolver.types.add_type(Type::Array {
@@ -2315,7 +2314,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         debug!("Visiting simple path");
         debug_assert_eq!(simple_path.node.kind, SyntaxKind::SimplePath);
 
-        let identifier = self.source.get_file_content(&simple_path.position())?;
+        let identifier = self.source.get_content(&simple_path.position())?;
         let symbol_id = self.resolver.symbols.add_symbol(identifier);
         let (declaration_id, _) = self.find_declaration_in_scope(
             symbol_id,
@@ -2339,7 +2338,7 @@ fn search_path_segments<'a>(
     let mut segments = path_expression.children();
     let first_segment = segments.expect_next()?;
 
-    let file = binder.source.get_file(path_expression.file_id())?;
+    let file = binder.source.get_code(path_expression.file_id())?;
 
     let mut current_scope_id = binder.current_scope_id;
     let mut parent_declaration_id = None;

@@ -4,7 +4,7 @@ use crate::{
         scopes::ScopeKind,
         types::TypeId,
     },
-    source::{Source, SourceCode},
+    source::{Code, Source},
 };
 
 use super::{bind_declarations, find_function_body_scope};
@@ -13,7 +13,7 @@ use super::{bind_declarations, find_function_body_scope};
 fn empty() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed("test", "fn foo() {}"));
+    source.add_code(Code::validated_borrowed("test", "fn foo() {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
@@ -42,7 +42,7 @@ fn empty() {
 fn with_generics_parameters_and_return_type() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "pub fn foo<A, B>(x: i64, y: bool) -> i64 {}",
     ));
@@ -100,7 +100,7 @@ fn with_generics_parameters_and_return_type() {
 fn parameters_not_visible_in_declaring_scope() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed("test", "fn foo(x: i64) {}"));
+    source.add_code(Code::validated_borrowed("test", "fn foo(x: i64) {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let x_symbol = resolver.symbols.add_symbol("x");
@@ -119,7 +119,7 @@ fn parameters_not_visible_in_declaring_scope() {
 fn same_name_in_different_modules() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "mod a { fn foo() -> i64 {} } mod b { fn foo() -> bool {} }",
     ));
@@ -187,7 +187,7 @@ fn same_name_in_different_modules() {
 fn type_parameters_have_correct_identity() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed("test", "fn foo<A, B>() {}"));
+    source.add_code(Code::validated_borrowed("test", "fn foo<A, B>() {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
@@ -231,7 +231,7 @@ fn type_parameters_have_correct_identity() {
 fn value_parameter_declarations() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "fn foo(x: i64, y: bool) {}",
     ));
@@ -278,7 +278,7 @@ fn value_parameter_declarations() {
 fn function_body_creates_function_scope() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed("test", "fn foo() {}"));
+    source.add_code(Code::validated_borrowed("test", "fn foo() {}"));
 
     let (syntax, resolver, crate_scope_id) = bind_declarations(&source);
     let fn_body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
@@ -293,7 +293,7 @@ fn function_body_creates_function_scope() {
 fn nested_function() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "fn outer() { fn inner() {} }",
     ));

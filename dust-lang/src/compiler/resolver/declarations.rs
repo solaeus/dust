@@ -5,12 +5,10 @@ use rustc_hash::FxBuildHasher;
 use crate::{
     compiler::{
         error::CompileError,
-        resolver::{
-            TypeId, scopes::ScopeId, symbols::SymbolId, types::TypeMembers,
-        },
+        resolver::{TypeId, scopes::ScopeId, symbols::SymbolId, types::TypeMembers},
     },
     native_function::NativeFunction,
-    source::{Position, SourceFileId},
+    source::{Position, FileId},
     syntax::SyntaxId,
 };
 
@@ -176,6 +174,12 @@ impl Declarations {
     }
 }
 
+impl Default for Declarations {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DeclarationId(#[cfg(test)] pub(crate) u32, #[cfg(not(test))] u32);
 
@@ -301,7 +305,7 @@ pub enum Definition {
     /// }
     /// ```
     Variant {
-        discriminant: u32,
+        discriminant: u16,
         parent_enum: DeclarationId,
         type_parameters: DeclarationMembers,
         fields: DeclarationMembers,
@@ -418,7 +422,7 @@ impl DeclarationMembers {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ModuleKind {
-    File { file_id: SourceFileId },
+    File { file_id: FileId },
     Inline,
 }
 

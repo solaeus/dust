@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
@@ -17,7 +19,7 @@ fn reassignment() {
                 Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 1),
                 Instruction::r#return(),
             ],
-            return_types: vec![],
+            return_types: smallvec![],
             register_count: 1,
             argument_count: 0,
         }

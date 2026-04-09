@@ -15,7 +15,7 @@ use crate::{
         error::ParseError,
         parse_rule::{Associativity, ParseRule, Precedence},
     },
-    source::{Position, SourceFileId, Span},
+    source::{Position, FileId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxKind, SyntaxNode, SyntaxNodeModifier},
@@ -26,7 +26,7 @@ use crate::{
 
 pub fn parse(source_code: &str) -> (SyntaxTree, Vec<ParseError>) {
     let lexer = Lexer::with_validated_source(source_code);
-    let parser = Parser::new(SourceFileId::MAIN, lexer);
+    let parser = Parser::new(FileId::MAIN, lexer);
     let ParseResult {
         syntax_tree,
         errors,
@@ -49,7 +49,7 @@ pub struct Parser<'src> {
 }
 
 impl<'src> Parser<'src> {
-    pub fn new(file_id: SourceFileId, lexer: Lexer<'src>) -> Self {
+    pub fn new(file_id: FileId, lexer: Lexer<'src>) -> Self {
         Self {
             lexer,
             tree_builder: SyntaxTreeBuilder::new(file_id),

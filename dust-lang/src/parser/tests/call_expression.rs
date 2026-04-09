@@ -2,7 +2,7 @@ use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceFileId, Span},
+    source::{FileId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxKind::*, SyntaxPayload},
@@ -12,7 +12,7 @@ use crate::{
 #[test]
 fn call_with_two_arguments() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("foo(1, 2)")),
     );
     let ParseResult {

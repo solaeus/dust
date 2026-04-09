@@ -1,7 +1,7 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::SourceFileId,
+    source::FileId,
 };
 
 #[test]
@@ -35,7 +35,7 @@ fn type_notations() {
 
     for source in cases {
         let parser = Parser::new(
-            SourceFileId::MAIN,
+            FileId::MAIN,
             Lexer::with_unvalidated_source(source.as_bytes()),
         );
         let ParseResult { errors, .. } = parser.parse();

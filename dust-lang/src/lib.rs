@@ -3,13 +3,14 @@
 #![feature(
     current_thread_id,
     generic_const_exprs,
+    inherent_associated_types,
     iter_array_chunks,
     iterator_try_collect,
     thread_id_value
 )]
 
 pub mod compiler;
-mod constant_list;
+mod constants;
 pub mod disassembler;
 mod dust_type;
 pub mod dust_value;

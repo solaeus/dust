@@ -613,7 +613,7 @@ impl InstructionBuilder {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MemoryKind(pub(super) u8);
 
 impl MemoryKind {
@@ -633,6 +633,12 @@ impl Display for MemoryKind {
             _ => write!(f, "invalid"),
         }
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Address {
+    pub memory: MemoryKind,
+    pub index: u16,
 }
 
 #[cfg(test)]

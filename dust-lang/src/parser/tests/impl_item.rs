@@ -1,7 +1,7 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceFileId, Span},
+    source::{FileId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxKind::*, SyntaxPayload},
@@ -11,7 +11,7 @@ use crate::{
 #[test]
 fn empty() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(b"impl Foo {}"),
     );
     let ParseResult {
@@ -36,7 +36,7 @@ fn empty() {
 #[test]
 fn with_function() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(b"impl Foo { fn bar(self) {} }"),
     );
     let ParseResult {
@@ -71,7 +71,7 @@ fn with_function() {
 #[test]
 fn with_pub_function() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(b"impl Foo { pub fn bar(self) {} }"),
     );
     let ParseResult {
@@ -110,7 +110,7 @@ fn with_pub_function() {
 #[test]
 fn trait_impl() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(b"impl Bar for Foo {}"),
     );
     let ParseResult {
@@ -138,7 +138,7 @@ fn trait_impl() {
 #[test]
 fn with_where_clause() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(b"impl Foo where Foo: Bar {}"),
     );
     let ParseResult {

@@ -2,7 +2,7 @@ use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceFileId, Span},
+    source::{FileId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxKind::*, SyntaxPayload},
@@ -12,7 +12,7 @@ use crate::{
 #[test]
 fn let_statement() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("let x = 42;")),
     );
     let ParseResult {
@@ -44,7 +44,7 @@ fn let_statement() {
 #[test]
 fn let_statement_with_type() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("let x: i64 = 42;")),
     );
     let ParseResult {
@@ -78,7 +78,7 @@ fn let_statement_with_type() {
 #[test]
 fn let_mut_statement() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("let mut x = 42;")),
     );
     let ParseResult {
@@ -115,7 +115,7 @@ fn let_mut_statement() {
 #[test]
 fn let_mut_statement_with_type() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("let mut x: i64 = 42;")),
     );
     let ParseResult {

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{constant_list::ConstantList, dust_type::DustType, prototype::PrototypeList};
+use crate::{constants::Constants, dust_type::DustType, prototype::PrototypeList};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Program {
@@ -8,7 +8,7 @@ pub struct Program {
     return_type: DustType,
 
     pub prototypes: PrototypeList,
-    pub constants: ConstantList,
+    pub constants: Constants,
 }
 
 impl Program {
@@ -17,7 +17,7 @@ impl Program {
     pub fn new(
         name: Option<String>,
         return_type: DustType,
-        constants: ConstantList,
+        constants: Constants,
         prototypes: PrototypeList,
     ) -> Self {
         let name = name.unwrap_or_else(|| Self::DEFAULT_NAME.to_string());

@@ -6,7 +6,7 @@ pub mod types;
 use std::collections::HashMap;
 
 use rustc_hash::FxBuildHasher;
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 
 use crate::{
     compiler::{
@@ -23,6 +23,7 @@ use crate::{
             },
         },
     },
+    constants::value::ConstantValue,
     dust_type::{DustEnumType, DustFunctionType, DustStructType, DustStructValueType, DustType},
     instruction::OperandType,
     prototype::PrototypeId,
@@ -187,50 +188,53 @@ impl Resolver {
         }
     }
 
-    pub fn get_operand_types(&self, type_id: TypeId) -> Result<Vec<OperandType>, CompileError> {
+    pub fn get_operand_types(
+        &self,
+        type_id: TypeId,
+    ) -> Result<OperandType::SmallVec, CompileError> {
         let r#type = self.types.get_type(type_id)?;
 
         match r#type {
-            Type::Boolean => Ok(vec![OperandType::BOOLEAN]),
-            Type::Character => Ok(vec![OperandType::CHARACTER]),
-            Type::SignedInteger(SignedIntegerType::I8) => Ok(vec![OperandType::I_8]),
-            Type::SignedInteger(SignedIntegerType::I16) => Ok(vec![OperandType::I_16]),
-            Type::SignedInteger(SignedIntegerType::I32) => Ok(vec![OperandType::I_32]),
-            Type::SignedInteger(SignedIntegerType::I64) => Ok(vec![OperandType::I_64]),
-            Type::SignedInteger(SignedIntegerType::I128) => Ok(vec![OperandType::I_128]),
+            Type::Never => Ok(SmallVec::new()),
+            Type::Boolean => Ok(smallvec![OperandType::BOOLEAN]),
+            Type::Character => Ok(smallvec![OperandType::CHARACTER]),
+            Type::SignedInteger(SignedIntegerType::I8) => Ok(smallvec![OperandType::I_8]),
+            Type::SignedInteger(SignedIntegerType::I16) => Ok(smallvec![OperandType::I_16]),
+            Type::SignedInteger(SignedIntegerType::I32) => Ok(smallvec![OperandType::I_32]),
+            Type::SignedInteger(SignedIntegerType::I64) => Ok(smallvec![OperandType::I_64]),
+            Type::SignedInteger(SignedIntegerType::I128) => Ok(smallvec![OperandType::I_128]),
             Type::SignedInteger(SignedIntegerType::ISize) => {
                 #[cfg(target_pointer_width = "64")]
                 {
-                    Ok(vec![OperandType::I_64])
+                    Ok(smallvec![OperandType::I_64])
                 }
 
                 #[cfg(target_pointer_width = "32")]
                 {
-                    Ok(vec![OperandType::I_32])
+                    Ok(smallvec![OperandType::I_32])
                 }
             }
-            Type::UnsignedInteger(UnsignedIntegerType::U8) => Ok(vec![OperandType::U_8]),
-            Type::UnsignedInteger(UnsignedIntegerType::U16) => Ok(vec![OperandType::U_16]),
-            Type::UnsignedInteger(UnsignedIntegerType::U32) => Ok(vec![OperandType::U_32]),
-            Type::UnsignedInteger(UnsignedIntegerType::U64) => Ok(vec![OperandType::U_64]),
-            Type::UnsignedInteger(UnsignedIntegerType::U128) => Ok(vec![OperandType::U_128]),
+            Type::UnsignedInteger(UnsignedIntegerType::U8) => Ok(smallvec![OperandType::U_8]),
+            Type::UnsignedInteger(UnsignedIntegerType::U16) => Ok(smallvec![OperandType::U_16]),
+            Type::UnsignedInteger(UnsignedIntegerType::U32) => Ok(smallvec![OperandType::U_32]),
+            Type::UnsignedInteger(UnsignedIntegerType::U64) => Ok(smallvec![OperandType::U_64]),
+            Type::UnsignedInteger(UnsignedIntegerType::U128) => Ok(smallvec![OperandType::U_128]),
             Type::UnsignedInteger(UnsignedIntegerType::USize) => {
                 #[cfg(target_pointer_width = "64")]
                 {
-                    Ok(vec![OperandType::U_64])
+                    Ok(smallvec![OperandType::U_64])
                 }
 
                 #[cfg(target_pointer_width = "32")]
                 {
-                    Ok(vec![OperandType::U_32])
+                    Ok(smallvec![OperandType::U_32])
                 }
             }
-            Type::Float(FloatType::F32) => Ok(vec![OperandType::F_32]),
-            Type::Float(FloatType::F64) => Ok(vec![OperandType::F_64]),
-            Type::Never => Ok(vec![]),
+            Type::Float(FloatType::F32) => Ok(smallvec![OperandType::F_32]),
+            Type::Float(FloatType::F64) => Ok(smallvec![OperandType::F_64]),
             Type::Tuple { element_type_ids } => {
                 let element_type_ids = self.types.get_type_members(*element_type_ids)?;
-                let mut operand_types = Vec::with_capacity(element_type_ids.len());
+                let mut operand_types = SmallVec::with_capacity(element_type_ids.len());
 
                 for element_type_id in element_type_ids {
                     let element_operand_types = self.get_operand_types(*element_type_id)?;
@@ -245,17 +249,18 @@ impl Resolver {
                 length,
             } => {
                 let element_operand_types = self.get_operand_types(*element_type_id)?;
-                let mut operand_types = Vec::with_capacity(element_operand_types.len() * length);
+                let mut operand_types =
+                    SmallVec::with_capacity(element_operand_types.len() * length);
 
                 for _ in 0..*length {
-                    operand_types.extend(&element_operand_types);
+                    operand_types.extend(element_operand_types.iter().copied());
                 }
 
                 Ok(operand_types)
             }
-            Type::Slice { .. } | Type::Pointer { .. } => Ok(vec![OperandType::POINTER]),
+            Type::Slice { .. } | Type::Pointer { .. } => Ok(smallvec![OperandType::POINTER]),
             Type::FunctionDefinition { .. } | Type::Closure { .. } | Type::Function { .. } => {
-                Ok(vec![OperandType::FUNCTION])
+                Ok(smallvec![OperandType::FUNCTION])
             }
             Type::Algebraic {
                 declaration_id,
@@ -269,8 +274,6 @@ impl Resolver {
                         type_parameters,
                         ..
                     } => {
-                        let mut operand_types = vec![OperandType::U_32];
-
                         let type_parameter_argument_pairs = type_parameters
                             .as_range()
                             .zip(type_arguments.as_range())
@@ -288,6 +291,9 @@ impl Resolver {
                         let variant_declaration_ids =
                             self.declarations.get_declaration_members(variants)?;
 
+                        let mut largest_variant_operand_types: Vec<OperandType> = Vec::new();
+                        let mut largest_variant_register_count: u16 = 0;
+
                         for variant_declaration_id in variant_declaration_ids {
                             let variant_declaration =
                                 self.declarations.get_declaration(*variant_declaration_id)?;
@@ -301,6 +307,9 @@ impl Resolver {
 
                             let field_declaration_ids =
                                 self.declarations.get_declaration_members(fields)?;
+
+                            let mut variant_operand_types: Vec<OperandType> = Vec::new();
+                            let mut variant_register_count: u16 = 0;
 
                             for field_declaration_id in field_declaration_ids {
                                 let field_declaration =
@@ -359,9 +368,25 @@ impl Resolver {
                                 let field_operand_types =
                                     self.get_operand_types(resolved_type_id)?;
 
-                                operand_types.extend(field_operand_types);
+                                for operand_type in &field_operand_types {
+                                    variant_register_count +=
+                                        operand_type.register_width().as_u16();
+                                }
+
+                                variant_operand_types.extend(field_operand_types);
+                            }
+
+                            if variant_register_count > largest_variant_register_count {
+                                largest_variant_register_count = variant_register_count;
+                                largest_variant_operand_types = variant_operand_types;
                             }
                         }
+
+                        let mut operand_types =
+                            SmallVec::with_capacity(largest_variant_operand_types.len() + 1);
+
+                        operand_types.push(OperandType::U_16);
+                        operand_types.extend(largest_variant_operand_types);
 
                         Ok(operand_types)
                     }
@@ -370,7 +395,7 @@ impl Resolver {
                         type_parameters,
                         ..
                     } => {
-                        let mut operand_types = Vec::new();
+                        let mut operand_types = SmallVec::with_capacity(fields.len() as usize);
 
                         let type_parameter_argument_pairs = type_parameters
                             .as_range()
@@ -462,12 +487,12 @@ impl Resolver {
                 constraint: Some(InferredTypeConstraint::Integer),
                 resolved: None,
                 ..
-            } => Ok(vec![OperandType::I_32]),
+            } => Ok(smallvec![OperandType::I_32]),
             Type::Inferred {
                 constraint: Some(InferredTypeConstraint::Float),
                 resolved: None,
                 ..
-            } => Ok(vec![OperandType::F_64]),
+            } => Ok(smallvec![OperandType::F_64]),
             Type::Inferred { .. } => Err(CompileError::ExpectedConcreteType),
         }
     }
@@ -660,7 +685,7 @@ impl Resolver {
                         self.declarations.add_declaration(Declaration {
                             symbol_id: variant_symbol_id,
                             definition: Definition::Variant {
-                                discriminant: discriminant as u32,
+                                discriminant: discriminant as u16,
                                 parent_enum: enum_declaration_id,
                                 type_parameters: DeclarationMembers::default(),
                                 fields,
@@ -1468,524 +1493,5 @@ fn add_core(resolver: &mut Resolver) {
                 syntax: None,
             },
         );
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum ConstantValue {
-    Boolean(bool),
-    Character(char),
-    U8(u8),
-    I8(i8),
-    U16(u16),
-    I16(i16),
-    U32(u32),
-    I32(i32),
-    U64(u64),
-    I64(i64),
-    U128(u128),
-    I128(i128),
-    F32(f32),
-    F64(f64),
-}
-
-impl ConstantValue {
-    pub fn operand_type(&self) -> OperandType {
-        match self {
-            ConstantValue::Boolean(_) => OperandType::BOOLEAN,
-            ConstantValue::Character(_) => OperandType::CHARACTER,
-            ConstantValue::U8(_) => OperandType::U_8,
-            ConstantValue::I8(_) => OperandType::I_8,
-            ConstantValue::U16(_) => OperandType::U_16,
-            ConstantValue::I16(_) => OperandType::I_16,
-            ConstantValue::U32(_) => OperandType::U_32,
-            ConstantValue::I32(_) => OperandType::I_32,
-            ConstantValue::U64(_) => OperandType::U_64,
-            ConstantValue::I64(_) => OperandType::I_64,
-            ConstantValue::U128(_) => OperandType::U_128,
-            ConstantValue::I128(_) => OperandType::I_128,
-            ConstantValue::F32(_) => OperandType::F_32,
-            ConstantValue::F64(_) => OperandType::F_64,
-        }
-    }
-
-    pub fn type_id(&self) -> TypeId {
-        match self {
-            ConstantValue::Boolean(_) => TypeId::BOOLEAN,
-            ConstantValue::Character(_) => TypeId::CHARACTER,
-            ConstantValue::U8(_) => TypeId::U_8,
-            ConstantValue::I8(_) => TypeId::I_8,
-            ConstantValue::U16(_) => TypeId::U_16,
-            ConstantValue::I16(_) => TypeId::I_16,
-            ConstantValue::U32(_) => TypeId::U_32,
-            ConstantValue::I32(_) => TypeId::I_32,
-            ConstantValue::U64(_) => TypeId::U_64,
-            ConstantValue::I64(_) => TypeId::I_64,
-            ConstantValue::U128(_) => TypeId::U_128,
-            ConstantValue::I128(_) => TypeId::I_128,
-            ConstantValue::F32(_) => TypeId::F_32,
-            ConstantValue::F64(_) => TypeId::F_64,
-        }
-    }
-
-    pub fn as_encoded_u16(self) -> Option<u16> {
-        match self {
-            ConstantValue::Boolean(boolean) => Some(boolean as u16),
-            ConstantValue::Character(character) => Some(character as u16),
-            ConstantValue::I8(integer) => Some(integer as i16 as u16),
-            ConstantValue::I16(integer) => Some(integer as u16),
-            ConstantValue::I32(integer) if integer <= u16::MAX as i32 => {
-                Some(integer as i16 as u16)
-            }
-            ConstantValue::I64(integer) if integer <= u16::MAX as i64 => {
-                Some(integer as i16 as u16)
-            }
-            ConstantValue::I128(integer) if integer <= u16::MAX as i128 => {
-                Some(integer as i16 as u16)
-            }
-            ConstantValue::U8(integer) => Some(integer as u16),
-            ConstantValue::U16(integer) => Some(integer),
-            ConstantValue::U32(integer) if integer <= u16::MAX as u32 => Some(integer as u16),
-            ConstantValue::U64(integer) if integer <= u16::MAX as u64 => Some(integer as u16),
-            ConstantValue::U128(integer) if integer <= u16::MAX as u128 => Some(integer as u16),
-            _ => None,
-        }
-    }
-
-    pub fn add(self, other: Self) -> Option<Self> {
-        match (self, other) {
-            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
-                Some(ConstantValue::U8(left + right))
-            }
-            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
-                Some(ConstantValue::I8(left + right))
-            }
-            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
-                Some(ConstantValue::U16(left + right))
-            }
-            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
-                Some(ConstantValue::I16(left + right))
-            }
-            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
-                Some(ConstantValue::U32(left + right))
-            }
-            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
-                Some(ConstantValue::I32(left + right))
-            }
-            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
-                Some(ConstantValue::U64(left + right))
-            }
-            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
-                Some(ConstantValue::I64(left + right))
-            }
-            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
-                Some(ConstantValue::U128(left + right))
-            }
-            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
-                Some(ConstantValue::I128(left + right))
-            }
-            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
-                Some(ConstantValue::F32(left + right))
-            }
-            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
-                Some(ConstantValue::F64(left + right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn subtract(self, other: Self) -> Option<Self> {
-        match (self, other) {
-            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
-                Some(ConstantValue::U8(left - right))
-            }
-            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
-                Some(ConstantValue::I8(left - right))
-            }
-            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
-                Some(ConstantValue::U16(left - right))
-            }
-            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
-                Some(ConstantValue::I16(left - right))
-            }
-            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
-                Some(ConstantValue::U32(left - right))
-            }
-            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
-                Some(ConstantValue::I32(left - right))
-            }
-            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
-                Some(ConstantValue::U64(left - right))
-            }
-            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
-                Some(ConstantValue::I64(left - right))
-            }
-            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
-                Some(ConstantValue::U128(left - right))
-            }
-            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
-                Some(ConstantValue::I128(left - right))
-            }
-            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
-                Some(ConstantValue::F32(left - right))
-            }
-            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
-                Some(ConstantValue::F64(left - right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn multiply(self, other: Self) -> Option<Self> {
-        match (self, other) {
-            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
-                Some(ConstantValue::U8(left * right))
-            }
-            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
-                Some(ConstantValue::I8(left * right))
-            }
-            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
-                Some(ConstantValue::U16(left * right))
-            }
-            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
-                Some(ConstantValue::I16(left * right))
-            }
-            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
-                Some(ConstantValue::U32(left * right))
-            }
-            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
-                Some(ConstantValue::I32(left * right))
-            }
-            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
-                Some(ConstantValue::U64(left * right))
-            }
-            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
-                Some(ConstantValue::I64(left * right))
-            }
-            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
-                Some(ConstantValue::U128(left * right))
-            }
-            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
-                Some(ConstantValue::I128(left * right))
-            }
-            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
-                Some(ConstantValue::F32(left * right))
-            }
-            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
-                Some(ConstantValue::F64(left * right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn divide(self, other: Self) -> Option<Self> {
-        match (self, other) {
-            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
-                Some(ConstantValue::U8(left / right))
-            }
-            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
-                Some(ConstantValue::I8(left / right))
-            }
-            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
-                Some(ConstantValue::U16(left / right))
-            }
-            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
-                Some(ConstantValue::I16(left / right))
-            }
-            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
-                Some(ConstantValue::U32(left / right))
-            }
-            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
-                Some(ConstantValue::I32(left / right))
-            }
-            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
-                Some(ConstantValue::U64(left / right))
-            }
-            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
-                Some(ConstantValue::I64(left / right))
-            }
-            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
-                Some(ConstantValue::U128(left / right))
-            }
-            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
-                Some(ConstantValue::I128(left / right))
-            }
-            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
-                Some(ConstantValue::F32(left / right))
-            }
-            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
-                Some(ConstantValue::F64(left / right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn modulo(self, other: Self) -> Option<Self> {
-        match (self, other) {
-            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
-                Some(ConstantValue::U8(left % right))
-            }
-            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
-                Some(ConstantValue::I8(left % right))
-            }
-            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
-                Some(ConstantValue::U16(left % right))
-            }
-            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
-                Some(ConstantValue::I16(left % right))
-            }
-            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
-                Some(ConstantValue::U32(left % right))
-            }
-            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
-                Some(ConstantValue::I32(left % right))
-            }
-            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
-                Some(ConstantValue::U64(left % right))
-            }
-            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
-                Some(ConstantValue::I64(left % right))
-            }
-            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
-                Some(ConstantValue::U128(left % right))
-            }
-            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
-                Some(ConstantValue::I128(left % right))
-            }
-            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
-                Some(ConstantValue::F32(left % right))
-            }
-            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
-                Some(ConstantValue::F64(left % right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn power(self, other: Self) -> Option<Self> {
-        match (self, other) {
-            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
-                Some(ConstantValue::U8(left.pow(right as u32)))
-            }
-            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
-                Some(ConstantValue::I8(left.pow(right as u32)))
-            }
-            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
-                Some(ConstantValue::U16(left.pow(right as u32)))
-            }
-            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
-                Some(ConstantValue::I16(left.pow(right as u32)))
-            }
-            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
-                Some(ConstantValue::U32(left.pow(right)))
-            }
-            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
-                Some(ConstantValue::I32(left.pow(right as u32)))
-            }
-            (ConstantValue::U64(left), ConstantValue::U32(right)) => {
-                Some(ConstantValue::U64(left.pow(right)))
-            }
-            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
-                Some(ConstantValue::I64(left.pow(right as u32)))
-            }
-            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
-                Some(ConstantValue::U128(left.pow(right as u32)))
-            }
-            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
-                Some(ConstantValue::I128(left.pow(right as u32)))
-            }
-            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
-                Some(ConstantValue::F32(left.powf(right)))
-            }
-            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
-                Some(ConstantValue::F64(left.powf(right)))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn equal(self, other: Self) -> Option<Self> {
-        match (self, other) {
-            (ConstantValue::Boolean(left), ConstantValue::Boolean(right)) => {
-                Some(ConstantValue::Boolean(left == right))
-            }
-            (ConstantValue::Character(left), ConstantValue::Character(right)) => {
-                Some(ConstantValue::Boolean(left == right))
-            }
-            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
-                Some(ConstantValue::Boolean(left == right))
-            }
-            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
-                Some(ConstantValue::Boolean(left == right))
-            }
-            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
-                Some(ConstantValue::Boolean(left == right))
-            }
-            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
-                Some(ConstantValue::Boolean(left == right))
-            }
-            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
-                Some(ConstantValue::Boolean(left == right))
-            }
-            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
-                Some(ConstantValue::Boolean(left == right))
-            }
-            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
-                Some(ConstantValue::Boolean(left == right))
-            }
-            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
-                Some(ConstantValue::Boolean(left == right))
-            }
-            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
-                Some(ConstantValue::Boolean(left == right))
-            }
-            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
-                Some(ConstantValue::Boolean(left == right))
-            }
-            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
-                Some(ConstantValue::Boolean(left == right))
-            }
-            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
-                Some(ConstantValue::Boolean(left == right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn not_equal(self, other: Self) -> Option<Self> {
-        self.equal(other).and_then(|constant| constant.negate())
-    }
-
-    pub fn less(self, other: Self) -> Option<Self> {
-        match (self, other) {
-            (ConstantValue::Character(left), ConstantValue::Character(right)) => {
-                Some(ConstantValue::Boolean(left < right))
-            }
-            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
-                Some(ConstantValue::Boolean(left < right))
-            }
-            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
-                Some(ConstantValue::Boolean(left < right))
-            }
-            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
-                Some(ConstantValue::Boolean(left < right))
-            }
-            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
-                Some(ConstantValue::Boolean(left < right))
-            }
-            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
-                Some(ConstantValue::Boolean(left < right))
-            }
-            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
-                Some(ConstantValue::Boolean(left < right))
-            }
-            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
-                Some(ConstantValue::Boolean(left < right))
-            }
-            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
-                Some(ConstantValue::Boolean(left < right))
-            }
-            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
-                Some(ConstantValue::Boolean(left < right))
-            }
-            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
-                Some(ConstantValue::Boolean(left < right))
-            }
-            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
-                Some(ConstantValue::Boolean(left < right))
-            }
-            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
-                Some(ConstantValue::Boolean(left < right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn greater(self, other: Self) -> Option<Self> {
-        self.less(other).and_then(|less| less.negate())
-    }
-
-    pub fn less_equal(self, other: Self) -> Option<Self> {
-        match (self, other) {
-            (ConstantValue::Character(left), ConstantValue::Character(right)) => {
-                Some(ConstantValue::Boolean(left <= right))
-            }
-            (ConstantValue::U8(left), ConstantValue::U8(right)) => {
-                Some(ConstantValue::Boolean(left <= right))
-            }
-            (ConstantValue::I8(left), ConstantValue::I8(right)) => {
-                Some(ConstantValue::Boolean(left <= right))
-            }
-            (ConstantValue::U16(left), ConstantValue::U16(right)) => {
-                Some(ConstantValue::Boolean(left <= right))
-            }
-            (ConstantValue::I16(left), ConstantValue::I16(right)) => {
-                Some(ConstantValue::Boolean(left <= right))
-            }
-            (ConstantValue::U32(left), ConstantValue::U32(right)) => {
-                Some(ConstantValue::Boolean(left <= right))
-            }
-            (ConstantValue::I32(left), ConstantValue::I32(right)) => {
-                Some(ConstantValue::Boolean(left <= right))
-            }
-            (ConstantValue::U64(left), ConstantValue::U64(right)) => {
-                Some(ConstantValue::Boolean(left <= right))
-            }
-            (ConstantValue::I64(left), ConstantValue::I64(right)) => {
-                Some(ConstantValue::Boolean(left <= right))
-            }
-            (ConstantValue::U128(left), ConstantValue::U128(right)) => {
-                Some(ConstantValue::Boolean(left <= right))
-            }
-            (ConstantValue::I128(left), ConstantValue::I128(right)) => {
-                Some(ConstantValue::Boolean(left <= right))
-            }
-            (ConstantValue::F32(left), ConstantValue::F32(right)) => {
-                Some(ConstantValue::Boolean(left <= right))
-            }
-            (ConstantValue::F64(left), ConstantValue::F64(right)) => {
-                Some(ConstantValue::Boolean(left <= right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn greater_equal(self, other: Self) -> Option<Self> {
-        self.less(other).and_then(|less| less.negate())
-    }
-
-    pub fn and(self, other: Self) -> Option<Self> {
-        match (self, other) {
-            (ConstantValue::Boolean(left), ConstantValue::Boolean(right)) => {
-                Some(ConstantValue::Boolean(left && right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn or(self, other: Self) -> Option<Self> {
-        match (self, other) {
-            (ConstantValue::Boolean(left), ConstantValue::Boolean(right)) => {
-                Some(ConstantValue::Boolean(left || right))
-            }
-            _ => None,
-        }
-    }
-
-    pub fn negate(self) -> Option<Self> {
-        match self {
-            ConstantValue::Boolean(boolean) => Some(ConstantValue::Boolean(!boolean)),
-            ConstantValue::U8(integer) => Some(ConstantValue::U8(integer.wrapping_neg())),
-            ConstantValue::I8(integer) => Some(ConstantValue::I8(integer.wrapping_neg())),
-            ConstantValue::U16(integer) => Some(ConstantValue::U16(integer.wrapping_neg())),
-            ConstantValue::I16(integer) => Some(ConstantValue::I16(integer.wrapping_neg())),
-            ConstantValue::U32(integer) => Some(ConstantValue::U32(integer.wrapping_neg())),
-            ConstantValue::I32(integer) => Some(ConstantValue::I32(integer.wrapping_neg())),
-            ConstantValue::U64(integer) => Some(ConstantValue::U64(integer.wrapping_neg())),
-            ConstantValue::I64(integer) => Some(ConstantValue::I64(integer.wrapping_neg())),
-            ConstantValue::U128(integer) => Some(ConstantValue::U128(integer.wrapping_neg())),
-            ConstantValue::I128(integer) => Some(ConstantValue::I128(integer.wrapping_neg())),
-            _ => None,
-        }
     }
 }

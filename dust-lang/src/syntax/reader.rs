@@ -1,5 +1,5 @@
 use crate::{
-    source::{Position, SourceFileId},
+    source::{FileId, Position},
     syntax::{
         SyntaxId,
         components::SyntaxComponent,
@@ -12,8 +12,8 @@ use crate::{
 #[derive(Clone, Copy, Debug)]
 pub struct SyntaxReader<'a> {
     pub id: SyntaxId,
-    tree: &'a SyntaxTree,
     pub node: &'a SyntaxNode,
+    tree: &'a SyntaxTree,
 }
 
 impl<'a> SyntaxReader<'a> {
@@ -25,19 +25,7 @@ impl<'a> SyntaxReader<'a> {
         self.tree.root()
     }
 
-    pub fn is_item(&self) -> bool {
-        self.node.kind.is_item()
-    }
-
-    pub fn is_statement(&self) -> bool {
-        self.node.kind.is_statement()
-    }
-
-    pub fn is_expression(&self) -> bool {
-        self.node.kind.is_expression()
-    }
-
-    pub fn file_id(&self) -> SourceFileId {
+    pub fn file_id(&self) -> FileId {
         self.tree.file_id
     }
 

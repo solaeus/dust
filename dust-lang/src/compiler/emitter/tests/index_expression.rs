@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
@@ -19,7 +21,7 @@ fn constant_index() {
                 Instruction::r#move(0, OperandType::I_32, MemoryKind::REGISTER, 1),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 3,
             argument_count: 0,
         }
@@ -42,7 +44,7 @@ fn dynamic_index() {
                 Instruction::get_index(0, OperandType::I_32, 1, MemoryKind::REGISTER, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 4,
             argument_count: 1,
         }

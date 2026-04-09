@@ -2,7 +2,7 @@ use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceFileId, Span},
+    source::{FileId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxKind::*, SyntaxPayload},
@@ -12,7 +12,7 @@ use crate::{
 #[test]
 fn exclusive() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("1..10")),
     );
     let ParseResult {
@@ -44,7 +44,7 @@ fn exclusive() {
 #[test]
 fn inclusive() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("1..=10")),
     );
     let ParseResult {

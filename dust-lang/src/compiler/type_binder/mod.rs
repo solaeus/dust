@@ -620,12 +620,12 @@ impl SyntaxVisitor for TypeBinder<'_> {
         &mut self,
         reader: SyntaxReader,
     ) -> Result<Self::ExpressionOutput, CompileError> {
-        let AssignmentExpression { target, value } = reader.as_component()?;
+        let AssignmentExpression { target, source } = reader.as_component()?;
 
         let target_type_id = self.visit_expression(target, None)?;
-        let value_type_id = self.visit_expression(value, None)?;
+        let value_type_id = self.visit_expression(source, None)?;
 
-        self.unify_types(target_type_id, Some(target), value_type_id, value)?;
+        self.unify_types(target_type_id, Some(target), value_type_id, source)?;
 
         self.resolver.add_type_binding(reader.id, TypeId::UNIT);
 
@@ -751,7 +751,7 @@ impl SyntaxVisitor for TypeBinder<'_> {
 
         let element_type_id = self.visit_expression(element, None)?;
 
-        let length_str = self.source.get_file_content(&length_reader.position())?;
+        let length_str = self.source.get_content(&length_reader.position())?;
         let length = create_usize_from_decimal(length_str)?;
 
         let array_type = Type::Array {

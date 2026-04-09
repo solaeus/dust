@@ -308,7 +308,7 @@ impl<'a> SyntaxComponent<'a> for ExpressionStatement<'a> {
 
 pub struct AssignmentExpression<'a> {
     pub target: SyntaxReader<'a>,
-    pub value: SyntaxReader<'a>,
+    pub source: SyntaxReader<'a>,
 }
 
 impl<'a> SyntaxComponent<'a> for AssignmentExpression<'a> {
@@ -318,7 +318,10 @@ impl<'a> SyntaxComponent<'a> for AssignmentExpression<'a> {
 
         let (target, value) = reader.binary_children()?;
 
-        Ok(Self { target, value })
+        Ok(Self {
+            target,
+            source: value,
+        })
     }
 }
 

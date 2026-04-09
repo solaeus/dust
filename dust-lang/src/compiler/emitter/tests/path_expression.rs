@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
@@ -16,7 +18,7 @@ fn unused_binding() {
                 Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 1),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }

@@ -1,6 +1,6 @@
 use crate::{
     compiler::resolver::declarations::{Definition, Visibility},
-    source::{Source, SourceCode},
+    source::{Code, Source},
 };
 
 use super::{bind_declarations, bind_declarations_with_errors};
@@ -9,10 +9,7 @@ use super::{bind_declarations, bind_declarations_with_errors};
 fn module() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
-        "test",
-        "mod foo {} use foo;",
-    ));
+    source.add_code(Code::validated_borrowed("test", "mod foo {} use foo;"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
@@ -31,7 +28,7 @@ fn module() {
 fn public_module() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "mod foo {} pub use foo;",
     ));
@@ -53,10 +50,7 @@ fn public_module() {
 fn resolves_to_module() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
-        "test",
-        "mod foo {} use foo;",
-    ));
+    source.add_code(Code::validated_borrowed("test", "mod foo {} use foo;"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
@@ -76,7 +70,7 @@ fn resolves_to_module() {
 fn function_from_module() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "mod foo { fn bar() {} } use foo::bar;",
     ));
@@ -99,7 +93,7 @@ fn function_from_module() {
 fn struct_from_module() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "mod foo { struct Bar; } use foo::Bar;",
     ));
@@ -122,7 +116,7 @@ fn struct_from_module() {
 fn from_nested_module() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "mod foo { mod bar { fn baz() {} } } use foo::bar::baz;",
     ));
@@ -145,7 +139,7 @@ fn from_nested_module() {
 fn nested_module() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "mod foo { mod bar {} } use foo::bar;",
     ));
@@ -168,7 +162,7 @@ fn nested_module() {
 fn inside_module() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "mod foo { fn bar() {} } mod baz { use foo::bar; }",
     ));
@@ -199,7 +193,7 @@ fn inside_module() {
 fn public_function() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "mod foo { fn bar() {} } pub use foo::bar;",
     ));
@@ -221,7 +215,7 @@ fn public_function() {
 fn multiple() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "mod foo { fn bar() {} fn baz() {} } use foo::bar; use foo::baz;",
     ));
@@ -248,7 +242,7 @@ fn multiple() {
 fn enum_from_module() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "mod foo { pub enum Color { Red } } use foo::Color;",
     ));
@@ -271,7 +265,7 @@ fn enum_from_module() {
 fn enum_variant_from_module() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "mod foo { pub enum Color { Red } } use foo::Color::Red;",
     ));
@@ -294,7 +288,7 @@ fn enum_variant_from_module() {
 fn private_enum_import_errors() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "mod foo { enum Color { Red } } use foo::Color::Red;",
     ));

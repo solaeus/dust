@@ -1,3 +1,8 @@
+#[cfg(test)]
+mod tests;
+
+pub mod value;
+
 use std::{
     char,
     collections::HashMap,
@@ -11,12 +16,12 @@ use serde::{Deserialize, Serialize};
 use crate::{error::AnnotatedError, instruction::OperandType};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct ConstantList {
+pub struct Constants {
     payloads: Vec<u32>,
     string_pool: String,
 }
 
-impl ConstantList {
+impl Constants {
     pub fn get_u32(&self, index: u16) -> Result<u32, ConstantListError> {
         let payload = *self
             .payloads
@@ -36,12 +41,15 @@ impl ConstantList {
     }
 
     pub fn get_u64(&self, index: u16) -> Result<u64, ConstantListError> {
-        let payload_range = index as usize..(index + 2) as usize;
-        let payloads = self
-            .payloads
-            .get(payload_range)
-            .ok_or(ConstantListError::MissingConstant(index))?;
-        let decoded = (payloads[1] as u64) << 32 | (payloads[0] as u64);
+        let index = index as usize;
+
+        if index + 1 >= self.payloads.len() {
+            return Err(ConstantListError::MissingConstant(index as u16));
+        }
+
+        let low = self.payloads[index] as u64;
+        let high = self.payloads[index + 1] as u64;
+        let decoded = (high << 32) | low;
 
         Ok(decoded)
     }
@@ -136,14 +144,14 @@ impl ConstantList {
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
-pub struct ConstantListBuilder {
+pub struct ConstantsBuilder {
     payloads: Vec<u32>,
     tags: Vec<OperandType>,
     string_pool: String,
     interner: HashMap<u64, ConstantId, FxBuildHasher>,
 }
 
-impl ConstantListBuilder {
+impl ConstantsBuilder {
     pub fn new() -> Self {
         Self {
             payloads: Vec::new(),
@@ -153,9 +161,9 @@ impl ConstantListBuilder {
         }
     }
 
-    pub fn build(self) -> (ConstantList, Vec<OperandType>) {
+    pub fn build(self) -> (Constants, Vec<OperandType>) {
         (
-            ConstantList {
+            Constants {
                 payloads: self.payloads,
                 string_pool: self.string_pool,
             },
@@ -407,158 +415,5 @@ impl<'a> AnnotatedError<'a> for ConstantListError {
 
     fn add_report(&self, _: Self::Context, groups: &mut Vec<Group<'a>>) {
         self.add_internal_report(groups);
-    }
-}
-
-#[cfg(test)]
-#[allow(clippy::disallowed_methods)]
-mod tests {
-    use super::*;
-
-    fn create_test_table(op: fn(&mut ConstantListBuilder) -> ConstantId) -> (ConstantList, u16) {
-        let mut table = ConstantListBuilder::new();
-
-        table.add_character('q');
-        table.add_u32(666);
-        table.add_i32(-666);
-        table.add_u64(666);
-        table.add_i64(666);
-        table.add_u128(666);
-        table.add_i128(666);
-        table.add_f32(666.0);
-        table.add_f64(666.0);
-        table.add_string("666");
-
-        let id = op(&mut table);
-
-        (table.build().0, id.0)
-    }
-
-    #[test]
-    fn interns() {
-        let mut table = ConstantListBuilder::new();
-
-        let first_id = table.add_character('a');
-        let second_id = table.add_character('a');
-
-        assert_eq!(first_id, second_id);
-
-        let first_id = table.add_u32(42);
-        let second_id = table.add_u32(42);
-
-        assert_eq!(first_id, second_id);
-
-        let first_id = table.add_i32(-42);
-        let second_id = table.add_i32(-42);
-
-        assert_eq!(first_id, second_id);
-
-        let first_id = table.add_u64(42);
-        let second_id = table.add_u64(42);
-
-        assert_eq!(first_id, second_id);
-
-        let first_id = table.add_i64(42);
-        let second_id = table.add_i64(42);
-
-        assert_eq!(first_id, second_id);
-
-        let first_id = table.add_u128(42);
-        let second_id = table.add_u128(42);
-
-        assert_eq!(first_id, second_id);
-
-        let first_id = table.add_i128(42);
-        let second_id = table.add_i128(42);
-
-        assert_eq!(first_id, second_id);
-
-        let first_id = table.add_string("foobar");
-        let first_pool_length = table.string_pool.len();
-        let second_id = table.add_string("foobar");
-        let second_pool_length = table.string_pool.len();
-
-        assert_eq!(first_id, second_id);
-        assert_eq!(first_pool_length, second_pool_length);
-    }
-
-    #[test]
-    fn character() {
-        let (table, index) = create_test_table(|table| table.add_character('q'));
-        let retrieved = table.get_character(index).unwrap();
-
-        assert_eq!(retrieved, 'q');
-    }
-
-    #[test]
-    fn u32() {
-        let (table, index) = create_test_table(|table| table.add_u32(666));
-        let retrieved = table.get_u32(index).unwrap();
-
-        assert_eq!(retrieved, 666);
-    }
-
-    #[test]
-    fn i32() {
-        let (table, index) = create_test_table(|table| table.add_i32(-666));
-        let retrieved = table.get_i32(index).unwrap();
-
-        assert_eq!(retrieved, -666);
-    }
-
-    #[test]
-    fn u64() {
-        let (table, index) = create_test_table(|table| table.add_u64(666));
-        let retrieved = table.get_u64(index).unwrap();
-
-        assert_eq!(retrieved, 666);
-    }
-
-    #[test]
-    fn i64() {
-        let (table, index) = create_test_table(|table| table.add_i64(666));
-        let retrieved = table.get_i64(index).unwrap();
-
-        assert_eq!(retrieved, 666);
-    }
-
-    #[test]
-    fn u128() {
-        let (table, index) = create_test_table(|table| table.add_u128(666));
-        let retrieved = table.get_u128(index).unwrap();
-
-        assert_eq!(retrieved, 666);
-    }
-
-    #[test]
-    fn i128() {
-        let (table, index) = create_test_table(|table| table.add_i128(666));
-        let retrieved = table.get_i128(index).unwrap();
-
-        assert_eq!(retrieved, 666);
-    }
-
-    #[test]
-    fn f32() {
-        let (table, index) = create_test_table(|table| table.add_f32(666.0));
-        let retrieved = table.get_f32(index).unwrap();
-
-        assert_eq!(retrieved, 666.0);
-    }
-
-    #[test]
-    fn f64() {
-        let (table, index) = create_test_table(|table| table.add_f64(666.0));
-        let retrieved = table.get_f64(index).unwrap();
-
-        assert_eq!(retrieved, 666.0);
-    }
-
-    #[test]
-    fn string() {
-        let (table, index) = create_test_table(|table| table.add_string("666"));
-        let retrieved = table.get_string(index).unwrap();
-
-        assert_eq!(retrieved, "666");
     }
 }

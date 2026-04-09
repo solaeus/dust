@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
@@ -17,7 +19,7 @@ fn empty() {
                 Instruction::jump(1, false),
                 Instruction::r#return(),
             ],
-            return_types: vec![],
+            return_types: smallvec![],
             register_count: 0,
             argument_count: 0,
         }
@@ -53,7 +55,7 @@ fn with_body() {
                 Instruction::jump(2, false),
                 Instruction::r#return(),
             ],
-            return_types: vec![],
+            return_types: smallvec![],
             register_count: 1,
             argument_count: 0,
         }
@@ -72,7 +74,7 @@ fn with_break() {
                 Instruction::jump(1, false),
                 Instruction::r#return(),
             ],
-            return_types: vec![],
+            return_types: smallvec![],
             register_count: 1,
             argument_count: 1,
         }

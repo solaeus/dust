@@ -4,13 +4,13 @@ use annotate_snippets::Renderer;
 
 use crate::{
     error::AnnotatedError,
-    source::SourceFileId,
+    source::FileId,
     syntax::{SyntaxId, node::SyntaxPayload},
 };
 
 #[derive(Debug)]
 pub enum SyntaxError {
-    MissingSyntaxTree(SourceFileId),
+    MissingSyntaxTree(FileId),
     MissingSyntaxNode(SyntaxId),
     MissingSyntaxChild { total_children: usize },
     InvalidSyntaxPayload(SyntaxPayload),

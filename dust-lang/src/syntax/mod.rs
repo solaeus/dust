@@ -7,7 +7,7 @@ pub mod visitor;
 
 use serde::{Deserialize, Serialize};
 
-use crate::source::SourceFileId;
+use crate::source::FileId;
 
 use error::SyntaxError;
 use tree::SyntaxTree;
@@ -44,7 +44,7 @@ impl Syntax {
         }
     }
 
-    pub fn get_tree(&self, file_id: SourceFileId) -> Result<&SyntaxTree, SyntaxError> {
+    pub fn get_tree(&self, file_id: FileId) -> Result<&SyntaxTree, SyntaxError> {
         let index = file_id.inner() as usize;
 
         self.trees

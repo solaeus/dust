@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    source::SourceFileId,
+    source::FileId,
     syntax::{
         SyntaxId,
         error::SyntaxError,
@@ -15,7 +15,7 @@ use crate::{
 /// A parsed Dust source code file.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SyntaxTree {
-    pub file_id: SourceFileId,
+    pub file_id: FileId,
 
     /// Append-only list of syntax nodes. Each node's ID is its index in this list.
     pub(super) nodes: Vec<SyntaxNode>,
@@ -25,7 +25,7 @@ pub struct SyntaxTree {
 }
 
 impl SyntaxTree {
-    pub fn new(file_id: SourceFileId) -> Self {
+    pub fn new(file_id: FileId) -> Self {
         Self {
             file_id,
             nodes: Vec::new(),
@@ -112,13 +112,13 @@ pub struct SyntaxTreeBuilder {
 }
 
 impl SyntaxTreeBuilder {
-    pub fn new(file_id: SourceFileId) -> Self {
+    pub fn new(file_id: FileId) -> Self {
         Self {
             tree: SyntaxTree::new(file_id),
         }
     }
 
-    pub fn file_id(&self) -> SourceFileId {
+    pub fn file_id(&self) -> FileId {
         self.tree.file_id
     }
 

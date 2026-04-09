@@ -2,7 +2,7 @@ use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceFileId, Span},
+    source::{FileId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxKind::*, SyntaxPayload},
@@ -12,7 +12,7 @@ use crate::{
 #[test]
 fn r#if() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("if condition { x + y }")),
     );
     let ParseResult {
@@ -50,7 +50,7 @@ fn r#if() {
 #[test]
 fn if_else() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("if condition { x + y } else { x - y }")),
     );
     let ParseResult {
@@ -99,7 +99,7 @@ fn if_else() {
 #[test]
 fn if_else_if() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!(
             "if left { x + y } else if right { x - y } else { x * y }"
         )),

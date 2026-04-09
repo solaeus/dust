@@ -17,7 +17,7 @@ use crate::{
     instruction::OperandType,
     program::Program,
     prototype::{Prototype, PrototypeId},
-    source::{Source, SourceCode, SourceFileId},
+    source::{Code, FileId, Source},
     syntax::{Syntax, tree::SyntaxTree},
 };
 
@@ -122,7 +122,7 @@ impl<'a> Disassembler<'a> {
 
     fn draw_source_tab(
         &self,
-        source_file: &SourceCode,
+        source_file: &Code,
         syntax_tree: &SyntaxTree,
         area: Rect,
         buffer: &mut Buffer,
@@ -354,7 +354,7 @@ impl Widget for &mut Disassembler<'_> {
                 file_name: _,
                 file_id,
             } => {
-                let source_file = self.source.get_file(*file_id).unwrap();
+                let source_file = self.source.get_code(*file_id).unwrap();
                 let syntax_tree = self.syntax.get_tree(*file_id).unwrap();
 
                 self.draw_source_tab(source_file, syntax_tree, tab_content_area, buffer);
@@ -434,10 +434,7 @@ impl SelectionState {
 }
 
 enum Tab<'a> {
-    SourceFile {
-        file_name: &'a str,
-        file_id: SourceFileId,
-    },
+    SourceFile { file_name: &'a str, file_id: FileId },
     Constants,
     Prototype(PrototypeTab<'a>),
 }

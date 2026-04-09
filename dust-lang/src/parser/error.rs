@@ -62,7 +62,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
         match self {
             ParseError::CannotResolveModule { position } => {
                 let title = "Cannot resolve module".to_string();
-                let file = match source.get_file(position.file_id) {
+                let file = match source.get_code(position.file_id) {
                     Ok(file) => file,
                     Err(error) => {
                         error.add_report((), groups);
@@ -93,7 +93,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
             }
             ParseError::InvalidUtf8 { position } => {
                 let title = "Invalid UTF-8 sequence".to_string();
-                let file = match source.get_file(position.file_id) {
+                let file = match source.get_code(position.file_id) {
                     Ok(file) => file,
                     Err(error) => {
                         error.add_report((), groups);
@@ -120,7 +120,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 position,
             } => {
                 let title = format!("Expected {expected}");
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         error.add_report((), groups);
@@ -144,7 +144,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 position,
             } => {
                 let title = "Expected a different token".to_string();
-                let file = match source.get_file(position.file_id) {
+                let file = match source.get_code(position.file_id) {
                     Ok(file) => file,
                     Err(error) => {
                         error.add_report((), groups);
@@ -171,7 +171,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
                 position,
             } => {
                 let title = "Expected a different token".to_string();
-                let file = match source.get_file(position.file_id) {
+                let file = match source.get_code(position.file_id) {
                     Ok(file) => file,
                     Err(error) => {
                         error.add_report((), groups);
@@ -209,7 +209,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
             }
             ParseError::UnexpectedToken { position, found } => {
                 let title = "Unexpected token".to_string();
-                let file = match source.get_file(position.file_id) {
+                let file = match source.get_code(position.file_id) {
                     Ok(file) => file,
                     Err(error) => {
                         error.add_report((), groups);
@@ -232,7 +232,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
             }
             ParseError::ExpectedItem { position, found } => {
                 let title = format!("Expected an item, but found {found}");
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         error.add_report((), groups);
@@ -249,7 +249,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
             }
             ParseError::ExpectedStatement { position, found } => {
                 let title = format!("Expected a statement, but found {found}");
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         error.add_report((), groups);
@@ -269,7 +269,7 @@ impl<'src> AnnotatedError<'src> for ParseError {
                     Some(found) => format!("Expected an expression, but found {found}"),
                     None => "Expected an expression".to_string(),
                 };
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         error.add_report((), groups);

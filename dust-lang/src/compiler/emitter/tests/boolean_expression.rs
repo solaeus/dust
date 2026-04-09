@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
@@ -16,7 +18,7 @@ fn r#true() {
                 Instruction::r#move(0, OperandType::BOOLEAN, MemoryKind::ENCODED, 1),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::BOOLEAN],
+            return_types: smallvec![OperandType::BOOLEAN],
             register_count: 1,
             argument_count: 0,
         }
@@ -34,7 +36,7 @@ fn r#false() {
                 Instruction::r#move(0, OperandType::BOOLEAN, MemoryKind::ENCODED, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::BOOLEAN],
+            return_types: smallvec![OperandType::BOOLEAN],
             register_count: 1,
             argument_count: 0,
         }

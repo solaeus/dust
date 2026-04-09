@@ -88,17 +88,17 @@ pub trait SyntaxVisitor {
     fn visit_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         match reader.node.kind {
-            SyntaxKind::AssignmentExpression => self.visit_assignment_expression(reader),
+            SyntaxKind::AssignmentExpression => self.visit_assignment_expression(reader, input),
             SyntaxKind::AdditionAssignmentExpression
             | SyntaxKind::SubtractionAssignmentExpression
             | SyntaxKind::MultiplicationAssignmentExpression
             | SyntaxKind::DivisionAssignmentExpression
             | SyntaxKind::ModuloAssignmentExpression
             | SyntaxKind::ExponentAssignmentExpression => {
-                self.visit_compound_assignment_expression(reader)
+                self.visit_compound_assignment_expression(reader, input)
             }
             SyntaxKind::PathExpression => self.visit_path_expression(reader, input),
             SyntaxKind::BooleanExpression => self.visit_boolean_expression(reader, input),
@@ -226,155 +226,157 @@ pub trait SyntaxVisitor {
     fn visit_assignment_expression(
         &mut self,
         reader: SyntaxReader,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_compound_assignment_expression(
         &mut self,
         reader: SyntaxReader,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_boolean_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_byte_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_character_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_float_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_integer_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_string_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_array_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_array_repeat_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_index_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_range_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_path_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_struct_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_grouped_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_block_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_if_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_math_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_comparison_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_logic_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_negation_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_not_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_while_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_break_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_call_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_field_access_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
     fn visit_type(&mut self, reader: SyntaxReader) -> Result<Self::TypeOutput, CompileError>;

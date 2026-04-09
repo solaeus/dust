@@ -4,11 +4,7 @@
 
 **Programming language focused on correctness, performance and ease of use.**
 
-Dust is a general-purpose interpreted language based on the best features of modern programming languages.
-
-## Example
-
-If you know Rust, you already know Dust. If you know another C-family language, you already know most of Dust. Dust does not have "advanced" syntax or clever tricks. This is a choice inspired by Rust. The syntax is *composable*, favoring versatility of expression over terseness.
+Dust is simple enough for a beginner programmer and performant enough to satisfy an expert who cares about what happens under the hood.
 
 ```rust
 fn fib (n: i32) -> i32 {
@@ -24,34 +20,57 @@ fn main() -> i32 {
 }
 ```
 
-The CLI can wrap your input in a `main` function, allowing Dust to be used for ad-hoc commands and small single-purpose programs with full access to all of the language's features.
-  
 ```sh
 dust -e 'write_line("Hello, world!")'
 ```
 
-Despite being an interpreted language, Dust adheres to a performant and predictable data model. A `struct` instance or `enum` variant is **not** a heap object, its values are placed in consecutive registers in the virtual machine. That means that there is no runtime overhead for taking advantage of these features and the compile-time overhead is negligible (so much so that, in most programs, it cannot be reliably measured).
+## Features
+
+### Approachable
+
+Your mental energy should be invested in the structure of your data and the logic of your algorithms, not in learning new syntax.
+
+If you know Rust, you already know Dust. If you know another C-family language, you already know most of Dust. Because Dust is an iterpretted language that runs in a virtual machine, some Rust concepts like references and lifetimes do not exist in Dust. In other words, Dust's syntax is like Rust but without the hard parts.
+
+Dust is designed with the philosophy that "advanced" syntax is an anti-feature. Dynamically-typed languages have to introduce new syntax to circumvent the limitations of runtime type resolution and the lack of real abstract data types. Dust doesn't have these limitations. Features like custom iterators and operator overloading are offered through the type system. 
+
+### Powerful Types and Predictable Values
+
+Dust has no null or undefined values and features composable algebraic data types (tuples, structs and enums), abstract data types (traits), generics, trait bounds and Hindley-Milner type inference. Rather than getting in your way, Dust's type system makes your code easier to write, refactor and maintain. Thanks to compile-time monomorphization, there is no runtime overhead for using these features.
+
+The value proposition of Dust's type system is that, with extensive inferencing, the increase in code quantity is minimal or neglible while the increase in code quality is significant. Quality, in this case, refers to both maintainability and performance. Dynamically-typed languages don't know that a value has the wrong type until a runtime errors occurs so changing your code is like messing with a stack of cards. Languages like JavaScript that allow changing structure at runtime require that every composite type be a heap-allocated map.
+
+Instead, Dust uses a stack of "registers" for all statically-size values. Structs and enums occupy consecutive registers. Dynamically size values are garbage-collected objects. A pointer to the object is stored in 1 or 2 registers (depending on the platform's pointer size).
+
+### Performance Optimizations
+
+### Versalitiy
+
+## Overview
+
+Dust adheres to a performant and predictable data model. A `struct` instance or `enum` variant is **not** a heap object, its values are placed in consecutive registers in the virtual machine. That means that there is no runtime overhead for taking advantage of these features and the compile-time overhead is negligible (so much so that, in most programs, it cannot be reliably measured).
 
 ```rust
-struct Database {         // A `struct` is just a convenient way to group data, not a heap object
-    users: Vec<User>,     // This field points to a heap-allocated array
-    next_user_id: UserId, // This field is treated the same as a raw `u32`
+// A `struct` is just a sum type with named fields, not a heap object. Instances of this `struct`
+// require 2 registers, 1 for the `Vec` pointer and 2 for the `UserId` value.
+struct Database {
+    users: Vec<User>,     // Points to heap-allocated contiguous memory
+    next_user_id: UserId, // A single-register value
 }
 
 struct User {
-    name: String,   // Like `Vec`, `String` is stored as a pointer to a heap object
-    email: String,
-    title: Title,
+    name: String, // Points to heap-allocated contiguous bytes with UTF-8 guarantees
+    title: Title, // This is *not* a pointer, nested types are expanded into consecutive registers
 }
 
-enum Title { // Each `enum` variant is a discriminant plus the size of the largest variant
+enum Title { // An `enum` 
     Sir,
     Madam,
     Overlord,
     Custom(String),
 }
 
-struct UserId(u32); // A "newtype" has the same representation as its inner type 
+struct UserId(u64); // A "newtype" has the same representation as its inner type 
 ```
 
 An `impl` block allows types to be associated with functions, constants and other types. 

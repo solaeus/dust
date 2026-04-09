@@ -37,9 +37,9 @@ use crate::{
         emitter::{Emitter, get_register_size},
         tests::type_bind_function,
     },
-    constant_list::ConstantListBuilder,
+    constants::ConstantsBuilder,
     prototype::{Prototype, PrototypeList},
-    source::{Source, SourceCode},
+    source::{Code, Source},
     syntax::components::{FunctionItem, FunctionSignature},
 };
 
@@ -85,12 +85,10 @@ fn emit_function(source_code: &str) -> Prototype {
         argument_count += register_size.unwrap_or(0) as u16;
     }
 
-    let return_types = resolver.get_operand_types(concrete_return_type_id).unwrap();
-
     let mut source = Source::new();
-    source.add_file(SourceCode::validated_borrowed("test", source_code));
+    source.add_code(Code::validated_borrowed("test", source_code));
 
-    let mut constants = ConstantListBuilder::new();
+    let mut constants = ConstantsBuilder::new();
     let mut prototypes = PrototypeList::new();
     let prototype_id = prototypes.reserve();
     let mut compilation_stack = Vec::new();
@@ -99,7 +97,7 @@ fn emit_function(source_code: &str) -> Prototype {
         Some(declaration_id),
         prototype_id,
         argument_count,
-        return_types,
+        concrete_return_type_id,
         scope_id,
         (
             &source,

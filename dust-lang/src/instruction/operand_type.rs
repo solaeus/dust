@@ -1,6 +1,9 @@
 use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
+
+use crate::compiler::RegisterWidth;
 
 /// A small (4-bit) type representation used to encode the types of instruction operands.
 ///
@@ -10,6 +13,8 @@ use serde::{Deserialize, Serialize};
 pub struct OperandType(pub(super) u8);
 
 impl OperandType {
+    pub type SmallVec = SmallVec<[OperandType; 8]>;
+
     pub const BOOLEAN: OperandType = OperandType(0);
     pub const U_8: OperandType = OperandType(1);
     pub const I_8: OperandType = OperandType(2);
@@ -26,6 +31,16 @@ impl OperandType {
     pub const CHARACTER: OperandType = OperandType(13);
     pub const FUNCTION: OperandType = OperandType(14);
     pub const POINTER: OperandType = OperandType(15);
+
+    pub fn register_width(self) -> RegisterWidth {
+        match self {
+            OperandType::U_64 | OperandType::I_64 | OperandType::F_64 => RegisterWidth::Double,
+            OperandType::U_128 | OperandType::I_128 => RegisterWidth::Quad,
+            #[cfg(target_pointer_width = "64")]
+            OperandType::POINTER => RegisterWidth::Double,
+            _ => RegisterWidth::Single,
+        }
+    }
 }
 
 impl Display for OperandType {

@@ -2,7 +2,7 @@ use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceFileId, Span},
+    source::{FileId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxKind::*, SyntaxPayload},
@@ -12,7 +12,7 @@ use crate::{
 #[test]
 fn addition() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x + y")),
     );
     let ParseResult {
@@ -46,7 +46,7 @@ fn addition() {
 #[test]
 fn subtraction() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x - y")),
     );
     let ParseResult {
@@ -80,7 +80,7 @@ fn subtraction() {
 #[test]
 fn multiplication() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x * y")),
     );
     let ParseResult {
@@ -118,7 +118,7 @@ fn multiplication() {
 #[test]
 fn division() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x / y")),
     );
     let ParseResult {
@@ -152,7 +152,7 @@ fn division() {
 #[test]
 fn modulo() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x % y")),
     );
     let ParseResult {
@@ -186,7 +186,7 @@ fn modulo() {
 #[test]
 fn power() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x ^ y")),
     );
     let ParseResult {
@@ -220,7 +220,7 @@ fn power() {
 #[test]
 fn equal() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x == y")),
     );
     let ParseResult {
@@ -254,7 +254,7 @@ fn equal() {
 #[test]
 fn not_equal() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x != y")),
     );
     let ParseResult {
@@ -288,7 +288,7 @@ fn not_equal() {
 #[test]
 fn less_than() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x < y")),
     );
     let ParseResult {
@@ -322,7 +322,7 @@ fn less_than() {
 #[test]
 fn less_than_or_equal() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x <= y")),
     );
     let ParseResult {
@@ -360,7 +360,7 @@ fn less_than_or_equal() {
 #[test]
 fn greater_than() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x > y")),
     );
     let ParseResult {
@@ -394,7 +394,7 @@ fn greater_than() {
 #[test]
 fn greater_than_or_equal() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x >= y")),
     );
     let ParseResult {
@@ -432,7 +432,7 @@ fn greater_than_or_equal() {
 #[test]
 fn logical_and() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x && y")),
     );
     let ParseResult {
@@ -466,7 +466,7 @@ fn logical_and() {
 #[test]
 fn logical_or() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x || y")),
     );
     let ParseResult {

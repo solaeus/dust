@@ -7,6 +7,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
 use crate::instruction::{Instruction, OperandType};
 
@@ -17,7 +18,7 @@ use crate::instruction::{Instruction, OperandType};
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Prototype {
     pub(crate) instructions: Vec<Instruction>,
-    pub(crate) return_types: Vec<OperandType>,
+    pub(crate) return_types: OperandType::SmallVec,
     pub(crate) register_count: u16,
     pub(crate) argument_count: u16,
 }
@@ -26,7 +27,7 @@ impl Prototype {
     pub(crate) fn placeholder() -> Self {
         Self {
             instructions: Vec::new(),
-            return_types: Vec::new(),
+            return_types: SmallVec::new(),
             register_count: 0,
             argument_count: 0,
         }

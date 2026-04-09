@@ -8,6 +8,8 @@ mod value_creation;
 #[cfg(test)]
 pub(crate) mod tests;
 
+pub use emitter::RegisterWidth;
+
 use smallvec::SmallVec;
 use tracing::{Level, span};
 
@@ -24,7 +26,7 @@ use crate::{
         },
         type_binder::TypeBinder,
     },
-    constant_list::ConstantListBuilder,
+    constants::ConstantsBuilder,
     dust_type::DustType,
     error::{Error, ErrorContext, ErrorKind},
     instruction::OperandType,
@@ -32,7 +34,7 @@ use crate::{
     parser::{ParseResult, Parser},
     program::Program,
     prototype::{PrototypeId, PrototypeList},
-    source::{Source, SourceFileId},
+    source::{FileId, Source},
     syntax::{
         Syntax,
         components::{FunctionItem, FunctionSignature},
@@ -43,7 +45,7 @@ use crate::{
 pub struct Compiler<'src> {
     syntax: Syntax,
     source: Source<'src>,
-    constants: ConstantListBuilder,
+    constants: ConstantsBuilder,
     resolver: Resolver,
     prototypes: PrototypeList,
     compilation_stack: Vec<CompilationRequest>,
@@ -54,7 +56,7 @@ impl<'src> Compiler<'src> {
         Self {
             syntax: Syntax::new(source.file_count()),
             source,
-            constants: ConstantListBuilder::new(),
+            constants: ConstantsBuilder::new(),
             resolver: Resolver::new(),
             prototypes: PrototypeList::new(),
             compilation_stack: Vec::new(),
@@ -157,7 +159,7 @@ impl<'src> Compiler<'src> {
         });
         let main_file_root = unwrap_or_return!(
             self.syntax
-                .get_tree(SourceFileId::MAIN)
+                .get_tree(FileId::MAIN)
                 .and_then(|tree| tree.root())
         );
 
@@ -246,10 +248,6 @@ impl<'src> Compiler<'src> {
                     .and_then(|tree| tree.get_node(syntax_id))
             );
 
-            // if syntax_node.node.kind == SyntaxKind::TraitFunctionItem {
-            //     continue;
-            // }
-
             let FunctionItem {
                 signature, body, ..
             } = unwrap_or_return!(syntax_node.as_component());
@@ -292,25 +290,27 @@ impl<'src> Compiler<'src> {
                     }
                 }
 
-                let scope = unwrap_or_return!(self.resolver.scopes.get_scope(declaration.scope_id));
+                let trait_scope_id = declaration.scope_id;
+                let scope = unwrap_or_return!(self.resolver.scopes.get_scope(trait_scope_id));
 
                 if scope.kind == ScopeKind::Trait {
                     let mut type_argument_index = type_parameter_declaration_ids.len();
 
                     for (declaration_id, declaration) in self.resolver.declarations.iter() {
-                        let type_argument_id = unwrap_or_return!(
-                            concrete_type_arguments
-                                .get(type_argument_index)
-                                .copied()
-                                .ok_or(CompileError::MissingTypeArgument(declaration_id))
-                        );
-
                         if matches!(declaration.definition, Definition::TypeParameter)
+                            && declaration.scope_id == trait_scope_id
                             && !self
                                 .resolver
                                 .type_parameter_map
                                 .contains_key(&declaration_id)
                         {
+                            let type_argument_id = unwrap_or_return!(
+                                concrete_type_arguments
+                                    .get(type_argument_index)
+                                    .copied()
+                                    .ok_or(CompileError::MissingTypeArgument(declaration_id))
+                            );
+
                             self.resolver
                                 .type_parameter_map
                                 .insert(declaration_id, type_argument_id);
@@ -363,8 +363,6 @@ impl<'src> Compiler<'src> {
 
                 (argument_count, concrete_return_type_id)
             };
-            let return_types =
-                unwrap_or_return!(self.resolver.get_operand_types(concrete_return_type_id));
 
             {
                 let span = span!(Level::INFO, "emit");
@@ -374,7 +372,7 @@ impl<'src> Compiler<'src> {
                     Some(declaration_id),
                     prototype_id,
                     argument_count,
-                    return_types,
+                    concrete_return_type_id,
                     scope_id,
                     (
                         &self.source,

@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
@@ -18,7 +20,7 @@ fn method_returning_value() {
                 Instruction::call(0, MemoryKind::ENCODED, 1, u16::MAX),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }

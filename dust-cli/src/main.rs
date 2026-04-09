@@ -16,7 +16,7 @@ use std::{
 use clap::Parser as CliParser;
 use dust_lang::{
     project::{EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
-    source::{Source, SourceCode},
+    source::{Code, Source},
 };
 use tracing::{Event, Level, Subscriber, info, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -174,18 +174,14 @@ where
     }
 }
 
-fn build_source<'src>(
-    eval: &'src Option<String>,
-    path: Option<PathBuf>,
-    stdin: bool,
-) -> Source<'src> {
+fn build_source<'src>(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> Source<'src> {
     let mut source = Source::new();
 
     if let Some(input) = eval {
         let eval_program = format!("fn main<T>() -> T {{\n    {input}\n}}");
-        let file = SourceCode::validated_owned("CLI Input", eval_program);
+        let code = Code::validated_owned("CLI Input", eval_program);
 
-        source.add_file(file);
+        source.add_code(code);
     }
 
     if let Some(path) = path {
@@ -214,23 +210,21 @@ fn build_source<'src>(
             } else {
                 path.join("src").join("main.ds")
             };
-            let file =
-                SourceCode::file(main_file_path).unwrap_or_else(|error| error.print_and_exit());
+            let code = Code::file(main_file_path).unwrap_or_else(|error| error.print_and_exit());
 
-            source.add_file(file);
+            source.add_code(code);
 
             let lib_file_path = path.join("src").join("lib.ds");
 
             if lib_file_path.exists() {
-                let file =
-                    SourceCode::file(lib_file_path).unwrap_or_else(|error| error.print_and_exit());
+                let code = Code::file(lib_file_path).unwrap_or_else(|error| error.print_and_exit());
 
-                source.add_file(file);
+                source.add_code(code);
             }
         } else {
-            let file = SourceCode::file(path).unwrap_or_else(|error| error.print_and_exit());
+            let code = Code::file(path).unwrap_or_else(|error| error.print_and_exit());
 
-            source.add_file(file);
+            source.add_code(code);
         }
     }
 
@@ -241,9 +235,9 @@ fn build_source<'src>(
             .read_to_end(&mut buffer)
             .expect("Failed to read from stdin");
 
-        let file = SourceCode::owned("stdin", buffer);
+        let code = Code::owned("stdin", buffer);
 
-        source.add_file(file);
+        source.add_code(code);
     }
 
     source

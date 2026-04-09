@@ -2,7 +2,7 @@ use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceFileId, Span},
+    source::{FileId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxKind::*, SyntaxPayload},
@@ -12,7 +12,7 @@ use crate::{
 #[test]
 fn boolean() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("true")),
     );
     let ParseResult {
@@ -42,7 +42,7 @@ fn boolean() {
 #[test]
 fn byte() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("0x2A")),
     );
     let ParseResult {
@@ -72,7 +72,7 @@ fn byte() {
 #[test]
 fn character() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("'a'")),
     );
     let ParseResult {
@@ -102,7 +102,7 @@ fn character() {
 #[test]
 fn float() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("42.0")),
     );
     let ParseResult {
@@ -132,7 +132,7 @@ fn float() {
 #[test]
 fn integer() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("42")),
     );
     let ParseResult {
@@ -162,7 +162,7 @@ fn integer() {
 #[test]
 fn string() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("\"Hello, world!\"")),
     );
     let ParseResult {
@@ -192,7 +192,7 @@ fn string() {
 #[test]
 fn list() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("[1, 2, 3]")),
     );
     let ParseResult {
@@ -226,7 +226,7 @@ fn list() {
 #[test]
 fn array_repeat() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("[0; 3]")),
     );
     let ParseResult {

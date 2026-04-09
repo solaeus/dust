@@ -1,7 +1,7 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceFileId, Span},
+    source::{FileId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxKind::*, SyntaxPayload},
@@ -11,7 +11,7 @@ use crate::{
 #[test]
 fn simple() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(b"const X: i64 = 42;"),
     );
     let ParseResult {
@@ -36,7 +36,7 @@ fn simple() {
 #[test]
 fn pub_const() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(b"pub const X: i64 = 42;"),
     );
     let ParseResult {

@@ -16,7 +16,7 @@ use crate::{
     dust_value::{DustEnumVariant, DustStruct, DustStructValue, DustValue},
     error::{Error, ErrorContext, ErrorKind},
     program::Program,
-    source::{Source, SourceCode},
+    source::{Code, Source},
     vm::{
         error::VmError,
         register::Register,
@@ -38,7 +38,7 @@ pub const MINIMUM_OBJECT_SWEEP_DEFAULT: usize = if cfg!(debug_assertions) {
 pub fn run<'src>(source_code: &'src str) -> Result<Option<DustValue>, Error<'src>> {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed("eval", source_code));
+    source.add_code(Code::validated_borrowed("eval", source_code));
 
     let compiler = Compiler::new(source);
     let program = compiler.compile(None)?;

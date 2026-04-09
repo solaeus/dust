@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
@@ -16,7 +18,7 @@ fn i8() {
                 Instruction::r#move(0, OperandType::I_8, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_8],
+            return_types: smallvec![OperandType::I_8],
             register_count: 1,
             argument_count: 0,
         }
@@ -34,7 +36,7 @@ fn u8() {
                 Instruction::r#move(0, OperandType::U_8, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::U_8],
+            return_types: smallvec![OperandType::U_8],
             register_count: 1,
             argument_count: 0,
         }
@@ -52,7 +54,7 @@ fn i16() {
                 Instruction::r#move(0, OperandType::I_16, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_16],
+            return_types: smallvec![OperandType::I_16],
             register_count: 1,
             argument_count: 0,
         }
@@ -70,7 +72,7 @@ fn u16() {
                 Instruction::r#move(0, OperandType::U_16, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::U_16],
+            return_types: smallvec![OperandType::U_16],
             register_count: 1,
             argument_count: 0,
         }
@@ -88,7 +90,7 @@ fn i32() {
                 Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -106,7 +108,7 @@ fn u32() {
                 Instruction::r#move(0, OperandType::U_32, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::U_32],
+            return_types: smallvec![OperandType::U_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -124,7 +126,7 @@ fn i64() {
                 Instruction::r#move(0, OperandType::I_64, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_64],
+            return_types: smallvec![OperandType::I_64],
             register_count: 2,
             argument_count: 0,
         }
@@ -142,7 +144,7 @@ fn u64() {
                 Instruction::r#move(0, OperandType::U_64, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::U_64],
+            return_types: smallvec![OperandType::U_64],
             register_count: 2,
             argument_count: 0,
         }
@@ -160,7 +162,7 @@ fn i128() {
                 Instruction::r#move(0, OperandType::I_128, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_128],
+            return_types: smallvec![OperandType::I_128],
             register_count: 4,
             argument_count: 0,
         }
@@ -178,7 +180,7 @@ fn u128() {
                 Instruction::r#move(0, OperandType::U_128, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::U_128],
+            return_types: smallvec![OperandType::U_128],
             register_count: 4,
             argument_count: 0,
         }
@@ -197,7 +199,7 @@ fn isize() {
                 Instruction::r#move(0, OperandType::I_64, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_64],
+            return_types: smallvec![OperandType::I_64],
             register_count: 2,
             argument_count: 0,
         }
@@ -211,7 +213,7 @@ fn isize() {
                 Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -230,7 +232,7 @@ fn usize() {
                 Instruction::r#move(0, OperandType::U_64, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::U_64],
+            return_types: smallvec![OperandType::U_64],
             register_count: 2,
             argument_count: 0,
         }
@@ -244,7 +246,7 @@ fn usize() {
                 Instruction::r#move(0, OperandType::U_32, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::U_32],
+            return_types: smallvec![OperandType::U_32],
             register_count: 1,
             argument_count: 0,
         }

@@ -40,61 +40,62 @@ const FLOAT: u128 = FloatFormatBuilder::new()
     .consecutive_digit_separator(true)
     .build_strict();
 
-const SMALL: IntOptions = IntOptions::builder().no_multi_digit(true).build_strict();
-const LARGE: IntOptions = IntOptions::builder().no_multi_digit(false).build_strict();
+const SMALL_INTEGER_OPTIONS: IntOptions = IntOptions::builder().no_multi_digit(true).build_strict();
+const LARGE_INTEGER_OPTIONS: IntOptions =
+    IntOptions::builder().no_multi_digit(false).build_strict();
 
 pub fn create_i8_from_decimal(text: &str) -> Result<i8, CompileError> {
-    i8::from_lexical_with_options::<INTEGER>(text.as_bytes(), &SMALL)
+    i8::from_lexical_with_options::<INTEGER>(text.as_bytes(), &SMALL_INTEGER_OPTIONS)
         .map_err(CompileError::ValueCreation)
 }
 
 pub fn create_i16_from_decimal(text: &str) -> Result<i16, CompileError> {
-    i16::from_lexical_with_options::<INTEGER>(text.as_bytes(), &SMALL)
+    i16::from_lexical_with_options::<INTEGER>(text.as_bytes(), &SMALL_INTEGER_OPTIONS)
         .map_err(CompileError::ValueCreation)
 }
 
 pub fn create_i32_from_decimal(text: &str) -> Result<i32, CompileError> {
-    i32::from_lexical_with_options::<INTEGER>(text.as_bytes(), &SMALL)
+    i32::from_lexical_with_options::<INTEGER>(text.as_bytes(), &SMALL_INTEGER_OPTIONS)
         .map_err(CompileError::ValueCreation)
 }
 
 pub fn create_i64_from_decimal(text: &str) -> Result<i64, CompileError> {
-    i64::from_lexical_with_options::<INTEGER>(text.as_bytes(), &LARGE)
+    i64::from_lexical_with_options::<INTEGER>(text.as_bytes(), &LARGE_INTEGER_OPTIONS)
         .map_err(CompileError::ValueCreation)
 }
 
 pub fn create_i128_from_decimal(text: &str) -> Result<i128, CompileError> {
-    i128::from_lexical_with_options::<INTEGER>(text.as_bytes(), &LARGE)
+    i128::from_lexical_with_options::<INTEGER>(text.as_bytes(), &LARGE_INTEGER_OPTIONS)
         .map_err(CompileError::ValueCreation)
 }
 
 pub fn create_u8_from_decimal(text: &str) -> Result<u8, CompileError> {
-    u8::from_lexical_with_options::<INTEGER>(text.as_bytes(), &SMALL)
+    u8::from_lexical_with_options::<INTEGER>(text.as_bytes(), &SMALL_INTEGER_OPTIONS)
         .map_err(CompileError::ValueCreation)
 }
 
 pub fn create_u16_from_decimal(text: &str) -> Result<u16, CompileError> {
-    u16::from_lexical_with_options::<INTEGER>(text.as_bytes(), &SMALL)
+    u16::from_lexical_with_options::<INTEGER>(text.as_bytes(), &SMALL_INTEGER_OPTIONS)
         .map_err(CompileError::ValueCreation)
 }
 
 pub fn create_u32_from_decimal(text: &str) -> Result<u32, CompileError> {
-    u32::from_lexical_with_options::<INTEGER>(text.as_bytes(), &SMALL)
+    u32::from_lexical_with_options::<INTEGER>(text.as_bytes(), &SMALL_INTEGER_OPTIONS)
         .map_err(CompileError::ValueCreation)
 }
 
 pub fn create_u64_from_decimal(text: &str) -> Result<u64, CompileError> {
-    u64::from_lexical_with_options::<INTEGER>(text.as_bytes(), &LARGE)
+    u64::from_lexical_with_options::<INTEGER>(text.as_bytes(), &LARGE_INTEGER_OPTIONS)
         .map_err(CompileError::ValueCreation)
 }
 
 pub fn create_u128_from_decimal(text: &str) -> Result<u128, CompileError> {
-    u128::from_lexical_with_options::<INTEGER>(text.as_bytes(), &LARGE)
+    u128::from_lexical_with_options::<INTEGER>(text.as_bytes(), &LARGE_INTEGER_OPTIONS)
         .map_err(CompileError::ValueCreation)
 }
 
 pub fn create_usize_from_decimal(text: &str) -> Result<usize, CompileError> {
-    usize::from_lexical_with_options::<INTEGER>(text.as_bytes(), &LARGE)
+    usize::from_lexical_with_options::<INTEGER>(text.as_bytes(), &LARGE_INTEGER_OPTIONS)
         .map_err(CompileError::ValueCreation)
 }
 
@@ -109,7 +110,7 @@ pub fn create_f64_from_decimal(text: &str) -> Result<f64, CompileError> {
 }
 
 pub fn create_u8_from_hexadecimal(text: &str) -> Result<u8, CompileError> {
-    u8::from_lexical_with_options::<HEX>(text.as_bytes(), &SMALL)
+    u8::from_lexical_with_options::<HEX>(text.as_bytes(), &SMALL_INTEGER_OPTIONS)
         .map_err(CompileError::ValueCreation)
 }
 

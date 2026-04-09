@@ -4,24 +4,24 @@ use crate::{
     compiler::{
         emitter::JumpId,
         resolver::{
-            Resolver,
+            Resolver, TypedConstant,
             declarations::{DeclarationId, DeclarationMembers},
             scopes::ScopeId,
             symbols::SymbolId,
             types::{Type, TypeId, TypeMembers},
         },
     },
-    constant_list::ConstantListError,
+    constants::ConstantListError,
     dust_type::DustType,
     error::AnnotatedError,
     instruction::OperandType,
-    source::{Position, Source, SourceError},
+    source::{FileId, Position, Source, SourceError, Span},
     syntax::{Syntax, SyntaxId, error::SyntaxError, node::SyntaxKind},
 };
 
 #[derive(Debug)]
 pub enum CompileError {
-    ValueCreation(lexical_parse_integer::Error),
+    // User errors
     CannotAccessField {
         type_id: TypeId,
         position: crate::source::Position,
@@ -33,11 +33,12 @@ pub enum CompileError {
     },
     CannotApplyBinaryOperator {
         operator: SyntaxKind,
-        operand_position: Position,
-        left_type: OperandType,
-        left_position: Position,
-        right_type: OperandType,
-        right_position: Position,
+        operand_span: Span,
+        left_type_id: TypeId,
+        left_span: Span,
+        right_type_id: TypeId,
+        right_span: Span,
+        file_id: FileId,
     },
     CannotImport {
         declaration_id: DeclarationId,
@@ -53,10 +54,27 @@ pub enum CompileError {
     CannotMutate {
         position: Position,
     },
+    ConstantOverflow {
+        left_value: TypedConstant,
+        left_span: Span,
+        right_value: TypedConstant,
+        right_span: Span,
+        operator: SyntaxKind,
+        file_id: FileId,
+    },
+    InvalidConstantExponent {
+        base_value: TypedConstant,
+        base_span: Span,
+        exponent_value: TypedConstant,
+        exponent_span: Span,
+        operator: SyntaxKind,
+        file_id: FileId,
+    },
     ConstantTypeConflict {
-        expected: SyntaxKind,
-        found: SyntaxKind,
-        position: Position,
+        expected_type: TypeId,
+        expected_position: Position,
+        found_type: TypeId,
+        found_position: Position,
     },
     DivisionByZero {
         position: Position,
@@ -102,8 +120,8 @@ pub enum CompileError {
         found_position: Position,
     },
     ExpectedValue {
-        node_kind: SyntaxKind,
-        position: Position,
+        file_id: FileId,
+        syntax_id: SyntaxId,
     },
     IndexOutOfBounds {
         index: usize,
@@ -128,6 +146,10 @@ pub enum CompileError {
         position: Position,
     },
 
+    // Internal errors
+    Source(SourceError),
+    Syntax(SyntaxError),
+    ConstantList(ConstantListError),
     ExpectedModuleDeclaration(DeclarationId),
     ExpectedTypeDeclaration(DeclarationId),
     InvalidRegisterCount {
@@ -140,7 +162,6 @@ pub enum CompileError {
         node_kind: SyntaxKind,
     },
     ExpectedJumpPlacement(JumpId),
-    Syntax(SyntaxError),
     MissingSymbol(SymbolId),
     MissingDeclaration(DeclarationId),
     MissingDeclarationMember(u32),
@@ -160,8 +181,6 @@ pub enum CompileError {
     MissingTypeArgument(DeclarationId),
     ExpectedConcreteType,
     ExpectedVariantDeclaration(DeclarationId),
-    ConstantList(ConstantListError),
-    Source(SourceError),
     ExpectedSyntaxKind {
         expected: SyntaxKind,
         found: SyntaxKind,
@@ -174,6 +193,8 @@ pub enum CompileError {
         found_declaration_id: DeclarationId,
     },
     ExpectedAllocation,
+    ValueCreation(lexical_parse_integer::Error),
+    InvalidTypeBinding(TypeId),
 }
 
 impl<'a> AnnotatedError<'a> for CompileError {
@@ -183,7 +204,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
         match self {
             CompileError::DivisionByZero { position } => {
                 let title = "Division by zero".to_string();
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         error.add_report((), groups);
@@ -204,7 +225,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     .map(|r#type| r#type.to_string())
                     .unwrap_or("<invalid type>".to_string());
                 let title = format!("Expected an integer index, found {found_type}");
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         error.add_report((), groups);
@@ -225,7 +246,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 position,
             } => {
                 let title = "Expected a boolean expression".to_string();
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         error.add_report((), groups);
@@ -255,7 +276,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 position,
             } => {
                 let title = format!("Expected a function, found {node_kind}");
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         error.add_report((), groups);
@@ -292,7 +313,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         return;
                     }
                 };
-                let file_content = match source.get_file(usage_position.file_id) {
+                let file_content = match source.get_code(usage_position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         error.add_report((), groups);
@@ -372,7 +393,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let group = if let Some((position, _)) =
                     declaration.and_then(|declaration| declaration.syntax)
                 {
-                    let file_content = match source.get_file(position.file_id) {
+                    let file_content = match source.get_code(position.file_id) {
                         Ok(file) => file.content_as_str(),
                         Err(error) => {
                             error.add_report((), groups);
@@ -423,7 +444,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     }
                 };
                 let group = if let Some(expected_position) = expected_position {
-                    let expected_file = match source.get_file(expected_position.file_id) {
+                    let expected_file = match source.get_code(expected_position.file_id) {
                         Ok(file) => file,
                         Err(error) => {
                             error.add_report((), groups);
@@ -431,7 +452,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                             return;
                         }
                     };
-                    let found_file = match source.get_file(found_position.file_id) {
+                    let found_file = match source.get_code(found_position.file_id) {
                         Ok(file) => file,
                         Err(error) => {
                             error.add_report((), groups);
@@ -457,7 +478,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         ),
                     ])
                 } else {
-                    let file = match source.get_file(found_position.file_id) {
+                    let file = match source.get_code(found_position.file_id) {
                         Ok(file) => file,
                         Err(error) => return error.add_report((), groups),
                     };
@@ -486,7 +507,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 operand_position,
             } => {
                 let title = "Cannot apply operator".to_string();
-                let file_content = match source.get_file(operand_position.file_id) {
+                let file_content = match source.get_code(operand_position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         error.add_report((), groups);
@@ -514,17 +535,34 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::CannotApplyBinaryOperator {
                 operator,
-                operand_position,
-                left_type,
-                left_position,
-                right_type,
-                right_position,
+                operand_span,
+                left_type_id,
+                left_span,
+                right_type_id,
+                right_span,
+                file_id,
             } => {
                 let title = "Cannot apply operator".to_string();
-                let file_content = match source.get_file(operand_position.file_id) {
+                let file_content = match source.get_code(*file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         error.add_report((), groups);
+
+                        return;
+                    }
+                };
+                let left_type = match resolver.get_external_type(*left_type_id, source) {
+                    Ok(r#type) => r#type,
+                    Err(error) => {
+                        error.add_report((source, syntax, resolver), groups);
+
+                        return;
+                    }
+                };
+                let right_type = match resolver.get_external_type(*right_type_id, source) {
+                    Ok(r#type) => r#type,
+                    Err(error) => {
+                        error.add_report((source, syntax, resolver), groups);
 
                         return;
                     }
@@ -533,7 +571,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     Group::with_title(Level::ERROR.primary_title(title)).element(
                         Snippet::source(file_content).annotation(
                             AnnotationKind::Primary
-                                .span(operand_position.span.as_usize_range())
+                                .span(operand_span.as_usize_range())
                                 .label(format!(
                                     "Cannot apply {operator} to `{left_type}` and `{right_type}`."
                                 )),
@@ -542,14 +580,14 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     Group::with_title(Level::ERROR.secondary_title("Left operand type")).element(
                         Snippet::source(file_content).annotation(
                             AnnotationKind::Primary
-                                .span(left_position.span.as_usize_range())
+                                .span(left_span.as_usize_range())
                                 .label(format!("Left operand has type `{left_type}`.")),
                         ),
                     ),
                     Group::with_title(Level::ERROR.secondary_title("Right operand type")).element(
                         Snippet::source(file_content).annotation(
                             AnnotationKind::Primary
-                                .span(right_position.span.as_usize_range())
+                                .span(right_span.as_usize_range())
                                 .label(format!("Right operand has type `{right_type}`.")),
                         ),
                     ),
@@ -567,7 +605,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     }
                 };
                 let title = format!("Cannot index type {type}");
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         return error.add_report((), groups);
@@ -588,7 +626,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 usage_position,
             } => {
                 let title = "Undeclared symbol".to_string();
-                let file_content = match source.get_file(usage_position.file_id) {
+                let file_content = match source.get_code(usage_position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         return error.add_report((), groups);
@@ -631,12 +669,12 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 groups.push(group);
             }
             CompileError::ConstantTypeConflict {
-                expected,
-                found,
+                expected_type: expected,
+                found_type: found,
                 position,
             } => {
                 let title = format!("Constant type conflict: expected {expected}, found {found}");
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         return error.add_report((), groups);
@@ -656,7 +694,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::CannotMutate { position } => {
                 let title = "Cannot mutate immutable value".to_string();
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         return error.add_report((), groups);
@@ -671,7 +709,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::ExpectedFunctionType { found, position } => {
                 let title = "Expected a function type";
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         return error.add_report((), groups);
@@ -705,7 +743,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 found_count,
             } => {
                 let title = "Incorrect argument count";
-                let file_content = match source.get_file(found_position.file_id) {
+                let file_content = match source.get_code(found_position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         return error.add_report((), groups);
@@ -734,12 +772,21 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 groups.push(group);
             }
-            CompileError::ExpectedValue {
-                node_kind,
-                position,
-            } => {
+            CompileError::ExpectedValue { file_id, syntax_id } => {
+                let syntax = match syntax
+                    .get_tree(*file_id)
+                    .and_then(|tree| tree.get_node(*syntax_id))
+                {
+                    Ok(syntax) => syntax,
+                    Err(error) => {
+                        error.add_report((), groups);
+
+                        return;
+                    }
+                };
+
                 let title = "Expected a value".to_string();
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(*file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         return error.add_report((), groups);
@@ -748,9 +795,10 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
+                            .span(syntax.node.span.as_usize_range())
                             .label(format!(
-                                "Expected a value here, but found {node_kind} with type ()."
+                                "Expected a value here, but found {} with type `()`.",
+                                syntax.node.kind
                             )),
                     ),
                 );
@@ -763,7 +811,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 position,
             } => {
                 let title = "Index out of bounds".to_string();
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         return error.add_report((), groups);
@@ -786,7 +834,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 position,
             } => {
                 let title = "Expected type `none`".to_string();
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         return error.add_report((), groups);
@@ -820,7 +868,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 let help_message =
                     "You must specify which variant of the enum you want to crete.".to_string();
                 let group = if let Some(position) = position {
-                    let file_content = match source.get_file(position.file_id) {
+                    let file_content = match source.get_code(position.file_id) {
                         Ok(file) => file.content_as_str(),
                         Err(error) => {
                             return error.add_report((), groups);
@@ -847,7 +895,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::ExpectedNativeFunctionCall { position } => {
                 let title = "Expected a native function to be called".to_string();
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         return error.add_report((), groups);
@@ -882,7 +930,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 position,
             } => {
                 let title = "List element too large".to_string();
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         return error.add_report((), groups);
@@ -923,7 +971,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 );
 
                 if let Some(position) = found_type_declaration_position {
-                    let file_content = match source.get_file(position.file_id) {
+                    let file_content = match source.get_code(position.file_id) {
                         Ok(file) => file.content_as_str(),
                         Err(error) => {
                             return error.add_report((), groups);
@@ -962,7 +1010,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         return;
                     }
                 };
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         return error.add_report((), groups);
@@ -989,7 +1037,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         return;
                     }
                 };
-                let file_content = match source.get_file(position.file_id) {
+                let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
                         return error.add_report((), groups);

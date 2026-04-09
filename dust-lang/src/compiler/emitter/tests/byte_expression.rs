@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
@@ -16,7 +18,7 @@ fn ascii() {
                 Instruction::r#move(0, OperandType::U_8, MemoryKind::ENCODED, 96),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::U_8],
+            return_types: smallvec![OperandType::U_8],
             register_count: 1,
             argument_count: 0,
         }

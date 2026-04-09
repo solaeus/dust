@@ -1,14 +1,14 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceFileId, Span},
+    source::{FileId, Span},
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn unit_struct() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(b"struct Foo;"),
     );
     let ParseResult {

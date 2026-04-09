@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
@@ -16,7 +18,7 @@ fn f32() {
                 Instruction::r#move(0, OperandType::F_32, MemoryKind::CONSTANT, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::F_32],
+            return_types: smallvec![OperandType::F_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -34,7 +36,7 @@ fn f64() {
                 Instruction::r#move(0, OperandType::F_64, MemoryKind::CONSTANT, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::F_64],
+            return_types: smallvec![OperandType::F_64],
             register_count: 2,
             argument_count: 0,
         }

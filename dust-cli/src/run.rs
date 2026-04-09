@@ -14,7 +14,7 @@ pub fn handle_run_command(commmand: RunCommand) {
         input: InputOptions { eval, stdin, path },
     } = commmand;
 
-    let source = build_source(&eval, path, stdin);
+    let source = build_source(eval, path, stdin);
     let compiler = Compiler::new(source);
     let compile_result = compiler.compile(None);
 
@@ -32,8 +32,7 @@ pub fn handle_run_command(commmand: RunCommand) {
         MINIMUM_OBJECT_HEAP_DEFAULT,
     );
 
-    let run_result = jit_vm.run();
-    let return_value = match run_result {
+    let return_value = match jit_vm.run() {
         Ok(return_value) => return_value,
         Err(error) => {
             eprintln!("{error}");

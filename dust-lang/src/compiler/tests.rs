@@ -16,13 +16,13 @@ use crate::{
     parser::{ParseResult, Parser},
     program::Program,
     prototype::Prototype,
-    source::{Source, SourceCode, SourceFileId},
+    source::{Code, FileId, Source},
     syntax::{Syntax, components::FunctionItem, visitor::SyntaxVisitor},
 };
 
 fn compile(source_code: &str) -> Program {
     let mut source = Source::new();
-    source.add_file(SourceCode::validated_borrowed("test", source_code));
+    source.add_code(Code::validated_borrowed("test", source_code));
 
     Compiler::new(source).compile(None).unwrap()
 }
@@ -52,7 +52,7 @@ pub fn bind_declarations(source: &Source) -> (Syntax, Resolver, ScopeId) {
         imports: SmallVec::new(),
     });
 
-    let main_root = syntax.get_tree(SourceFileId::MAIN).unwrap().root().unwrap();
+    let main_root = syntax.get_tree(FileId::MAIN).unwrap().root().unwrap();
 
     let mut errors = Vec::new();
     let mut declaration_binder =
@@ -70,7 +70,7 @@ pub fn bind_declarations(source: &Source) -> (Syntax, Resolver, ScopeId) {
 
 pub fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
     let mut source = Source::new();
-    source.add_file(SourceCode::validated_borrowed("test", source_code));
+    source.add_code(Code::validated_borrowed("test", source_code));
 
     let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 
@@ -150,7 +150,7 @@ fn function_call() {
                 Instruction::call(0, MemoryKind::ENCODED, 1, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 2,
             argument_count: 0,
         }
@@ -182,7 +182,7 @@ fn struct_method_call() {
                 Instruction::call(0, MemoryKind::ENCODED, 1, u16::MAX),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -195,7 +195,7 @@ fn struct_method_call() {
                 Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -301,7 +301,7 @@ fn generic_monomorphization() {
                 Instruction::call(0, MemoryKind::ENCODED, 1, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -311,7 +311,7 @@ fn generic_monomorphization() {
         program.prototypes[1],
         Prototype {
             instructions: vec![Instruction::r#return(),],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 1,
         }

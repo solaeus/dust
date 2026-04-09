@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
@@ -17,7 +19,7 @@ fn reassignment() {
                 Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 2),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -43,7 +45,7 @@ fn compound_addition() {
                 ),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -69,7 +71,7 @@ fn compound_subtraction() {
                 ),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -95,7 +97,7 @@ fn compound_multiplication() {
                 ),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -121,7 +123,7 @@ fn compound_division() {
                 ),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -147,7 +149,7 @@ fn compound_modulo() {
                 ),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -173,7 +175,7 @@ fn compound_power() {
                 ),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -194,7 +196,7 @@ fn array_index_assignment_constant() {
                 Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 42),
                 Instruction::r#return(),
             ],
-            return_types: vec![],
+            return_types: smallvec![],
             register_count: 3,
             argument_count: 0,
         }
@@ -224,7 +226,7 @@ fn array_index_assignment_dynamic() {
                 ),
                 Instruction::r#return(),
             ],
-            return_types: vec![],
+            return_types: smallvec![],
             register_count: 4,
             argument_count: 1,
         }

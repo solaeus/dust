@@ -29,7 +29,7 @@ mod value_expressions;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceFileId, Span},
+    source::{FileId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxKind::*, SyntaxPayload},
@@ -46,7 +46,7 @@ macro_rules! function_wrapper {
 #[test]
 fn assignment_expression() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x = 42;")),
     );
     let ParseResult {
@@ -80,7 +80,7 @@ fn assignment_expression() {
 #[test]
 fn grouped_expression() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("(x + y)")),
     );
     let ParseResult {

@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
@@ -19,7 +21,7 @@ fn with_else() {
                 Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 2),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 0,
         }
@@ -37,7 +39,7 @@ fn without_else() {
                 Instruction::test(true, MemoryKind::ENCODED, 1, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![],
+            return_types: smallvec![],
             register_count: 0,
             argument_count: 0,
         }
@@ -58,7 +60,7 @@ fn runtime_condition_with_else() {
                 Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 2),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 1,
         }
@@ -76,7 +78,7 @@ fn runtime_condition_without_else() {
                 Instruction::test(true, MemoryKind::REGISTER, 0, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![],
+            return_types: smallvec![],
             register_count: 1,
             argument_count: 1,
         }
@@ -105,7 +107,7 @@ fn runtime_comparison_condition() {
                 Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 20),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::I_32],
+            return_types: smallvec![OperandType::I_32],
             register_count: 1,
             argument_count: 1,
         }

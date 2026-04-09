@@ -3,7 +3,7 @@ use crate::{
         declarations::{Definition, Visibility},
         types::TypeId,
     },
-    source::{Source, SourceCode},
+    source::{Code, Source},
 };
 
 use super::{bind_declarations, bind_declarations_with_errors};
@@ -12,7 +12,7 @@ use super::{bind_declarations, bind_declarations_with_errors};
 fn with_method() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "struct Foo {} impl Foo { fn bar() {} }",
     ));
@@ -59,7 +59,7 @@ fn with_method() {
 fn methods_not_visible_at_module_scope() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "struct Foo {} impl Foo { fn bar() {} }",
     ));
@@ -78,7 +78,7 @@ fn methods_not_visible_at_module_scope() {
 fn impl_method_path_resolves() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "struct Foo {} impl Foo { fn value() -> i32 { 42 } } fn main() { Foo::value(); }",
     ));
@@ -92,7 +92,7 @@ fn impl_method_path_resolves() {
 fn impl_method_with_arguments_resolves() {
     let mut source = Source::new();
 
-    source.add_file(SourceCode::validated_borrowed(
+    source.add_code(Code::validated_borrowed(
         "test",
         "struct Foo {} impl Foo { fn add(a: i32, b: i32) -> i32 { a + b } } fn main() { Foo::add(1, 2); }",
     ));

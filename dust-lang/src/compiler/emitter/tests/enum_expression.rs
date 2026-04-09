@@ -1,3 +1,5 @@
+use smallvec::smallvec;
+
 use crate::{
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
@@ -14,10 +16,10 @@ fn unit_variant() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::U_32, MemoryKind::CONSTANT, 0),
+                Instruction::r#move(0, OperandType::U_16, MemoryKind::ENCODED, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::U_32],
+            return_types: smallvec![OperandType::U_16],
             register_count: 1,
             argument_count: 0,
         }
@@ -34,11 +36,11 @@ fn tuple_variant() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(0, OperandType::U_32, MemoryKind::CONSTANT, 0),
-                Instruction::r#move(1, OperandType::F_64, MemoryKind::CONSTANT, 1),
+                Instruction::r#move(0, OperandType::U_16, MemoryKind::ENCODED, 0),
+                Instruction::r#move(1, OperandType::F_64, MemoryKind::CONSTANT, 0),
                 Instruction::r#return(),
             ],
-            return_types: vec![OperandType::U_32, OperandType::F_64],
+            return_types: smallvec![OperandType::U_16, OperandType::F_64],
             register_count: 3,
             argument_count: 0,
         }

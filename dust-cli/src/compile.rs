@@ -22,7 +22,7 @@ pub fn handle_compile_command(command: CompileCommand) {
         tui,
     } = command;
 
-    let source = build_source(&eval, path, stdin);
+    let source = build_source(eval, path, stdin);
     let compiler = Compiler::new(source);
     let (program, source, syntax, constants) = match compiler.compile_with_extras(None) {
         Ok(result) => result,

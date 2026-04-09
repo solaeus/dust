@@ -27,7 +27,7 @@ pub fn handle_parse_command(command: ParseCommand) {
         trees,
     } = command;
 
-    let source = build_source(&eval, path, stdin);
+    let source = build_source(eval, path, stdin);
 
     let mut parse_errors = Vec::new();
 

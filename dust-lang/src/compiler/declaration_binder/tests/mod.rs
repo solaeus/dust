@@ -29,7 +29,7 @@ use crate::{
     error::ErrorKind,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{Source, SourceFileId},
+    source::{FileId, Source},
     syntax::{Syntax, node::SyntaxKind, visitor::SyntaxVisitor},
 };
 
@@ -77,7 +77,7 @@ fn bind_declarations_with_errors(source: &Source) -> (Syntax, Resolver, ScopeId,
         imports: SmallVec::new(),
     });
 
-    let main_root = syntax.get_tree(SourceFileId::MAIN).unwrap().root().unwrap();
+    let main_root = syntax.get_tree(FileId::MAIN).unwrap().root().unwrap();
 
     let mut errors = Vec::new();
     let mut declaration_binder =
@@ -96,7 +96,7 @@ fn find_function_body_scope(
     resolver: &Resolver,
     parent_scope_id: ScopeId,
 ) -> ScopeId {
-    let tree = syntax.get_tree(SourceFileId::MAIN).unwrap();
+    let tree = syntax.get_tree(FileId::MAIN).unwrap();
 
     for reader in tree.iter() {
         if reader.node.kind == SyntaxKind::BlockExpression

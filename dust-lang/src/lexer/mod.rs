@@ -6,14 +6,14 @@ use std::hint::cold_path;
 use crate::{
     error::ErrorKind,
     parser::error::ParseError,
-    source::{Position, Source, SourceCode, Span},
+    source::{Code, Position, Source, Span},
     token::{Token, TokenKind},
 };
 use unicode_ident::{is_xid_continue, is_xid_start};
 
 pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, ErrorKind> {
     let mut source = Source::with_capacity(1);
-    let file_id = source.add_file(SourceCode::borrowed("tokenize", bytes));
+    let file_id = source.add_code(Code::borrowed("tokenize", bytes));
 
     let mut lexer = Lexer::with_unvalidated_source(bytes);
     let mut tokens = Vec::new();
@@ -34,7 +34,7 @@ pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, ErrorKind> {
 
 pub fn tokenize_str(str: &str) -> Result<Vec<Token>, ErrorKind> {
     let mut source = Source::with_capacity(1);
-    let file_id = source.add_file(SourceCode::validated_borrowed("tokenize", str));
+    let file_id = source.add_code(Code::validated_borrowed("tokenize", str));
 
     let mut lexer = Lexer::with_validated_source(str);
     let mut tokens = Vec::new();

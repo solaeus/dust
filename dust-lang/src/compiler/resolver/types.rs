@@ -5,7 +5,7 @@ use std::{
     ops::Range,
 };
 
-use indexmap::{IndexSet, set::MutableValues};
+use indexmap::{set::MutableValues, IndexSet};
 use smallvec::SmallVec;
 
 use crate::compiler::{error::CompileError, resolver::declarations::DeclarationId};
@@ -122,6 +122,12 @@ impl Types {
         self.next_inferred_type_id.0 += 1;
 
         self.add_type(inferred_type)
+    }
+}
+
+impl Default for Types {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -5,7 +5,7 @@ use std::hint::black_box;
 use criterion::{BatchSize, Criterion, Throughput, criterion_group, criterion_main};
 use dust_lang::{
     compiler::Compiler,
-    source::{Source, SourceCode},
+    source::{Code, Source},
 };
 
 const SOURCE: &[u8] = br#"
@@ -25,7 +25,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let mut source = Source::new();
 
-    source.add_file(SourceCode::borrowed("test", SOURCE));
+    source.add_code(File::borrowed("test", SOURCE));
 
     group.throughput(Throughput::Elements(1000));
     group.bench_function("compile", |b| {

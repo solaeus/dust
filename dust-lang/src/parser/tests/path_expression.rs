@@ -2,7 +2,7 @@ use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceFileId, Span},
+    source::{FileId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxKind::*, SyntaxPayload},
@@ -12,7 +12,7 @@ use crate::{
 #[test]
 fn simple() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("foo")),
     );
     let ParseResult {
@@ -43,7 +43,7 @@ fn simple() {
 #[test]
 fn multi_segment() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("foo::bar")),
     );
     let ParseResult {
@@ -75,7 +75,7 @@ fn multi_segment() {
 #[test]
 fn with_type_arguments() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("foo::<Bar>")),
     );
     let ParseResult {
@@ -109,7 +109,7 @@ fn with_type_arguments() {
 #[test]
 fn with_multiple_type_arguments() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("foo::<Bar, Baz>")),
     );
     let ParseResult {
@@ -145,7 +145,7 @@ fn with_multiple_type_arguments() {
 #[test]
 fn multi_segment_with_type_arguments() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("foo::bar::<Baz>")),
     );
     let ParseResult {
@@ -180,7 +180,7 @@ fn multi_segment_with_type_arguments() {
 #[test]
 fn type_arguments_on_middle_segment() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("foo::<Bar>::baz")),
     );
     let ParseResult {

@@ -1,7 +1,7 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceFileId, Span},
+    source::{FileId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxKind::*, SyntaxPayload},
@@ -11,7 +11,7 @@ use crate::{
 #[test]
 fn empty() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(b"struct Foo {}"),
     );
     let ParseResult {
@@ -35,7 +35,7 @@ fn empty() {
 #[test]
 fn tuple() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(b"struct Foo(i64, i64);"),
     );
     let ParseResult {
@@ -61,7 +61,7 @@ fn tuple() {
 #[test]
 fn fields() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(b"struct Foo { x: i64, y: i64 }"),
     );
     let ParseResult {
@@ -90,7 +90,7 @@ fn fields() {
 #[test]
 fn type_parameters() {
     let parser = Parser::new(
-        SourceFileId::MAIN,
+        FileId::MAIN,
         Lexer::with_unvalidated_source(b"struct Foo<A, B, C> {}"),
     );
     let ParseResult {
