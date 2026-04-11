@@ -5,17 +5,11 @@ use crate::{
 
 pub trait SyntaxVisitor {
     type RootOutput;
-
     type StatementOutput;
-
     type ExpressionInput;
-
     type ExpressionOutput;
-
     type TypeOutput;
-
     type PathInput;
-
     type PathOutput;
 
     fn visit_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
@@ -92,21 +86,25 @@ pub trait SyntaxVisitor {
     ) -> Result<Self::ExpressionOutput, CompileError> {
         match reader.node.kind {
             SyntaxKind::AssignmentExpression => self.visit_assignment_expression(reader, input),
-            SyntaxKind::AdditionAssignmentExpression
-            | SyntaxKind::SubtractionAssignmentExpression
-            | SyntaxKind::MultiplicationAssignmentExpression
-            | SyntaxKind::DivisionAssignmentExpression
-            | SyntaxKind::ModuloAssignmentExpression
-            | SyntaxKind::ExponentAssignmentExpression => {
-                self.visit_compound_assignment_expression(reader, input)
-            }
             SyntaxKind::PathExpression => self.visit_path_expression(reader, input),
-            SyntaxKind::BooleanExpression => self.visit_boolean_expression(reader, input),
-            SyntaxKind::HexadecimalIntegerExpression => self.visit_byte_expression(reader, input),
-            SyntaxKind::CharacterExpression => self.visit_character_expression(reader, input),
-            SyntaxKind::FloatExpression => self.visit_float_expression(reader, input),
-            SyntaxKind::IntegerExpression => self.visit_integer_expression(reader, input),
-            SyntaxKind::StringExpression => self.visit_string_expression(reader, input),
+            SyntaxKind::BooleanExpression => self
+                .visit_boolean_expression(reader, input)
+                .map(Self::ExpressionOutput::from),
+            SyntaxKind::HexadecimalExpression => self
+                .visit_hexadecimal_expression(reader, input)
+                .map(Self::ExpressionOutput::from),
+            SyntaxKind::CharacterExpression => self
+                .visit_character_expression(reader, input)
+                .map(Self::ExpressionOutput::from),
+            SyntaxKind::FloatExpression => self
+                .visit_float_expression(reader, input)
+                .map(Self::ExpressionOutput::from),
+            SyntaxKind::IntegerExpression => self
+                .visit_integer_expression(reader, input)
+                .map(Self::ExpressionOutput::from),
+            SyntaxKind::StringExpression => self
+                .visit_string_expression(reader, input)
+                .map(Self::ExpressionOutput::from),
             SyntaxKind::ArrayExpression => self.visit_array_expression(reader, input),
             SyntaxKind::ArrayRepeatExpression => self.visit_array_repeat_expression(reader, input),
             SyntaxKind::IndexExpression => self.visit_index_expression(reader, input),
@@ -115,11 +113,17 @@ pub trait SyntaxVisitor {
             }
             SyntaxKind::StructExpression => self.visit_struct_expression(reader, input),
             SyntaxKind::AdditionExpression
+            | SyntaxKind::AdditionAssignmentExpression
             | SyntaxKind::SubtractionExpression
+            | SyntaxKind::SubtractionAssignmentExpression
             | SyntaxKind::MultiplicationExpression
+            | SyntaxKind::MultiplicationAssignmentExpression
             | SyntaxKind::DivisionExpression
+            | SyntaxKind::DivisionAssignmentExpression
             | SyntaxKind::ModuloExpression
-            | SyntaxKind::ExponentExpression => self.visit_math_expression(reader, input),
+            | SyntaxKind::ModuloAssignmentExpression
+            | SyntaxKind::ExponentExpression
+            | SyntaxKind::ExponentAssignmentExpression => self.visit_math_expression(reader, input),
             SyntaxKind::NegationExpression => self.visit_negation_expression(reader, input),
             SyntaxKind::EqualExpression
             | SyntaxKind::NotEqualExpression
@@ -151,7 +155,7 @@ pub trait SyntaxVisitor {
                     SyntaxKind::ExponentAssignmentExpression,
                     SyntaxKind::PathExpression,
                     SyntaxKind::BooleanExpression,
-                    SyntaxKind::HexadecimalIntegerExpression,
+                    SyntaxKind::HexadecimalExpression,
                     SyntaxKind::CharacterExpression,
                     SyntaxKind::FloatExpression,
                     SyntaxKind::IntegerExpression,
@@ -213,23 +217,17 @@ pub trait SyntaxVisitor {
 
     fn visit_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError>;
 
-    fn visit_expression_statement(
-        &mut self,
-        reader: SyntaxReader,
-    ) -> Result<Self::StatementOutput, CompileError>;
-
     fn visit_let_statement(
         &mut self,
         reader: SyntaxReader,
     ) -> Result<Self::StatementOutput, CompileError>;
 
-    fn visit_assignment_expression(
+    fn visit_expression_statement(
         &mut self,
         reader: SyntaxReader,
-        input: Self::ExpressionInput,
-    ) -> Result<Self::ExpressionOutput, CompileError>;
+    ) -> Result<Self::StatementOutput, CompileError>;
 
-    fn visit_compound_assignment_expression(
+    fn visit_assignment_expression(
         &mut self,
         reader: SyntaxReader,
         input: Self::ExpressionInput,
@@ -241,7 +239,7 @@ pub trait SyntaxVisitor {
         input: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError>;
 
-    fn visit_byte_expression(
+    fn visit_hexadecimal_expression(
         &mut self,
         reader: SyntaxReader,
         input: Self::ExpressionInput,

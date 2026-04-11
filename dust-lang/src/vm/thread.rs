@@ -10,7 +10,7 @@ use crate::{
 
 pub struct Thread {
     program: Arc<Program>,
-    starting_prototype_id: u16,
+    main_prototype_index: u16,
 
     call_stack: Vec<CallFrame>,
     register_stack: Vec<Register>,
@@ -21,7 +21,7 @@ pub struct Thread {
 impl Thread {
     pub fn new(
         program: Arc<Program>,
-        prototype_id: u16,
+        main_prototype_index: u16,
         message_sender: Arc<Sender<ThreadMessage>>,
     ) -> Self {
         let call_stack_capacity = if program.prototypes.len() == 1 {
@@ -37,7 +37,7 @@ impl Thread {
 
         Thread {
             program,
-            starting_prototype_id: prototype_id,
+            main_prototype_index,
             call_stack: Vec::with_capacity(call_stack_capacity),
             register_stack: vec![Register(0); register_count],
             message_sender,
@@ -60,12 +60,12 @@ impl Thread {
             .program
             .prototypes
             .as_slice()
-            .get(self.starting_prototype_id as usize)
-            .ok_or(VmError::InvalidPrototypeId {
-                prototype_id: self.starting_prototype_id,
+            .get(self.main_prototype_index as usize)
+            .ok_or(VmError::InvalidPrototypeIndex {
+                index: self.main_prototype_index,
             })?;
         let starting_call_frame = CallFrame {
-            prototype_id: self.starting_prototype_id,
+            prototype_id: self.main_prototype_index,
             regsiter_range_start: 0,
             register_range_end: starting_prototype.register_count,
             argument_count: starting_prototype.argument_count,
@@ -82,8 +82,8 @@ impl Thread {
                 .prototypes
                 .as_slice()
                 .get(current_call_frame.prototype_id as usize)
-                .ok_or(VmError::InvalidPrototypeId {
-                    prototype_id: current_call_frame.prototype_id,
+                .ok_or(VmError::InvalidPrototypeIndex {
+                    index: current_call_frame.prototype_id,
                 })?;
             let mut instruction_pointer = current_call_frame.instruction_pointer;
 

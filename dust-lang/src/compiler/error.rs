@@ -4,17 +4,16 @@ use crate::{
     compiler::{
         emitter::JumpId,
         resolver::{
-            Resolver, TypedConstant,
+            Resolver,
             declarations::{DeclarationId, DeclarationMembers},
             scopes::ScopeId,
             symbols::SymbolId,
             types::{Type, TypeId, TypeMembers},
         },
     },
-    constants::ConstantListError,
+    constants::{ConstantsError, value::ConstantValue},
     dust_type::DustType,
     error::AnnotatedError,
-    instruction::OperandType,
     source::{FileId, Position, Source, SourceError, Span},
     syntax::{Syntax, SyntaxId, error::SyntaxError, node::SyntaxKind},
 };
@@ -55,26 +54,20 @@ pub enum CompileError {
         position: Position,
     },
     ConstantOverflow {
-        left_value: TypedConstant,
+        left_value: ConstantValue,
         left_span: Span,
-        right_value: TypedConstant,
+        right_value: ConstantValue,
         right_span: Span,
         operator: SyntaxKind,
         file_id: FileId,
     },
     InvalidConstantExponent {
-        base_value: TypedConstant,
+        base_value: ConstantValue,
         base_span: Span,
-        exponent_value: TypedConstant,
+        exponent_value: ConstantValue,
         exponent_span: Span,
         operator: SyntaxKind,
         file_id: FileId,
-    },
-    ConstantTypeConflict {
-        expected_type: TypeId,
-        expected_position: Position,
-        found_type: TypeId,
-        found_position: Position,
     },
     DivisionByZero {
         position: Position,
@@ -145,11 +138,15 @@ pub enum CompileError {
         type_id: TypeId,
         position: Position,
     },
+    ExpectedIndexableType {
+        type_id: TypeId,
+    },
 
     // Internal errors
+    ValueCreation(lexical_parse_integer::Error),
     Source(SourceError),
     Syntax(SyntaxError),
-    ConstantList(ConstantListError),
+    ConstantList(ConstantsError),
     ExpectedModuleDeclaration(DeclarationId),
     ExpectedTypeDeclaration(DeclarationId),
     InvalidRegisterCount {
@@ -176,7 +173,6 @@ pub enum CompileError {
     MissingTypeMembers(TypeMembers),
     MissingTypeBinding(SyntaxId),
     MissingFunctionDeclaration(DeclarationId),
-    ExpectedFieldDeclaration(DeclarationId),
     MissingAlgebraicTypeDeclaration(DeclarationId),
     MissingTypeArgument(DeclarationId),
     ExpectedConcreteType,
@@ -189,12 +185,13 @@ pub enum CompileError {
         expected: &'static [SyntaxKind],
         found: SyntaxKind,
     },
-    ExpectedFieldDefinition {
-        found_declaration_id: DeclarationId,
-    },
+    ExpectedFieldDefinition(DeclarationId),
     ExpectedAllocation,
-    ValueCreation(lexical_parse_integer::Error),
     InvalidTypeBinding(TypeId),
+    ExpectedConstantDefinition(DeclarationId),
+    ExpectedEnumDefinition(DeclarationId),
+    ExpectedArrayType(TypeId),
+    InvalidEmission,
 }
 
 impl<'a> AnnotatedError<'a> for CompileError {
@@ -203,7 +200,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
     fn add_report(&self, (source, syntax, resolver): Self::Context, groups: &mut Vec<Group<'a>>) {
         match self {
             CompileError::DivisionByZero { position } => {
-                let title = "Division by zero".to_string();
+                let title = "Division by zero";
                 let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
@@ -245,7 +242,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 node_kind,
                 position,
             } => {
-                let title = "Expected a boolean expression".to_string();
+                let title = "Expected a boolean expression";
                 let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
@@ -295,7 +292,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 declaration_id,
                 usage_position,
             } => {
-                let title = "Declaration out of scope".to_string();
+                let title = "Declaration out of scope";
 
                 let declaration = match resolver.declarations.get_declaration(*declaration_id) {
                     Ok(declaration) => declaration,
@@ -384,7 +381,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 } else {
                     None
                 };
-                let title = "Cannot infer type".to_string();
+                let title = "Cannot infer type";
                 let message = if let Some(type_string) = type_string {
                     format!("Cannot infer type `{type_string}`.")
                 } else {
@@ -422,7 +419,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 found_type,
                 found_position,
             } => {
-                let title = "Type conflict".to_string();
+                let title = "Type conflict";
                 let expected_type_string = match resolver.get_external_type(*expected_type, source)
                 {
                     Ok(r#type) => match r#type {
@@ -506,7 +503,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 type_id,
                 operand_position,
             } => {
-                let title = "Cannot apply operator".to_string();
+                let title = "Cannot apply operator";
                 let file_content = match source.get_code(operand_position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
@@ -542,7 +539,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 right_span,
                 file_id,
             } => {
-                let title = "Cannot apply operator".to_string();
+                let title = "Cannot apply operator";
                 let file_content = match source.get_code(*file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
@@ -625,7 +622,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 symbol_id,
                 usage_position,
             } => {
-                let title = "Undeclared symbol".to_string();
+                let title = "Undeclared symbol";
                 let file_content = match source.get_code(usage_position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
@@ -651,7 +648,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 groups.push(group);
             }
             CompileError::UnresolvedModule { symbol_id } => {
-                let title = "Unresolved module".to_string();
+                let title = "Unresolved module";
                 let symbol = match resolver.symbols.get_symbol(symbol_id) {
                     Ok(symbol) => symbol,
                     Err(error) => {
@@ -668,32 +665,8 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 groups.push(group);
             }
-            CompileError::ConstantTypeConflict {
-                expected_type: expected,
-                found_type: found,
-                position,
-            } => {
-                let title = format!("Constant type conflict: expected {expected}, found {found}");
-                let file_content = match source.get_code(position.file_id) {
-                    Ok(file) => file.content_as_str(),
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
-                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_content).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!(
-                                "Found constant of type {found} here, but expected {expected}"
-                            )),
-                    ),
-                );
-
-                groups.push(group);
-            }
             CompileError::CannotMutate { position } => {
-                let title = "Cannot mutate immutable value".to_string();
+                let title = "Cannot mutate immutable value";
                 let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
@@ -775,7 +748,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             CompileError::ExpectedValue { file_id, syntax_id } => {
                 let syntax = match syntax
                     .get_tree(*file_id)
-                    .and_then(|tree| tree.get_node(*syntax_id))
+                    .and_then(|tree| tree.read_node(*syntax_id))
                 {
                     Ok(syntax) => syntax,
                     Err(error) => {
@@ -785,7 +758,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     }
                 };
 
-                let title = "Expected a value".to_string();
+                let title = "Expected a value";
                 let file_content = match source.get_code(*file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
@@ -810,7 +783,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 length,
                 position,
             } => {
-                let title = "Index out of bounds".to_string();
+                let title = "Index out of bounds";
                 let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
@@ -833,7 +806,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 node_kind,
                 position,
             } => {
-                let title = "Expected type `none`".to_string();
+                let title = "Expected type `none`";
                 let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
@@ -855,7 +828,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 groups.push(group);
             }
             CompileError::CannotInstantiateType { type_id, position } => {
-                let title = "Cannot instantiate type".to_string();
+                let title = "Cannot instantiate type";
                 let r#type = match resolver.get_external_type(*type_id, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
@@ -865,8 +838,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     }
                 };
                 let error_message = format!("Type {type} is an enum and cannot be instantiated.");
-                let help_message =
-                    "You must specify which variant of the enum you want to crete.".to_string();
+                let help_message = "You must specify which variant of the enum you want to crete.";
                 let group = if let Some(position) = position {
                     let file_content = match source.get_code(position.file_id) {
                         Ok(file) => file.content_as_str(),
@@ -894,7 +866,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 groups.push(group);
             }
             CompileError::ExpectedNativeFunctionCall { position } => {
-                let title = "Expected a native function to be called".to_string();
+                let title = "Expected a native function to be called";
                 let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
@@ -917,7 +889,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 groups.push(group);
             }
             CompileError::ExpectedMainFunction => {
-                let title = "Expected a main function".to_string();
+                let title = "Expected a main function";
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Level::HELP.message("A \"main\" function is required to compile the program."),
                 );
@@ -929,7 +901,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 type_id,
                 position,
             } => {
-                let title = "List element too large".to_string();
+                let title = "List element too large";
                 let file_content = match source.get_code(position.file_id) {
                     Ok(file) => file.content_as_str(),
                     Err(error) => {
@@ -993,7 +965,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 declaration_id,
                 position,
             } => {
-                let title = "Cannot import".to_string();
+                let title = "Cannot import";
                 let declaration = match resolver.declarations.get_declaration(*declaration_id) {
                     Ok(declaration) => declaration,
                     Err(error) => {
@@ -1028,7 +1000,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 groups.push(group);
             }
             CompileError::CannotAccessField { type_id, position } => {
-                let title = "Cannot access field".to_string();
+                let title = "Cannot access field";
                 let r#type = match resolver.get_external_type(*type_id, source) {
                     Ok(r#type) => r#type,
                     Err(error) => {
@@ -1053,6 +1025,96 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 groups.push(group);
             }
+            CompileError::ConstantOverflow {
+                left_value,
+                left_span,
+                right_value,
+                right_span,
+                operator,
+                file_id,
+            } => {
+                let title = "Constant overflow";
+                let file_content = match source.get_code(*file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title))
+                    .element(
+                        Snippet::source(file_content).annotation(
+                            AnnotationKind::Primary
+                                .span(left_span.as_usize_range())
+                                .label(format!("Left operand has value {left_value}.")),
+                        ),
+                    )
+                    .element(
+                        Snippet::source(file_content).annotation(
+                            AnnotationKind::Primary
+                                .span(right_span.as_usize_range())
+                                .label(format!("Right operand has value {right_value}.")),
+                        ),
+                    )
+                    .element(Level::ERROR.message(format!(
+                        "Applying operator {operator} to these values causes an overflow."
+                    )));
+
+                groups.push(group);
+            }
+            CompileError::InvalidConstantExponent {
+                base_value,
+                base_span,
+                exponent_value,
+                exponent_span,
+                operator,
+                file_id,
+            } => {
+                let title = "Invalid constant exponent";
+                let file_content = match source.get_code(*file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title))
+                    .element(
+                        Snippet::source(file_content).annotation(
+                            AnnotationKind::Primary
+                                .span(base_span.as_usize_range())
+                                .label(format!("Base operand has value {base_value}.")),
+                        ),
+                    )
+                    .element(
+                        Snippet::source(file_content).annotation(
+                            AnnotationKind::Primary
+                                .span(exponent_span.as_usize_range())
+                                .label(format!("Exponent operand has value {exponent_value}.")),
+                        ),
+                    )
+                    .element(Level::ERROR.message(format!(
+                        "Applying operator {operator} to these values is invalid."
+                    )));
+
+                groups.push(group);
+            }
+            CompileError::ExpectedIndexableType { type_id } => {
+                let title = "Expected an indexable type";
+                let r#type = match resolver.get_external_type(*type_id, source) {
+                    Ok(r#type) => r#type,
+                    Err(error) => {
+                        error.add_report((source, syntax, resolver), groups);
+
+                        return;
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title))
+                    .element(Level::ERROR.message(format!("Type {type} cannot be indexed.")));
+
+                groups.push(group);
+            }
+            CompileError::Syntax(error) => error.add_report((), groups),
+            CompileError::ConstantList(error) => error.add_report((), groups),
+            CompileError::Source(error) => error.add_report((), groups),
             CompileError::ExpectedModuleDeclaration(_)
             | CompileError::ExpectedTypeDeclaration(_)
             | CompileError::InvalidRegisterCount { .. }
@@ -1079,16 +1141,17 @@ impl<'a> AnnotatedError<'a> for CompileError {
             | CompileError::MissingTypeMembers(_)
             | CompileError::MissingTypeBinding(_)
             | CompileError::MissingFunctionDeclaration(_)
-            | CompileError::ExpectedFieldDeclaration(_)
             | CompileError::MissingAlgebraicTypeDeclaration(_)
             | CompileError::MissingTypeArgument(_)
             | CompileError::ExpectedConcreteType
-            | CompileError::ExpectedVariantDeclaration(_) => {
+            | CompileError::ExpectedVariantDeclaration(_)
+            | CompileError::InvalidTypeBinding(_)
+            | CompileError::ExpectedConstantDefinition(_)
+            | CompileError::ExpectedEnumDefinition(_)
+            | CompileError::ExpectedArrayType(_)
+            | CompileError::InvalidEmission => {
                 self.add_internal_report(groups);
             }
-            CompileError::Syntax(error) => error.add_report((), groups),
-            CompileError::ConstantList(error) => error.add_report((), groups),
-            CompileError::Source(error) => error.add_report((), groups),
         }
     }
 }
@@ -1099,8 +1162,8 @@ impl From<SyntaxError> for CompileError {
     }
 }
 
-impl From<ConstantListError> for CompileError {
-    fn from(error: ConstantListError) -> Self {
+impl From<ConstantsError> for CompileError {
+    fn from(error: ConstantsError) -> Self {
         CompileError::ConstantList(error)
     }
 }

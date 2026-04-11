@@ -38,7 +38,7 @@ use crate::{
         tests::type_bind_function,
     },
     constants::ConstantsBuilder,
-    prototype::{Prototype, PrototypeList},
+    prototype::Prototype,
     source::{Code, Source},
     syntax::components::{FunctionItem, FunctionSignature},
 };
@@ -66,7 +66,7 @@ fn emit_function(source_code: &str) -> Prototype {
 
     let function_item = syntax
         .get_tree(position.file_id)
-        .and_then(|tree| tree.get_node(syntax_id))
+        .and_then(|tree| tree.read_node(syntax_id))
         .unwrap();
     let FunctionItem {
         signature, body, ..
@@ -89,8 +89,7 @@ fn emit_function(source_code: &str) -> Prototype {
     source.add_code(Code::validated_borrowed("test", source_code));
 
     let mut constants = ConstantsBuilder::new();
-    let mut prototypes = PrototypeList::new();
-    let prototype_id = prototypes.reserve();
+    let prototype_id = resolver.reserve_prototype_id();
     let mut compilation_stack = Vec::new();
 
     let mut emitter = Emitter::new(
@@ -103,7 +102,6 @@ fn emit_function(source_code: &str) -> Prototype {
             &source,
             &mut constants,
             &mut resolver,
-            &mut prototypes,
             &mut compilation_stack,
         ),
     )

@@ -5,7 +5,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::compiler::RegisterWidth;
+use crate::{compiler::RegisterWidth, optimal_small_vec_inline_capacity};
 
 /// A small (4-bit) type representation used to encode the types of instruction operands.
 ///
@@ -18,7 +18,7 @@ use crate::compiler::RegisterWidth;
 pub struct OperandType(pub(super) u8);
 
 impl OperandType {
-    pub type SmallVec = SmallVec<[Self; 8]>;
+    pub type SmallVec = SmallVec<[Self; optimal_small_vec_inline_capacity::<Self>()]>;
 
     pub const BOOLEAN: OperandType = Self(0);
     pub const U_8: OperandType = Self(1);

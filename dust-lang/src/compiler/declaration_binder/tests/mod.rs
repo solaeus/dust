@@ -21,11 +21,14 @@ use std::path::{Path, PathBuf};
 use smallvec::SmallVec;
 
 use crate::{
-    compiler::resolver::{
-        Resolver,
-        scopes::{Scope, ScopeId, ScopeKind},
+    compiler::{
+        declaration_binder::DeclarationBinder,
+        resolver::{
+            Resolver,
+            scopes::{Scope, ScopeId, ScopeKind},
+        },
+        tests::bind_declarations,
     },
-    compiler::{declaration_binder::DeclarationBinder, tests::bind_declarations},
     error::ErrorKind,
     lexer::Lexer,
     parser::{ParseResult, Parser},
@@ -55,7 +58,7 @@ fn cleanup_module_file(path: &Path) {
 }
 
 fn bind_declarations_with_errors(source: &Source) -> (Syntax, Resolver, ScopeId, Vec<ErrorKind>) {
-    let mut syntax = Syntax::new(source.file_count());
+    let mut syntax = Syntax::with_capacity(source.file_count());
 
     for (file_id, file) in source.iter() {
         let lexer = Lexer::with_validated_source(file.content_as_str());

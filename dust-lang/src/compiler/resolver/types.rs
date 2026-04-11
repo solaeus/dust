@@ -5,7 +5,7 @@ use std::{
     ops::Range,
 };
 
-use indexmap::{set::MutableValues, IndexSet};
+use indexmap::{IndexSet, set::MutableValues};
 use smallvec::SmallVec;
 
 use crate::compiler::{error::CompileError, resolver::declarations::DeclarationId};
@@ -91,12 +91,14 @@ impl Types {
             .ok_or(CompileError::MissingType(id))
     }
 
-    pub fn add_type_members(&mut self, types: SmallVec<[TypeId; 4]>) -> TypeMembers {
+    pub fn add_type_members(&mut self, types: impl IntoIterator<Item = TypeId>) -> TypeMembers {
         let start = self.members.len() as u32;
 
         self.members.extend(types);
 
         let end = self.members.len() as u32;
+
+        debug_assert!(end > start, "");
 
         TypeMembers { start, end }
     }
@@ -136,6 +138,8 @@ impl Default for Types {
 pub struct TypeId(u32);
 
 impl TypeId {
+    pub type SmallVec = SmallVec<[Self; 5]>;
+
     pub const UNIT: Self = TypeId(0);
     pub const BOOLEAN: Self = TypeId(1);
     pub const I_8: Self = TypeId(2);
@@ -298,7 +302,7 @@ pub enum Type {
     /// ```
     Function {
         value_parameters: TypeMembers,
-        return_type: TypeId,
+        return_type_id: TypeId,
     },
 
     /// A named composite or sum type. Their corresponding type [`Definition`][] contains the fields
@@ -426,15 +430,15 @@ impl PartialEq for Type {
             (
                 Type::Function {
                     value_parameters: left_parameter_types,
-                    return_type: left_return_type,
+                    return_type_id: left_return_type_id,
                 },
                 Type::Function {
                     value_parameters: right_parameter_types,
-                    return_type: right_return_type,
+                    return_type_id: right_return_type_id,
                 },
             ) => {
                 left_parameter_types == right_parameter_types
-                    && left_return_type == right_return_type
+                    && left_return_type_id == right_return_type_id
             }
             (
                 Type::Generic {
@@ -547,15 +551,15 @@ impl Ord for Type {
             (
                 Type::Function {
                     value_parameters: left_parameter_types,
-                    return_type: left_return_type,
+                    return_type_id: left_return_type_id,
                 },
                 Type::Function {
                     value_parameters: right_parameter_types,
-                    return_type: right_return_type,
+                    return_type_id: right_return_type_id,
                 },
             ) => left_parameter_types
                 .cmp(right_parameter_types)
-                .then_with(|| left_return_type.cmp(right_return_type)),
+                .then_with(|| left_return_type_id.cmp(right_return_type_id)),
             (Type::Function { .. }, _) => Ordering::Less,
             (
                 Type::Algebraic {
@@ -700,7 +704,7 @@ impl Hash for Type {
             }
             Type::Function {
                 value_parameters,
-                return_type,
+                return_type_id: return_type,
             } => {
                 state.write_u8(22);
                 value_parameters.hash(state);

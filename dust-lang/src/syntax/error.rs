@@ -5,7 +5,7 @@ use annotate_snippets::Renderer;
 use crate::{
     error::AnnotatedError,
     source::FileId,
-    syntax::{SyntaxId, node::SyntaxPayload},
+    syntax::{SyntaxId, node::SyntaxChildren},
 };
 
 #[derive(Debug)]
@@ -13,7 +13,7 @@ pub enum SyntaxError {
     MissingSyntaxTree(FileId),
     MissingSyntaxNode(SyntaxId),
     MissingSyntaxChild { total_children: usize },
-    InvalidSyntaxPayload(SyntaxPayload),
+    InvalidSyntaxPayload(SyntaxChildren),
     ExpectedSyntaxChildren { expected: usize, actual: usize },
 }
 

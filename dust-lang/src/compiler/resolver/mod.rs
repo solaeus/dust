@@ -3,7 +3,10 @@ pub mod scopes;
 pub mod symbols;
 pub mod types;
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    fmt::{self, Display, Formatter},
+};
 
 use rustc_hash::FxBuildHasher;
 use smallvec::{SmallVec, smallvec};
@@ -26,7 +29,7 @@ use crate::{
     constants::value::ConstantValue,
     dust_type::{DustEnumType, DustFunctionType, DustStructType, DustStructValueType, DustType},
     instruction::OperandType,
-    prototype::PrototypeId,
+    prototype::Prototype,
     source::Source,
     syntax::SyntaxId,
 };
@@ -39,6 +42,7 @@ pub struct Resolver {
     pub types: Types,
     pub type_parameter_map: HashMap<DeclarationId, TypeId>,
 
+    prototypes: Vec<Prototype>,
     declaration_bindings: HashMap<SyntaxId, DeclarationId, FxBuildHasher>,
     scope_bindings: HashMap<SyntaxId, ScopeId, FxBuildHasher>,
     type_bindings: HashMap<SyntaxId, TypeId, FxBuildHasher>,
@@ -53,6 +57,7 @@ impl Resolver {
             declarations: Declarations::new(),
             scopes: Scopes::new(),
             types: Types::new(),
+            prototypes: Vec::new(),
             declaration_bindings: HashMap::default(),
             scope_bindings: HashMap::default(),
             type_bindings: HashMap::default(),
@@ -64,6 +69,10 @@ impl Resolver {
         add_core(&mut resolver);
 
         resolver
+    }
+
+    pub fn into_prototypes(self) -> Vec<Prototype> {
+        self.prototypes
     }
 
     pub fn add_declaration_binding(&mut self, syntax_id: SyntaxId, declaration_id: DeclarationId) {
@@ -135,6 +144,18 @@ impl Resolver {
 
     pub fn get_constant_item_value(&self, declaration_id: &DeclarationId) -> Option<ConstantValue> {
         self.constant_item_values.get(declaration_id).copied()
+    }
+
+    pub fn reserve_prototype_id(&mut self) -> PrototypeId {
+        let id = PrototypeId(self.prototypes.len() as u16);
+
+        self.prototypes.push(Prototype::placeholder());
+
+        id
+    }
+
+    pub fn set_prototype(&mut self, prototype_id: PrototypeId, prototype: Prototype) {
+        self.prototypes[prototype_id.0 as usize] = prototype;
     }
 
     pub fn resolve_type(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
@@ -319,7 +340,7 @@ impl Resolver {
                                     ..
                                 } = field_declaration.definition
                                 else {
-                                    return Err(CompileError::ExpectedFieldDeclaration(
+                                    return Err(CompileError::ExpectedFieldDefinition(
                                         *field_declaration_id,
                                     ));
                                 };
@@ -540,11 +561,11 @@ impl Resolver {
                     .map(|parameter_type| self.add_external_type(parameter_type))
                     .collect();
                 let value_parameters = self.types.add_type_members(parameter_type_ids);
-                let return_type = self.add_external_type(&function_type.return_type);
+                let return_type_id = self.add_external_type(&function_type.return_type);
 
                 self.types.add_type(Type::Function {
                     value_parameters,
-                    return_type,
+                    return_type_id,
                 })
             }
             DustType::Slice(element_type) => {
@@ -686,7 +707,7 @@ impl Resolver {
                             symbol_id: variant_symbol_id,
                             definition: Definition::Variant {
                                 discriminant: discriminant as u16,
-                                parent_enum: enum_declaration_id,
+                                enum_declaration_id,
                                 type_parameters: DeclarationMembers::default(),
                                 fields,
                             },
@@ -966,12 +987,12 @@ impl Resolver {
             Type::Generic { .. } => Err(CompileError::ExpectedConcreteType),
             Type::Function {
                 value_parameters,
-                return_type,
+                return_type_id,
             } => {
                 let value_parameter_types: Vec<DustType> = self
                     .get_type_members_as_full_types(*value_parameters, _source)
                     .collect::<Result<_, _>>()?;
-                let return_dust_type = self.get_external_type(*return_type, _source)?;
+                let return_dust_type = self.get_external_type(*return_type_id, _source)?;
 
                 Ok(DustType::Function(Box::new(DustFunctionType {
                     type_parameters: Vec::new(),
@@ -1174,6 +1195,27 @@ impl Default for Resolver {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub struct PrototypeId(#[cfg(test)] pub(crate) u16, #[cfg(not(test))] u16);
+
+impl PrototypeId {
+    pub(crate) const MAIN: Self = Self(0);
+
+    pub fn inner(self) -> u16 {
+        self.0
+    }
+
+    pub fn index_usize(self) -> usize {
+        self.0 as usize
+    }
+}
+
+impl Display for PrototypeId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "proto_{}", self.0)
+    }
+}
+
 fn add_core(resolver: &mut Resolver) {
     let _core_scope_id = resolver.scopes.add_scope(Scope {
         kind: ScopeKind::Module,
@@ -1224,7 +1266,7 @@ fn add_core(resolver: &mut Resolver) {
             symbol_id: some_symbol,
             definition: Definition::Variant {
                 discriminant: 0,
-                parent_enum: option_declaration_id,
+                enum_declaration_id: option_declaration_id,
                 type_parameters: DeclarationMembers::default(),
                 fields: some_fields,
             },
@@ -1236,7 +1278,7 @@ fn add_core(resolver: &mut Resolver) {
             symbol_id: none_symbol,
             definition: Definition::Variant {
                 discriminant: 1,
-                parent_enum: option_declaration_id,
+                enum_declaration_id: option_declaration_id,
                 type_parameters: DeclarationMembers::default(),
                 fields: DeclarationMembers::default(),
             },
@@ -1314,7 +1356,7 @@ fn add_core(resolver: &mut Resolver) {
             symbol_id: ok_symbol,
             definition: Definition::Variant {
                 discriminant: 0,
-                parent_enum: result_declaration_id,
+                enum_declaration_id: result_declaration_id,
                 type_parameters: DeclarationMembers::default(),
                 fields: ok_fields,
             },
@@ -1341,7 +1383,7 @@ fn add_core(resolver: &mut Resolver) {
             symbol_id: err_symbol,
             definition: Definition::Variant {
                 discriminant: 1,
-                parent_enum: result_declaration_id,
+                enum_declaration_id: result_declaration_id,
                 type_parameters: DeclarationMembers::default(),
                 fields: err_fields,
             },

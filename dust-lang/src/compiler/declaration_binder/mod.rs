@@ -24,12 +24,12 @@ use crate::{
         Syntax,
         components::{
             ArrayExpression, ArrayRepeatExpression, ArrayType, AssignmentExpression,
-            CallExpression, ComparisonExpression, CompoundAssignmentExpression, ConstItem,
-            EnumItem, EnumVariant, ExpressionStatement, FieldAccessExpression, FunctionItem,
-            FunctionParameters, FunctionSignature, FunctionType, GroupedExpression, IfExpression,
-            ImplItem, ImplTraitItem, IndexExpression, LetStatement, LogicExpression,
-            MathExpression, ModuleItem, NegationExpression, NotExpression, RangeExpression,
-            StructExpression, StructExpressionStructFields, StructItem, StructItemStructFields,
+            CallExpression, ComparisonExpression, ConstItem, EnumItem, EnumVariant,
+            ExpressionStatement, FieldAccessExpression, FunctionItem, FunctionParameters,
+            FunctionSignature, FunctionType, GroupedExpression, IfExpression, ImplItem,
+            ImplTraitItem, IndexExpression, LetStatement, LogicExpression, MathExpression,
+            ModuleItem, NegationExpression, NotExpression, RangeExpression, StructExpression,
+            StructExpressionStructFields, StructItem, StructItemStructFields,
             StructItemTupleFields, SyntaxComponent, TraitBounds, TraitConstItem, TraitFunctionItem,
             TraitItem, TraitTypeItem, TypeItem, UseItem, WhileExpression,
         },
@@ -304,8 +304,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                                 self.resolver.declarations.get_declaration(*variant_id)?;
 
                             if variant_declaration.symbol_id == segment_symbol_id
-                                && let Definition::Variant { parent_enum, .. } =
-                                    variant_declaration.definition
+                                && let Definition::Variant {
+                                    enum_declaration_id: parent_enum,
+                                    ..
+                                } = variant_declaration.definition
                                 && parent_enum == declaration_id
                             {
                                 current_declaration_id = Some(*variant_id);
@@ -330,7 +332,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 symbol_id,
                 definition: Definition::Use {
                     public,
-                    item: current_declaration_id,
+                    source_declaration_id: current_declaration_id,
                 },
                 scope_id: self.current_scope_id,
                 syntax: Some((
@@ -465,7 +467,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     Err(error) => self.errors.push(ErrorKind::Compile(error)),
                 }
             } else {
-                self.visit_expression(child, None)?;
+                self.visit_expression(child, ())?;
             }
         }
 
@@ -523,7 +525,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 let StructItemTupleFields { types } = StructItemTupleFields::from_reader(&fields)?;
 
                 for (index, field_type) in types.enumerate() {
-                    let public = field_type.node.modifier.is_public();
+                    let public = field_type.node.flags.is_public();
                     let symbol_id = self.resolver.symbols.add_index_symbol(index as u32);
                     let type_id = self.visit_type(field_type)?;
                     let field_declaration_id =
@@ -550,7 +552,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 let file = self.source.get_code(name.file_id())?;
 
                 for [field_name, field_type] in name_type_pairs {
-                    let public = field_name.node.modifier.is_public();
+                    let public = field_name.node.flags.is_public();
                     let field_name_str = file.get_str(field_name.node.span)?;
                     let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
                     let field_type_id = self.visit_type(field_type)?;
@@ -658,7 +660,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             let variant_symbol = self.resolver.symbols.add_symbol(variant_name_str);
 
             let fields = if let Some(variant_fields) = variant_fields {
-                let mut field_ids = SmallVec::<[DeclarationId; 4]>::new();
+                let mut field_ids =
+                    DeclarationId::SmallVec::with_capacity(variant_fields.child_count());
 
                 match variant_fields.node.kind {
                     SyntaxKind::StructItemTupleFields => {
@@ -724,7 +727,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 symbol_id: variant_symbol,
                 definition: Definition::Variant {
                     discriminant: index as u16,
-                    parent_enum: enum_declaration_id,
+                    enum_declaration_id,
                     type_parameters: DeclarationMembers::default(),
                     fields,
                 },
@@ -770,15 +773,15 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
         let ConstItem {
             public,
             name,
-            type_annotation,
+            type_notation,
             value,
         } = reader.as_component()?;
 
-        self.visit_expression(value, None)?;
+        self.visit_expression(value, ())?;
 
         let const_name_str = self.source.get_content(&name.position())?;
         let const_symbol_id = self.resolver.symbols.add_symbol(const_name_str);
-        let type_id = self.visit_type(type_annotation)?;
+        let type_id = self.visit_type(type_notation)?;
         let declaration_id = self.resolver.declarations.add_declaration(Declaration {
             symbol_id: const_symbol_id,
             definition: Definition::Constant { public, type_id },
@@ -850,7 +853,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_impl_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let ImplItem {
-            self_type,
+            self_name,
             body,
             type_parameters,
             ..
@@ -893,7 +896,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .declarations
             .add_declaration_members(type_parameter_declaration_ids);
 
-        let self_type_id = self.visit_type(self_type)?;
+        let self_type_id = self.visit_type(self_name)?;
         let previous_self_type_id = self.current_self_type_id.replace(self_type_id);
 
         let mut member_declaration_ids = SmallVec::<[DeclarationId; 4]>::new();
@@ -957,7 +960,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
     fn visit_impl_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let ImplTraitItem {
-            self_type,
+            self_name,
             body,
             trait_path,
             type_parameters,
@@ -1018,7 +1021,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
 
         let impl_declaration_id = self.resolver.declarations.reserve_declaration_id();
 
-        let self_type_id = self.visit_type(self_type)?;
+        let self_type_id = self.visit_type(self_name)?;
         let previous_self_type_id = self.current_self_type_id.replace(self_type_id);
 
         let mut member_declaration_ids = SmallVec::<[DeclarationId; 8]>::new();
@@ -1485,7 +1488,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                                 Err(error) => self.errors.push(ErrorKind::Compile(error)),
                             }
                         } else {
-                            self.visit_expression(body_child, None)?;
+                            self.visit_expression(body_child, ())?;
                         }
                     }
 
@@ -1499,7 +1502,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     } = child.as_component()?;
 
                     if let Some(value) = value {
-                        self.visit_expression(value, None)?;
+                        self.visit_expression(value, ())?;
                     }
 
                     let const_name_str = self.source.get_content(&const_name.position())?;
@@ -1608,7 +1611,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             type_notation,
         } = reader.as_component()?;
 
-        self.visit_expression(expression, None)?;
+        self.visit_expression(expression, ())?;
 
         let identifier = self.source.get_content(&name.position())?;
         let symbol_id = self.resolver.symbols.add_symbol(identifier);
@@ -1641,28 +1644,20 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_expression_statement(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let ExpressionStatement { expression } = reader.as_component()?;
 
-        self.visit_expression(expression, None)?;
+        self.visit_expression(expression, ())?;
 
         Ok(())
     }
 
-    fn visit_assignment_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        let AssignmentExpression { target, source } = reader.as_component()?;
-
-        self.visit_expression(target, None)?;
-        self.visit_expression(source, None)?;
-
-        Ok(())
-    }
-
-    fn visit_compound_assignment_expression(
+    fn visit_assignment_expression(
         &mut self,
         reader: SyntaxReader,
+        _: Self::ExpressionInput,
     ) -> Result<(), CompileError> {
-        let CompoundAssignmentExpression { target, value } = reader.as_component()?;
+        let AssignmentExpression { target, source } = reader.as_component()?;
 
-        self.visit_expression(target, None)?;
-        self.visit_expression(value, None)?;
+        self.visit_expression(target, ())?;
+        self.visit_expression(source, ())?;
 
         Ok(())
     }
@@ -1670,15 +1665,15 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_boolean_expression(
         &mut self,
         _: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         Ok(())
     }
 
-    fn visit_byte_expression(
+    fn visit_hexadecimal_expression(
         &mut self,
         _: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         Ok(())
     }
@@ -1686,7 +1681,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_character_expression(
         &mut self,
         _: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         Ok(())
     }
@@ -1694,7 +1689,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_float_expression(
         &mut self,
         _: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         Ok(())
     }
@@ -1702,7 +1697,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_integer_expression(
         &mut self,
         _: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         Ok(())
     }
@@ -1710,7 +1705,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_string_expression(
         &mut self,
         _: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         Ok(())
     }
@@ -1718,12 +1713,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_array_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let ArrayExpression { elements } = reader.as_component()?;
 
         for element in elements {
-            self.visit_expression(element, None)?;
+            self.visit_expression(element, ())?;
         }
 
         Ok(())
@@ -1732,11 +1727,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_array_repeat_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let ArrayRepeatExpression { element, .. } = reader.as_component()?;
 
-        self.visit_expression(element, None)?;
+        self.visit_expression(element, ())?;
 
         Ok(())
     }
@@ -1744,12 +1739,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_index_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let IndexExpression { collection, index } = reader.as_component()?;
 
-        self.visit_expression(collection, None)?;
-        self.visit_expression(index, None)?;
+        self.visit_expression(collection, ())?;
+        self.visit_expression(index, ())?;
 
         Ok(())
     }
@@ -1757,12 +1752,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_range_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let RangeExpression { start, end } = reader.as_component()?;
 
-        self.visit_expression(start, None)?;
-        self.visit_expression(end, None)?;
+        self.visit_expression(start, ())?;
+        self.visit_expression(end, ())?;
 
         Ok(())
     }
@@ -1770,7 +1765,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_path_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visiting path expression");
         debug_assert_eq!(reader.node.kind, SyntaxKind::PathExpression);
@@ -1786,7 +1781,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_struct_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let StructExpression { path, fields } = reader.as_component()?;
         let StructExpressionStructFields {
@@ -1829,7 +1824,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 }
             }
 
-            self.visit_expression(field_value, None)?;
+            self.visit_expression(field_value, ())?;
         }
 
         Ok(())
@@ -1838,12 +1833,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_grouped_expression(
         &mut self,
         reader: SyntaxReader,
-        input: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let GroupedExpression { expression } = reader.as_component()?;
 
         if let Some(expression) = expression {
-            self.visit_expression(expression, input)
+            self.visit_expression(expression, ())
         } else {
             Ok(())
         }
@@ -1852,7 +1847,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_block_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         debug!("Visiting block expression");
         debug_assert_eq!(reader.node.kind, SyntaxKind::BlockExpression);
@@ -1873,7 +1868,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     Err(error) => self.errors.push(ErrorKind::Compile(error)),
                 }
             } else {
-                self.visit_expression(child, None)?;
+                self.visit_expression(child, ())?;
             }
         }
 
@@ -1887,7 +1882,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_if_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let IfExpression {
             condition,
@@ -1895,13 +1890,13 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             else_branch,
         } = reader.as_component()?;
 
-        self.visit_expression(condition, None)?;
-        self.visit_block_expression(then_branch, None)?;
+        self.visit_expression(condition, ())?;
+        self.visit_block_expression(then_branch, ())?;
 
         if let Some(else_branch) = else_branch {
             match else_branch.node.kind {
-                SyntaxKind::BlockExpression => self.visit_block_expression(else_branch, None)?,
-                SyntaxKind::IfExpression => self.visit_if_expression(else_branch, None)?,
+                SyntaxKind::BlockExpression => self.visit_block_expression(else_branch, ())?,
+                SyntaxKind::IfExpression => self.visit_if_expression(else_branch, ())?,
                 _ => {
                     return Err(CompileError::ExpectedSyntaxKinds {
                         expected: &[SyntaxKind::BlockExpression, SyntaxKind::IfExpression],
@@ -1917,12 +1912,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_math_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let MathExpression { left, right } = reader.as_component()?;
 
-        self.visit_expression(left, None)?;
-        self.visit_expression(right, None)?;
+        self.visit_expression(left, ())?;
+        self.visit_expression(right, ())?;
 
         Ok(())
     }
@@ -1930,12 +1925,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_comparison_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let ComparisonExpression { left, right } = reader.as_component()?;
 
-        self.visit_expression(left, None)?;
-        self.visit_expression(right, None)?;
+        self.visit_expression(left, ())?;
+        self.visit_expression(right, ())?;
 
         Ok(())
     }
@@ -1943,12 +1938,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_logic_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let LogicExpression { left, right } = reader.as_component()?;
 
-        self.visit_expression(left, None)?;
-        self.visit_expression(right, None)?;
+        self.visit_expression(left, ())?;
+        self.visit_expression(right, ())?;
 
         Ok(())
     }
@@ -1956,11 +1951,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_negation_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let NegationExpression { operand } = reader.as_component()?;
 
-        self.visit_expression(operand, None)?;
+        self.visit_expression(operand, ())?;
 
         Ok(())
     }
@@ -1968,11 +1963,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_not_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let NotExpression { operand } = reader.as_component()?;
 
-        self.visit_expression(operand, None)?;
+        self.visit_expression(operand, ())?;
 
         Ok(())
     }
@@ -1980,12 +1975,12 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_while_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let WhileExpression { condition, body } = reader.as_component()?;
 
-        self.visit_expression(condition, None)?;
-        self.visit_block_expression(body, None)?;
+        self.visit_expression(condition, ())?;
+        self.visit_block_expression(body, ())?;
 
         Ok(())
     }
@@ -1993,7 +1988,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_break_expression(
         &mut self,
         _: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         Ok(())
     }
@@ -2001,11 +1996,11 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_call_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let CallExpression { callee, arguments } = reader.as_component()?;
 
-        self.visit_expression(callee, None)?;
+        self.visit_expression(callee, ())?;
 
         let callee_declaration_id = *self.resolver.get_declaration_binding(&callee.id)?;
 
@@ -2013,7 +2008,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             .add_declaration_binding(reader.id, callee_declaration_id);
 
         for argument in arguments.children() {
-            self.visit_expression(argument, None)?;
+            self.visit_expression(argument, ())?;
         }
 
         Ok(())
@@ -2022,16 +2017,18 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     fn visit_field_access_expression(
         &mut self,
         reader: SyntaxReader,
-        _: Option<Self::ExpressionInput>,
+        _: Self::ExpressionInput,
     ) -> Result<Self::ExpressionOutput, CompileError> {
         let FieldAccessExpression {
-            operand,
+            struct_expression,
             field_name,
         } = reader.as_component()?;
 
-        self.visit_expression(operand, None)?;
+        self.visit_expression(struct_expression, ())?;
 
-        let operand_declaration_id = *self.resolver.get_declaration_binding(&operand.id)?;
+        let operand_declaration_id = *self
+            .resolver
+            .get_declaration_binding(&struct_expression.id)?;
         let operand_declaration = self
             .resolver
             .declarations
@@ -2042,8 +2039,8 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             Definition::Function { return_type_id, .. } => return_type_id,
             _ => {
                 return Err(CompileError::ExpectedValue {
-                    node_kind: operand.node.kind,
-                    position: operand.position(),
+                    file_id: struct_expression.file_id(),
+                    syntax_id: struct_expression.id,
                 });
             }
         };
@@ -2065,7 +2062,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     _ => {
                         return Err(CompileError::CannotAccessField {
                             type_id,
-                            position: operand.position(),
+                            position: struct_expression.position(),
                         });
                     }
                 };
@@ -2111,7 +2108,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     None => {
                         return Err(CompileError::CannotAccessField {
                             type_id,
-                            position: operand.position(),
+                            position: struct_expression.position(),
                         });
                     }
                 }
@@ -2119,7 +2116,7 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
             _ => {
                 return Err(CompileError::CannotAccessField {
                     type_id,
-                    position: operand.position(),
+                    position: struct_expression.position(),
                 });
             }
         };
@@ -2133,23 +2130,23 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
     }
 
     fn visit_type(&mut self, reader: SyntaxReader) -> Result<Self::TypeOutput, CompileError> {
-        let type_id = match reader.node.kind {
-            SyntaxKind::BooleanType => TypeId::BOOLEAN,
-            SyntaxKind::I8Type => TypeId::I_8,
-            SyntaxKind::I16Type => TypeId::I_16,
-            SyntaxKind::I32Type => TypeId::I_32,
-            SyntaxKind::I64Type => TypeId::I_64,
-            SyntaxKind::I128Type => TypeId::I_128,
-            SyntaxKind::ISizeType => TypeId::I_SIZE,
-            SyntaxKind::U8Type => TypeId::U_8,
-            SyntaxKind::U16Type => TypeId::U_16,
-            SyntaxKind::U32Type => TypeId::U_32,
-            SyntaxKind::U64Type => TypeId::U_64,
-            SyntaxKind::U128Type => TypeId::U_128,
-            SyntaxKind::USizeType => TypeId::U_SIZE,
-            SyntaxKind::F32Type => TypeId::F_32,
-            SyntaxKind::F64Type => TypeId::F_64,
-            SyntaxKind::CharacterType => TypeId::CHARACTER,
+        match reader.node.kind {
+            SyntaxKind::BooleanType => Ok(TypeId::BOOLEAN),
+            SyntaxKind::I8Type => Ok(TypeId::I_8),
+            SyntaxKind::I16Type => Ok(TypeId::I_16),
+            SyntaxKind::I32Type => Ok(TypeId::I_32),
+            SyntaxKind::I64Type => Ok(TypeId::I_64),
+            SyntaxKind::I128Type => Ok(TypeId::I_128),
+            SyntaxKind::ISizeType => Ok(TypeId::I_SIZE),
+            SyntaxKind::U8Type => Ok(TypeId::U_8),
+            SyntaxKind::U16Type => Ok(TypeId::U_16),
+            SyntaxKind::U32Type => Ok(TypeId::U_32),
+            SyntaxKind::U64Type => Ok(TypeId::U_64),
+            SyntaxKind::U128Type => Ok(TypeId::U_128),
+            SyntaxKind::USizeType => Ok(TypeId::U_SIZE),
+            SyntaxKind::F32Type => Ok(TypeId::F_32),
+            SyntaxKind::F64Type => Ok(TypeId::F_64),
+            SyntaxKind::CharacterType => Ok(TypeId::CHARACTER),
             SyntaxKind::ArrayType => {
                 let ArrayType {
                     element_type,
@@ -2160,10 +2157,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                 let length_str = self.source.get_content(&length.position())?;
                 let length = create_usize_from_decimal(length_str)?;
 
-                self.resolver.types.add_type(Type::Array {
+                Ok(self.resolver.types.add_type(Type::Array {
                     element_type_id,
                     length,
-                })
+                }))
             }
             SyntaxKind::SliceType => {
                 let element_type = reader.single_child()?;
@@ -2177,10 +2174,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     syntax: Some((reader.position(), reader.id)),
                 });
 
-                self.resolver.types.add_type(Type::Slice {
+                Ok(self.resolver.types.add_type(Type::Slice {
                     declaration_id,
                     element_type_id,
-                })
+                }))
             }
             SyntaxKind::TupleType => {
                 let element_type_ids = reader
@@ -2189,9 +2186,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     .try_collect::<SmallVec<[TypeId; 4]>>()?;
                 let element_type_ids = self.resolver.types.add_type_members(element_type_ids);
 
-                self.resolver
+                Ok(self
+                    .resolver
                     .types
-                    .add_type(Type::Tuple { element_type_ids })
+                    .add_type(Type::Tuple { element_type_ids }))
             }
             SyntaxKind::FunctionType => {
                 let FunctionType {
@@ -2210,10 +2208,10 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     TypeId::UNIT
                 };
 
-                self.resolver.types.add_type(Type::Function {
+                Ok(self.resolver.types.add_type(Type::Function {
                     value_parameters,
-                    return_type: return_type_id,
-                })
+                    return_type_id,
+                }))
             }
             SyntaxKind::TypePath => {
                 let declaration_id = search_path_segments(self, reader, Visibility::Block)?;
@@ -2228,22 +2226,22 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                         public: _,
                         type_parameters: _,
                         fields: _,
-                    } => self.resolver.types.add_type(Type::Algebraic {
+                    } => Ok(self.resolver.types.add_type(Type::Algebraic {
                         declaration_id,
                         type_arguments: TypeMembers::default(),
-                    }),
+                    })),
                     Definition::EnumType {
                         public: _,
                         type_parameters: _,
                         variants: _,
-                    } => self.resolver.types.add_type(Type::Algebraic {
+                    } => Ok(self.resolver.types.add_type(Type::Algebraic {
                         declaration_id,
                         type_arguments: TypeMembers::default(),
-                    }),
-                    Definition::TypeParameter => self
+                    })),
+                    Definition::TypeParameter => Ok(self
                         .resolver
                         .types
-                        .add_type(Type::Generic { declaration_id }),
+                        .add_type(Type::Generic { declaration_id })),
                     _ => {
                         return Err(CompileError::ExpectedTypeDeclaration(declaration_id));
                     }
@@ -2256,38 +2254,34 @@ impl SyntaxVisitor for DeclarationBinder<'_> {
                     symbol_id,
                     usage_position: reader.position(),
                 }
-            })?,
-            _ => {
-                return Err(CompileError::ExpectedSyntaxKinds {
-                    expected: &[
-                        SyntaxKind::BooleanType,
-                        SyntaxKind::I8Type,
-                        SyntaxKind::I16Type,
-                        SyntaxKind::I32Type,
-                        SyntaxKind::I64Type,
-                        SyntaxKind::I128Type,
-                        SyntaxKind::ISizeType,
-                        SyntaxKind::U8Type,
-                        SyntaxKind::U16Type,
-                        SyntaxKind::U32Type,
-                        SyntaxKind::U64Type,
-                        SyntaxKind::U128Type,
-                        SyntaxKind::USizeType,
-                        SyntaxKind::F32Type,
-                        SyntaxKind::F64Type,
-                        SyntaxKind::CharacterType,
-                        SyntaxKind::SliceType,
-                        SyntaxKind::TupleType,
-                        SyntaxKind::FunctionType,
-                        SyntaxKind::TypePath,
-                        SyntaxKind::SelfType,
-                    ],
-                    found: reader.node.kind,
-                });
-            }
-        };
-
-        Ok(type_id)
+            }),
+            _ => Err(CompileError::ExpectedSyntaxKinds {
+                expected: &[
+                    SyntaxKind::BooleanType,
+                    SyntaxKind::I8Type,
+                    SyntaxKind::I16Type,
+                    SyntaxKind::I32Type,
+                    SyntaxKind::I64Type,
+                    SyntaxKind::I128Type,
+                    SyntaxKind::ISizeType,
+                    SyntaxKind::U8Type,
+                    SyntaxKind::U16Type,
+                    SyntaxKind::U32Type,
+                    SyntaxKind::U64Type,
+                    SyntaxKind::U128Type,
+                    SyntaxKind::USizeType,
+                    SyntaxKind::F32Type,
+                    SyntaxKind::F64Type,
+                    SyntaxKind::CharacterType,
+                    SyntaxKind::SliceType,
+                    SyntaxKind::TupleType,
+                    SyntaxKind::FunctionType,
+                    SyntaxKind::TypePath,
+                    SyntaxKind::SelfType,
+                ],
+                found: reader.node.kind,
+            }),
+        }
     }
 
     fn visit_path(
@@ -2374,7 +2368,7 @@ fn search_path_segments<'a>(
                 ..
             }
             | Definition::Variant {
-                parent_enum: next_parent_id,
+                enum_declaration_id: next_parent_id,
                 ..
             } => {
                 if let Some(current_parent_id) = parent_declaration_id
@@ -2477,9 +2471,10 @@ fn search_impl_member<'a>(
                     }
                 }
             }
-            Definition::Variant { parent_enum, .. }
-                if parent_enum == type_declaration_id && declaration.symbol_id == symbol_id =>
-            {
+            Definition::Variant {
+                enum_declaration_id: parent_enum,
+                ..
+            } if parent_enum == type_declaration_id && declaration.symbol_id == symbol_id => {
                 return Ok((declaration_id, declaration.definition));
             }
             _ => continue,

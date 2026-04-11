@@ -20,7 +20,7 @@ use std::{
 /// `Option::<DustValue>::None` because they are not runtime values, they are just compile-time
 /// constructs of the type system. In the very rare case that one wants to pass a unit value to the
 /// VM, use an empty tuple (`DustValue::Tuple(Vec::new())`).
-pub enum DustValue<E> {
+pub enum DustValue<E = ()> {
     Boolean(bool),
     I8(i8),
     I16(i16),

@@ -22,29 +22,29 @@ pub struct Constants {
 }
 
 impl Constants {
-    pub fn get_u32(&self, index: u16) -> Result<u32, ConstantListError> {
+    pub fn get_u32(&self, index: u16) -> Result<u32, ConstantsError> {
         let payload = *self
             .payloads
             .get(index as usize)
-            .ok_or(ConstantListError::MissingConstant(index))?;
+            .ok_or(ConstantsError::MissingConstant(index))?;
 
         Ok(payload)
     }
 
-    pub fn get_i32(&self, index: u16) -> Result<i32, ConstantListError> {
+    pub fn get_i32(&self, index: u16) -> Result<i32, ConstantsError> {
         let payload = *self
             .payloads
             .get(index as usize)
-            .ok_or(ConstantListError::MissingConstant(index))?;
+            .ok_or(ConstantsError::MissingConstant(index))?;
 
         Ok(payload as i32)
     }
 
-    pub fn get_u64(&self, index: u16) -> Result<u64, ConstantListError> {
+    pub fn get_u64(&self, index: u16) -> Result<u64, ConstantsError> {
         let index = index as usize;
 
         if index + 1 >= self.payloads.len() {
-            return Err(ConstantListError::MissingConstant(index as u16));
+            return Err(ConstantsError::MissingConstant(index as u16));
         }
 
         let low = self.payloads[index] as u64;
@@ -54,23 +54,23 @@ impl Constants {
         Ok(decoded)
     }
 
-    pub fn get_i64(&self, index: u16) -> Result<i64, ConstantListError> {
+    pub fn get_i64(&self, index: u16) -> Result<i64, ConstantsError> {
         let payload_range = index as usize..(index + 2) as usize;
         let payloads = self
             .payloads
             .get(payload_range)
-            .ok_or(ConstantListError::MissingConstant(index))?;
+            .ok_or(ConstantsError::MissingConstant(index))?;
         let decoded = (payloads[1] as i64) << 32 | (payloads[0] as i64);
 
         Ok(decoded)
     }
 
-    pub fn get_u128(&self, index: u16) -> Result<u128, ConstantListError> {
+    pub fn get_u128(&self, index: u16) -> Result<u128, ConstantsError> {
         let payload_range = index as usize..(index + 4) as usize;
         let payloads = self
             .payloads
             .get(payload_range)
-            .ok_or(ConstantListError::MissingConstant(index))?;
+            .ok_or(ConstantsError::MissingConstant(index))?;
         let decoded = (payloads[3] as u128) << 96
             | (payloads[2] as u128) << 64
             | (payloads[1] as u128) << 32
@@ -79,12 +79,12 @@ impl Constants {
         Ok(decoded)
     }
 
-    pub fn get_i128(&self, index: u16) -> Result<i128, ConstantListError> {
+    pub fn get_i128(&self, index: u16) -> Result<i128, ConstantsError> {
         let payload_range = index as usize..(index + 4) as usize;
         let payloads = self
             .payloads
             .get(payload_range)
-            .ok_or(ConstantListError::MissingConstant(index))?;
+            .ok_or(ConstantsError::MissingConstant(index))?;
         let decoded = (payloads[3] as i128) << 96
             | (payloads[2] as i128) << 64
             | (payloads[1] as i128) << 32
@@ -93,52 +93,49 @@ impl Constants {
         Ok(decoded)
     }
 
-    pub fn get_f32(&self, index: u16) -> Result<f32, ConstantListError> {
+    pub fn get_f32(&self, index: u16) -> Result<f32, ConstantsError> {
         let payload = *self
             .payloads
             .get(index as usize)
-            .ok_or(ConstantListError::MissingConstant(index))?;
+            .ok_or(ConstantsError::MissingConstant(index))?;
 
         Ok(f32::from_bits(payload))
     }
 
-    pub fn get_f64(&self, index: u16) -> Result<f64, ConstantListError> {
+    pub fn get_f64(&self, index: u16) -> Result<f64, ConstantsError> {
         let payload_range = index as usize..(index + 2) as usize;
         let payloads = self
             .payloads
             .get(payload_range)
-            .ok_or(ConstantListError::MissingConstant(index))?;
+            .ok_or(ConstantsError::MissingConstant(index))?;
         let payload = (payloads[1] as u64) << 32 | (payloads[0] as u64);
 
         Ok(f64::from_bits(payload))
     }
 
-    pub fn get_character(&self, index: u16) -> Result<char, ConstantListError> {
+    pub fn get_character(&self, index: u16) -> Result<char, ConstantsError> {
         let payload = *self
             .payloads
             .get(index as usize)
-            .ok_or(ConstantListError::MissingConstant(index))?;
+            .ok_or(ConstantsError::MissingConstant(index))?;
 
-        char::from_u32(payload).ok_or(ConstantListError::InvalidConstantPayload)
+        char::from_u32(payload).ok_or(ConstantsError::InvalidConstantPayload)
     }
 
-    pub fn get_string(&self, index: u16) -> Result<&str, ConstantListError> {
+    pub fn get_string(&self, index: u16) -> Result<&str, ConstantsError> {
         let payload = *self
             .payloads
             .get(index as usize)
-            .ok_or(ConstantListError::MissingConstant(index))?;
+            .ok_or(ConstantsError::MissingConstant(index))?;
         let start = (payload >> 16) as usize;
         let end = (payload & 0xFFFF) as usize;
 
         self.string_pool
             .get(start..end)
-            .ok_or(ConstantListError::InvalidConstantPayload)
+            .ok_or(ConstantsError::InvalidConstantPayload)
     }
 
-    pub fn get_string_raw_parts(
-        &self,
-        index: u16,
-    ) -> Result<(*const u8, usize), ConstantListError> {
+    pub fn get_string_raw_parts(&self, index: u16) -> Result<(*const u8, usize), ConstantsError> {
         self.get_string(index).map(|str| (str.as_ptr(), str.len()))
     }
 }
@@ -405,12 +402,12 @@ impl ConstantId {
 }
 
 #[derive(Debug)]
-pub enum ConstantListError {
+pub enum ConstantsError {
     InvalidConstantPayload,
     MissingConstant(u16),
 }
 
-impl<'a> AnnotatedError<'a> for ConstantListError {
+impl<'a> AnnotatedError<'a> for ConstantsError {
     type Context = ();
 
     fn add_report(&self, _: Self::Context, groups: &mut Vec<Group<'a>>) {

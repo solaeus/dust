@@ -12,10 +12,7 @@ use super::{bind_declarations, find_function_body_scope};
 fn immutable() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("tes
-        "test",
-        main() { let x = 1; }"));,
-    
+    source.add_code(Code::validated_borrowed("test", "main() { let x = 1; }"));
 
     let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);

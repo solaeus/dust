@@ -20,24 +20,38 @@ fn main() -> u32 {
 }
 ```
 
-```sh
-dust -e 'write_line("Hello, world!")'
-```
-
-## Project Status
-
 > [!IMPORTANT]
 > 🧪 💡 ⚗️
 >
 > Dust is still experimental.
 
-This project's goal is deliver the best possible language by combining a thoughtful selection of
-features, novel design concepts and a high-quality implementation. Rapidly delivering new features
-at the cost of innovation would be contradictory to that goal. Development is active and, while many
-aspects of the implementation are stable, research is ongoing into design optimizations and
-performance improvements.
+Development is active and, while many aspects of the implementation are stable, research is ongoing
+into design optimizations and performance improvements.
 
-## Design Goals
+## Features
+
+- [X] Basic values and types:
+  - [X] Booleans: `bool`
+  - [X] Integers: `i8`, `i16`, `i32`, `i64`, `isize`, `u8`, `u16`, `u32`, `u64` and `usize`
+  - [X] Floats: `f32` and `f64`
+  - [X] Unicode scalars: `char`
+  - [X] Tuples: `(bool, i32, f64)`
+  - [X] Arrays: `[i32; 4]`
+  - [_] Vectors: `Vec<i32>`
+  - [_] Slices: `[i32]`
+  - [_] Strings: `String`
+  - [_] String slices: `str`
+- [X] `struct` types
+  - Unit structs
+  - Tuple structs
+  - Field structs
+- [X] `enum` types
+  - Unit variants
+  - Tuple variants
+  - Field variants
+- [X] `impl` blocks
+
+## Design
 
 ### Ease-of-use
 
@@ -57,7 +71,7 @@ and operator overloading are exposed through the type system using the same fami
 ### Correctness
 
 The value proposition of Dust's type system is that the increase in code quantity is minimal or
-neglible while the increase in code quality is significant. Dust has no null type or undefined
+negligible while the increase in code quality is significant. Dust has no null type or undefined
 values. It has algebraic types (tuples, structs and enums), abstract types (traits), generics, trait
 bounds and Hindley-Milner type inference.
 
@@ -66,18 +80,17 @@ explicitly declaring the input and output types and ensuring that all possible c
 compliant through type "unification". In practice, that means that the compiler knows more about
 your code and the VM knows less. In some cases it requires extra syntax but the result is better
 errors from the compiler, better performance at runtime, functions that behave as expected and
-programs that validate their input and are guaranteed to produce their inteded output.
+programs that validate their input and are guaranteed to produce their intended output.
 
-Because Dust is runs in a VM, it is able to go beyond the Rust type system that inspired it.
-Effects, a type-adjacent concept not present in Rust, are able to mark which side effects a function
-is allowed to perform. For example, the `Fs` effect indicates that a function can access the
-filesystem, so a function with the `!Fs` effect bound will fail to compile if the function touches
-anything on-disk. Effects allow the user to make guarantees about individual functions or entire
-Dust programs.
+Because Dust runs in a VM, it is able to go beyond the Rust type system that inspired it. Effects, a
+type-adjacent concept not found in Rust, define which side effects a function is allowed to perform.
+For example, the `Fs` effect indicates that a function can access the filesystem, so a function with
+the `!Fs` effect bound will fail to compile if the function touches anything on-disk. Effects allow
+the user to make guarantees about individual functions or entire Dust programs.
 
 Rust values, including functions, can be passed to the VM as program inputs. Rust code could
 theoretically do anything, so Rust functions passed as input values automatically have effects like
-`Fs`, `StdIn` and `StdOut` to prevent circumventing effect bounds. Abritrary Rust code also carries
+`Fs`, `StdIn` and `StdOut` to prevent circumventing effect bounds. Arbitrary Rust code also carries
 the risk of undefined behavior via `unsafe`. For this reason, Rust values can only be passed as
 inputs to a program. It is impossible to declare a Rust function as a Dust value in a library and
 break the effect system for downstream users. It is also impossible to inject unwanted inputs into a
@@ -111,16 +124,15 @@ can emit a single instruction with the ADD operation that will contain the regis
 `foo` and `bar` as well as the `42` value. 2-bit fields tell the VM whether each index represents a
 register, constant or encoded value. The `i32` type is encoded in a 4-bit field so the VM knows how
 to interpret the operands. There is no need to use a separate instruction to load the constant, the
-constants table is only used strings or scalars with more than 16 significant bits. This is a simple
-example but there are many micro-optimizations in the instruction set that are only possible due to
+constants table is only used for strings or scalars with more than 16 significant bits. This is a
+simple example but there are many optimizations in the instruction set that are only possible due to
 the 64-bit width.
 
-As far as the author is aware, no other language uses a 64-bit packed instruction format. For
-64-bit platforms this is a natural choice but even on 32-bit platforms the benefits of wider
-instructions are significant enough to justify the increase in size; the decreased cache
-performance is mitigated by the fact that fewer instructions are needed to perform the same
-operation. In other words, the increase in instruction size is more than offset by the decrease in
-instruction count.
+As far as the author is aware, no other language uses a 64-bit packed instruction format. For 64-bit
+platforms this is a natural choice but even on 32-bit platforms the width is justified; the
+decreased cache performance is mitigated by the fact that fewer instructions are needed to perform
+the same operation. In other words, the increase in instruction size and complexity of decoding more
+fields is more than offset by the decrease in instruction count.
 
 ## Inspiration
 
@@ -129,29 +141,36 @@ the Pratt parser. The book is a great introduction to writing interpreters. Had 
 sooner, some early implementations of Dust would have been both simpler in design and more ambitious
 in scope.
 
-_The Implementation of Lua 5.0_[^1] by Roberto Ierusalimschy, Luiz Henrique de Figueiredo, and
+_Writing a Compiler in Go_[^1] by Thorsten Ball is filled with code examples and helps the reader
+make the turn from evaluating a syntax tree to thinking about how problems are solved on physical
+hardware and how that informs the design of a virtual machine.
+
+_The Implementation of Lua 5.0_[^2] by Roberto Ierusalimschy, Luiz Henrique de Figueiredo, and
 Waldemar Celes was a great resource for understanding register-based virtual machines and their
 instructions. This paper was recommended by Bob Nystrom in _Crafting Interpreters_.
 
-_A No-Frills Introduction to Lua 5.1 VM Instructions_[^2] by Kein-Hong Man has a wealth of detailed
+_A No-Frills Introduction to Lua 5.1 VM Instructions_[^3] by Kein-Hong Man has a wealth of detailed
 information on how Lua uses terse instructions to create dense prototypes that execute quickly. This
 was essential in the design of Dust's instructions. Dust uses compile-time optimizations that are
 based on Lua optimizations covered in this paper.
 
-"A Performance Survey on Stack-based and Register-based Virtual Machines"[^3] by Ruijie Fang and
-Siqi Liup was helpful for a quick yet efficient primer on getting stack-based and register-based
-virtual machines up and running. The included code examples show how to implement both types of VMs
-in C. The performance comparison between the two types of VMs is worth reading for anyone who is
-trying to choose between the two. Some of the benchmarks described in the paper inspired similar
+"A Performance Survey on Stack-based and Register-based Virtual Machines"[^4] by Ruijie Fang and
+Siqi Liu was a useful analysis with informative results that also functions as a primer on getting
+stack-based and register-based virtual machines up and running. The included code examples show how
+to implement both types of VMs in C. Some of the benchmarks described in the paper inspired similar
 benchmarks used in this project to compare Dust to other languages and inform design decisions.
 
-_Writing a Compiler in Go_[^6] by Thorsten Ball is a lot like _Crafting Interpreters_, they are the
-where I look for a generalized approach to solving a problem. Filled with code examples, this book
-helps the reader make the turn from evaluating a syntax tree to thinking about how problems are
-solved on physical hardware and how that informs the design of a virtual machine.
+## Contributing
 
-> Let me get straight to the point: a virtual machine is a computer built with software.
-> -- Thorsten Ball, _Writing a Compiler in Go_
+This project's goal is to deliver a delightful new language by combining a thoughtful selection of
+features, novel design concepts and a high-quality implementation. In order to innovate, it is
+necessary to have both a deep understanding of the algorithms at work and a close familiarity with
+the code itself. That can only be gained by actually writing it. This project has found success in
+using LLM tools to write and maintain tests based on human-written examples. Beyond test generation
+and edit predictions, using LLM tools would hinder innovation. This is currently a solo project but
+any future contributors would be expected to respect that reasoning and make their edits personally.
+It is not a goal of the project to churn out lots of features right away. Good languages are built
+on a solid foundation and carefully maintained by the humans who know them best.
 
 ## License
 
@@ -165,6 +184,4 @@ Dust is licensed under the GNU General Public License v3.0. See the `LICENSE` fi
 
 [^3]: [A Performance Survey on Stack-based and Register-based Virtual Machines](https://arxiv.org/abs/1611.00467)
 
-[^4]: [List of C-family programming languages](https://en.wikipedia.org/wiki/List_of_C-family_programming_languages)
-
-[^6]: [Writing a Compiler in Go](https://compilerbook.com/)
+[^4]: [Writing a Compiler in Go](https://compilerbook.com/)

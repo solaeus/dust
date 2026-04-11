@@ -14,13 +14,13 @@ use tree::SyntaxTree;
 
 #[derive(Debug)]
 pub struct Syntax {
-    trees: Vec<Option<SyntaxTree>>,
+    trees: Vec<SyntaxTree>,
 }
 
 impl Syntax {
-    pub fn new(length: usize) -> Self {
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            trees: vec![None; length],
+            trees: Vec::with_capacity(capacity),
         }
     }
 
@@ -33,15 +33,17 @@ impl Syntax {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &SyntaxTree> {
-        self.trees.iter().filter_map(|tree| tree.as_ref())
+        self.trees.iter()
     }
 
     pub fn add_tree(&mut self, tree: SyntaxTree) {
         let index = tree.file_id.inner() as usize;
 
-        if index < self.trees.len() {
-            self.trees[index] = Some(tree);
+        while self.trees.len() <= index {
+            self.trees.push(SyntaxTree::placeholder());
         }
+
+        self.trees[index] = tree;
     }
 
     pub fn get_tree(&self, file_id: FileId) -> Result<&SyntaxTree, SyntaxError> {
@@ -49,7 +51,6 @@ impl Syntax {
 
         self.trees
             .get(index)
-            .and_then(|tree| tree.as_ref())
             .ok_or(SyntaxError::MissingSyntaxTree(file_id))
     }
 }

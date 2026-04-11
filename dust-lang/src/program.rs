@@ -1,14 +1,14 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{constants::Constants, dust_type::DustType, prototype::PrototypeList};
+use crate::{constants::Constants, dust_type::DustType, prototype::Prototype};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Program {
     name: String,
     return_type: DustType,
 
-    pub prototypes: PrototypeList,
-    pub constants: Constants,
+    pub(crate) prototypes: Vec<Prototype>,
+    pub(crate) constants: Constants,
 }
 
 impl Program {
@@ -18,7 +18,7 @@ impl Program {
         name: Option<String>,
         return_type: DustType,
         constants: Constants,
-        prototypes: PrototypeList,
+        prototypes: Vec<Prototype>,
     ) -> Self {
         let name = name.unwrap_or_else(|| Self::DEFAULT_NAME.to_string());
 

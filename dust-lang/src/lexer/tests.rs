@@ -141,11 +141,11 @@ fn characters() {
             vec![
                 Token {
                     kind: TokenKind::CharacterLiteral,
-                    span: Span::new(0, source.len())
+                    span: Span::new(0, source.len() as u32)
                 },
                 Token {
                     kind: TokenKind::Eof,
-                    span: Span::new(source.len(), source.len())
+                    span: Span::new(source.len() as u32, source.len() as u32)
                 }
             ],
             "Failed to tokenize character literal {character} (U+{codepoint:04X})"

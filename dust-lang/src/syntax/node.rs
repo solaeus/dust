@@ -1,7 +1,4 @@
-use std::{
-    fmt::{self, Display, Formatter},
-    ops::Range,
-};
+use std::fmt::{self, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
@@ -10,10 +7,24 @@ use crate::{source::Span, syntax::SyntaxId};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SyntaxNode {
     pub(crate) kind: SyntaxKind,
-    pub(crate) children: SyntaxPayload,
-    pub(crate) children_kind: SyntaxPayloadKind,
-    pub(crate) modifier: SyntaxNodeModifier,
+    pub(crate) children: SyntaxChildren,
+    pub(crate) children_kind: SyntaxChildrenKind,
+    pub(crate) flags: SyntaxFlags,
     pub(crate) span: Span,
+}
+
+impl SyntaxNode {
+    pub fn with_flag(mut self, flag: SyntaxFlag) -> Self {
+        self.flags.set_flag(flag);
+
+        self
+    }
+
+    pub fn with_flags(mut self, flags: SyntaxFlags) -> Self {
+        self.flags = flags;
+
+        self
+    }
 }
 
 impl Display for SyntaxNode {
@@ -55,7 +66,7 @@ pub enum SyntaxKind {
     BooleanExpression,
     CharacterExpression,
     FloatExpression,
-    HexadecimalIntegerExpression,
+    HexadecimalExpression,
     IntegerExpression,
     StringExpression,
 
@@ -118,7 +129,6 @@ pub enum SyntaxKind {
     TraitType,
     ValueArguments,
     FunctionSignature,
-    FunctionParameters,
     ValueParameters,
     TypeParameters,
     TypeArguments,
@@ -170,23 +180,20 @@ impl SyntaxKind {
     pub fn empty(self, span: Span) -> SyntaxNode {
         SyntaxNode {
             kind: self,
-            children: SyntaxPayload::empty(),
-            children_kind: SyntaxPayloadKind::Empty,
+            children: SyntaxChildren::empty(),
+            children_kind: SyntaxChildrenKind::None,
             span,
-            modifier: SyntaxNodeModifier::default(),
+            flags: SyntaxFlags::default(),
         }
     }
 
-    pub fn with_child(self, span: Span, child_id: SyntaxId) -> SyntaxNode {
+    pub fn with_single_child(self, span: Span, child_id: SyntaxId) -> SyntaxNode {
         SyntaxNode {
             kind: self,
-            children: SyntaxPayload {
-                left: child_id.0,
-                right: SyntaxId::NONE.0,
-            },
-            children_kind: SyntaxPayloadKind::SingleChild,
+            children: SyntaxChildren::new(child_id.0, SyntaxId::NONE.0),
+            children_kind: SyntaxChildrenKind::Single,
             span,
-            modifier: SyntaxNodeModifier::default(),
+            flags: SyntaxFlags::default(),
         }
     }
 
@@ -198,20 +205,20 @@ impl SyntaxKind {
     ) -> SyntaxNode {
         SyntaxNode {
             kind: self,
-            children: SyntaxPayload::binary_children(left_child_id, right_child_id),
-            children_kind: SyntaxPayloadKind::BinaryChildren,
+            children: SyntaxChildren::new(left_child_id.0, right_child_id.0),
+            children_kind: SyntaxChildrenKind::Binary,
             span,
-            modifier: SyntaxNodeModifier::default(),
+            flags: SyntaxFlags::default(),
         }
     }
 
-    pub fn with_multiple_children(self, span: Span, payload: SyntaxPayload) -> SyntaxNode {
+    pub fn with_children(self, span: Span, children: SyntaxChildren) -> SyntaxNode {
         SyntaxNode {
             kind: self,
-            children: payload,
-            children_kind: SyntaxPayloadKind::MultipleChildren,
+            children,
+            children_kind: SyntaxChildrenKind::ThreeOrMore,
             span,
-            modifier: SyntaxNodeModifier::default(),
+            flags: SyntaxFlags::default(),
         }
     }
 
@@ -269,7 +276,7 @@ impl SyntaxKind {
                 | SyntaxKind::GreaterThanExpression
                 | SyntaxKind::GreaterThanOrEqualExpression
                 | SyntaxKind::GroupedExpression
-                | SyntaxKind::HexadecimalIntegerExpression
+                | SyntaxKind::HexadecimalExpression
                 | SyntaxKind::IfExpression
                 | SyntaxKind::IndexExpression
                 | SyntaxKind::IntegerExpression
@@ -300,18 +307,6 @@ impl SyntaxKind {
         )
     }
 
-    pub fn encodes_value_hint(self) -> bool {
-        matches!(
-            self,
-            SyntaxKind::BooleanExpression
-                | SyntaxKind::HexadecimalIntegerExpression
-                | SyntaxKind::CharacterExpression
-                | SyntaxKind::FloatExpression
-                | SyntaxKind::IntegerExpression
-                | SyntaxKind::StringExpression
-        )
-    }
-
     pub fn as_str(&self) -> &str {
         match self {
             SyntaxKind::AdditionAssignmentExpression => "addition assignment expression",
@@ -326,7 +321,7 @@ impl SyntaxKind {
             SyntaxKind::BooleanExpression => "boolean expression",
             SyntaxKind::BooleanType => "boolean type",
             SyntaxKind::BreakExpression => "break expression",
-            SyntaxKind::HexadecimalIntegerExpression => "hexadecimal integer expression",
+            SyntaxKind::HexadecimalExpression => "hexadecimal expression",
             SyntaxKind::CallExpression => "call expression",
             SyntaxKind::CharacterExpression => "character expression",
             SyntaxKind::CharacterType => "character type",
@@ -347,7 +342,6 @@ impl SyntaxKind {
             SyntaxKind::FieldAccessExpression => "field access expression",
             SyntaxKind::FloatExpression => "float expression",
             SyntaxKind::FunctionItem => "function item",
-            SyntaxKind::FunctionParameters => "function parameters",
             SyntaxKind::FunctionSignature => "function signature",
             SyntaxKind::FunctionType => "function type",
             SyntaxKind::GreaterThanExpression => "greater than expression",
@@ -438,196 +432,21 @@ impl Display for SyntaxKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SyntaxPayload {
+pub struct SyntaxChildren {
     pub(super) left: u32,
     pub(super) right: u32,
 }
 
-impl SyntaxPayload {
+impl SyntaxChildren {
+    pub fn new(left: u32, right: u32) -> Self {
+        Self { left, right }
+    }
+
     pub fn empty() -> Self {
         Self {
             left: SyntaxId::NONE.0,
             right: SyntaxId::NONE.0,
         }
-    }
-
-    pub fn child(child_id: SyntaxId) -> Self {
-        Self {
-            left: child_id.0,
-            right: SyntaxId::NONE.0,
-        }
-    }
-
-    pub fn binary_children(left: SyntaxId, right: SyntaxId) -> Self {
-        Self {
-            left: left.0,
-            right: right.0,
-        }
-    }
-
-    pub fn child_indices(start_index: u32, count: u32) -> Self {
-        Self {
-            left: start_index,
-            right: count,
-        }
-    }
-
-    pub fn encode_boolean(boolean: bool) -> Self {
-        SyntaxPayload {
-            left: boolean as u32,
-            right: SyntaxId::NONE.0,
-        }
-    }
-
-    pub fn decode_boolean(&self) -> bool {
-        self.left != 0
-    }
-
-    pub fn encode_byte(byte: u8) -> Self {
-        SyntaxPayload {
-            left: byte as u32,
-            right: SyntaxId::NONE.0,
-        }
-    }
-
-    pub fn decode_byte(&self) -> u8 {
-        self.left as u8
-    }
-
-    pub fn encode_character(character: char) -> Self {
-        let char_bytes = (character as u32).to_le_bytes();
-        let encoded =
-            u32::from_le_bytes([char_bytes[0], char_bytes[1], char_bytes[2], char_bytes[3]]);
-
-        SyntaxPayload {
-            left: encoded,
-            right: SyntaxId::NONE.0,
-        }
-    }
-
-    pub fn decode_character(&self) -> char {
-        let left_bytes = self.left.to_le_bytes();
-
-        char::from_u32(u32::from_le_bytes(left_bytes)).unwrap_or_default()
-    }
-
-    pub fn encode_float(float: f64) -> Self {
-        let float_bytes = float.to_le_bytes();
-        let first_four_bytes = u32::from_le_bytes([
-            float_bytes[0],
-            float_bytes[1],
-            float_bytes[2],
-            float_bytes[3],
-        ]);
-        let last_four_bytes = u32::from_le_bytes([
-            float_bytes[4],
-            float_bytes[5],
-            float_bytes[6],
-            float_bytes[7],
-        ]);
-
-        SyntaxPayload {
-            left: first_four_bytes,
-            right: last_four_bytes,
-        }
-    }
-
-    pub fn decode_float(&self) -> f64 {
-        let left_bytes = self.left.to_le_bytes();
-        let right_bytes = self.right.to_le_bytes();
-        let float_bytes = [
-            left_bytes[0],
-            left_bytes[1],
-            left_bytes[2],
-            left_bytes[3],
-            right_bytes[0],
-            right_bytes[1],
-            right_bytes[2],
-            right_bytes[3],
-        ];
-
-        f64::from_le_bytes(float_bytes)
-    }
-
-    pub fn encode_integer(integer: i64) -> Self {
-        let integer_bytes = integer.to_le_bytes();
-        let first_four_bytes = u32::from_le_bytes([
-            integer_bytes[0],
-            integer_bytes[1],
-            integer_bytes[2],
-            integer_bytes[3],
-        ]);
-        let last_four_bytes = u32::from_le_bytes([
-            integer_bytes[4],
-            integer_bytes[5],
-            integer_bytes[6],
-            integer_bytes[7],
-        ]);
-
-        SyntaxPayload {
-            left: first_four_bytes,
-            right: last_four_bytes,
-        }
-    }
-
-    pub fn decode_integer(&self) -> i64 {
-        let left_bytes = self.left.to_le_bytes();
-        let right_bytes = self.right.to_le_bytes();
-        let integer_bytes = [
-            left_bytes[0],
-            left_bytes[1],
-            left_bytes[2],
-            left_bytes[3],
-            right_bytes[0],
-            right_bytes[1],
-            right_bytes[2],
-            right_bytes[3],
-        ];
-
-        i64::from_le_bytes(integer_bytes)
-    }
-
-    pub fn encode_string(string_bytes: &[u8]) -> Self {
-        let length = string_bytes.len().min(7);
-        let mut encoded_bytes = [0u8; 8];
-
-        encoded_bytes[0] = length as u8;
-        encoded_bytes[1..length + 1].copy_from_slice(&string_bytes[..length]);
-
-        let left = u32::from_le_bytes([
-            encoded_bytes[0],
-            encoded_bytes[1],
-            encoded_bytes[2],
-            encoded_bytes[3],
-        ]);
-        let right = u32::from_le_bytes([
-            encoded_bytes[4],
-            encoded_bytes[5],
-            encoded_bytes[6],
-            encoded_bytes[7],
-        ]);
-
-        SyntaxPayload { left, right }
-    }
-
-    pub fn decode_string(&self) -> String {
-        let left_bytes = self.left.to_le_bytes();
-        let right_bytes = self.right.to_le_bytes();
-
-        let length = left_bytes[0] as usize;
-        let encoded_bytes = [
-            left_bytes[1],
-            left_bytes[2],
-            left_bytes[3],
-            right_bytes[0],
-            right_bytes[1],
-            right_bytes[2],
-            right_bytes[3],
-        ];
-
-        let string_bytes: Vec<u8> = encoded_bytes.into_iter().take(length).collect();
-
-        String::from_utf8(string_bytes).unwrap_or_default()
     }
 
     pub fn left_id(&self) -> SyntaxId {
@@ -637,83 +456,90 @@ impl SyntaxPayload {
     pub fn right_id(&self) -> SyntaxId {
         SyntaxId(self.right)
     }
-
-    pub fn as_usize_range(&self) -> Range<usize> {
-        let start = self.left as usize;
-        let end = start.saturating_add(self.right as usize);
-
-        start..end
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SyntaxPayloadKind {
-    Empty,
-    SingleChild,
-    BinaryChildren,
-    MultipleChildren,
+pub enum SyntaxChildrenKind {
+    None,
+    Single,
+    Binary,
+    ThreeOrMore,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SyntaxNodeModifier(u8);
+pub struct SyntaxFlags(u8);
 
-impl SyntaxNodeModifier {
-    pub const PUBLIC: u8 = 1;
-    pub const HAS_RETURN_TYPE: u8 = 2;
-    pub const HAS_WHERE_CLAUSE: u8 = 8;
-    pub const HAS_TYPE_PARAMETERS: u8 = 2;
-    pub const HAS_TYPE_ARGUMENTS: u8 = 4;
-    pub const HAS_SUPERTRAITS: u8 = 4;
-
-    pub fn new() -> Self {
-        Self(0)
+impl SyntaxFlags {
+    pub fn get_flag(&self, flag: SyntaxFlag) -> bool {
+        (self.0 & flag.0) != 0
     }
 
-    pub fn is_public(&self) -> bool {
-        (self.0 & Self::PUBLIC) != 0
+    pub fn set_flag(&mut self, flag: SyntaxFlag) {
+        self.0 |= flag.0;
     }
+}
 
-    pub fn set_public(&mut self) {
-        self.0 |= Self::PUBLIC;
-    }
+#[derive(Clone, Copy)]
+pub struct SyntaxFlag(u8);
 
-    pub fn has_return_type(&self) -> bool {
-        (self.0 & Self::HAS_RETURN_TYPE) != 0
-    }
+impl SyntaxFlag {
+    pub const PUBLIC: Self = Self(1);
+    pub const MUTABLE: Self = Self(1);
+    pub const BOOLEAN_TRUE: Self = Self(1);
+    pub const TYPE_PARAMETERS: Self = Self(2);
+    pub const VALUE_PARAMETERS: Self = Self(4);
+    pub const TYPE_ARGUMENTS: Self = Self(4);
+    pub const RETURN_TYPE: Self = Self(8);
+    pub const SUPERTRAITS: Self = Self(8);
+    pub const WHERE_CLAUSE: Self = Self(16);
+}
 
-    pub fn set_has_return_type(&mut self) {
-        self.0 |= Self::HAS_RETURN_TYPE;
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    pub fn has_where_clause(&self) -> bool {
-        (self.0 & Self::HAS_WHERE_CLAUSE) != 0
-    }
+    #[test]
+    fn flags_do_not_overwrite() {
+        let mut flags = SyntaxFlags::default();
 
-    pub fn set_has_where_clause(&mut self) {
-        self.0 |= Self::HAS_WHERE_CLAUSE;
-    }
+        flags.set_flag(SyntaxFlag::PUBLIC);
 
-    pub fn has_type_parameters(&self) -> bool {
-        (self.0 & Self::HAS_TYPE_PARAMETERS) != 0
-    }
+        assert!(flags.get_flag(SyntaxFlag::PUBLIC));
+        assert!(!flags.get_flag(SyntaxFlag::TYPE_PARAMETERS));
+        assert!(!flags.get_flag(SyntaxFlag::VALUE_PARAMETERS));
+        assert!(!flags.get_flag(SyntaxFlag::RETURN_TYPE));
+        assert!(!flags.get_flag(SyntaxFlag::WHERE_CLAUSE));
 
-    pub fn set_has_type_parameters(&mut self) {
-        self.0 |= Self::HAS_TYPE_PARAMETERS;
-    }
+        flags.set_flag(SyntaxFlag::TYPE_PARAMETERS);
 
-    pub fn has_type_arguments(&self) -> bool {
-        (self.0 & Self::HAS_TYPE_ARGUMENTS) != 0
-    }
+        assert!(flags.get_flag(SyntaxFlag::PUBLIC));
+        assert!(flags.get_flag(SyntaxFlag::TYPE_PARAMETERS));
+        assert!(!flags.get_flag(SyntaxFlag::VALUE_PARAMETERS));
+        assert!(!flags.get_flag(SyntaxFlag::RETURN_TYPE));
+        assert!(!flags.get_flag(SyntaxFlag::WHERE_CLAUSE));
 
-    pub fn set_has_type_arguments(&mut self) {
-        self.0 |= Self::HAS_TYPE_ARGUMENTS;
-    }
+        flags.set_flag(SyntaxFlag::TYPE_ARGUMENTS);
 
-    pub fn has_supertraits(&self) -> bool {
-        (self.0 & Self::HAS_SUPERTRAITS) != 0
-    }
+        assert!(flags.get_flag(SyntaxFlag::PUBLIC));
+        assert!(flags.get_flag(SyntaxFlag::TYPE_PARAMETERS));
+        assert!(flags.get_flag(SyntaxFlag::VALUE_PARAMETERS));
+        assert!(!flags.get_flag(SyntaxFlag::RETURN_TYPE));
+        assert!(!flags.get_flag(SyntaxFlag::WHERE_CLAUSE));
 
-    pub fn set_has_supertraits(&mut self) {
-        self.0 |= Self::HAS_SUPERTRAITS;
+        flags.set_flag(SyntaxFlag::RETURN_TYPE);
+
+        assert!(flags.get_flag(SyntaxFlag::PUBLIC));
+        assert!(flags.get_flag(SyntaxFlag::TYPE_PARAMETERS));
+        assert!(flags.get_flag(SyntaxFlag::VALUE_PARAMETERS));
+        assert!(flags.get_flag(SyntaxFlag::RETURN_TYPE));
+        assert!(!flags.get_flag(SyntaxFlag::WHERE_CLAUSE));
+
+        flags.set_flag(SyntaxFlag::WHERE_CLAUSE);
+
+        assert!(flags.get_flag(SyntaxFlag::PUBLIC));
+        assert!(flags.get_flag(SyntaxFlag::TYPE_PARAMETERS));
+        assert!(flags.get_flag(SyntaxFlag::VALUE_PARAMETERS));
+        assert!(flags.get_flag(SyntaxFlag::RETURN_TYPE));
+        assert!(flags.get_flag(SyntaxFlag::WHERE_CLAUSE));
     }
 }

@@ -4,7 +4,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxKind::*, SyntaxPayload},
+        node::{SyntaxChildren, SyntaxFlag, SyntaxKind::*},
     },
 };
 
@@ -24,7 +24,7 @@ fn empty() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 12), SyntaxId(3)),
+            Root.with_single_child(Span::new(0, 12), SyntaxId(3)),
             TraitItem.with_binary_children(Span::new(0, 12), SyntaxId(1), SyntaxId(2)),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.empty(Span::new(10, 12)),
@@ -48,19 +48,16 @@ fn with_supertraits() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 23), SyntaxId(8)),
-            {
-                let mut node = TraitItem
-                    .with_multiple_children(Span::new(0, 23), SyntaxPayload::child_indices(0, 3));
-                node.modifier.set_has_supertraits();
-                node
-            },
+            Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
+            TraitItem
+                .with_children(Span::new(0, 23), SyntaxChildren::new(0, 3))
+                .with_flag(SyntaxFlag::SUPERTRAITS),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.empty(Span::new(21, 23)),
             TraitBounds.with_binary_children(Span::new(11, 20), SyntaxId(3), SyntaxId(5)),
-            Path.with_child(Span::new(11, 14), SyntaxId(2)),
+            Path.with_single_child(Span::new(11, 14), SyntaxId(2)),
             PathSegment.empty(Span::new(11, 14)),
-            Path.with_child(Span::new(17, 20), SyntaxId(4)),
+            Path.with_single_child(Span::new(17, 20), SyntaxId(4)),
             PathSegment.empty(Span::new(17, 20)),
         ]
     );
@@ -82,23 +79,20 @@ fn with_type_parameters_and_supertraits() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 26), SyntaxId(11)),
-            {
-                let mut node = TraitItem
-                    .with_multiple_children(Span::new(0, 26), SyntaxPayload::child_indices(0, 4));
-                node.modifier.set_has_type_parameters();
-                node.modifier.set_has_supertraits();
-                node
-            },
+            Root.with_single_child(Span::new(0, 26), SyntaxId(11)),
+            TraitItem
+                .with_children(Span::new(0, 26), SyntaxChildren::new(0, 4))
+                .with_flag(SyntaxFlag::TYPE_PARAMETERS)
+                .with_flag(SyntaxFlag::SUPERTRAITS),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.empty(Span::new(24, 26)),
-            TypeParameters.with_child(Span::new(9, 12), SyntaxId(3)),
-            TypeParameter.with_child(Span::new(10, 11), SyntaxId(2)),
+            TypeParameters.with_single_child(Span::new(9, 12), SyntaxId(3)),
+            TypeParameter.with_single_child(Span::new(10, 11), SyntaxId(2)),
             SimplePath.empty(Span::new(10, 11)),
             TraitBounds.with_binary_children(Span::new(14, 23), SyntaxId(6), SyntaxId(8)),
-            Path.with_child(Span::new(14, 17), SyntaxId(5)),
+            Path.with_single_child(Span::new(14, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(14, 17)),
-            Path.with_child(Span::new(20, 23), SyntaxId(7)),
+            Path.with_single_child(Span::new(20, 23), SyntaxId(7)),
             PathSegment.empty(Span::new(20, 23)),
         ]
     );
@@ -120,25 +114,22 @@ fn with_where_clause() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 28), SyntaxId(13)),
-            {
-                let mut node = TraitItem
-                    .with_multiple_children(Span::new(0, 28), SyntaxPayload::child_indices(0, 4));
-                node.modifier.set_has_type_parameters();
-                node.modifier.set_has_where_clause();
-                node
-            },
+            Root.with_single_child(Span::new(0, 28), SyntaxId(13)),
+            TraitItem
+                .with_children(Span::new(0, 28), SyntaxChildren::new(0, 4))
+                .with_flag(SyntaxFlag::TYPE_PARAMETERS)
+                .with_flag(SyntaxFlag::WHERE_CLAUSE),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.empty(Span::new(26, 28)),
-            TypeParameters.with_child(Span::new(9, 12), SyntaxId(3)),
-            TypeParameter.with_child(Span::new(10, 11), SyntaxId(2)),
+            TypeParameters.with_single_child(Span::new(9, 12), SyntaxId(3)),
+            TypeParameter.with_single_child(Span::new(10, 11), SyntaxId(2)),
             SimplePath.empty(Span::new(10, 11)),
-            WhereClause.with_child(Span::new(13, 25), SyntaxId(10)),
+            WhereClause.with_single_child(Span::new(13, 25), SyntaxId(10)),
             WherePredicate.with_binary_children(Span::new(19, 25), SyntaxId(6), SyntaxId(9)),
-            TypePath.with_child(Span::new(19, 20), SyntaxId(5)),
+            TypePath.with_single_child(Span::new(19, 20), SyntaxId(5)),
             PathSegment.empty(Span::new(19, 20)),
-            TraitBounds.with_child(Span::new(22, 25), SyntaxId(8)),
-            Path.with_child(Span::new(22, 25), SyntaxId(7)),
+            TraitBounds.with_single_child(Span::new(22, 25), SyntaxId(8)),
+            Path.with_single_child(Span::new(22, 25), SyntaxId(7)),
             PathSegment.empty(Span::new(22, 25)),
         ]
     );
@@ -160,10 +151,10 @@ fn with_const_member() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 27), SyntaxId(6)),
+            Root.with_single_child(Span::new(0, 27), SyntaxId(6)),
             TraitItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(5)),
             SimplePath.empty(Span::new(6, 9)),
-            TraitBody.with_child(Span::new(10, 27), SyntaxId(4)),
+            TraitBody.with_single_child(Span::new(10, 27), SyntaxId(4)),
             TraitConst.with_binary_children(Span::new(12, 25), SyntaxId(2), SyntaxId(3)),
             SimplePath.empty(Span::new(18, 19)),
             I64Type.empty(Span::new(21, 24)),
@@ -187,12 +178,11 @@ fn with_const_member_default() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 32), SyntaxId(7)),
+            Root.with_single_child(Span::new(0, 32), SyntaxId(7)),
             TraitItem.with_binary_children(Span::new(0, 32), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(6, 9)),
-            TraitBody.with_child(Span::new(10, 32), SyntaxId(5)),
-            TraitConst
-                .with_multiple_children(Span::new(12, 30), SyntaxPayload::child_indices(0, 3),),
+            TraitBody.with_single_child(Span::new(10, 32), SyntaxId(5)),
+            TraitConst.with_children(Span::new(12, 30), SyntaxChildren::new(0, 3),),
             SimplePath.empty(Span::new(18, 19)),
             I64Type.empty(Span::new(21, 24)),
             IntegerExpression.empty(Span::new(27, 29)),
@@ -216,15 +206,14 @@ fn with_method_signature() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 27), SyntaxId(10)),
+            Root.with_single_child(Span::new(0, 27), SyntaxId(10)),
             TraitItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(9)),
             SimplePath.empty(Span::new(6, 9)),
-            TraitBody.with_child(Span::new(10, 27), SyntaxId(8)),
+            TraitBody.with_single_child(Span::new(10, 27), SyntaxId(8)),
             TraitFunctionItem.with_binary_children(Span::new(12, 25), SyntaxId(2), SyntaxId(7)),
             SimplePath.empty(Span::new(15, 18)),
-            FunctionSignature
-                .with_multiple_children(Span::new(12, 24), SyntaxPayload::child_indices(0, 1),),
-            FunctionParameters.with_child(Span::new(12, 24), SyntaxId(5)),
+            FunctionSignature.with_children(Span::new(12, 24), SyntaxChildren::new(0, 1),),
+            FunctionParameters.with_single_child(Span::new(12, 24), SyntaxId(5)),
             ValueParameters.with_binary_children(Span::new(12, 24), SyntaxId(3), SyntaxId(4)),
             SimplePath.empty(Span::new(19, 23)),
             SelfType.empty(Span::new(19, 23)),
@@ -248,16 +237,14 @@ fn with_default_method() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 29), SyntaxId(11)),
+            Root.with_single_child(Span::new(0, 29), SyntaxId(11)),
             TraitItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(6, 9)),
-            TraitBody.with_child(Span::new(10, 29), SyntaxId(9)),
-            FunctionItem
-                .with_multiple_children(Span::new(12, 27), SyntaxPayload::child_indices(1, 4),),
+            TraitBody.with_single_child(Span::new(10, 29), SyntaxId(9)),
+            FunctionItem.with_children(Span::new(12, 27), SyntaxChildren::new(1, 4),),
             SimplePath.empty(Span::new(15, 18)),
-            FunctionSignature
-                .with_multiple_children(Span::new(12, 24), SyntaxPayload::child_indices(0, 1),),
-            FunctionParameters.with_child(Span::new(12, 24), SyntaxId(5)),
+            FunctionSignature.with_children(Span::new(12, 24), SyntaxChildren::new(0, 1),),
+            FunctionParameters.with_single_child(Span::new(12, 24), SyntaxId(5)),
             ValueParameters.with_binary_children(Span::new(12, 24), SyntaxId(3), SyntaxId(4)),
             SimplePath.empty(Span::new(19, 23)),
             SelfType.empty(Span::new(19, 23)),
@@ -282,19 +269,16 @@ fn with_method_signature_and_return_type() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 34), SyntaxId(11)),
+            Root.with_single_child(Span::new(0, 34), SyntaxId(11)),
             TraitItem.with_binary_children(Span::new(0, 34), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(6, 9)),
-            TraitBody.with_child(Span::new(10, 34), SyntaxId(9)),
+            TraitBody.with_single_child(Span::new(10, 34), SyntaxId(9)),
             TraitFunctionItem.with_binary_children(Span::new(12, 32), SyntaxId(2), SyntaxId(8)),
             SimplePath.empty(Span::new(15, 18)),
-            {
-                let mut node = FunctionSignature
-                    .with_multiple_children(Span::new(12, 31), SyntaxPayload::child_indices(0, 2));
-                node.modifier.set_has_return_type();
-                node
-            },
-            FunctionParameters.with_child(Span::new(12, 24), SyntaxId(5)),
+            FunctionSignature
+                .with_children(Span::new(12, 31), SyntaxChildren::new(0, 2))
+                .with_flag(SyntaxFlag::RETURN_TYPE),
+            FunctionParameters.with_single_child(Span::new(12, 24), SyntaxId(5)),
             ValueParameters.with_binary_children(Span::new(12, 24), SyntaxId(3), SyntaxId(4)),
             SimplePath.empty(Span::new(19, 23)),
             SelfType.empty(Span::new(19, 23)),
@@ -319,11 +303,11 @@ fn with_type_member() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 23), SyntaxId(5)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(5)),
             TraitItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(4)),
             SimplePath.empty(Span::new(6, 9)),
-            TraitBody.with_child(Span::new(10, 23), SyntaxId(3)),
-            TraitType.with_child(Span::new(12, 21), SyntaxId(2)),
+            TraitBody.with_single_child(Span::new(10, 23), SyntaxId(3)),
+            TraitType.with_single_child(Span::new(12, 21), SyntaxId(2)),
             SimplePath.empty(Span::new(17, 20)),
         ]
     );
@@ -345,10 +329,10 @@ fn with_type_member_default() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 29), SyntaxId(6)),
+            Root.with_single_child(Span::new(0, 29), SyntaxId(6)),
             TraitItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(5)),
             SimplePath.empty(Span::new(6, 9)),
-            TraitBody.with_child(Span::new(10, 29), SyntaxId(4)),
+            TraitBody.with_single_child(Span::new(10, 29), SyntaxId(4)),
             TraitType.with_binary_children(Span::new(12, 27), SyntaxId(2), SyntaxId(3)),
             SimplePath.empty(Span::new(17, 20)),
             I64Type.empty(Span::new(23, 26)),

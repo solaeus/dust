@@ -1,5 +1,5 @@
 use crate::{
-    constants::ConstantListError,
+    constants::ConstantsError,
     dust_type::DustType,
     error::AnnotatedError,
     instruction::{MemoryKind, OperandType, Operation},
@@ -7,10 +7,10 @@ use crate::{
 
 #[derive(Debug)]
 pub enum VmError {
-    ConstantList(ConstantListError),
+    ConstantList(ConstantsError),
 
-    InvalidPrototypeId {
-        prototype_id: u16,
+    InvalidPrototypeIndex {
+        index: u16,
     },
     UnsupportedOperation {
         operation: Operation,
@@ -31,8 +31,8 @@ pub enum VmError {
     },
 }
 
-impl From<ConstantListError> for VmError {
-    fn from(constant_list_error: ConstantListError) -> Self {
+impl From<ConstantsError> for VmError {
+    fn from(constant_list_error: ConstantsError) -> Self {
         Self::ConstantList(constant_list_error)
     }
 }
@@ -45,7 +45,7 @@ impl<'a> AnnotatedError<'a> for VmError {
             VmError::ConstantList(constant_list_error) => {
                 constant_list_error.add_report((), groups);
             }
-            VmError::InvalidPrototypeId { .. }
+            VmError::InvalidPrototypeIndex { .. }
             | VmError::UnsupportedMemoryKind { .. }
             | VmError::UnsupportedOperation { .. }
             | VmError::UnsupportedOperandType { .. }

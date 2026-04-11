@@ -19,7 +19,7 @@ use crate::{
         emitter::{Emitter, get_register_size},
         error::CompileError,
         resolver::{
-            Resolver,
+            PrototypeId, Resolver,
             declarations::{DeclarationId, Definition, Visibility},
             scopes::{Scope, ScopeId, ScopeKind},
             types::Type,
@@ -33,7 +33,6 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     program::Program,
-    prototype::{PrototypeId, PrototypeList},
     source::{FileId, Source},
     syntax::{
         Syntax,
@@ -47,18 +46,16 @@ pub struct Compiler<'src> {
     source: Source<'src>,
     constants: ConstantsBuilder,
     resolver: Resolver,
-    prototypes: PrototypeList,
     compilation_stack: Vec<CompilationRequest>,
 }
 
 impl<'src> Compiler<'src> {
     pub fn new(source: Source<'src>) -> Self {
         Self {
-            syntax: Syntax::new(source.file_count()),
+            syntax: Syntax::with_capacity(source.file_count()),
             source,
             constants: ConstantsBuilder::new(),
             resolver: Resolver::new(),
-            prototypes: PrototypeList::new(),
             compilation_stack: Vec::new(),
         }
     }
@@ -71,7 +68,12 @@ impl<'src> Compiler<'src> {
         match self.compile_inner() {
             Ok(return_type) => {
                 let (constants, _) = self.constants.build();
-                let program = Program::new(program_name, return_type, constants, self.prototypes);
+                let program = Program::new(
+                    program_name,
+                    return_type,
+                    constants,
+                    self.resolver.into_prototypes(),
+                );
 
                 Ok(program)
             }
@@ -93,7 +95,12 @@ impl<'src> Compiler<'src> {
         match self.compile_inner() {
             Ok(return_type) => {
                 let (constants, constant_tags) = self.constants.build();
-                let program = Program::new(program_name, return_type, constants, self.prototypes);
+                let program = Program::new(
+                    program_name,
+                    return_type,
+                    constants,
+                    self.resolver.into_prototypes(),
+                );
 
                 Ok((program, self.source, self.syntax, constant_tags))
             }
@@ -207,7 +214,7 @@ impl<'src> Compiler<'src> {
             return Err(errors);
         };
 
-        let main_prototype_id = self.prototypes.reserve();
+        let main_prototype_id = self.resolver.reserve_prototype_id();
 
         debug_assert_eq!(main_prototype_id, PrototypeId::MAIN);
 
@@ -245,7 +252,7 @@ impl<'src> Compiler<'src> {
             let syntax_node = unwrap_or_return!(
                 self.syntax
                     .get_tree(position.file_id)
-                    .and_then(|tree| tree.get_node(syntax_id))
+                    .and_then(|tree| tree.read_node(syntax_id))
             );
 
             let FunctionItem {
@@ -378,7 +385,6 @@ impl<'src> Compiler<'src> {
                         &self.source,
                         &mut self.constants,
                         &mut self.resolver,
-                        &mut self.prototypes,
                         &mut self.compilation_stack,
                     ),
                 ) {
@@ -414,7 +420,7 @@ impl<'src> Compiler<'src> {
                     }
                 };
 
-                self.prototypes.set(prototype_id, prototype);
+                self.resolver.set_prototype(prototype_id, prototype);
 
                 if prototype_id == PrototypeId::MAIN {
                     concrete_main_return_type_id = Some(concrete_return_type_id);

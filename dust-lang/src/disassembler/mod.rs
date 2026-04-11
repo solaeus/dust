@@ -16,7 +16,7 @@ use ratatui::{
 use crate::{
     instruction::OperandType,
     program::Program,
-    prototype::{Prototype, PrototypeId},
+    prototype::Prototype,
     source::{Code, FileId, Source},
     syntax::{Syntax, tree::SyntaxTree},
 };
@@ -53,8 +53,11 @@ impl<'a> Disassembler<'a> {
 
         tabs.push(Tab::Constants);
 
-        for (id, prototype) in program.prototypes.iter() {
-            tabs.push(Tab::Prototype(PrototypeTab { id, prototype }));
+        for (index, prototype) in program.prototypes.iter().enumerate() {
+            tabs.push(Tab::Prototype(PrototypeTab {
+                id: index as u16,
+                prototype,
+            }));
         }
 
         Self {
@@ -455,6 +458,6 @@ impl<'a> From<&'a Tab<'a>> for Line<'a> {
 }
 
 struct PrototypeTab<'a> {
-    id: PrototypeId,
+    id: u16,
     prototype: &'a Prototype,
 }

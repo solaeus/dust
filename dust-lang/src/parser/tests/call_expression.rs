@@ -5,7 +5,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxKind::*, SyntaxPayload},
+        node::{SyntaxKind::*, SyntaxChildren},
     },
 };
 
@@ -25,17 +25,15 @@ fn call_with_two_arguments() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 27), SyntaxId(12)),
-            FunctionItem
-                .with_multiple_children(Span::new(0, 27), SyntaxPayload::child_indices(1, 4)),
+            Root.with_single_child(Span::new(0, 27), SyntaxId(12)),
+            FunctionItem.with_children(Span::new(0, 27), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature
-                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
-            FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
+            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
+            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 27), SyntaxId(10)),
+            BlockExpression.with_single_child(Span::new(10, 27), SyntaxId(10)),
             CallExpression.with_binary_children(Span::new(16, 25), SyntaxId(6), SyntaxId(9)),
-            PathExpression.with_child(Span::new(16, 19), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 19), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 19)),
             ValueArguments.with_binary_children(Span::new(16, 25), SyntaxId(7), SyntaxId(8)),
             IntegerExpression.empty(Span::new(20, 21)),

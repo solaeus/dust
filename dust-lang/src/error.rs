@@ -9,7 +9,7 @@ use annotate_snippets::{Group, Level, Renderer};
 
 use crate::{
     compiler::{error::CompileError, resolver::Resolver},
-    constants::ConstantListError,
+    constants::ConstantsError,
     parser::error::ParseError,
     source::{Source, SourceError},
     syntax::{Syntax, error::SyntaxError},
@@ -50,9 +50,7 @@ impl<'a> Display for Error<'a> {
         let renderer = Renderer::styled();
 
         for error in &self.errors {
-            let (source, syntax, resolver) = self.context.parts();
-
-            error.add_report((source, syntax, resolver), &mut report);
+            error.add_report(self.context.parts(), &mut report);
 
             let display = renderer.render(&report);
 
@@ -84,7 +82,7 @@ impl<'src> ErrorContext<'src> {
     }
 }
 
-/// An error that can occur during the interpretation of Dust code.
+/// An error that can occur while interpreting Dust code.
 #[derive(Debug)]
 pub enum ErrorKind {
     Parse(ParseError),
@@ -116,8 +114,8 @@ impl From<SyntaxError> for ErrorKind {
     }
 }
 
-impl From<ConstantListError> for ErrorKind {
-    fn from(error: ConstantListError) -> Self {
+impl From<ConstantsError> for ErrorKind {
+    fn from(error: ConstantsError) -> Self {
         ErrorKind::Compile(CompileError::ConstantList(error))
     }
 }

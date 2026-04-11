@@ -52,7 +52,7 @@ fn with_unit_variants() {
         .unwrap();
     let Definition::Variant {
         discriminant: red_discriminant,
-        parent_enum: red_parent,
+        enum_declaration_id: red_parent_id,
         ..
     } = red.definition
     else {
@@ -61,7 +61,7 @@ fn with_unit_variants() {
 
     assert_eq!(red.symbol_id, red_symbol);
     assert_eq!(red_discriminant, 0);
-    assert_eq!(red_parent, color_id);
+    assert_eq!(red_parent_id, color_id);
 
     let green = resolver
         .declarations
@@ -69,7 +69,7 @@ fn with_unit_variants() {
         .unwrap();
     let Definition::Variant {
         discriminant: green_discriminant,
-        parent_enum: green_parent,
+        enum_declaration_id: green_parent_id,
         ..
     } = green.definition
     else {
@@ -78,7 +78,7 @@ fn with_unit_variants() {
 
     assert_eq!(green.symbol_id, green_symbol);
     assert_eq!(green_discriminant, 1);
-    assert_eq!(green_parent, color_id);
+    assert_eq!(green_parent_id, color_id);
 
     let blue = resolver
         .declarations
@@ -86,7 +86,7 @@ fn with_unit_variants() {
         .unwrap();
     let Definition::Variant {
         discriminant: blue_discriminant,
-        parent_enum: blue_parent,
+        enum_declaration_id: blue_parent_id,
         ..
     } = blue.definition
     else {
@@ -95,7 +95,7 @@ fn with_unit_variants() {
 
     assert_eq!(blue.symbol_id, blue_symbol);
     assert_eq!(blue_discriminant, 2);
-    assert_eq!(blue_parent, color_id);
+    assert_eq!(blue_parent_id, color_id);
 }
 
 #[test]
@@ -184,7 +184,7 @@ fn with_mixed_variants() {
         .unwrap();
     let Definition::Variant {
         discriminant: point_discriminant,
-        parent_enum: point_parent,
+        enum_declaration_id: point_parent_id,
         fields: point_fields,
         ..
     } = point.definition
@@ -194,7 +194,7 @@ fn with_mixed_variants() {
 
     assert_eq!(point.symbol_id, point_symbol);
     assert_eq!(point_discriminant, 0);
-    assert_eq!(point_parent, shape_id);
+    assert_eq!(point_parent_id, shape_id);
     assert!(point_fields.is_empty());
 
     let line = resolver
@@ -203,7 +203,7 @@ fn with_mixed_variants() {
         .unwrap();
     let Definition::Variant {
         discriminant: line_discriminant,
-        parent_enum: line_parent,
+        enum_declaration_id: line_parent_id,
         fields: line_fields,
         ..
     } = line.definition
@@ -213,7 +213,7 @@ fn with_mixed_variants() {
 
     assert_eq!(line.symbol_id, line_symbol);
     assert_eq!(line_discriminant, 1);
-    assert_eq!(line_parent, shape_id);
+    assert_eq!(line_parent_id, shape_id);
 
     let line_field_ids = resolver
         .declarations
@@ -241,9 +241,9 @@ fn with_mixed_variants() {
         .get_declaration(variant_ids[2])
         .unwrap();
     let Definition::Variant {
-        discriminant: rect_discriminant,
-        parent_enum: rect_parent,
-        fields: rect_fields,
+        discriminant: rectangle_discriminant,
+        enum_declaration_id: rectangle_parent_id,
+        fields: rectangle_fields,
         ..
     } = rect.definition
     else {
@@ -251,15 +251,15 @@ fn with_mixed_variants() {
     };
 
     assert_eq!(rect.symbol_id, rect_symbol);
-    assert_eq!(rect_discriminant, 2);
-    assert_eq!(rect_parent, shape_id);
+    assert_eq!(rectangle_discriminant, 2);
+    assert_eq!(rectangle_parent_id, shape_id);
 
     let rect_field_ids = resolver
         .declarations
-        .get_declaration_members(&rect_fields)
+        .get_declaration_members(&rectangle_fields)
         .unwrap();
 
-    assert_eq!(rect_fields.len(), 2);
+    assert_eq!(rectangle_fields.len(), 2);
 
     let w_symbol = resolver.symbols.add_symbol("w");
     let h_symbol = resolver.symbols.add_symbol("h");

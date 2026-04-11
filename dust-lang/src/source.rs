@@ -51,12 +51,6 @@ impl<'src> Source<'src> {
             .ok_or(SourceError::MissingSourceFile(file_id))
     }
 
-    pub fn get_code_by_index(&self, index: usize) -> Option<(FileId, &Code<'src>)> {
-        self.code
-            .get(index)
-            .map(|file| (FileId(index as u32), file))
-    }
-
     pub fn get_content(&self, position: &Position) -> Result<&str, SourceError> {
         self.get_code(position.file_id)?.get_str(position.span)
     }
@@ -351,15 +345,13 @@ impl Position {
 /// Half-open range of byte indices in a source file.
 ///
 /// A `Span` is alway a valid range: the end is always greater than or equal to the start.
-#[derive(
-    Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Span(u32, u32);
 
 impl Span {
-    pub fn new<T: TryInto<u32>>(start: T, end: T) -> Self {
-        let start = start.try_into().unwrap_or_default();
-        let end = end.try_into().unwrap_or_default().max(start);
+    pub fn new<T: IntoSpanIndex>(start: T, end: T) -> Self {
+        let start = start.into_span_index();
+        let end = end.into_span_index().max(start);
 
         Self(start, end)
     }
@@ -405,23 +397,38 @@ impl Display for Span {
     }
 }
 
-#[derive(Debug)]
-pub enum SourceError {
-    CannotOpen { io_error: io::ErrorKind },
-    ExpectedFilePath { found: String },
-    ExpectedUtf8Path { found: String },
-    InvalidPath { found: String },
-
-    MissingSourceFile(FileId),
-    FileContentOutOfBounds { span: Span, length: usize },
+trait IntoSpanIndex {
+    fn into_span_index(self) -> u32;
 }
 
-impl SourceError {
-    pub fn print_and_exit(&self) -> ! {
-        eprintln!("{self}");
-
-        std::process::exit(1);
+impl IntoSpanIndex for u32 {
+    fn into_span_index(self) -> u32 {
+        self
     }
+}
+
+impl IntoSpanIndex for usize {
+    fn into_span_index(self) -> u32 {
+        self as u32
+    }
+}
+
+#[cfg(test)]
+impl IntoSpanIndex for i32 {
+    fn into_span_index(self) -> u32 {
+        self as u32
+    }
+}
+
+#[derive(Debug)]
+pub enum SourceError {
+    // User errors
+    CannotOpen { io_error: io::ErrorKind },
+    ExpectedFilePath { found: String },
+
+    // Internal errors
+    MissingSourceFile(FileId),
+    FileContentOutOfBounds { span: Span, length: usize },
 }
 
 impl Display for SourceError {
@@ -461,22 +468,6 @@ impl<'src> AnnotatedError<'src> for SourceError {
                 Group::with_title(Level::ERROR.primary_title(title))
                     .element(Level::ERROR.message(message))
                     .element(Level::HELP.message(help))
-            }
-            SourceError::ExpectedUtf8Path { found } => {
-                let title = "Expected UTF-8 file path".to_string();
-                let message = format!(
-                    "\"{found}\" contains non-UTF-8 characters. Dust file paths must be UTF-8."
-                );
-
-                Group::with_title(Level::ERROR.primary_title(title))
-                    .element(Level::ERROR.message(message))
-            }
-            SourceError::InvalidPath { found } => {
-                let title = "Invalid file path".to_string();
-                let message = format!("\"{found}\" is not a valid path.");
-
-                Group::with_title(Level::ERROR.primary_title(title))
-                    .element(Level::ERROR.message(message))
             }
             SourceError::MissingSourceFile(_) | SourceError::FileContentOutOfBounds { .. } => {
                 self.add_internal_report(reports);

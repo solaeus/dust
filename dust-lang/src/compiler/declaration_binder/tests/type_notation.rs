@@ -268,7 +268,7 @@ fn function_type_basic() {
     let function_type = resolver.types.get_type(parameter_types[0]).unwrap();
     let Type::Function {
         value_parameters: function_value_parameters,
-        return_type,
+        return_type_id,
     } = function_type
     else {
         panic!();
@@ -279,7 +279,7 @@ fn function_type_basic() {
         .unwrap();
 
     assert_eq!(parameters, &[TypeId::I_64]);
-    assert_eq!(*return_type, TypeId::I_64);
+    assert_eq!(*return_type_id, TypeId::I_64);
 }
 
 #[test]
@@ -308,7 +308,7 @@ fn function_type_no_params() {
     let function_type = resolver.types.get_type(parameter_types[0]).unwrap();
     let Type::Function {
         value_parameters: function_value_parameters,
-        return_type,
+        return_type_id,
         ..
     } = function_type
     else {
@@ -316,7 +316,7 @@ fn function_type_no_params() {
     };
 
     assert!(function_value_parameters.is_empty());
-    assert_eq!(*return_type, TypeId::BOOLEAN);
+    assert_eq!(*return_type_id, TypeId::BOOLEAN);
 }
 
 #[test]
@@ -345,7 +345,7 @@ fn function_type_multiple_params() {
     let function_type = resolver.types.get_type(parameter_types[0]).unwrap();
     let Type::Function {
         value_parameters: function_value_parameters,
-        return_type,
+        return_type_id,
         ..
     } = function_type
     else {
@@ -357,17 +357,14 @@ fn function_type_multiple_params() {
         .unwrap();
 
     assert_eq!(function_parameters, &[TypeId::I_64, TypeId::BOOLEAN]);
-    assert_eq!(*return_type, TypeId::CHARACTER);
+    assert_eq!(*return_type_id, TypeId::CHARACTER);
 }
 
 #[test]
 fn function_type_no_return() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("tes
-        "test",
-        foo(x: fn(i64)) {}"));,
-    
+    source.add_code(Code::validated_borrowed("test", "foo(x: fn(i64)) {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
@@ -386,7 +383,7 @@ fn function_type_no_return() {
     let function_type = resolver.types.get_type(parameter_types[0]).unwrap();
     let Type::Function {
         value_parameters,
-        return_type,
+        return_type_id,
         ..
     } = function_type
     else {
@@ -395,7 +392,7 @@ fn function_type_no_return() {
     let value_parameters = resolver.types.get_type_members(*value_parameters).unwrap();
 
     assert_eq!(value_parameters, &[TypeId::I_64]);
-    assert_eq!(*return_type, TypeId::UNIT);
+    assert_eq!(*return_type_id, TypeId::UNIT);
 }
 
 #[test]

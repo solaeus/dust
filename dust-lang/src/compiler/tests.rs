@@ -1,7 +1,7 @@
 #![allow(clippy::disallowed_macros)]
 #![allow(clippy::disallowed_methods)]
 
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 
 use crate::{
     compiler::resolver::{
@@ -28,7 +28,7 @@ fn compile(source_code: &str) -> Program {
 }
 
 pub fn bind_declarations(source: &Source) -> (Syntax, Resolver, ScopeId) {
-    let mut syntax = Syntax::new(source.file_count());
+    let mut syntax = Syntax::with_capacity(source.file_count());
 
     for (file_id, file) in source.iter() {
         let lexer = Lexer::with_validated_source(file.content_as_str());
@@ -94,7 +94,7 @@ pub fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
 
     let function_item = syntax
         .get_tree(position.file_id)
-        .and_then(|tree| tree.get_node(syntax_id))
+        .and_then(|tree| tree.read_node(syntax_id))
         .unwrap();
     let FunctionItem { body, .. } = function_item.as_component().unwrap();
 

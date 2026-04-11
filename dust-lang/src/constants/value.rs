@@ -1,3 +1,5 @@
+use std::fmt::{self, Display, Formatter};
+
 use crate::{
     compiler::{error::CompileError, resolver::types::TypeId},
     instruction::OperandType,
@@ -656,11 +658,32 @@ impl ConstantValue {
             }
         };
 
-        CompileError::ConstantTypeConflict {
+        CompileError::TypeConflict {
             expected_type: self.type_id(),
-            expected_position: left.position(),
+            expected_position: Some(left.position()),
             found_type: other.type_id(),
             found_position: right.position(),
+        }
+    }
+}
+
+impl Display for ConstantValue {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            ConstantValue::Boolean(boolean) => write!(f, "{boolean}"),
+            ConstantValue::Character(character) => write!(f, "{character}"),
+            ConstantValue::U8(integer) => write!(f, "{integer}"),
+            ConstantValue::I8(integer) => write!(f, "{integer}"),
+            ConstantValue::U16(integer) => write!(f, "{integer}"),
+            ConstantValue::I16(integer) => write!(f, "{integer}"),
+            ConstantValue::U32(integer) => write!(f, "{integer}"),
+            ConstantValue::I32(integer) => write!(f, "{integer}"),
+            ConstantValue::U64(integer) => write!(f, "{integer}"),
+            ConstantValue::I64(integer) => write!(f, "{integer}"),
+            ConstantValue::U128(integer) => write!(f, "{integer}"),
+            ConstantValue::I128(integer) => write!(f, "{integer}"),
+            ConstantValue::F32(float) => write!(f, "{float}"),
+            ConstantValue::F64(float) => write!(f, "{float}"),
         }
     }
 }

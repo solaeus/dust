@@ -94,10 +94,7 @@ fn with_named_fields() {
 fn tuple() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("tes
-        "test",
-       ruct Bar(i64, bool);"));,
-    
+    source.add_code(Code::validated_borrowed("test", "struct Bar(i64, bool);"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let bar_symbol = resolver.symbols.add_symbol("Bar");
@@ -206,10 +203,7 @@ fn public_generic() {
 fn fields_not_visible_at_module_scope() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("tes
-        "test",
-       ruct Foo { x: i64 }"));,
-    
+    source.add_code(Code::validated_borrowed("test", "struct Foo { x: i64 }"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let x_symbol = resolver.symbols.add_symbol("x");
@@ -395,10 +389,7 @@ fn field_publicity() {
 fn generic_field_uses_type_parameter() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("tes
-        "test",
-       ruct Foo<T> { x: T }"));,
-    
+    source.add_code(Code::validated_borrowed("test", "struct Foo<T> { x: T }"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");

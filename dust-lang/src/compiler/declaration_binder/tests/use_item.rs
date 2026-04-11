@@ -28,10 +28,7 @@ fn module() {
 fn public_module() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
-        "test",
-        "mod foo {} pub use foo;",
-    ));
+    source.add_code(Code::validated_borrowed("test", "mod foo {} pub use foo;"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
@@ -58,10 +55,17 @@ fn resolves_to_module() {
         .declarations
         .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
         .unwrap();
-    let Definition::Use { item, .. } = use_declaration.definition else {
+    let Definition::Use {
+        source_declaration_id,
+        ..
+    } = use_declaration.definition
+    else {
         panic!();
     };
-    let target = resolver.declarations.get_declaration(item).unwrap();
+    let target = resolver
+        .declarations
+        .get_declaration(source_declaration_id)
+        .unwrap();
 
     assert!(matches!(target.definition, Definition::Module { .. }));
 }
@@ -81,10 +85,17 @@ fn function_from_module() {
         .declarations
         .find_declaration(bar_symbol, crate_scope_id, Visibility::Module)
         .unwrap();
-    let Definition::Use { item, .. } = use_declaration.definition else {
+    let Definition::Use {
+        source_declaration_id,
+        ..
+    } = use_declaration.definition
+    else {
         panic!();
     };
-    let target = resolver.declarations.get_declaration(item).unwrap();
+    let target = resolver
+        .declarations
+        .get_declaration(source_declaration_id)
+        .unwrap();
 
     assert!(matches!(target.definition, Definition::Function { .. }));
 }
@@ -104,10 +115,17 @@ fn struct_from_module() {
         .declarations
         .find_declaration(bar_symbol, crate_scope_id, Visibility::Module)
         .unwrap();
-    let Definition::Use { item, .. } = use_declaration.definition else {
+    let Definition::Use {
+        source_declaration_id,
+        ..
+    } = use_declaration.definition
+    else {
         panic!();
     };
-    let target = resolver.declarations.get_declaration(item).unwrap();
+    let target = resolver
+        .declarations
+        .get_declaration(source_declaration_id)
+        .unwrap();
 
     assert!(matches!(target.definition, Definition::StructType { .. }));
 }
@@ -127,10 +145,17 @@ fn from_nested_module() {
         .declarations
         .find_declaration(baz_symbol, crate_scope_id, Visibility::Module)
         .unwrap();
-    let Definition::Use { item, .. } = use_declaration.definition else {
+    let Definition::Use {
+        source_declaration_id,
+        ..
+    } = use_declaration.definition
+    else {
         panic!();
     };
-    let target = resolver.declarations.get_declaration(item).unwrap();
+    let target = resolver
+        .declarations
+        .get_declaration(source_declaration_id)
+        .unwrap();
 
     assert!(matches!(target.definition, Definition::Function { .. }));
 }
@@ -150,10 +175,17 @@ fn nested_module() {
         .declarations
         .find_declaration(bar_symbol, crate_scope_id, Visibility::Module)
         .unwrap();
-    let Definition::Use { item, .. } = use_declaration.definition else {
+    let Definition::Use {
+        source_declaration_id,
+        ..
+    } = use_declaration.definition
+    else {
         panic!();
     };
-    let target = resolver.declarations.get_declaration(item).unwrap();
+    let target = resolver
+        .declarations
+        .get_declaration(source_declaration_id)
+        .unwrap();
 
     assert!(matches!(target.definition, Definition::Module { .. }));
 }
@@ -181,10 +213,17 @@ fn inside_module() {
         .declarations
         .find_declaration(bar_symbol, inner_scope_id, Visibility::Module)
         .unwrap();
-    let Definition::Use { item, .. } = use_declaration.definition else {
+    let Definition::Use {
+        source_declaration_id,
+        ..
+    } = use_declaration.definition
+    else {
         panic!();
     };
-    let target = resolver.declarations.get_declaration(item).unwrap();
+    let target = resolver
+        .declarations
+        .get_declaration(source_declaration_id)
+        .unwrap();
 
     assert!(matches!(target.definition, Definition::Function { .. }));
 }
@@ -253,10 +292,17 @@ fn enum_from_module() {
         .declarations
         .find_declaration(color_symbol, crate_scope_id, Visibility::Module)
         .unwrap();
-    let Definition::Use { item, .. } = use_declaration.definition else {
+    let Definition::Use {
+        source_declaration_id,
+        ..
+    } = use_declaration.definition
+    else {
         panic!();
     };
-    let target = resolver.declarations.get_declaration(item).unwrap();
+    let target = resolver
+        .declarations
+        .get_declaration(source_declaration_id)
+        .unwrap();
 
     assert!(matches!(target.definition, Definition::EnumType { .. }));
 }
@@ -276,10 +322,17 @@ fn enum_variant_from_module() {
         .declarations
         .find_declaration(red_symbol, crate_scope_id, Visibility::Module)
         .unwrap();
-    let Definition::Use { item, .. } = use_declaration.definition else {
+    let Definition::Use {
+        source_declaration_id,
+        ..
+    } = use_declaration.definition
+    else {
         panic!();
     };
-    let target = resolver.declarations.get_declaration(item).unwrap();
+    let target = resolver
+        .declarations
+        .get_declaration(source_declaration_id)
+        .unwrap();
 
     assert!(matches!(target.definition, Definition::Variant { .. }));
 }

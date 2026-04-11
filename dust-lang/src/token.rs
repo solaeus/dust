@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::source::Span;
 
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Token {
     pub kind: TokenKind,
     pub span: Span,
@@ -16,10 +16,9 @@ impl Display for Token {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum TokenKind {
     // Characters that cannot be used in Dust source code
-    #[default]
     Unknown,
 
     Eof,

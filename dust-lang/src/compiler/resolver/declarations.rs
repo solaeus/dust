@@ -1,6 +1,7 @@
 use std::{collections::HashMap, ops::Range};
 
 use rustc_hash::FxBuildHasher;
+use smallvec::SmallVec;
 
 use crate::{
     compiler::{
@@ -8,7 +9,8 @@ use crate::{
         resolver::{TypeId, scopes::ScopeId, symbols::SymbolId, types::TypeMembers},
     },
     native_function::NativeFunction,
-    source::{Position, FileId},
+    optimal_small_vec_inline_capacity,
+    source::{FileId, Position},
     syntax::SyntaxId,
 };
 
@@ -184,6 +186,8 @@ impl Default for Declarations {
 pub struct DeclarationId(#[cfg(test)] pub(crate) u32, #[cfg(not(test))] u32);
 
 impl DeclarationId {
+    pub type SmallVec = SmallVec<[Self; optimal_small_vec_inline_capacity::<Self>()]>;
+
     pub fn inner(self) -> u32 {
         self.0
     }
@@ -227,7 +231,7 @@ pub enum Definition {
     /// - `pub use SomeEnum::Variant;`
     Use {
         public: bool,
-        item: DeclarationId,
+        source_declaration_id: DeclarationId,
     },
 
     /// A `fn` item. This type definition can be instantiated as [`Type::FunctionDefinition`][].
@@ -306,7 +310,7 @@ pub enum Definition {
     /// ```
     Variant {
         discriminant: u16,
-        parent_enum: DeclarationId,
+        enum_declaration_id: DeclarationId,
         type_parameters: DeclarationMembers,
         fields: DeclarationMembers,
     },

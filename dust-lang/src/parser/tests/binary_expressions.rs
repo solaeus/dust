@@ -5,7 +5,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxKind::*, SyntaxPayload},
+        node::{SyntaxKind::*, SyntaxChildren},
     },
 };
 
@@ -25,19 +25,17 @@ fn addition() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem
-                .with_multiple_children(Span::new(0, 23), SyntaxPayload::child_indices(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
+            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature
-                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
-            FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
+            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
+            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 23), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
             AdditionExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -59,19 +57,17 @@ fn subtraction() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem
-                .with_multiple_children(Span::new(0, 23), SyntaxPayload::child_indices(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
+            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature
-                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
-            FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
+            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
+            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 23), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
             SubtractionExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -93,23 +89,21 @@ fn multiplication() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem
-                .with_multiple_children(Span::new(0, 23), SyntaxPayload::child_indices(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
+            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature
-                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
-            FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
+            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
+            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 23), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
             MultiplicationExpression.with_binary_children(
                 Span::new(16, 21),
                 SyntaxId(6),
                 SyntaxId(8)
             ),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -131,19 +125,17 @@ fn division() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem
-                .with_multiple_children(Span::new(0, 23), SyntaxPayload::child_indices(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
+            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature
-                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
-            FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
+            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
+            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 23), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
             DivisionExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -165,19 +157,17 @@ fn modulo() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem
-                .with_multiple_children(Span::new(0, 23), SyntaxPayload::child_indices(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
+            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature
-                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
-            FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
+            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
+            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 23), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
             ModuloExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -199,19 +189,17 @@ fn power() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem
-                .with_multiple_children(Span::new(0, 23), SyntaxPayload::child_indices(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
+            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature
-                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
-            FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
+            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
+            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 23), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
             ExponentExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -233,19 +221,17 @@ fn equal() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 24), SyntaxId(11)),
-            FunctionItem
-                .with_multiple_children(Span::new(0, 24), SyntaxPayload::child_indices(1, 4)),
+            Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
+            FunctionItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature
-                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
-            FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
+            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
+            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 24), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(9)),
             EqualExpression.with_binary_children(Span::new(16, 22), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_child(Span::new(21, 22), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(7)),
             PathSegment.empty(Span::new(21, 22)),
         ]
     );
@@ -267,19 +253,17 @@ fn not_equal() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 24), SyntaxId(11)),
-            FunctionItem
-                .with_multiple_children(Span::new(0, 24), SyntaxPayload::child_indices(1, 4)),
+            Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
+            FunctionItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature
-                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
-            FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
+            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
+            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 24), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(9)),
             NotEqualExpression.with_binary_children(Span::new(16, 22), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_child(Span::new(21, 22), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(7)),
             PathSegment.empty(Span::new(21, 22)),
         ]
     );
@@ -301,19 +285,17 @@ fn less_than() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem
-                .with_multiple_children(Span::new(0, 23), SyntaxPayload::child_indices(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
+            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature
-                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
-            FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
+            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
+            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 23), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
             LessThanExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -335,23 +317,21 @@ fn less_than_or_equal() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 24), SyntaxId(11)),
-            FunctionItem
-                .with_multiple_children(Span::new(0, 24), SyntaxPayload::child_indices(1, 4)),
+            Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
+            FunctionItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature
-                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
-            FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
+            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
+            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 24), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(9)),
             LessThanOrEqualExpression.with_binary_children(
                 Span::new(16, 22),
                 SyntaxId(6),
                 SyntaxId(8)
             ),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_child(Span::new(21, 22), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(7)),
             PathSegment.empty(Span::new(21, 22)),
         ]
     );
@@ -373,19 +353,17 @@ fn greater_than() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem
-                .with_multiple_children(Span::new(0, 23), SyntaxPayload::child_indices(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
+            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature
-                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
-            FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
+            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
+            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 23), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
             GreaterThanExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -407,23 +385,21 @@ fn greater_than_or_equal() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 24), SyntaxId(11)),
-            FunctionItem
-                .with_multiple_children(Span::new(0, 24), SyntaxPayload::child_indices(1, 4)),
+            Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
+            FunctionItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature
-                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
-            FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
+            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
+            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 24), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(9)),
             GreaterThanOrEqualExpression.with_binary_children(
                 Span::new(16, 22),
                 SyntaxId(6),
                 SyntaxId(8)
             ),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_child(Span::new(21, 22), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(7)),
             PathSegment.empty(Span::new(21, 22)),
         ]
     );
@@ -445,19 +421,17 @@ fn logical_and() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 24), SyntaxId(11)),
-            FunctionItem
-                .with_multiple_children(Span::new(0, 24), SyntaxPayload::child_indices(1, 4)),
+            Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
+            FunctionItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature
-                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
-            FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
+            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
+            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 24), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(9)),
             AndExpression.with_binary_children(Span::new(16, 22), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_child(Span::new(21, 22), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(7)),
             PathSegment.empty(Span::new(21, 22)),
         ]
     );
@@ -479,19 +453,17 @@ fn logical_or() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_child(Span::new(0, 24), SyntaxId(11)),
-            FunctionItem
-                .with_multiple_children(Span::new(0, 24), SyntaxPayload::child_indices(1, 4)),
+            Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
+            FunctionItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature
-                .with_multiple_children(Span::new(0, 9), SyntaxPayload::child_indices(0, 1)),
-            FunctionParameters.with_child(Span::new(0, 9), SyntaxId(2)),
+            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
+            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_child(Span::new(10, 24), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(9)),
             OrExpression.with_binary_children(Span::new(16, 22), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_child(Span::new(21, 22), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(7)),
             PathSegment.empty(Span::new(21, 22)),
         ]
     );
