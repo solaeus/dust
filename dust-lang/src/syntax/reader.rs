@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::{
     source::{FileId, Position},
     syntax::{
@@ -85,20 +87,19 @@ impl<'a> SyntaxReader<'a> {
         Ok((left_child, right_child))
     }
 
-    pub fn children(&'a self) -> SyntaxReaderIterator<'a> {
-        SyntaxReaderIterator::new(self)
+    pub fn children(&self) -> SyntaxIterator {
+        SyntaxIteratorInner {
+            parent: self,
+            current_index: 0,
+            _phantom: PhantomData,
+        }
     }
 
-    pub fn last_child(&'a self) -> Result<Option<Self>, SyntaxError> {
-        match self.node.children_kind {
-            SyntaxChildrenKind::Single => self.single_child().map(Some),
-            SyntaxChildrenKind::Binary => {
-                let right_id = self.node.children.right_id();
-
-                self.tree.read_node(right_id).map(Some)
-            }
-            SyntaxChildrenKind::ThreeOrMore => Ok(SyntaxReaderIterator::new(self).next_back()),
-            _ => Ok(None),
+    pub fn child_pairs(&self) -> SyntaxPairIterator {
+        SyntaxIteratorInner {
+            parent: self,
+            current_index: 0,
+            _phantom: PhantomData,
         }
     }
 
@@ -129,13 +130,20 @@ impl<'a> SyntaxReader<'a> {
 
         buffer.push_str(connector);
         buffer.push_str(self.node.kind.as_str());
+
+        if let Some(info) = self.node.flags.info_display(self.node.kind) {
+            buffer.push_str(" (");
+            buffer.push_str(info);
+            buffer.push_str(")");
+        }
+
         buffer.push('\n');
 
-        let size = self.child_count();
+        let child_count = self.child_count();
 
         ancestors.push(is_last);
 
-        if size == 0 {
+        if child_count == 0 {
             ancestors.pop();
 
             return;
@@ -146,7 +154,7 @@ impl<'a> SyntaxReader<'a> {
         children.sort_by_key(|child| child.node.span);
 
         for (index, child) in children.into_iter().enumerate() {
-            let child_is_last = index == size.saturating_sub(1);
+            let child_is_last = index == child_count.saturating_sub(1);
 
             child.draw_text_tree_line(buffer, ancestors, child_is_last);
         }
@@ -155,73 +163,65 @@ impl<'a> SyntaxReader<'a> {
     }
 }
 
+pub type SyntaxIterator<'a> = SyntaxIteratorInner<'a, SingleIteration>;
+pub type SyntaxPairIterator<'a> = SyntaxIteratorInner<'a, DoubleIteration>;
+
+struct SingleIteration;
+struct DoubleIteration;
+
 #[derive(Debug)]
-pub struct SyntaxReaderIterator<'a> {
+struct SyntaxIteratorInner<'a, S> {
     parent: &'a SyntaxReader<'a>,
     current_index: usize,
+    _phantom: PhantomData<S>,
 }
 
-impl<'a> SyntaxReaderIterator<'a> {
-    fn new(parent: &'a SyntaxReader<'a>) -> Self {
-        Self {
-            parent,
-            current_index: 0,
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        match self.parent.node.children_kind {
-            SyntaxChildrenKind::None => true,
-            SyntaxChildrenKind::Single
-            | SyntaxChildrenKind::Binary
-            | SyntaxChildrenKind::ThreeOrMore => false,
-        }
-    }
-
+impl<'a> SyntaxIteratorInner<'a, SingleIteration> {
     pub fn expect_next(&mut self) -> Result<SyntaxReader<'a>, SyntaxError> {
         self.next().ok_or_else(|| SyntaxError::MissingSyntaxChild {
-            total_children: self.parent.child_count(),
+            missing_index: self.current_index as u32,
+            total_children: self.parent.child_count() as u32,
         })
     }
 }
 
-impl<'a> Iterator for SyntaxReaderIterator<'a> {
+impl<'a> SyntaxIteratorInner<'a, DoubleIteration> {
+    pub fn expect_next_pair(
+        &mut self,
+    ) -> Result<(SyntaxReader<'a>, SyntaxReader<'a>), SyntaxError> {
+        self.next().ok_or_else(|| SyntaxError::MissingSyntaxChild {
+            missing_index: self.current_index as u32,
+            total_children: self.parent.child_count() as u32,
+        })
+    }
+}
+
+impl<'a> Iterator for SyntaxIteratorInner<'a, SingleIteration> {
     type Item = SyntaxReader<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let id = match self.parent.node.children_kind {
-            SyntaxChildrenKind::Single if self.current_index == 0 => {
-                let child_id = self.parent.node.children.left_id();
-                self.current_index += 1;
-
-                child_id
+            SyntaxChildrenKind::Single | SyntaxChildrenKind::Binary if self.current_index == 0 => {
+                self.parent.node.children.left_id()
             }
-            SyntaxChildrenKind::Binary => {
-                let child_id = if self.current_index == 0 {
-                    self.parent.node.children.left_id()
-                } else if self.current_index == 1 {
-                    self.parent.node.children.right_id()
-                } else {
-                    return None;
-                };
-                self.current_index += 1;
-
-                child_id
+            SyntaxChildrenKind::Binary if self.current_index == 1 => {
+                self.parent.node.children.right_id()
             }
             SyntaxChildrenKind::ThreeOrMore => {
-                let child_index = self.parent.node.children.left as usize + self.current_index;
+                let start = self.parent.node.children.left as usize;
+                let end = self.parent.node.children.right as usize;
+                let index = start + self.current_index;
 
-                if child_index >= self.parent.node.children.right as usize {
+                if index >= end {
                     return None;
                 }
 
-                self.current_index += 1;
-
-                self.parent.tree.children[child_index]
+                self.parent.tree.children[index]
             }
             _ => return None,
         };
         let node = &self.parent.tree.nodes[id.0 as usize];
+        self.current_index += 1;
 
         Some(SyntaxReader::new(id, node, self.parent.tree))
     }
@@ -234,7 +234,50 @@ impl<'a> Iterator for SyntaxReaderIterator<'a> {
     }
 }
 
-impl DoubleEndedIterator for SyntaxReaderIterator<'_> {
+impl<'a> Iterator for SyntaxIteratorInner<'a, DoubleIteration> {
+    type Item = (SyntaxReader<'a>, SyntaxReader<'a>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (left_id, right_id) = match self.parent.node.children_kind {
+            SyntaxChildrenKind::Binary if self.current_index == 0 => (
+                self.parent.node.children.left_id(),
+                self.parent.node.children.right_id(),
+            ),
+            SyntaxChildrenKind::ThreeOrMore => {
+                let start = self.parent.node.children.left as usize;
+                let left_index = start + self.current_index;
+                let right_index = left_index + 1;
+
+                if right_index >= self.parent.node.children.right as usize {
+                    return None;
+                }
+
+                (
+                    self.parent.tree.children[left_index],
+                    self.parent.tree.children[right_index],
+                )
+            }
+            _ => return None,
+        };
+        let left_node = &self.parent.tree.nodes[left_id.0 as usize];
+        let right_node = &self.parent.tree.nodes[right_id.0 as usize];
+        self.current_index += 2;
+
+        Some((
+            SyntaxReader::new(left_id, left_node, self.parent.tree),
+            SyntaxReader::new(right_id, right_node, self.parent.tree),
+        ))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let start_length = self.parent.child_count() / 2;
+        let remaining = start_length.saturating_sub(self.current_index / 2);
+
+        (remaining, Some(remaining))
+    }
+}
+
+impl DoubleEndedIterator for SyntaxIteratorInner<'_, SingleIteration> {
     fn next_back(&mut self) -> Option<Self::Item> {
         let child_id = match self.parent.node.children_kind {
             SyntaxChildrenKind::Single if self.current_index == 0 => {
@@ -266,7 +309,8 @@ impl DoubleEndedIterator for SyntaxReaderIterator<'_> {
     }
 }
 
-impl ExactSizeIterator for SyntaxReaderIterator<'_> {}
+impl ExactSizeIterator for SyntaxIteratorInner<'_, SingleIteration> {}
+impl ExactSizeIterator for SyntaxIteratorInner<'_, DoubleIteration> {}
 
 #[cfg(test)]
 mod tests {

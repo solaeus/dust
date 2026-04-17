@@ -12,7 +12,7 @@ use tracing::{Level, error, info, span};
 
 use crate::{
     compiler::Compiler,
-    dust_type::{DustEnumType, DustStructType, DustStructValueType, DustType},
+    dust_type::{DustEnumType, DustStructType, DustStructTypeFields, DustType},
     dust_value::{DustEnumVariant, DustStruct, DustStructValue, DustValue},
     error::{Error, ErrorContext, ErrorKind},
     program::Program,
@@ -333,13 +333,13 @@ impl Vm {
                 let DustStructType { name, value_type } = dust_struct_type.as_ref();
 
                 match value_type {
-                    DustStructValueType::Unit => {
+                    DustStructTypeFields::Unit => {
                         Ok(Some(DustValue::Struct(Box::new(DustStruct {
                             struct_name: name.clone(),
                             value: DustStructValue::Unit,
                         }))))
                     }
-                    DustStructValueType::Tuple(types) => {
+                    DustStructTypeFields::Tuple(types) => {
                         let mut fields = Vec::new();
 
                         for field_type in types {
@@ -358,7 +358,7 @@ impl Vm {
                             value: DustStructValue::Tuple(fields),
                         }))))
                     }
-                    DustStructValueType::Struct(items) => {
+                    DustStructTypeFields::Named(items) => {
                         let mut fields = Vec::new();
 
                         for (field_name, field_type) in items {
@@ -401,14 +401,14 @@ impl Vm {
                 let (variant_name, variant) = &variants[discriminant];
 
                 match variant {
-                    DustStructValueType::Unit => {
+                    DustStructTypeFields::Unit => {
                         Ok(Some(DustValue::EnumVariant(Box::new(DustEnumVariant {
                             enum_name: name.clone(),
                             variant_name: variant_name.clone(),
                             value: DustStructValue::Unit,
                         }))))
                     }
-                    DustStructValueType::Tuple(types) => {
+                    DustStructTypeFields::Tuple(types) => {
                         let mut fields = Vec::new();
 
                         for field_type in types {
@@ -429,7 +429,7 @@ impl Vm {
                         }))))
                     }
 
-                    DustStructValueType::Struct(items) => {
+                    DustStructTypeFields::Named(items) => {
                         let mut fields = Vec::new();
 
                         for (field_name, field_type) in items {

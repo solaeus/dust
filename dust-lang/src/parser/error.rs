@@ -12,11 +12,6 @@ pub enum ParseError {
     CannotResolveModule {
         position: Position,
     },
-    ExpectedSyntax {
-        found: SyntaxKind,
-        expected: SyntaxKind,
-        position: Position,
-    },
     ExpectedToken {
         found: TokenKind,
         expected: TokenKind,
@@ -110,30 +105,6 @@ impl<'src> AnnotatedError<'src> for ParseError {
                                 .span(position.span.as_usize_range())
                                 .label("This is not valid UTF-8"),
                         ),
-                );
-
-                groups.push(group);
-            }
-            ParseError::ExpectedSyntax {
-                found: actual,
-                expected,
-                position,
-            } => {
-                let title = format!("Expected {expected}");
-                let file_content = match source.get_code(position.file_id) {
-                    Ok(file) => file.content_as_str(),
-                    Err(error) => {
-                        error.add_report((), groups);
-
-                        return;
-                    }
-                };
-                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_content).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!("Expected {expected}, but found {actual}.")),
-                    ),
                 );
 
                 groups.push(group);

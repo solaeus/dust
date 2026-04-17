@@ -18,8 +18,8 @@ use crate::{
             declarations::{
                 Declaration, DeclarationId, DeclarationMembers, Declarations, Definition,
             },
-            scopes::{Scope, ScopeId, ScopeKind, Scopes},
-            symbols::Symbols,
+            scopes::{Scope, ScopeFrame, ScopeId, ScopeKind, Scopes},
+            symbols::{SymbolId, Symbols},
             types::{
                 FloatType, InferredTypeConstraint, SignedIntegerType, Type, TypeId, TypeMembers,
                 Types, UnsignedIntegerType,
@@ -27,11 +27,11 @@ use crate::{
         },
     },
     constants::value::ConstantValue,
-    dust_type::{DustEnumType, DustFunctionType, DustStructType, DustStructValueType, DustType},
+    dust_type::{DustEnumType, DustFunctionType, DustStructType, DustStructTypeFields, DustType},
     instruction::OperandType,
     prototype::Prototype,
     source::Source,
-    syntax::SyntaxId,
+    syntax::{SyntaxId, components::FunctionType},
 };
 
 #[derive(Debug)]
@@ -321,7 +321,7 @@ impl Resolver {
                             let Definition::Variant { fields, .. } =
                                 &variant_declaration.definition
                             else {
-                                return Err(CompileError::ExpectedVariantDeclaration(
+                                return Err(CompileError::ExpectedVariantDefinition(
                                     *variant_declaration_id,
                                 ));
                             };
@@ -518,7 +518,34 @@ impl Resolver {
         }
     }
 
-    pub fn add_external_type(&mut self, new_type: &DustType) -> TypeId {
+    pub fn add_external_types(&mut self, types: &[(String, DustType)]) -> Result<(), CompileError> {
+        let external_scope_id = self.scopes.enter_scope(ScopeKind::Module, ScopeId::NONE);
+
+        let mut type_bindings = Vec::with_capacity(types.len());
+
+        for (symbol, r#type) in types {
+            let symbol_id = self.symbols.add_symbol(symbol);
+            let type_id = self.add_external_type(r#type, external_scope_id);
+            let declaration_id = self.declarations.add_declaration(Declaration {
+                symbol_id,
+                definition: Definition::TypeAlias {
+                    public: true,
+                    aliased_type_id: type_id,
+                    type_parameters: DeclarationMembers::default(),
+                },
+                scope_id: external_scope_id,
+                syntax: None,
+            });
+
+            type_bindings.push((symbol_id, declaration_id));
+        }
+
+        self.scopes.exit_scope(external_scope_id, type_bindings);
+
+        Ok(())
+    }
+
+    fn add_external_type(&mut self, new_type: &DustType, scope_id: ScopeId) -> TypeId {
         match new_type {
             DustType::Unit => TypeId::UNIT,
             DustType::Boolean => TypeId::BOOLEAN,
@@ -538,109 +565,135 @@ impl Resolver {
             DustType::F32 => TypeId::F_32,
             DustType::F64 => TypeId::F_64,
             DustType::Tuple(element_types) => {
-                let element_type_ids: SmallVec<[TypeId; 4]> = element_types
+                let type_scope_id = self.scopes.enter_scope(ScopeKind::Type, scope_id);
+                let element_type_ids = element_types
                     .iter()
-                    .map(|element_type| self.add_external_type(element_type))
-                    .collect();
+                    .map(|element_type| self.add_external_type(element_type, type_scope_id))
+                    .collect::<TypeId::SmallVec>();
                 let element_type_ids = self.types.add_type_members(element_type_ids);
 
                 self.types.add_type(Type::Tuple { element_type_ids })
             }
             DustType::Array(element_type, length) => {
-                let element_type_id = self.add_external_type(element_type);
+                let element_type_id = self.add_external_type(element_type, scope_id);
 
                 self.types.add_type(Type::Array {
                     element_type_id,
                     length: *length,
                 })
             }
-            DustType::Function(function_type) => {
-                let parameter_type_ids: SmallVec<[TypeId; 4]> = function_type
-                    .value_parameters
-                    .iter()
-                    .map(|parameter_type| self.add_external_type(parameter_type))
-                    .collect();
-                let value_parameters = self.types.add_type_members(parameter_type_ids);
-                let return_type_id = self.add_external_type(&function_type.return_type);
-
-                self.types.add_type(Type::Function {
-                    value_parameters,
-                    return_type_id,
-                })
-            }
             DustType::Slice(element_type) => {
-                let element_type_id = self.add_external_type(element_type);
-                let declaration_id = self.declarations.reserve_declaration_id();
+                let element_type_id = self.add_external_type(element_type, scope_id);
+                let declaration_id = self.declarations.add_declaration(Declaration {
+                    symbol_id: self.symbols.add_slice_symbol(),
+                    definition: Definition::TypeParameter,
+                    scope_id,
+                    syntax: None,
+                });
 
                 self.types.add_type(Type::Slice {
                     declaration_id,
                     element_type_id,
                 })
             }
+            DustType::Function(function_type) => {
+                let DustFunctionType {
+                    value_parameters,
+                    return_type,
+                } = function_type.as_ref();
+                let value_parameter_ids = value_parameters
+                    .iter()
+                    .map(|parameter_type| self.add_external_type(parameter_type, scope_id))
+                    .collect::<TypeId::SmallVec>();
+                let value_parameters = self.types.add_type_members(value_parameter_ids);
+                let return_type_id = self.add_external_type(return_type, scope_id);
+
+                self.types.add_type(Type::Function {
+                    value_parameters,
+                    return_type_id,
+                })
+            }
             DustType::Struct(struct_type) => {
                 let DustStructType { name, value_type } = struct_type.as_ref();
                 let struct_symbol_id = self.symbols.add_symbol(name);
-                let struct_declaration_id = self.declarations.reserve_declaration_id();
-
-                let field_declaration_ids: Vec<DeclarationId> = match value_type {
-                    DustStructValueType::Unit => Vec::new(),
-                    DustStructValueType::Tuple(types) => types
-                        .iter()
-                        .enumerate()
-                        .map(|(index, field_type)| {
-                            let field_type_id = self.add_external_type(field_type);
-                            let field_symbol_id = self.symbols.add_symbol(&index.to_string());
-
-                            self.declarations.add_declaration(Declaration {
-                                symbol_id: field_symbol_id,
-                                definition: Definition::Field {
-                                    public: true,
-                                    parent_struct: struct_declaration_id,
-                                    type_id: field_type_id,
-                                },
-                                scope_id: ScopeId::NONE,
-                                syntax: None,
-                            })
-                        })
-                        .collect(),
-                    DustStructValueType::Struct(fields) => fields
-                        .iter()
-                        .map(|(field_name, field_type)| {
-                            let field_type_id = self.add_external_type(field_type);
-                            let field_symbol_id = self.symbols.add_symbol(field_name);
-
-                            self.declarations.add_declaration(Declaration {
-                                symbol_id: field_symbol_id,
-                                definition: Definition::Field {
-                                    public: true,
-                                    parent_struct: struct_declaration_id,
-                                    type_id: field_type_id,
-                                },
-                                scope_id: ScopeId::NONE,
-                                syntax: None,
-                            })
-                        })
-                        .collect(),
-                };
-
-                let fields = self
-                    .declarations
-                    .add_declaration_members(field_declaration_ids);
-
-                self.declarations.set_declaration(
-                    struct_declaration_id,
-                    Declaration {
-                        symbol_id: struct_symbol_id,
-                        definition: Definition::StructType {
-                            public: true,
-                            type_parameters: DeclarationMembers::default(),
-                            fields,
-                        },
-                        scope_id: ScopeId::NONE,
-                        syntax: None,
-                    },
+                let struct_scope_id = self.scopes.enter_scope(ScopeKind::Type, ScopeId::NONE);
+                let struct_declaration_id = self.declarations.reserve_declaration_id(
+                    struct_symbol_id,
+                    struct_scope_id,
+                    None,
                 );
 
+                let mut type_bindings = Vec::new();
+
+                let fields = match value_type {
+                    DustStructTypeFields::Unit => DeclarationMembers::default(),
+                    DustStructTypeFields::Tuple(types) => {
+                        let field_ids = types
+                            .iter()
+                            .enumerate()
+                            .map(|(index, field_type)| {
+                                let field_type_id =
+                                    self.add_external_type(field_type, struct_scope_id);
+                                let field_symbol_id = self.symbols.add_index_symbol(index as u32);
+                                let field_declaration_id =
+                                    self.declarations.add_declaration(Declaration {
+                                        symbol_id: field_symbol_id,
+                                        definition: Definition::Field {
+                                            public: true,
+                                            parent_struct: struct_declaration_id,
+                                            type_id: field_type_id,
+                                        },
+                                        scope_id: struct_scope_id,
+                                        syntax: None,
+                                    });
+
+                                type_bindings.push((field_symbol_id, field_declaration_id));
+
+                                field_declaration_id
+                            })
+                            .collect::<DeclarationId::SmallVec>();
+
+                        self.declarations.add_declaration_members(field_ids)
+                    }
+                    DustStructTypeFields::Named(fields) => {
+                        let field_ids = fields
+                            .iter()
+                            .map(|(field_name, field_type)| {
+                                let field_type_id =
+                                    self.add_external_type(field_type, struct_scope_id);
+                                let field_symbol_id = self.symbols.add_symbol(field_name);
+                                let field_declaration_id =
+                                    self.declarations.add_declaration(Declaration {
+                                        symbol_id: field_symbol_id,
+                                        definition: Definition::Field {
+                                            public: true,
+                                            parent_struct: struct_declaration_id,
+                                            type_id: field_type_id,
+                                        },
+                                        scope_id: struct_scope_id,
+                                        syntax: None,
+                                    });
+
+                                type_bindings.push((field_symbol_id, field_declaration_id));
+
+                                field_declaration_id
+                            })
+                            .collect::<DeclarationId::SmallVec>();
+
+                        self.declarations.add_declaration_members(field_ids)
+                    }
+                };
+
+                self.scopes.exit_scope(struct_scope_id, type_bindings);
+                self.declarations.set_reserved_declaration(
+                    struct_declaration_id,
+                    Definition::StructType {
+                        public: true,
+                        type_parameters: DeclarationMembers::default(),
+                        fields,
+                        inner_scope_id: struct_scope_id,
+                    },
+                );
                 self.types.add_type(Type::Algebraic {
                     declaration_id: struct_declaration_id,
                     type_arguments: TypeMembers::default(),
@@ -649,89 +702,110 @@ impl Resolver {
             DustType::Enum(enum_type) => {
                 let DustEnumType { name, variants } = enum_type.as_ref();
                 let enum_symbol_id = self.symbols.add_symbol(name);
-                let enum_declaration_id = self.declarations.reserve_declaration_id();
-
-                let variant_declaration_ids: Vec<DeclarationId> = variants
+                let enum_scope_id = self.scopes.enter_scope(ScopeKind::Type, ScopeId::NONE);
+                let enum_declaration_id =
+                    self.declarations
+                        .reserve_declaration_id(enum_symbol_id, scope_id, None);
+                let variant_fields = variants
                     .iter()
                     .enumerate()
                     .map(|(discriminant, (variant_name, variant_value_type))| {
                         let variant_symbol_id = self.symbols.add_symbol(variant_name);
+                        let fields = match variant_value_type {
+                            DustStructTypeFields::Unit => DeclarationMembers::default(),
+                            DustStructTypeFields::Tuple(types) => {
+                                let enum_variant_scope_id =
+                                    self.scopes.enter_scope(ScopeKind::Type, enum_scope_id);
 
-                        let field_declaration_ids: Vec<DeclarationId> = match variant_value_type {
-                            DustStructValueType::Unit => Vec::new(),
-                            DustStructValueType::Tuple(types) => types
-                                .iter()
-                                .enumerate()
-                                .map(|(index, field_type)| {
-                                    let field_type_id = self.add_external_type(field_type);
-                                    let field_symbol_id =
-                                        self.symbols.add_symbol(&index.to_string());
+                                let mut type_bindings = Vec::new();
 
-                                    self.declarations.add_declaration(Declaration {
-                                        symbol_id: field_symbol_id,
-                                        definition: Definition::Field {
-                                            public: true,
-                                            parent_struct: enum_declaration_id,
-                                            type_id: field_type_id,
-                                        },
-                                        scope_id: ScopeId::NONE,
-                                        syntax: None,
+                                let field_declaration_ids = types
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(index, field_type)| {
+                                        let field_symbol_id =
+                                            self.symbols.add_index_symbol(index as u32);
+                                        let field_type_id = self
+                                            .add_external_type(field_type, enum_variant_scope_id);
+                                        let field_declaration_id =
+                                            self.declarations.add_declaration(Declaration {
+                                                symbol_id: field_symbol_id,
+                                                definition: Definition::Field {
+                                                    public: true,
+                                                    parent_struct: enum_declaration_id,
+                                                    type_id: field_type_id,
+                                                },
+                                                scope_id: ScopeId::NONE,
+                                                syntax: None,
+                                            });
+
+                                        type_bindings.push((field_symbol_id, field_declaration_id));
+
+                                        field_declaration_id
                                     })
-                                })
-                                .collect(),
-                            DustStructValueType::Struct(fields) => fields
-                                .iter()
-                                .map(|(field_name, field_type)| {
-                                    let field_type_id = self.add_external_type(field_type);
-                                    let field_symbol_id = self.symbols.add_symbol(field_name);
+                                    .collect::<DeclarationId::SmallVec>();
 
-                                    self.declarations.add_declaration(Declaration {
-                                        symbol_id: field_symbol_id,
-                                        definition: Definition::Field {
-                                            public: true,
-                                            parent_struct: enum_declaration_id,
-                                            type_id: field_type_id,
-                                        },
-                                        scope_id: ScopeId::NONE,
-                                        syntax: None,
+                                self.scopes.exit_scope(enum_variant_scope_id, type_bindings);
+                                self.declarations
+                                    .add_declaration_members(field_declaration_ids)
+                            }
+                            DustStructTypeFields::Named(fields) => {
+                                let enum_variant_scope_id =
+                                    self.scopes.enter_scope(ScopeKind::Type, enum_scope_id);
+
+                                let mut type_bindings = Vec::new();
+
+                                let field_declaration_ids = fields
+                                    .iter()
+                                    .map(|(field_name, field_type)| {
+                                        let field_symbol_id = self.symbols.add_symbol(field_name);
+                                        let field_type_id = self
+                                            .add_external_type(field_type, enum_variant_scope_id);
+                                        let field_declaration_id =
+                                            self.declarations.add_declaration(Declaration {
+                                                symbol_id: field_symbol_id,
+                                                definition: Definition::Field {
+                                                    public: true,
+                                                    parent_struct: enum_declaration_id,
+                                                    type_id: field_type_id,
+                                                },
+                                                scope_id: ScopeId::NONE,
+                                                syntax: None,
+                                            });
+
+                                        type_bindings.push((field_symbol_id, field_declaration_id));
+
+                                        field_declaration_id
                                     })
-                                })
-                                .collect(),
+                                    .collect::<DeclarationId::SmallVec>();
+
+                                self.scopes.exit_scope(enum_variant_scope_id, type_bindings);
+                                self.declarations
+                                    .add_declaration_members(field_declaration_ids)
+                            }
                         };
-
-                        let fields = self
-                            .declarations
-                            .add_declaration_members(field_declaration_ids);
 
                         self.declarations.add_declaration(Declaration {
                             symbol_id: variant_symbol_id,
                             definition: Definition::Variant {
                                 discriminant: discriminant as u16,
                                 enum_declaration_id,
-                                type_parameters: DeclarationMembers::default(),
                                 fields,
                             },
                             scope_id: ScopeId::NONE,
                             syntax: None,
                         })
                     })
-                    .collect();
+                    .collect::<DeclarationId::SmallVec>();
 
-                let variants = self
-                    .declarations
-                    .add_declaration_members(variant_declaration_ids);
+                let variants = self.declarations.add_declaration_members(variant_fields);
 
-                self.declarations.set_declaration(
+                self.declarations.set_reserved_declaration(
                     enum_declaration_id,
-                    Declaration {
-                        symbol_id: enum_symbol_id,
-                        definition: Definition::EnumType {
-                            public: true,
-                            type_parameters: DeclarationMembers::default(),
-                            variants,
-                        },
-                        scope_id: ScopeId::NONE,
-                        syntax: None,
+                    Definition::EnumType {
+                        public: true,
+                        type_parameters: DeclarationMembers::default(),
+                        variants,
                     },
                 );
 
@@ -743,11 +817,7 @@ impl Resolver {
         }
     }
 
-    pub fn get_external_type(
-        &self,
-        id: TypeId,
-        _source: &Source,
-    ) -> Result<DustType, CompileError> {
+    pub fn get_external_type(&self, id: TypeId) -> Result<DustType, CompileError> {
         let r#type = self.types.get_type(id)?;
 
         match r#type {
@@ -779,7 +849,7 @@ impl Resolver {
                     Ok(DustType::Unit)
                 } else {
                     let element_types: Vec<DustType> = self
-                        .get_type_members_as_full_types(*element_type_ids, _source)
+                        .get_type_members_as_full_types(*element_type_ids)
                         .collect::<Result<_, _>>()?;
 
                     Ok(DustType::Tuple(element_types))
@@ -788,7 +858,7 @@ impl Resolver {
             Type::Inferred {
                 resolved: Some(resolved),
                 ..
-            } => self.get_external_type(*resolved, _source),
+            } => self.get_external_type(*resolved),
             Type::Inferred {
                 resolved: None,
                 constraint: Some(InferredTypeConstraint::Integer),
@@ -890,8 +960,7 @@ impl Resolver {
                                         _ => concrete_type_id,
                                     };
 
-                                let field_dust_type =
-                                    self.get_external_type(resolved_type_id, _source)?;
+                                let field_dust_type = self.get_external_type(resolved_type_id)?;
                                 let field_name = self
                                     .symbols
                                     .get_symbol(&field_declaration.symbol_id)
@@ -902,16 +971,16 @@ impl Resolver {
                             }
 
                             let value_type = if field_types.is_empty() {
-                                DustStructValueType::Unit
+                                DustStructTypeFields::Unit
                             } else if field_types.iter().all(|(name, _)| name == "0") {
-                                DustStructValueType::Tuple(
+                                DustStructTypeFields::Tuple(
                                     field_types
                                         .into_iter()
                                         .map(|(_, field_type)| field_type)
                                         .collect(),
                                 )
                             } else {
-                                DustStructValueType::Struct(field_types)
+                                DustStructTypeFields::Named(field_types)
                             };
 
                             variants.push((variant_name, value_type));
@@ -941,7 +1010,7 @@ impl Resolver {
                                 continue;
                             };
 
-                            let field_dust_type = self.get_external_type(field_type_id, _source)?;
+                            let field_dust_type = self.get_external_type(field_type_id)?;
                             let field_name = self
                                 .symbols
                                 .get_symbol(&field_declaration.symbol_id)?
@@ -951,16 +1020,16 @@ impl Resolver {
                         }
 
                         let value_type = if field_types.is_empty() {
-                            DustStructValueType::Unit
+                            DustStructTypeFields::Unit
                         } else if field_types.iter().all(|(name, _)| name == "0") {
-                            DustStructValueType::Tuple(
+                            DustStructTypeFields::Tuple(
                                 field_types
                                     .into_iter()
                                     .map(|(_, field_type)| field_type)
                                     .collect(),
                             )
                         } else {
-                            DustStructValueType::Struct(field_types)
+                            DustStructTypeFields::Named(field_types)
                         };
 
                         Ok(DustType::Struct(Box::new(DustStructType {
@@ -970,8 +1039,8 @@ impl Resolver {
                     }
                     Definition::TypeAlias {
                         aliased_type_id, ..
-                    } => self.get_external_type(*aliased_type_id, _source),
-                    _ => Err(CompileError::MissingAlgebraicTypeDeclaration(
+                    } => self.get_external_type(*aliased_type_id),
+                    _ => Err(CompileError::ExpectedAlgebraicTypeDefinition(
                         *declaration_id,
                     )),
                 }
@@ -980,7 +1049,7 @@ impl Resolver {
                 element_type_id,
                 length,
             } => {
-                let element_dust_type = self.get_external_type(*element_type_id, _source)?;
+                let element_dust_type = self.get_external_type(*element_type_id)?;
 
                 Ok(DustType::Array(Box::new(element_dust_type), *length))
             }
@@ -990,12 +1059,11 @@ impl Resolver {
                 return_type_id,
             } => {
                 let value_parameter_types: Vec<DustType> = self
-                    .get_type_members_as_full_types(*value_parameters, _source)
+                    .get_type_members_as_full_types(*value_parameters)
                     .collect::<Result<_, _>>()?;
-                let return_dust_type = self.get_external_type(*return_type_id, _source)?;
+                let return_dust_type = self.get_external_type(*return_type_id)?;
 
                 Ok(DustType::Function(Box::new(DustFunctionType {
-                    type_parameters: Vec::new(),
                     value_parameters: value_parameter_types,
                     return_type: return_dust_type,
                 })))
@@ -1004,13 +1072,12 @@ impl Resolver {
                 value_parameters,
                 return_type_id,
             } => {
-                let value_parameter_types: Vec<DustType> = self
-                    .get_type_members_as_full_types(*value_parameters, _source)
-                    .collect::<Result<_, _>>()?;
-                let return_dust_type = self.get_external_type(*return_type_id, _source)?;
+                let value_parameter_types = self
+                    .get_type_members_as_full_types(*value_parameters)
+                    .collect::<Result<Vec<DustType>, CompileError>>()?;
+                let return_dust_type = self.get_external_type(*return_type_id)?;
 
                 Ok(DustType::Function(Box::new(DustFunctionType {
-                    type_parameters: Vec::new(),
                     value_parameters: value_parameter_types,
                     return_type: return_dust_type,
                 })))
@@ -1018,7 +1085,7 @@ impl Resolver {
             Type::Slice {
                 element_type_id, ..
             } => {
-                let element_dust_type = self.get_external_type(*element_type_id, _source)?;
+                let element_dust_type = self.get_external_type(*element_type_id)?;
 
                 Ok(DustType::Slice(Box::new(element_dust_type)))
             }
@@ -1035,53 +1102,33 @@ impl Resolver {
                         type_parameters,
                         ..
                     } => {
-                        let type_parameter_names: Vec<String> = self
-                            .get_declaration_member_names(*type_parameters)
-                            .collect::<Result<_, _>>()?;
+                        let parameter_declaration_ids = self
+                            .declarations
+                            .get_declaration_members(value_parameters)?;
+                        let value_parameters = parameter_declaration_ids
+                            .iter()
+                            .map(|parameter_declaration_id| {
+                                let parameter_declaration = self
+                                    .declarations
+                                    .get_declaration(*parameter_declaration_id)?;
+                                let type_id = if let Definition::Local { type_id, .. } =
+                                    parameter_declaration.definition
+                                {
+                                    type_id
+                                } else {
+                                    return Err(CompileError::ExpectedLocalDefinition(
+                                        *parameter_declaration_id,
+                                    ));
+                                };
 
-                        let type_parameter_map: SmallVec<[(DeclarationId, TypeId); 4]> =
-                            type_parameters
-                                .as_range()
-                                .zip(type_arguments.as_range())
-                                .filter_map(|(parameter_index, argument_index)| {
-                                    let parameter_declaration_id = self
-                                        .declarations
-                                        .get_declaration_member(parameter_index)
-                                        .ok()?;
-                                    let argument_type_id =
-                                        self.types.get_type_member(argument_index).ok()?;
-                                    Some((*parameter_declaration_id, *argument_type_id))
-                                })
-                                .collect();
+                                self.get_external_type(type_id)
+                            })
+                            .try_collect::<Vec<DustType>>()?;
 
-                        let parameter_type_ids = self.types.get_type_members(*value_parameters)?;
-                        let mut value_parameter_types =
-                            Vec::with_capacity(parameter_type_ids.len());
-
-                        for &parameter_type_id in parameter_type_ids {
-                            let resolved_type = self.types.get_type(parameter_type_id)?;
-                            let concrete_type_id = if let Type::Generic {
-                                declaration_id: parameter_declaration,
-                            } = resolved_type
-                            {
-                                type_parameter_map
-                                    .iter()
-                                    .find(|(declaration, _)| declaration == parameter_declaration)
-                                    .map(|(_, type_id)| *type_id)
-                                    .unwrap_or(parameter_type_id)
-                            } else {
-                                parameter_type_id
-                            };
-
-                            value_parameter_types
-                                .push(self.get_external_type(concrete_type_id, _source)?);
-                        }
-
-                        let return_dust_type = self.get_external_type(*return_type_id, _source)?;
+                        let return_dust_type = self.get_external_type(*return_type_id)?;
 
                         Ok(DustType::Function(Box::new(DustFunctionType {
-                            type_parameters: type_parameter_names,
-                            value_parameters: value_parameter_types,
+                            value_parameters,
                             return_type: return_dust_type,
                         })))
                     }
@@ -1091,57 +1138,9 @@ impl Resolver {
                         type_parameters,
                         ..
                     } => {
-                        let type_parameter_names: Vec<String> = self
-                            .get_declaration_member_names(*type_parameters)
-                            .collect::<Result<_, _>>()?;
-
-                        let type_parameter_map: SmallVec<[(DeclarationId, TypeId); 4]> =
-                            type_parameters
-                                .as_range()
-                                .zip(type_arguments.as_range())
-                                .filter_map(|(parameter_index, argument_index)| {
-                                    let parameter_declaration_id = self
-                                        .declarations
-                                        .get_declaration_member(parameter_index)
-                                        .ok()?;
-                                    let argument_type_id =
-                                        self.types.get_type_member(argument_index).ok()?;
-                                    Some((*parameter_declaration_id, *argument_type_id))
-                                })
-                                .collect();
-
-                        let parameter_type_ids = self.types.get_type_members(*value_parameters)?;
-                        let mut value_parameter_types =
-                            Vec::with_capacity(parameter_type_ids.len());
-
-                        for &parameter_type_id in parameter_type_ids {
-                            let resolved_type = self.types.get_type(parameter_type_id)?;
-                            let concrete_type_id = if let Type::Generic {
-                                declaration_id: parameter_declaration,
-                            } = resolved_type
-                            {
-                                type_parameter_map
-                                    .iter()
-                                    .find(|(declaration, _)| declaration == parameter_declaration)
-                                    .map(|(_, type_id)| *type_id)
-                                    .unwrap_or(parameter_type_id)
-                            } else {
-                                parameter_type_id
-                            };
-
-                            value_parameter_types
-                                .push(self.get_external_type(concrete_type_id, _source)?);
-                        }
-
-                        let return_dust_type = self.get_external_type(*return_type_id, _source)?;
-
-                        Ok(DustType::Function(Box::new(DustFunctionType {
-                            type_parameters: type_parameter_names,
-                            value_parameters: value_parameter_types,
-                            return_type: return_dust_type,
-                        })))
+                        todo!()
                     }
-                    _ => Err(CompileError::MissingFunctionDeclaration(*declaration_id)),
+                    _ => Err(CompileError::ExpectedFunctionDefinition(*declaration_id)),
                 }
             }
             Type::Pointer { .. } => Ok(DustType::Unit),
@@ -1169,12 +1168,11 @@ impl Resolver {
     fn get_type_members_as_full_types(
         &self,
         members: TypeMembers,
-        source: &Source,
     ) -> impl Iterator<Item = Result<DustType, CompileError>> {
         members.as_range().map(|member_index| {
             let type_id = *self.types.get_type_member(member_index)?;
 
-            self.get_external_type(type_id, source)
+            self.get_external_type(type_id)
         })
     }
 
@@ -1217,74 +1215,125 @@ impl Display for PrototypeId {
 }
 
 fn add_core(resolver: &mut Resolver) {
-    let _core_scope_id = resolver.scopes.add_scope(Scope {
-        kind: ScopeKind::Module,
-        parent: ScopeId::NONE,
-        modules: SmallVec::new(),
-        imports: SmallVec::new(),
-    });
+    let mut namespace_entries = Vec::new();
 
-    debug_assert_eq!(_core_scope_id, ScopeId::CORE);
+    fn enter_scope(
+        kind: ScopeKind,
+        parent: ScopeId,
+        namespace_entries: &Vec<(SymbolId, DeclarationId)>,
+        scopes: &mut Scopes,
+    ) -> ScopeFrame {
+        ScopeFrame {
+            scope_id: scopes.enter_scope(kind, parent),
+            type_entries_start: namespace_entries.len() as u32,
+        }
+    }
+
+    let core_scope_frame = enter_scope(
+        ScopeKind::Module,
+        ScopeId::NONE,
+        &namespace_entries,
+        &mut resolver.scopes,
+    );
+
+    debug_assert_eq!(core_scope_frame.scope_id, ScopeId::CORE);
 
     let t_symbol = resolver.symbols.add_symbol("T");
     let field_0_symbol = resolver.symbols.add_index_symbol(0);
 
     {
-        let option_symbol = resolver.symbols.add_symbol("Option");
-        let some_symbol = resolver.symbols.add_symbol("Some");
-        let none_symbol = resolver.symbols.add_symbol("None");
+        let option_symbol_id = resolver.symbols.add_symbol("Option");
+        let option_declaration_id = resolver.declarations.reserve_declaration_id(
+            option_symbol_id,
+            core_scope_frame.scope_id,
+            None,
+        );
 
-        let option_declaration_id = resolver.declarations.reserve_declaration_id();
+        namespace_entries.push((option_symbol_id, option_declaration_id));
+
+        let option_scope_frame = enter_scope(
+            ScopeKind::Type,
+            core_scope_frame.scope_id,
+            &namespace_entries,
+            &mut resolver.scopes,
+        );
 
         let t_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: t_symbol,
             definition: Definition::TypeParameter,
-            scope_id: ScopeId::CORE,
+            scope_id: option_scope_frame.scope_id,
             syntax: None,
         });
-
         let t_type_id = resolver.types.add_type(Type::Generic {
             declaration_id: t_declaration_id,
         });
 
-        let some_field_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: field_0_symbol,
-            definition: Definition::Field {
-                public: false,
-                parent_struct: option_declaration_id,
-                type_id: t_type_id,
-            },
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
+        namespace_entries.push((t_symbol, t_declaration_id));
 
-        let some_fields = resolver
-            .declarations
-            .add_declaration_members([some_field_declaration_id]);
+        let none_declaration_id = {
+            let none_symbol_id = resolver.symbols.add_symbol("None");
+            let none_declaration_id = resolver.declarations.add_declaration(Declaration {
+                symbol_id: none_symbol_id,
+                definition: Definition::Variant {
+                    discriminant: 0,
+                    enum_declaration_id: option_declaration_id,
+                    fields: DeclarationMembers::default(),
+                },
+                scope_id: option_scope_frame.scope_id,
+                syntax: None,
+            });
 
-        let some_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: some_symbol,
-            definition: Definition::Variant {
-                discriminant: 0,
-                enum_declaration_id: option_declaration_id,
-                type_parameters: DeclarationMembers::default(),
-                fields: some_fields,
-            },
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
+            namespace_entries.push((none_symbol_id, none_declaration_id));
 
-        let none_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: none_symbol,
-            definition: Definition::Variant {
-                discriminant: 1,
-                enum_declaration_id: option_declaration_id,
-                type_parameters: DeclarationMembers::default(),
-                fields: DeclarationMembers::default(),
-            },
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
+            none_declaration_id
+        };
+        let some_declaration_id = {
+            let some_symbol_id = resolver.symbols.add_symbol("Some");
+            let some_declaration_id = resolver.declarations.reserve_declaration_id(
+                some_symbol_id,
+                option_scope_frame.scope_id,
+                None,
+            );
+
+            namespace_entries.push((some_symbol_id, some_declaration_id));
+
+            let some_scope_frame = enter_scope(
+                ScopeKind::Type,
+                option_scope_frame.scope_id,
+                &namespace_entries,
+                &mut resolver.scopes,
+            );
+            let some_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+                symbol_id: field_0_symbol,
+                definition: Definition::Field {
+                    public: false,
+                    parent_struct: some_declaration_id,
+                    type_id: t_type_id,
+                },
+                scope_id: some_scope_frame.scope_id,
+                syntax: None,
+            });
+            let some_fields = resolver
+                .declarations
+                .add_declaration_members([some_field_declaration_id]);
+
+            resolver.declarations.set_reserved_declaration(
+                some_declaration_id,
+                Definition::Variant {
+                    discriminant: 1,
+                    enum_declaration_id: option_declaration_id,
+                    fields: some_fields,
+                },
+            );
+
+            namespace_entries.push((field_0_symbol, some_field_declaration_id));
+            resolver.scopes.exit_scope(
+                some_scope_frame.scope_id,
+                namespace_entries.drain(some_scope_frame.type_entries_start as usize..),
+            );
+
+            some_declaration_id
+        };
 
         let type_parameters = resolver
             .declarations
@@ -1293,247 +1342,334 @@ fn add_core(resolver: &mut Resolver) {
             .declarations
             .add_declaration_members([some_declaration_id, none_declaration_id]);
 
-        resolver.declarations.set_declaration(
+        resolver.declarations.set_reserved_declaration(
             option_declaration_id,
-            Declaration {
-                symbol_id: option_symbol,
-                definition: Definition::EnumType {
-                    public: true,
-                    type_parameters,
-                    variants,
-                },
-                scope_id: ScopeId::CORE,
-                syntax: None,
+            Definition::EnumType {
+                public: true,
+                type_parameters,
+                variants,
             },
         );
     }
 
     {
         let result_symbol = resolver.symbols.add_symbol("Result");
-        let ok_symbol = resolver.symbols.add_symbol("Ok");
-        let err_symbol = resolver.symbols.add_symbol("Err");
-        let e_symbol = resolver.symbols.add_symbol("E");
+        let result_declaration_id = resolver.declarations.reserve_declaration_id(
+            result_symbol,
+            core_scope_frame.scope_id,
+            None,
+        );
 
-        let result_declaration_id = resolver.declarations.reserve_declaration_id();
+        namespace_entries.push((result_symbol, result_declaration_id));
+
+        let result_scope_frame = enter_scope(
+            ScopeKind::Type,
+            core_scope_frame.scope_id,
+            &namespace_entries,
+            &mut resolver.scopes,
+        );
 
         let t_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: t_symbol,
             definition: Definition::TypeParameter,
-            scope_id: ScopeId::CORE,
+            scope_id: result_scope_frame.scope_id,
             syntax: None,
         });
+        let t_type_id = resolver.types.add_type(Type::Generic {
+            declaration_id: t_declaration_id,
+        });
 
+        namespace_entries.push((t_symbol, t_declaration_id));
+
+        let e_symbol = resolver.symbols.add_symbol("E");
         let e_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: e_symbol,
             definition: Definition::TypeParameter,
-            scope_id: ScopeId::CORE,
+            scope_id: result_scope_frame.scope_id,
             syntax: None,
-        });
-
-        let t_type_id = resolver.types.add_type(Type::Generic {
-            declaration_id: t_declaration_id,
         });
         let e_type_id = resolver.types.add_type(Type::Generic {
             declaration_id: e_declaration_id,
         });
 
-        let ok_field_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: field_0_symbol,
-            definition: Definition::Field {
-                public: false,
-                parent_struct: result_declaration_id,
-                type_id: t_type_id,
-            },
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
+        namespace_entries.push((e_symbol, e_declaration_id));
 
-        let ok_fields = resolver
-            .declarations
-            .add_declaration_members([ok_field_declaration_id]);
+        let ok_declaration_id = {
+            let ok_symbol = resolver.symbols.add_symbol("Ok");
+            let ok_declaration_id = resolver.declarations.reserve_declaration_id(
+                ok_symbol,
+                result_scope_frame.scope_id,
+                None,
+            );
 
-        let ok_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: ok_symbol,
-            definition: Definition::Variant {
-                discriminant: 0,
-                enum_declaration_id: result_declaration_id,
-                type_parameters: DeclarationMembers::default(),
-                fields: ok_fields,
-            },
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
+            namespace_entries.push((ok_symbol, ok_declaration_id));
 
-        let err_field_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: field_0_symbol,
-            definition: Definition::Field {
-                public: false,
-                parent_struct: result_declaration_id,
-                type_id: e_type_id,
-            },
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
+            let ok_scope_frame = enter_scope(
+                ScopeKind::Type,
+                result_scope_frame.scope_id,
+                &namespace_entries,
+                &mut resolver.scopes,
+            );
+            let ok_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+                symbol_id: field_0_symbol,
+                definition: Definition::Field {
+                    public: false,
+                    parent_struct: ok_declaration_id,
+                    type_id: t_type_id,
+                },
+                scope_id: ok_scope_frame.scope_id,
+                syntax: None,
+            });
 
-        let err_fields = resolver
-            .declarations
-            .add_declaration_members([err_field_declaration_id]);
+            namespace_entries.push((field_0_symbol, ok_field_declaration_id));
 
-        let err_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: err_symbol,
-            definition: Definition::Variant {
-                discriminant: 1,
-                enum_declaration_id: result_declaration_id,
-                type_parameters: DeclarationMembers::default(),
-                fields: err_fields,
-            },
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
+            let ok_fields = resolver
+                .declarations
+                .add_declaration_members([ok_field_declaration_id]);
 
-        let type_parameters = resolver
-            .declarations
-            .add_declaration_members([t_declaration_id, e_declaration_id]);
-        let variants = resolver
-            .declarations
-            .add_declaration_members([ok_declaration_id, err_declaration_id]);
+            resolver.declarations.set_reserved_declaration(
+                ok_declaration_id,
+                Definition::Variant {
+                    discriminant: 0,
+                    enum_declaration_id: result_declaration_id,
+                    fields: ok_fields,
+                },
+            );
+            resolver.scopes.exit_scope(
+                ok_scope_frame.scope_id,
+                namespace_entries.drain(ok_scope_frame.type_entries_start as usize..),
+            );
 
-        resolver.declarations.set_declaration(
-            result_declaration_id,
-            Declaration {
-                symbol_id: result_symbol,
-                definition: Definition::EnumType {
+            ok_declaration_id
+        };
+        let err_declaration_id = {
+            let err_symbol = resolver.symbols.add_symbol("Err");
+            let err_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+                symbol_id: field_0_symbol,
+                definition: Definition::Field {
+                    public: false,
+                    parent_struct: result_declaration_id,
+                    type_id: e_type_id,
+                },
+                scope_id: ScopeId::CORE,
+                syntax: None,
+            });
+
+            namespace_entries.push((field_0_symbol, err_field_declaration_id));
+
+            let err_fields = resolver
+                .declarations
+                .add_declaration_members([err_field_declaration_id]);
+
+            let err_declaration_id = resolver.declarations.add_declaration(Declaration {
+                symbol_id: err_symbol,
+                definition: Definition::Variant {
+                    discriminant: 1,
+                    enum_declaration_id: result_declaration_id,
+                    fields: err_fields,
+                },
+                scope_id: ScopeId::CORE,
+                syntax: None,
+            });
+
+            let type_parameters = resolver
+                .declarations
+                .add_declaration_members([t_declaration_id, e_declaration_id]);
+            let variants = resolver
+                .declarations
+                .add_declaration_members([ok_declaration_id, err_declaration_id]);
+
+            resolver.declarations.set_reserved_declaration(
+                result_declaration_id,
+                Definition::EnumType {
                     public: true,
                     type_parameters,
                     variants,
                 },
-                scope_id: ScopeId::CORE,
+            );
+            resolver.scopes.exit_scope(
+                result_scope_frame.scope_id,
+                namespace_entries.drain(result_scope_frame.type_entries_start as usize..),
+            );
+
+            err_declaration_id
+        };
+
+        let start_symbol = resolver.symbols.add_symbol("start");
+        let end_symbol = resolver.symbols.add_symbol("end");
+        let last_symbol = resolver.symbols.add_symbol("last");
+
+        {
+            let range_symbol = resolver.symbols.add_symbol("Range");
+            let range_declaration_id = resolver.declarations.reserve_declaration_id(
+                range_symbol,
+                core_scope_frame.scope_id,
+                None,
+            );
+
+            namespace_entries.push((range_symbol, range_declaration_id));
+
+            let range_scope_frame = enter_scope(
+                ScopeKind::Type,
+                core_scope_frame.scope_id,
+                &namespace_entries,
+                &mut resolver.scopes,
+            );
+
+            let t_declaration_id = resolver.declarations.add_declaration(Declaration {
+                symbol_id: t_symbol,
+                definition: Definition::TypeParameter,
+                scope_id: range_scope_frame.scope_id,
                 syntax: None,
-            },
-        );
-    }
+            });
+            let t_type_id = resolver.types.add_type(Type::Generic {
+                declaration_id: t_declaration_id,
+            });
 
-    let start_symbol = resolver.symbols.add_symbol("start");
-    let end_symbol = resolver.symbols.add_symbol("end");
-    let last_symbol = resolver.symbols.add_symbol("last");
+            namespace_entries.push((t_symbol, t_declaration_id));
 
-    {
-        let range_symbol = resolver.symbols.add_symbol("Range");
+            let start_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+                symbol_id: start_symbol,
+                definition: Definition::Field {
+                    public: true,
+                    parent_struct: range_declaration_id,
+                    type_id: t_type_id,
+                },
+                scope_id: range_scope_frame.scope_id,
+                syntax: None,
+            });
 
-        let range_declaration_id = resolver.declarations.reserve_declaration_id();
+            namespace_entries.push((start_symbol, start_field_declaration_id));
 
-        let t_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: t_symbol,
-            definition: Definition::TypeParameter,
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
+            let end_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+                symbol_id: end_symbol,
+                definition: Definition::Field {
+                    public: true,
+                    parent_struct: range_declaration_id,
+                    type_id: t_type_id,
+                },
+                scope_id: range_scope_frame.scope_id,
+                syntax: None,
+            });
 
-        let t_type_id = resolver.types.add_type(Type::Generic {
-            declaration_id: t_declaration_id,
-        });
+            namespace_entries.push((end_symbol, end_field_declaration_id));
 
-        let start_field_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: start_symbol,
-            definition: Definition::Field {
-                public: true,
-                parent_struct: range_declaration_id,
-                type_id: t_type_id,
-            },
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
+            let type_parameters = resolver
+                .declarations
+                .add_declaration_members([t_declaration_id]);
+            let fields = resolver
+                .declarations
+                .add_declaration_members([start_field_declaration_id, end_field_declaration_id]);
 
-        let end_field_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: end_symbol,
-            definition: Definition::Field {
-                public: true,
-                parent_struct: range_declaration_id,
-                type_id: t_type_id,
-            },
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
-
-        let type_parameters = resolver
-            .declarations
-            .add_declaration_members([t_declaration_id]);
-        let fields = resolver
-            .declarations
-            .add_declaration_members([start_field_declaration_id, end_field_declaration_id]);
-
-        resolver.declarations.set_declaration(
-            range_declaration_id,
-            Declaration {
-                symbol_id: range_symbol,
-                definition: Definition::StructType {
+            resolver.declarations.set_reserved_declaration(
+                range_declaration_id,
+                Definition::StructType {
                     public: true,
                     type_parameters,
                     fields,
+                    inner_scope_id: range_scope_frame.scope_id,
+                },
+            );
+            resolver.scopes.exit_scope(
+                range_scope_frame.scope_id,
+                namespace_entries.drain(range_scope_frame.type_entries_start as usize..),
+            );
+        }
+
+        {
+            let range_inclusive_symbol = resolver.symbols.add_symbol("RangeInclusive");
+            let range_inclusive_declaration_id = resolver.declarations.reserve_declaration_id(
+                range_inclusive_symbol,
+                core_scope_frame.scope_id,
+                None,
+            );
+
+            namespace_entries.push((range_inclusive_symbol, range_inclusive_declaration_id));
+
+            let range_inclusive_scope_frame = enter_scope(
+                ScopeKind::Type,
+                core_scope_frame.scope_id,
+                &namespace_entries,
+                &mut resolver.scopes,
+            );
+
+            let t_declaration_id = resolver.declarations.add_declaration(Declaration {
+                symbol_id: t_symbol,
+                definition: Definition::TypeParameter,
+                scope_id: range_inclusive_scope_frame.scope_id,
+                syntax: None,
+            });
+
+            let t_type_id = resolver.types.add_type(Type::Generic {
+                declaration_id: t_declaration_id,
+            });
+
+            let start_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+                symbol_id: start_symbol,
+                definition: Definition::Field {
+                    public: true,
+                    parent_struct: range_inclusive_declaration_id,
+                    type_id: t_type_id,
                 },
                 scope_id: ScopeId::CORE,
                 syntax: None,
-            },
-        );
-    }
+            });
 
-    {
-        let range_inclusive_symbol = resolver.symbols.add_symbol("RangeInclusive");
+            let last_field_declaration_id = resolver.declarations.add_declaration(Declaration {
+                symbol_id: last_symbol,
+                definition: Definition::Field {
+                    public: true,
+                    parent_struct: range_inclusive_declaration_id,
+                    type_id: t_type_id,
+                },
+                scope_id: ScopeId::CORE,
+                syntax: None,
+            });
 
-        let range_inclusive_declaration_id = resolver.declarations.reserve_declaration_id();
+            let type_parameters = resolver
+                .declarations
+                .add_declaration_members([t_declaration_id]);
+            let fields = resolver
+                .declarations
+                .add_declaration_members([start_field_declaration_id, last_field_declaration_id]);
 
-        let t_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: t_symbol,
-            definition: Definition::TypeParameter,
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
-
-        let t_type_id = resolver.types.add_type(Type::Generic {
-            declaration_id: t_declaration_id,
-        });
-
-        let start_field_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: start_symbol,
-            definition: Definition::Field {
-                public: true,
-                parent_struct: range_inclusive_declaration_id,
-                type_id: t_type_id,
-            },
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
-
-        let last_field_declaration_id = resolver.declarations.add_declaration(Declaration {
-            symbol_id: last_symbol,
-            definition: Definition::Field {
-                public: true,
-                parent_struct: range_inclusive_declaration_id,
-                type_id: t_type_id,
-            },
-            scope_id: ScopeId::CORE,
-            syntax: None,
-        });
-
-        let type_parameters = resolver
-            .declarations
-            .add_declaration_members([t_declaration_id]);
-        let fields = resolver
-            .declarations
-            .add_declaration_members([start_field_declaration_id, last_field_declaration_id]);
-
-        resolver.declarations.set_declaration(
-            range_inclusive_declaration_id,
-            Declaration {
-                symbol_id: range_inclusive_symbol,
-                definition: Definition::StructType {
+            resolver.declarations.set_reserved_declaration(
+                range_inclusive_declaration_id,
+                Definition::StructType {
                     public: true,
                     type_parameters,
                     fields,
+                    inner_scope_id: range_inclusive_scope_frame.scope_id,
                 },
-                scope_id: ScopeId::CORE,
-                syntax: None,
-            },
-        );
+            );
+            resolver.scopes.exit_scope(
+                range_inclusive_scope_frame.scope_id,
+                namespace_entries.drain(range_inclusive_scope_frame.type_entries_start as usize..),
+            );
+        }
     }
+}
+
+#[derive(Clone, Copy)]
+enum BuiltInType<'a> {
+    Struct {
+        name: &'a str,
+        type_parameters: &'a [&'a str],
+        fields: BuiltInStructFields<'a>,
+    },
+    Enum {
+        name: &'a str,
+        type_parameters: &'a [&'a str],
+        variants: &'a [(&'a str, BuiltInStructFields<'a>)],
+    },
+    Generic {
+        parameter_index: usize,
+    },
+}
+
+#[derive(Clone, Copy)]
+enum BuiltInStructFields<'a> {
+    Unit,
+    Tuple(&'a [BuiltInType<'a>]),
+    Named(&'a [(&'a str, BuiltInType<'a>)]),
 }

@@ -4,7 +4,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxChildren, SyntaxFlag, SyntaxKind::*},
+        node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
     },
 };
 
@@ -22,7 +22,7 @@ fn empty() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 11), SyntaxId(6)),
-            FunctionItem.with_children(Span::new(0, 11), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 11), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 6)),
             FunctionSignature.with_children(Span::new(0, 8), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 8), SyntaxId(2)),
@@ -49,7 +49,7 @@ fn value_parameters() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(10)),
-            FunctionItem.with_children(Span::new(0, 26), SyntaxChildren::new(5, 8)),
+            FnItem.with_children(Span::new(0, 26), SyntaxChildren::new(5, 8)),
             SimplePath.empty(Span::new(3, 6)),
             FunctionSignature.with_children(Span::new(0, 23), SyntaxChildren::new(4, 5)),
             FunctionParameters.with_single_child(Span::new(0, 23), SyntaxId(6)),
@@ -80,7 +80,7 @@ fn type_parameters() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 20), SyntaxId(13)),
-            FunctionItem.with_children(Span::new(0, 20), SyntaxChildren::new(4, 7)),
+            FnItem.with_children(Span::new(0, 20), SyntaxChildren::new(4, 7)),
             SimplePath.empty(Span::new(3, 6)),
             FunctionSignature.with_children(Span::new(0, 17), SyntaxChildren::new(3, 4)),
             FunctionParameters.with_binary_children(Span::new(0, 17), SyntaxId(9), SyntaxId(8)),
@@ -114,11 +114,11 @@ fn return_type() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 18), SyntaxId(7)),
-            FunctionItem.with_children(Span::new(0, 18), SyntaxChildren::new(2, 5)),
+            FnItem.with_children(Span::new(0, 18), SyntaxChildren::new(2, 5)),
             SimplePath.empty(Span::new(3, 6)),
             FunctionSignature
                 .with_children(Span::new(0, 15), SyntaxChildren::new(0, 2))
-                .with_flag(SyntaxFlag::RETURN_TYPE),
+                .with_flag(SyntaxFlags::RETURN_TYPE),
             FunctionParameters.with_single_child(Span::new(0, 8), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 8)),
             I64Type.empty(Span::new(12, 15)),
@@ -144,13 +144,13 @@ fn mixed() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 35), SyntaxId(21)),
-            FunctionItem.with_children(Span::new(0, 35), SyntaxChildren::new(9, 12)),
+            FnItem.with_children(Span::new(0, 35), SyntaxChildren::new(9, 12)),
             SimplePath.empty(Span::new(3, 6)),
             FunctionSignature
                 .with_children(Span::new(0, 32), SyntaxChildren::new(7, 9))
-                .with_flag(SyntaxFlag::TYPE_PARAMETERS)
-                .with_flag(SyntaxFlag::TYPE_ARGUMENTS)
-                .with_flag(SyntaxFlag::RETURN_TYPE),
+                .with_flag(SyntaxFlags::TYPE_PARAMETERS)
+                .with_flag(SyntaxFlags::TYPE_ARGUMENTS)
+                .with_flag(SyntaxFlags::RETURN_TYPE),
             FunctionParameters.with_binary_children(Span::new(0, 27), SyntaxId(15), SyntaxId(8)),
             ValueParameters.with_children(Span::new(0, 27), SyntaxChildren::new(3, 7)),
             SimplePath.empty(Span::new(16, 17)),

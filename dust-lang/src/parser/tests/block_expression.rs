@@ -5,7 +5,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxKind::*, SyntaxChildren},
+        node::{SyntaxChildren, SyntaxKind::*},
     },
 };
 
@@ -26,7 +26,7 @@ fn empty() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 20), SyntaxId(7)),
-            FunctionItem.with_children(Span::new(0, 20), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 20), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -54,14 +54,14 @@ fn item() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(13)),
-            FunctionItem.with_children(Span::new(0, 33), SyntaxChildren::new(5, 8)),
+            FnItem.with_children(Span::new(0, 33), SyntaxChildren::new(5, 8)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_single_child(Span::new(10, 33), SyntaxId(11)),
             BlockExpression.with_single_child(Span::new(16, 31), SyntaxId(10)),
-            FunctionItem.with_children(Span::new(18, 29), SyntaxChildren::new(2, 5)),
+            FnItem.with_children(Span::new(18, 29), SyntaxChildren::new(2, 5)),
             SimplePath.empty(Span::new(21, 24)),
             FunctionSignature.with_children(Span::new(18, 26), SyntaxChildren::new(1, 2)),
             FunctionParameters.with_single_child(Span::new(18, 26), SyntaxId(6)),
@@ -88,7 +88,7 @@ fn statement() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(10)),
-            FunctionItem.with_children(Span::new(0, 33), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 33), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -119,7 +119,7 @@ fn expression() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 27), SyntaxId(12)),
-            FunctionItem.with_children(Span::new(0, 27), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 27), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -152,14 +152,14 @@ fn mixed() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 51), SyntaxId(21)),
-            FunctionItem.with_children(Span::new(0, 51), SyntaxChildren::new(8, 11)),
+            FnItem.with_children(Span::new(0, 51), SyntaxChildren::new(8, 11)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
             ValueParameters.empty(Span::new(0, 9)),
             BlockExpression.with_single_child(Span::new(10, 51), SyntaxId(19)),
             BlockExpression.with_children(Span::new(16, 49), SyntaxChildren::new(5, 8)),
-            FunctionItem.with_children(Span::new(18, 29), SyntaxChildren::new(2, 5)),
+            FnItem.with_children(Span::new(18, 29), SyntaxChildren::new(2, 5)),
             SimplePath.empty(Span::new(21, 24)),
             FunctionSignature.with_children(Span::new(18, 26), SyntaxChildren::new(1, 2)),
             FunctionParameters.with_single_child(Span::new(18, 26), SyntaxId(6)),

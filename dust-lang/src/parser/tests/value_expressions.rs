@@ -5,7 +5,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxKind::*, SyntaxChildren},
+        node::{SyntaxChildren, SyntaxKind::*},
     },
 };
 
@@ -26,7 +26,7 @@ fn boolean() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 22), SyntaxId(7)),
-            FunctionItem.with_children(Span::new(0, 22), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 22), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -54,7 +54,7 @@ fn byte() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 22), SyntaxId(7)),
-            FunctionItem.with_children(Span::new(0, 22), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 22), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -82,7 +82,7 @@ fn character() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 21), SyntaxId(7)),
-            FunctionItem.with_children(Span::new(0, 21), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 21), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -110,7 +110,7 @@ fn float() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 22), SyntaxId(7)),
-            FunctionItem.with_children(Span::new(0, 22), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 22), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -138,7 +138,7 @@ fn integer() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 20), SyntaxId(7)),
-            FunctionItem.with_children(Span::new(0, 20), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 20), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -166,7 +166,7 @@ fn string() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(7)),
-            FunctionItem.with_children(Span::new(0, 33), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 33), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -194,7 +194,7 @@ fn list() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 27), SyntaxId(10)),
-            FunctionItem.with_children(Span::new(0, 27), SyntaxChildren::new(4, 7)),
+            FnItem.with_children(Span::new(0, 27), SyntaxChildren::new(4, 7)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -225,7 +225,7 @@ fn array_repeat() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(9)),
-            FunctionItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),

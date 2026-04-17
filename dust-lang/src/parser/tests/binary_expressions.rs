@@ -5,7 +5,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxKind::*, SyntaxChildren},
+        node::{SyntaxChildren, SyntaxKind::*},
     },
 };
 
@@ -26,7 +26,7 @@ fn addition() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -58,7 +58,7 @@ fn subtraction() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -90,7 +90,7 @@ fn multiplication() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -126,7 +126,7 @@ fn division() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -158,7 +158,7 @@ fn modulo() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -190,7 +190,7 @@ fn power() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -222,7 +222,7 @@ fn equal() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -254,7 +254,7 @@ fn not_equal() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -286,7 +286,7 @@ fn less_than() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -318,7 +318,7 @@ fn less_than_or_equal() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -354,7 +354,7 @@ fn greater_than() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -386,7 +386,7 @@ fn greater_than_or_equal() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -422,7 +422,7 @@ fn logical_and() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -454,7 +454,7 @@ fn logical_or() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),

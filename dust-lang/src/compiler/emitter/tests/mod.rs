@@ -40,7 +40,7 @@ use crate::{
     constants::ConstantsBuilder,
     prototype::Prototype,
     source::{Code, Source},
-    syntax::components::{FunctionItem, FunctionSignature},
+    syntax::components::{FnItem, FunctionSignature},
 };
 
 fn emit_function(source_code: &str) -> Prototype {
@@ -68,7 +68,7 @@ fn emit_function(source_code: &str) -> Prototype {
         .get_tree(position.file_id)
         .and_then(|tree| tree.read_node(syntax_id))
         .unwrap();
-    let FunctionItem {
+    let FnItem {
         signature, body, ..
     } = function_item.as_component().unwrap();
     let FunctionSignature { parameters, .. } = signature.as_component().unwrap();

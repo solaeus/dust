@@ -5,7 +5,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxKind::*, SyntaxChildren},
+        node::{SyntaxChildren, SyntaxKind::*},
     },
 };
 
@@ -26,7 +26,7 @@ fn simple() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 21), SyntaxId(8)),
-            FunctionItem.with_children(Span::new(0, 21), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 21), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -55,7 +55,7 @@ fn multi_segment() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(9)),
-            FunctionItem.with_children(Span::new(0, 26), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 26), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -85,7 +85,7 @@ fn with_type_arguments() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 28), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 28), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 28), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -117,7 +117,7 @@ fn with_multiple_type_arguments() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(13)),
-            FunctionItem.with_children(Span::new(0, 33), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 33), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -151,7 +151,7 @@ fn multi_segment_with_type_arguments() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(12)),
-            FunctionItem.with_children(Span::new(0, 33), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 33), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -184,7 +184,7 @@ fn type_arguments_on_middle_segment() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(12)),
-            FunctionItem.with_children(Span::new(0, 33), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 33), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),

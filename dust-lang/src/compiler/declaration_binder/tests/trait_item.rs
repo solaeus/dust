@@ -65,7 +65,7 @@ fn with_method_and_const() {
         .declarations
         .get_declaration(member_ids[1])
         .unwrap();
-    let Definition::AssociatedConstant {
+    let Definition::InherentAssociatedConstant {
         parent, type_id, ..
     } = n_decl.definition
     else {

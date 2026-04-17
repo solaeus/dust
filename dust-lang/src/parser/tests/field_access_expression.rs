@@ -5,7 +5,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxKind::*, SyntaxChildren},
+        node::{SyntaxChildren, SyntaxKind::*},
     },
 };
 
@@ -26,7 +26,7 @@ fn field_access() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 21), SyntaxId(10)),
-            FunctionItem.with_children(Span::new(0, 21), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 21), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -57,7 +57,7 @@ fn method_call() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(13)),
-            FunctionItem.with_children(Span::new(0, 26), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 26), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),

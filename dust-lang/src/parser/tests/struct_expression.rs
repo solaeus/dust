@@ -5,7 +5,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxKind::*, SyntaxChildren},
+        node::{SyntaxChildren, SyntaxKind::*},
     },
 };
 
@@ -26,7 +26,7 @@ fn empty() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 22), SyntaxId(9)),
-            FunctionItem.with_children(Span::new(0, 22), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 22), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -56,7 +56,7 @@ fn fields() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 39), SyntaxId(14)),
-            FunctionItem.with_children(Span::new(0, 39), SyntaxChildren::new(5, 8)),
+            FnItem.with_children(Span::new(0, 39), SyntaxChildren::new(5, 8)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -65,7 +65,8 @@ fn fields() {
             StructExpression.with_binary_children(Span::new(16, 37), SyntaxId(10), SyntaxId(11)),
             Path.with_single_child(Span::new(16, 19), SyntaxId(5)),
             PathSegment.empty(Span::new(16, 19)),
-            StructExpressionStructFields.with_children(Span::new(20, 37), SyntaxChildren::new(1, 5)),
+            StructExpressionStructFields
+                .with_children(Span::new(20, 37), SyntaxChildren::new(1, 5)),
             SimplePath.empty(Span::new(22, 23)),
             IntegerExpression.empty(Span::new(25, 27)),
             SimplePath.empty(Span::new(29, 30)),

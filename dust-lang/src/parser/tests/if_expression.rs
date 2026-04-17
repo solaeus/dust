@@ -5,7 +5,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxKind::*, SyntaxChildren},
+        node::{SyntaxChildren, SyntaxKind::*},
     },
 };
 
@@ -26,7 +26,7 @@ fn r#if() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 40), SyntaxId(15)),
-            FunctionItem.with_children(Span::new(0, 40), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 40), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -62,7 +62,7 @@ fn if_else() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 55), SyntaxId(21)),
-            FunctionItem.with_children(Span::new(0, 55), SyntaxChildren::new(4, 7)),
+            FnItem.with_children(Span::new(0, 55), SyntaxChildren::new(4, 7)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -110,7 +110,7 @@ fn if_else_if() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 74), SyntaxId(30)),
-            FunctionItem.with_children(Span::new(0, 74), SyntaxChildren::new(7, 10)),
+            FnItem.with_children(Span::new(0, 74), SyntaxChildren::new(7, 10)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),

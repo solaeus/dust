@@ -636,7 +636,7 @@ impl ConstantValue {
                 (left, right)
             }
             _ => {
-                return CompileError::ExpectedSyntaxKinds {
+                return CompileError::UnexpectedSyntax {
                     expected: &[
                         SyntaxKind::AdditionExpression,
                         SyntaxKind::SubtractionExpression,

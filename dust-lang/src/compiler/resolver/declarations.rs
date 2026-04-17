@@ -10,7 +10,7 @@ use crate::{
     },
     native_function::NativeFunction,
     optimal_small_vec_inline_capacity,
-    source::{FileId, Position},
+    source::{FileId, Position, Span},
     syntax::SyntaxId,
 };
 
@@ -34,6 +34,7 @@ impl Declarations {
         let key = DeclarationKey {
             symbol_id: declaration.symbol_id,
             scope_id: declaration.scope_id,
+            visibility: declaration.definition.visibility(),
         };
         let declaration_id = DeclarationId(self.declarations.len() as u32);
 
@@ -49,26 +50,38 @@ impl Declarations {
             .ok_or(CompileError::MissingDeclaration(id))
     }
 
-    pub fn reserve_declaration_id(&mut self) -> DeclarationId {
+    pub fn reserve_declaration_id(
+        &mut self,
+        symbol_id: SymbolId,
+        scope_id: ScopeId,
+        syntax: Option<(Position, SyntaxId)>,
+    ) -> DeclarationId {
         let id = DeclarationId(self.declarations.len() as u32);
 
         self.declarations.push(Declaration {
-            symbol_id: SymbolId::PLACEHOLDER,
+            symbol_id,
             definition: Definition::Placeholder,
-            scope_id: ScopeId::NONE,
-            syntax: None,
+            scope_id,
+            syntax,
         });
 
         id
     }
 
-    pub fn set_declaration(&mut self, id: DeclarationId, declaration: Declaration) {
+    pub fn set_reserved_declaration(&mut self, id: DeclarationId, definition: Definition) {
+        debug_assert_eq!(
+            self.declarations[id.0 as usize].symbol_id,
+            SymbolId::PLACEHOLDER
+        );
+
+        let declaration = &mut self.declarations[id.0 as usize];
         let key = DeclarationKey {
             symbol_id: declaration.symbol_id,
             scope_id: declaration.scope_id,
+            visibility: definition.visibility(),
         };
+        declaration.definition = definition;
 
-        self.declarations[id.0 as usize] = declaration;
         self.declaration_lookup.insert(key, id);
     }
 
@@ -81,18 +94,17 @@ impl Declarations {
         let key = DeclarationKey {
             symbol_id,
             scope_id,
+            visibility,
         };
 
-        self.declaration_lookup.get(&key).and_then(|&id| {
-            let delcaration = &self.declarations[id.0 as usize];
+        self.declaration_lookup.get(&key).and_then(|id| {
+            let declaration = &self.declarations[id.0 as usize];
 
-            match (visibility, delcaration.definition.visibility()) {
-                (Visibility::Block, _) => {}
-                (Visibility::Module, Visibility::Module) => {}
-                _ => return None,
+            match (visibility, declaration.definition.visibility()) {
+                (Visibility::Block, _) => Some((*id, declaration)),
+                (Visibility::Module, Visibility::Module) => Some((*id, declaration)),
+                _ => None,
             }
-
-            Some((id, delcaration))
         })
     }
 
@@ -124,7 +136,7 @@ impl Declarations {
                     aliased_type_id: declaration_type_id,
                     ..
                 }
-                | Definition::AssociatedType {
+                | Definition::InherentAssociatedType {
                     aliased_type_id: declaration_type_id,
                     ..
                 } if declaration_type_id == type_id => {
@@ -241,7 +253,7 @@ pub enum Definition {
     Function {
         public: bool,
         type_parameters: DeclarationMembers,
-        value_parameters: TypeMembers,
+        value_parameters: DeclarationMembers,
         return_type_id: TypeId,
     },
 
@@ -269,6 +281,7 @@ pub enum Definition {
         public: bool,
         type_parameters: DeclarationMembers,
         fields: DeclarationMembers,
+        inner_scope_id: ScopeId,
     },
 
     /// Fields are the members of a struct type.
@@ -311,7 +324,6 @@ pub enum Definition {
     Variant {
         discriminant: u16,
         enum_declaration_id: DeclarationId,
-        type_parameters: DeclarationMembers,
         fields: DeclarationMembers,
     },
 
@@ -332,16 +344,29 @@ pub enum Definition {
         type_id: TypeId,
     },
 
+    InherentImplementation {
+        type_parameters: DeclarationMembers,
+        declarations: DeclarationMembers,
+    },
+
+    InherentAssociatedConstant {
+        public: bool,
+        parent: DeclarationId,
+        type_id: TypeId,
+    },
+
+    InherentAssociatedType {
+        public: bool,
+        parent: DeclarationId,
+        type_parameters: DeclarationMembers,
+        aliased_type_id: TypeId,
+    },
+
     Trait {
         public: bool,
         inner_scope_id: ScopeId,
         type_parameters: DeclarationMembers,
         supertraits: DeclarationMembers,
-        declarations: DeclarationMembers,
-    },
-
-    InherentImplementation {
-        type_parameters: DeclarationMembers,
         declarations: DeclarationMembers,
     },
 
@@ -352,19 +377,19 @@ pub enum Definition {
         declarations: DeclarationMembers,
     },
 
-    AssociatedConstant {
-        public: bool,
+    TraitAssociatedConstant {
         parent: DeclarationId,
         type_id: TypeId,
+        has_default: bool,
     },
 
-    AssociatedType {
-        public: bool,
+    TraitAssociatedType {
         parent: DeclarationId,
         type_parameters: DeclarationMembers,
-        aliased_type_id: TypeId,
+        default_aliased_type_id: Option<TypeId>,
     },
 
+    /// Used when reserving a declaration ID.
     Placeholder,
 }
 
@@ -386,8 +411,10 @@ impl Definition {
             Definition::Field { .. }
             | Definition::Variant { .. }
             | Definition::TypeParameter
-            | Definition::AssociatedConstant { .. }
-            | Definition::AssociatedType { .. }
+            | Definition::InherentAssociatedConstant { .. }
+            | Definition::InherentAssociatedType { .. }
+            | Definition::TraitAssociatedConstant { .. }
+            | Definition::TraitAssociatedType { .. }
             | Definition::Placeholder => Visibility::Type,
         }
     }
@@ -434,4 +461,15 @@ pub enum ModuleKind {
 struct DeclarationKey {
     symbol_id: SymbolId,
     scope_id: ScopeId,
+    visibility: Visibility,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+enum DeclarationDebugInfo {
+    Embedded {},
+    Source {
+        file_id: FileId,
+        span: Span,
+        syntax_id: SyntaxId,
+    },
 }

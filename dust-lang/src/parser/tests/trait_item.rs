@@ -4,7 +4,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxChildren, SyntaxFlag, SyntaxKind::*},
+        node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
     },
 };
 
@@ -51,7 +51,7 @@ fn with_supertraits() {
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
             TraitItem
                 .with_children(Span::new(0, 23), SyntaxChildren::new(0, 3))
-                .with_flag(SyntaxFlag::SUPERTRAITS),
+                .with_flag(SyntaxFlags::SUPERTRAITS),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.empty(Span::new(21, 23)),
             TraitBounds.with_binary_children(Span::new(11, 20), SyntaxId(3), SyntaxId(5)),
@@ -82,8 +82,8 @@ fn with_type_parameters_and_supertraits() {
             Root.with_single_child(Span::new(0, 26), SyntaxId(11)),
             TraitItem
                 .with_children(Span::new(0, 26), SyntaxChildren::new(0, 4))
-                .with_flag(SyntaxFlag::TYPE_PARAMETERS)
-                .with_flag(SyntaxFlag::SUPERTRAITS),
+                .with_flag(SyntaxFlags::TYPE_PARAMETERS)
+                .with_flag(SyntaxFlags::SUPERTRAITS),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.empty(Span::new(24, 26)),
             TypeParameters.with_single_child(Span::new(9, 12), SyntaxId(3)),
@@ -117,8 +117,8 @@ fn with_where_clause() {
             Root.with_single_child(Span::new(0, 28), SyntaxId(13)),
             TraitItem
                 .with_children(Span::new(0, 28), SyntaxChildren::new(0, 4))
-                .with_flag(SyntaxFlag::TYPE_PARAMETERS)
-                .with_flag(SyntaxFlag::WHERE_CLAUSE),
+                .with_flag(SyntaxFlags::TYPE_PARAMETERS)
+                .with_flag(SyntaxFlags::WHERE_CLAUSE),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.empty(Span::new(26, 28)),
             TypeParameters.with_single_child(Span::new(9, 12), SyntaxId(3)),
@@ -155,7 +155,7 @@ fn with_const_member() {
             TraitItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(5)),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.with_single_child(Span::new(10, 27), SyntaxId(4)),
-            TraitConst.with_binary_children(Span::new(12, 25), SyntaxId(2), SyntaxId(3)),
+            TraitConstItem.with_binary_children(Span::new(12, 25), SyntaxId(2), SyntaxId(3)),
             SimplePath.empty(Span::new(18, 19)),
             I64Type.empty(Span::new(21, 24)),
         ]
@@ -182,7 +182,7 @@ fn with_const_member_default() {
             TraitItem.with_binary_children(Span::new(0, 32), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.with_single_child(Span::new(10, 32), SyntaxId(5)),
-            TraitConst.with_children(Span::new(12, 30), SyntaxChildren::new(0, 3),),
+            TraitConstItem.with_children(Span::new(12, 30), SyntaxChildren::new(0, 3),),
             SimplePath.empty(Span::new(18, 19)),
             I64Type.empty(Span::new(21, 24)),
             IntegerExpression.empty(Span::new(27, 29)),
@@ -210,7 +210,7 @@ fn with_method_signature() {
             TraitItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(9)),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.with_single_child(Span::new(10, 27), SyntaxId(8)),
-            TraitFunctionItem.with_binary_children(Span::new(12, 25), SyntaxId(2), SyntaxId(7)),
+            BodylessFunctionItem.with_binary_children(Span::new(12, 25), SyntaxId(2), SyntaxId(7)),
             SimplePath.empty(Span::new(15, 18)),
             FunctionSignature.with_children(Span::new(12, 24), SyntaxChildren::new(0, 1),),
             FunctionParameters.with_single_child(Span::new(12, 24), SyntaxId(5)),
@@ -241,7 +241,7 @@ fn with_default_method() {
             TraitItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.with_single_child(Span::new(10, 29), SyntaxId(9)),
-            FunctionItem.with_children(Span::new(12, 27), SyntaxChildren::new(1, 4),),
+            FnItem.with_children(Span::new(12, 27), SyntaxChildren::new(1, 4),),
             SimplePath.empty(Span::new(15, 18)),
             FunctionSignature.with_children(Span::new(12, 24), SyntaxChildren::new(0, 1),),
             FunctionParameters.with_single_child(Span::new(12, 24), SyntaxId(5)),
@@ -273,11 +273,11 @@ fn with_method_signature_and_return_type() {
             TraitItem.with_binary_children(Span::new(0, 34), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.with_single_child(Span::new(10, 34), SyntaxId(9)),
-            TraitFunctionItem.with_binary_children(Span::new(12, 32), SyntaxId(2), SyntaxId(8)),
+            BodylessFunctionItem.with_binary_children(Span::new(12, 32), SyntaxId(2), SyntaxId(8)),
             SimplePath.empty(Span::new(15, 18)),
             FunctionSignature
                 .with_children(Span::new(12, 31), SyntaxChildren::new(0, 2))
-                .with_flag(SyntaxFlag::RETURN_TYPE),
+                .with_flag(SyntaxFlags::RETURN_TYPE),
             FunctionParameters.with_single_child(Span::new(12, 24), SyntaxId(5)),
             ValueParameters.with_binary_children(Span::new(12, 24), SyntaxId(3), SyntaxId(4)),
             SimplePath.empty(Span::new(19, 23)),
@@ -307,7 +307,7 @@ fn with_type_member() {
             TraitItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(4)),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.with_single_child(Span::new(10, 23), SyntaxId(3)),
-            TraitType.with_single_child(Span::new(12, 21), SyntaxId(2)),
+            TraitTypeItem.with_single_child(Span::new(12, 21), SyntaxId(2)),
             SimplePath.empty(Span::new(17, 20)),
         ]
     );
@@ -333,7 +333,7 @@ fn with_type_member_default() {
             TraitItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(5)),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.with_single_child(Span::new(10, 29), SyntaxId(4)),
-            TraitType.with_binary_children(Span::new(12, 27), SyntaxId(2), SyntaxId(3)),
+            TraitTypeItem.with_binary_children(Span::new(12, 27), SyntaxId(2), SyntaxId(3)),
             SimplePath.empty(Span::new(17, 20)),
             I64Type.empty(Span::new(23, 26)),
         ]

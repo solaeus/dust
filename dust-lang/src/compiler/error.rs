@@ -154,7 +154,7 @@ pub enum CompileError {
         found: usize,
     },
     InvalidRegisterAllocation,
-    ExpectedLocalDefinition,
+    ExpectedLocal,
     ExpectedEmissionTarget {
         node_kind: SyntaxKind,
     },
@@ -172,19 +172,10 @@ pub enum CompileError {
     MissingTypeMember(u32),
     MissingTypeMembers(TypeMembers),
     MissingTypeBinding(SyntaxId),
-    MissingFunctionDeclaration(DeclarationId),
-    MissingAlgebraicTypeDeclaration(DeclarationId),
+    ExpectedFunctionDefinition(DeclarationId),
+    ExpectedAlgebraicTypeDefinition(DeclarationId),
     MissingTypeArgument(DeclarationId),
     ExpectedConcreteType,
-    ExpectedVariantDeclaration(DeclarationId),
-    ExpectedSyntaxKind {
-        expected: SyntaxKind,
-        found: SyntaxKind,
-    },
-    ExpectedSyntaxKinds {
-        expected: &'static [SyntaxKind],
-        found: SyntaxKind,
-    },
     ExpectedFieldDefinition(DeclarationId),
     ExpectedAllocation,
     InvalidTypeBinding(TypeId),
@@ -192,6 +183,13 @@ pub enum CompileError {
     ExpectedEnumDefinition(DeclarationId),
     ExpectedArrayType(TypeId),
     InvalidEmission,
+    UnexpectedSyntax {
+        expected: &'static [SyntaxKind],
+        found: SyntaxKind,
+    },
+    ExpectedLocalDefinition(DeclarationId),
+    ExpectedVariantDefinition(DeclarationId),
+    ExpectedStructDefinition(DeclarationId),
 }
 
 impl<'a> AnnotatedError<'a> for CompileError {
@@ -1112,6 +1110,22 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 groups.push(group);
             }
+            CompileError::UnexpectedSyntax { expected, found } => {
+                let title = "Unexpected syntax";
+                let expected_string = expected
+                    .iter()
+                    .map(|kind| format!("`{kind}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let found_string = format!("`{found}`");
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Level::ERROR.message(format!(
+                        "Expected one of the following syntax kinds: {expected_string}, but found {found_string}."
+                    )),
+                );
+
+                groups.push(group);
+            }
             CompileError::Syntax(error) => error.add_report((), groups),
             CompileError::ConstantList(error) => error.add_report((), groups),
             CompileError::Source(error) => error.add_report((), groups),
@@ -1121,9 +1135,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             | CompileError::InvalidRegisterAllocation
             | CompileError::ExpectedEmissionTarget { .. }
             | CompileError::ExpectedJumpPlacement(_)
-            | CompileError::ExpectedSyntaxKind { .. }
-            | CompileError::ExpectedSyntaxKinds { .. }
-            | CompileError::ExpectedLocalDefinition
+            | CompileError::ExpectedLocal
             | CompileError::ExpectedFieldDefinition { .. }
             | CompileError::ExpectedAllocation
             | CompileError::ValueCreation(_)
@@ -1140,16 +1152,18 @@ impl<'a> AnnotatedError<'a> for CompileError {
             | CompileError::MissingTypeMember(_)
             | CompileError::MissingTypeMembers(_)
             | CompileError::MissingTypeBinding(_)
-            | CompileError::MissingFunctionDeclaration(_)
-            | CompileError::MissingAlgebraicTypeDeclaration(_)
+            | CompileError::ExpectedFunctionDefinition(_)
+            | CompileError::ExpectedAlgebraicTypeDefinition(_)
             | CompileError::MissingTypeArgument(_)
             | CompileError::ExpectedConcreteType
-            | CompileError::ExpectedVariantDeclaration(_)
             | CompileError::InvalidTypeBinding(_)
             | CompileError::ExpectedConstantDefinition(_)
             | CompileError::ExpectedEnumDefinition(_)
             | CompileError::ExpectedArrayType(_)
-            | CompileError::InvalidEmission => {
+            | CompileError::InvalidEmission
+            | CompileError::ExpectedLocalDefinition(_)
+            | CompileError::ExpectedVariantDefinition(_)
+            | CompileError::ExpectedStructDefinition(_) => {
                 self.add_internal_report(groups);
             }
         }

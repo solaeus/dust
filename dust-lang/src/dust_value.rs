@@ -6,6 +6,8 @@ use std::{
     panic::catch_unwind,
 };
 
+use crate::dust_type::DustFunctionType;
+
 /// A public interface for working with Dust values.
 ///
 /// `DustValue`s are passed to and returned by the VM to allow for safe interaction with Rust code.
@@ -166,15 +168,21 @@ impl<E> Display for DustStructValue<E> {
 
 pub struct DustFunction<E> {
     pub name: String,
+    pub r#type: DustFunctionType,
     logic: fn(&[DustValue<E>]) -> Result<Option<DustValue<E>>, E>,
 }
 
 impl<E: Debug> DustFunction<E> {
     pub fn new(
         name: String,
+        r#type: DustFunctionType,
         logic: fn(&[DustValue<E>]) -> Result<Option<DustValue<E>>, E>,
     ) -> Self {
-        Self { name, logic }
+        Self {
+            name,
+            r#type,
+            logic,
+        }
     }
 
     pub fn call(

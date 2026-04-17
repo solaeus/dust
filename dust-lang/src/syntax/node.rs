@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{source::Span, syntax::SyntaxId};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SyntaxNode {
     pub(crate) kind: SyntaxKind,
     pub(crate) children: SyntaxChildren,
@@ -13,40 +13,26 @@ pub struct SyntaxNode {
     pub(crate) span: Span,
 }
 
-impl SyntaxNode {
-    pub fn with_flag(mut self, flag: SyntaxFlag) -> Self {
-        self.flags.set_flag(flag);
-
-        self
-    }
-
-    pub fn with_flags(mut self, flags: SyntaxFlags) -> Self {
-        self.flags = flags;
-
-        self
-    }
-}
-
 impl Display for SyntaxNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.kind)
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum SyntaxKind {
     Root,
 
     // Items
-    ModuleItem,
+    ModItem,
+    ModuleBody,
     UseItem,
-    FunctionItem,
-    StructItem,
-    EnumItem,
+    FnItem,
     ConstItem,
     TypeItem,
+    StructItem,
+    EnumItem,
     ImplItem,
-    ImplTraitItem,
     TraitItem,
 
     // Statements
@@ -121,30 +107,27 @@ pub enum SyntaxKind {
     PathExpression,
 
     // Sub-Syntax
-    ModuleBody,
     ImplBody,
     TraitBody,
-    TraitFunctionItem,
-    TraitConst,
-    TraitType,
     ValueArguments,
+
     FunctionSignature,
     ValueParameters,
     TypeParameters,
     TypeArguments,
     TraitBounds,
     TypeParameter,
-    WherePredicate,
     WhereClause,
-    EnumVariants,
+    WherePredicate,
+
     EnumUnitVariant,
-    EnumTupleVariant,
-    EnumStructVariant,
-    StructItemUnit,
-    StructItemTupleFields,
-    StructItemStructFields,
+    EnumTupleFieldsVariant,
+    EnumNamedFieldsVariant,
+
+    TupleFields,
+    NamedFields,
+
     StructExpressionStructFields,
-    ValueParameterTypes,
 
     // Types
     TypePath,
@@ -168,6 +151,7 @@ pub enum SyntaxKind {
     ArrayType,
     SliceType,
     FunctionType,
+    FunctionTypeValueParameterTypes,
     NeverType,
     TupleType,
     SelfType,
@@ -182,8 +166,18 @@ impl SyntaxKind {
             kind: self,
             children: SyntaxChildren::empty(),
             children_kind: SyntaxChildrenKind::None,
-            span,
             flags: SyntaxFlags::default(),
+            span,
+        }
+    }
+
+    pub fn empty_with_flags(self, span: Span, flags: SyntaxFlags) -> SyntaxNode {
+        SyntaxNode {
+            kind: self,
+            children: SyntaxChildren::empty(),
+            children_kind: SyntaxChildrenKind::None,
+            flags,
+            span,
         }
     }
 
@@ -192,8 +186,8 @@ impl SyntaxKind {
             kind: self,
             children: SyntaxChildren::new(child_id.0, SyntaxId::NONE.0),
             children_kind: SyntaxChildrenKind::Single,
-            span,
             flags: SyntaxFlags::default(),
+            span,
         }
     }
 
@@ -207,8 +201,8 @@ impl SyntaxKind {
             kind: self,
             children: SyntaxChildren::new(left_child_id.0, right_child_id.0),
             children_kind: SyntaxChildrenKind::Binary,
-            span,
             flags: SyntaxFlags::default(),
+            span,
         }
     }
 
@@ -217,23 +211,22 @@ impl SyntaxKind {
             kind: self,
             children,
             children_kind: SyntaxChildrenKind::ThreeOrMore,
-            span,
             flags: SyntaxFlags::default(),
+            span,
         }
     }
 
     pub fn is_item(&self) -> bool {
         matches!(
             self,
-            SyntaxKind::ModuleItem
+            SyntaxKind::ModItem
                 | SyntaxKind::UseItem
-                | SyntaxKind::FunctionItem
+                | SyntaxKind::FnItem
                 | SyntaxKind::StructItem
                 | SyntaxKind::EnumItem
                 | SyntaxKind::ConstItem
                 | SyntaxKind::TypeItem
                 | SyntaxKind::ImplItem
-                | SyntaxKind::ImplTraitItem
                 | SyntaxKind::TraitItem
         )
     }
@@ -241,15 +234,14 @@ impl SyntaxKind {
     pub fn is_statement(&self) -> bool {
         matches!(
             self,
-            SyntaxKind::ModuleItem
+            SyntaxKind::ModItem
                 | SyntaxKind::UseItem
-                | SyntaxKind::FunctionItem
+                | SyntaxKind::FnItem
                 | SyntaxKind::StructItem
                 | SyntaxKind::EnumItem
                 | SyntaxKind::ConstItem
                 | SyntaxKind::TypeItem
                 | SyntaxKind::ImplItem
-                | SyntaxKind::ImplTraitItem
                 | SyntaxKind::TraitItem
                 | SyntaxKind::LetStatement
                 | SyntaxKind::ExpressionStatement
@@ -329,10 +321,9 @@ impl SyntaxKind {
             SyntaxKind::DivisionAssignmentExpression => "division assignment expression",
             SyntaxKind::DivisionExpression => "division expression",
             SyntaxKind::EnumItem => "enum item",
-            SyntaxKind::EnumVariants => "enum variants",
             SyntaxKind::EnumUnitVariant => "enum unit variant",
-            SyntaxKind::EnumTupleVariant => "enum tuple variant",
-            SyntaxKind::EnumStructVariant => "enum struct variant",
+            SyntaxKind::EnumTupleFieldsVariant => "enum tuple fields variant",
+            SyntaxKind::EnumNamedFieldsVariant => "enum named fields variant",
             SyntaxKind::EqualExpression => "equal expression",
             SyntaxKind::ExponentAssignmentExpression => "exponent assignment expression",
             SyntaxKind::ExponentExpression => "exponent expression",
@@ -341,7 +332,7 @@ impl SyntaxKind {
             SyntaxKind::F64Type => "f64 type",
             SyntaxKind::FieldAccessExpression => "field access expression",
             SyntaxKind::FloatExpression => "float expression",
-            SyntaxKind::FunctionItem => "function item",
+            SyntaxKind::FnItem => "function item",
             SyntaxKind::FunctionSignature => "function signature",
             SyntaxKind::FunctionType => "function type",
             SyntaxKind::GreaterThanExpression => "greater than expression",
@@ -356,14 +347,13 @@ impl SyntaxKind {
             SyntaxKind::IfExpression => "if expression",
             SyntaxKind::ImplBody => "impl body",
             SyntaxKind::ImplItem => "impl item",
-            SyntaxKind::ImplTraitItem => "impl trait item",
             SyntaxKind::IndexExpression => "index expression",
             SyntaxKind::IntegerExpression => "integer expression",
             SyntaxKind::LessThanExpression => "less than expression",
             SyntaxKind::LessThanOrEqualExpression => "less than or equal expression",
             SyntaxKind::LetStatement => "let statement",
             SyntaxKind::ModuleBody => "module body",
-            SyntaxKind::ModuleItem => "module item",
+            SyntaxKind::ModItem => "module item",
             SyntaxKind::ModuloAssignmentExpression => "modulo assignment expression",
             SyntaxKind::ModuloExpression => "modulo expression",
             SyntaxKind::MultiplicationAssignmentExpression => {
@@ -387,21 +377,17 @@ impl SyntaxKind {
             SyntaxKind::SliceType => "slice type",
             SyntaxKind::StringExpression => "string expression",
             SyntaxKind::StringType => "string type",
-            SyntaxKind::StructItemStructFields => "struct item struct fields",
+            SyntaxKind::NamedFields => "names fields",
             SyntaxKind::StructExpression => "struct expression",
             SyntaxKind::StructExpressionStructFields => "struct expression struct fields",
             SyntaxKind::StructItem => "struct item",
-            SyntaxKind::StructItemUnit => "struct item unit",
             SyntaxKind::SubtractionAssignmentExpression => "subtraction assignment expression",
             SyntaxKind::SubtractionExpression => "subtraction expression",
             SyntaxKind::Trivia => "trivia",
             SyntaxKind::TraitBody => "trait body",
             SyntaxKind::TraitBounds => "trait bounds",
             SyntaxKind::TraitItem => "trait item",
-            SyntaxKind::TraitFunctionItem => "trait method",
-            SyntaxKind::TraitConst => "trait const",
-            SyntaxKind::TraitType => "trait type",
-            SyntaxKind::StructItemTupleFields => "struct item tuple fields",
+            SyntaxKind::TupleFields => "struct item tuple fields",
             SyntaxKind::TypeItem => "type item",
             SyntaxKind::TypeArguments => "type arguments",
             SyntaxKind::TypeParameters => "type parameters",
@@ -417,7 +403,7 @@ impl SyntaxKind {
             SyntaxKind::UseItem => "use item",
             SyntaxKind::ValueArguments => "value arguments",
             SyntaxKind::ValueParameters => "value parameters",
-            SyntaxKind::ValueParameterTypes => "value parameter types",
+            SyntaxKind::FunctionTypeValueParameterTypes => "function type value parameter types",
             SyntaxKind::WhileExpression => "while loop expression",
             SyntaxKind::WhereClause => "where clause",
             SyntaxKind::WherePredicate => "where predicate",
@@ -470,76 +456,95 @@ pub enum SyntaxChildrenKind {
 pub struct SyntaxFlags(u8);
 
 impl SyntaxFlags {
-    pub fn get_flag(&self, flag: SyntaxFlag) -> bool {
+    // Info flags
+    pub const PUBLIC: Self = Self(1);
+    pub const MUTABLE: Self = Self(1);
+    pub const SELF_VALUE: Self = Self(1);
+    pub const BOOLEAN_TRUE: Self = Self(1);
+
+    // Children flags
+    pub const TYPE_PARAMETERS: Self = Self(2);
+    pub const TYPE_ARGUMENTS: Self = Self(2);
+
+    pub const VALUE_PARAMETERS: Self = Self(4);
+    pub const VALUE_ARGUMENTS: Self = Self(4);
+
+    pub const RETURN_TYPE: Self = Self(8);
+    pub const SUPERTRAITS: Self = Self(8);
+    pub const TYPE_NAME: Self = Self(8);
+    pub const FIELDS: Self = Self(8);
+
+    pub const WHERE_CLAUSE: Self = Self(16);
+
+    pub const RESERVED: [Self; 3] = [Self(32), Self(64), Self(128)];
+
+    pub fn new(flags: u8) -> Self {
+        Self(flags)
+    }
+
+    pub fn set_flag(&mut self, flag: SyntaxFlags) {
+        self.0 |= flag.0;
+    }
+
+    pub fn get_flag(&self, flag: SyntaxFlags) -> bool {
         (self.0 & flag.0) != 0
     }
 
-    pub fn set_flag(&mut self, flag: SyntaxFlag) {
-        self.0 |= flag.0;
+    pub fn info_display(&self, kind: SyntaxKind) -> Option<&'static str> {
+        match kind {
+            SyntaxKind::ModItem
+            | SyntaxKind::UseItem
+            | SyntaxKind::FnItem
+            | SyntaxKind::StructItem
+            | SyntaxKind::EnumItem
+            | SyntaxKind::ConstItem
+            | SyntaxKind::TypeItem
+                if self.get_flag(SyntaxFlags::PUBLIC) =>
+            {
+                Some("public")
+            }
+            SyntaxKind::LetStatement if self.get_flag(SyntaxFlags::MUTABLE) => Some("mutable"),
+            SyntaxKind::ValueParameters if self.get_flag(SyntaxFlags::SELF_VALUE) => {
+                Some("with self")
+            }
+            SyntaxKind::BooleanExpression => {
+                if self.get_flag(SyntaxFlags::BOOLEAN_TRUE) {
+                    Some("true")
+                } else {
+                    Some("false")
+                }
+            }
+            _ => None,
+        }
     }
-}
-
-#[derive(Clone, Copy)]
-pub struct SyntaxFlag(u8);
-
-impl SyntaxFlag {
-    pub const PUBLIC: Self = Self(1);
-    pub const MUTABLE: Self = Self(1);
-    pub const BOOLEAN_TRUE: Self = Self(1);
-    pub const TYPE_PARAMETERS: Self = Self(2);
-    pub const VALUE_PARAMETERS: Self = Self(4);
-    pub const TYPE_ARGUMENTS: Self = Self(4);
-    pub const RETURN_TYPE: Self = Self(8);
-    pub const SUPERTRAITS: Self = Self(8);
-    pub const WHERE_CLAUSE: Self = Self(16);
 }
 
 #[cfg(test)]
 mod tests {
+    use std::array;
+
     use super::*;
 
     #[test]
-    fn flags_do_not_overwrite() {
+    fn flags_sanity_check() {
+        let mut flag_values: [SyntaxFlags; 8] =
+            array::from_fn(|index| SyntaxFlags((1 << index) as u8));
         let mut flags = SyntaxFlags::default();
 
-        flags.set_flag(SyntaxFlag::PUBLIC);
+        for _ in 0..2 {
+            for (index, flag) in flag_values.iter().enumerate() {
+                flags.set_flag(*flag);
 
-        assert!(flags.get_flag(SyntaxFlag::PUBLIC));
-        assert!(!flags.get_flag(SyntaxFlag::TYPE_PARAMETERS));
-        assert!(!flags.get_flag(SyntaxFlag::VALUE_PARAMETERS));
-        assert!(!flags.get_flag(SyntaxFlag::RETURN_TYPE));
-        assert!(!flags.get_flag(SyntaxFlag::WHERE_CLAUSE));
+                for set_flag in &flag_values[..=index] {
+                    assert!(flags.get_flag(*set_flag));
+                }
 
-        flags.set_flag(SyntaxFlag::TYPE_PARAMETERS);
+                for unset_flag in &flag_values[index + 1..] {
+                    assert!(!flags.get_flag(*unset_flag));
+                }
+            }
 
-        assert!(flags.get_flag(SyntaxFlag::PUBLIC));
-        assert!(flags.get_flag(SyntaxFlag::TYPE_PARAMETERS));
-        assert!(!flags.get_flag(SyntaxFlag::VALUE_PARAMETERS));
-        assert!(!flags.get_flag(SyntaxFlag::RETURN_TYPE));
-        assert!(!flags.get_flag(SyntaxFlag::WHERE_CLAUSE));
-
-        flags.set_flag(SyntaxFlag::TYPE_ARGUMENTS);
-
-        assert!(flags.get_flag(SyntaxFlag::PUBLIC));
-        assert!(flags.get_flag(SyntaxFlag::TYPE_PARAMETERS));
-        assert!(flags.get_flag(SyntaxFlag::VALUE_PARAMETERS));
-        assert!(!flags.get_flag(SyntaxFlag::RETURN_TYPE));
-        assert!(!flags.get_flag(SyntaxFlag::WHERE_CLAUSE));
-
-        flags.set_flag(SyntaxFlag::RETURN_TYPE);
-
-        assert!(flags.get_flag(SyntaxFlag::PUBLIC));
-        assert!(flags.get_flag(SyntaxFlag::TYPE_PARAMETERS));
-        assert!(flags.get_flag(SyntaxFlag::VALUE_PARAMETERS));
-        assert!(flags.get_flag(SyntaxFlag::RETURN_TYPE));
-        assert!(!flags.get_flag(SyntaxFlag::WHERE_CLAUSE));
-
-        flags.set_flag(SyntaxFlag::WHERE_CLAUSE);
-
-        assert!(flags.get_flag(SyntaxFlag::PUBLIC));
-        assert!(flags.get_flag(SyntaxFlag::TYPE_PARAMETERS));
-        assert!(flags.get_flag(SyntaxFlag::VALUE_PARAMETERS));
-        assert!(flags.get_flag(SyntaxFlag::RETURN_TYPE));
-        assert!(flags.get_flag(SyntaxFlag::WHERE_CLAUSE));
+            flag_values.reverse();
+        }
     }
 }

@@ -17,7 +17,7 @@ use crate::{
     program::Program,
     prototype::Prototype,
     source::{Code, FileId, Source},
-    syntax::{Syntax, components::FunctionItem, visitor::SyntaxVisitor},
+    syntax::{Syntax, components::FnItem},
 };
 
 fn compile(source_code: &str) -> Program {
@@ -58,7 +58,7 @@ pub fn bind_declarations(source: &Source) -> (Syntax, Resolver, ScopeId) {
     let mut declaration_binder =
         DeclarationBinder::new(source, &syntax, &mut resolver, &mut errors, crate_scope_id);
 
-    match declaration_binder.visit_root(main_root) {
+    match declaration_binder.bind_root(main_root) {
         Ok(()) => {}
         Err(error) => errors.push(ErrorKind::Compile(error)),
     }
@@ -96,7 +96,7 @@ pub fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
         .get_tree(position.file_id)
         .and_then(|tree| tree.read_node(syntax_id))
         .unwrap();
-    let FunctionItem { body, .. } = function_item.as_component().unwrap();
+    let FnItem { body, .. } = function_item.as_component().unwrap();
 
     resolver.type_parameter_map.clear();
 
@@ -115,7 +115,7 @@ pub fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
     let mut errors = Vec::new();
     let mut type_binder = TypeBinder::new(&mut resolver, &source);
 
-    match type_binder.bind_function_body(body, return_type_id) {
+    match type_binder.bind_function_body(body.unwrap(), return_type_id) {
         Ok(()) => {}
         Err(error) => errors.push(ErrorKind::Compile(error)),
     }

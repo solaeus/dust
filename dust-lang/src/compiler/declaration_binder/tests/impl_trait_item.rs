@@ -84,7 +84,7 @@ fn with_associated_type() {
         .declarations
         .get_declaration(member_ids[0])
         .unwrap();
-    let Definition::AssociatedType {
+    let Definition::InherentAssociatedType {
         aliased_type_id, ..
     } = item_decl.definition
     else {

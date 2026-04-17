@@ -3,7 +3,6 @@ pub mod error;
 pub mod node;
 pub mod reader;
 pub mod tree;
-pub mod visitor;
 
 use serde::{Deserialize, Serialize};
 

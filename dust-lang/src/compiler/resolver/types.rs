@@ -8,7 +8,10 @@ use std::{
 use indexmap::{IndexSet, set::MutableValues};
 use smallvec::SmallVec;
 
-use crate::compiler::{error::CompileError, resolver::declarations::DeclarationId};
+use crate::{
+    compiler::{error::CompileError, resolver::declarations::DeclarationId},
+    optimal_small_vec_inline_capacity,
+};
 
 /// Type instance collection that stores every type known to the `Compiler`.
 #[derive(Debug)]
@@ -138,7 +141,7 @@ impl Default for Types {
 pub struct TypeId(u32);
 
 impl TypeId {
-    pub type SmallVec = SmallVec<[Self; 5]>;
+    pub type SmallVec = SmallVec<[Self; optimal_small_vec_inline_capacity::<Self>()]>;
 
     pub const UNIT: Self = TypeId(0);
     pub const BOOLEAN: Self = TypeId(1);

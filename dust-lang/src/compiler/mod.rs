@@ -34,11 +34,7 @@ use crate::{
     parser::{ParseResult, Parser},
     program::Program,
     source::{FileId, Source},
-    syntax::{
-        Syntax,
-        components::{FunctionItem, FunctionSignature},
-        visitor::SyntaxVisitor,
-    },
+    syntax::{Syntax, components::FnItem},
 };
 
 pub struct Compiler<'src> {
@@ -183,7 +179,7 @@ impl<'src> Compiler<'src> {
                 crate_scope_id,
             );
 
-            match declaration_binder.visit_root(main_file_root) {
+            match declaration_binder.bind_root(main_file_root) {
                 Ok(()) => {}
                 Err(error) => errors.push(ErrorKind::Compile(error)),
             }
@@ -234,7 +230,6 @@ impl<'src> Compiler<'src> {
                 *unwrap_or_return!(self.resolver.declarations.get_declaration(declaration_id));
             let Definition::Function {
                 type_parameters,
-                value_parameters,
                 return_type_id,
                 ..
             } = declaration.definition
@@ -249,17 +244,20 @@ impl<'src> Compiler<'src> {
                     return Err(errors);
                 }
             };
-            let syntax_node = unwrap_or_return!(
+            let function_syntax = unwrap_or_return!(
                 self.syntax
                     .get_tree(position.file_id)
                     .and_then(|tree| tree.read_node(syntax_id))
             );
 
-            let FunctionItem {
-                signature, body, ..
-            } = unwrap_or_return!(syntax_node.as_component());
-            let FunctionSignature { parameters, .. } = unwrap_or_return!(signature.as_component());
-            let scope_id = *unwrap_or_return!(self.resolver.get_scope_binding(&body.id));
+            let FnItem {
+                value_parameters,
+                body: Some(body),
+                ..
+            } = unwrap_or_return!(function_syntax.as_component())
+            else {
+                panic!();
+            };
 
             self.resolver.type_parameter_map.clear();
 
@@ -328,7 +326,7 @@ impl<'src> Compiler<'src> {
                 }
             }
 
-            let (argument_count, concrete_return_type_id) = {
+            let concrete_return_type_id = {
                 let span = span!(Level::INFO, "type");
                 let _enter = span.enter();
 
@@ -342,33 +340,7 @@ impl<'src> Compiler<'src> {
                 let concrete_return_type_id =
                     unwrap_or_return!(self.resolver.resolve_type(return_type_id));
 
-                let argument_count = {
-                    let mut count = 0;
-
-                    for index in value_parameters.as_range() {
-                        let parameter_type_id =
-                            *unwrap_or_return!(self.resolver.types.get_type_member(index));
-                        let concrete_parameter_type_id =
-                            unwrap_or_return!(self.resolver.resolve_type(parameter_type_id));
-                        let register_size = if let Some(size) = unwrap_or_return!(
-                            get_register_size(concrete_parameter_type_id, None, &self.resolver)
-                        ) {
-                            size
-                        } else {
-                            errors.push(ErrorKind::Compile(CompileError::CannotInferType {
-                                type_id: parameter_type_id,
-                            }));
-
-                            return Err(errors);
-                        };
-
-                        count += register_size as u16;
-                    }
-
-                    count
-                };
-
-                (argument_count, concrete_return_type_id)
+                concrete_return_type_id
             };
 
             {
@@ -378,15 +350,14 @@ impl<'src> Compiler<'src> {
                 let mut emitter = match Emitter::new(
                     Some(declaration_id),
                     prototype_id,
-                    argument_count,
                     concrete_return_type_id,
-                    scope_id,
                     (
                         &self.source,
                         &mut self.constants,
                         &mut self.resolver,
                         &mut self.compilation_stack,
                     ),
+                    value_parameters,
                 ) {
                     Ok(emitter) => emitter,
                     Err(error) => {
@@ -396,29 +367,9 @@ impl<'src> Compiler<'src> {
                     }
                 };
 
-                if let Err(error) = emitter.handle_parameters(parameters) {
-                    errors.push(ErrorKind::Compile(error));
+                unwrap_or_return!(emitter.emit_function_body(body));
 
-                    return Err(errors);
-                }
-
-                match emitter.emit_function_body(body) {
-                    Ok(()) => {}
-                    Err(error) => {
-                        errors.push(ErrorKind::Compile(error));
-
-                        return Err(errors);
-                    }
-                };
-
-                let prototype = match emitter.finish() {
-                    Ok(prototype) => prototype,
-                    Err(error) => {
-                        errors.push(ErrorKind::Compile(error));
-
-                        return Err(errors);
-                    }
-                };
+                let prototype = unwrap_or_return!(emitter.finish());
 
                 self.resolver.set_prototype(prototype_id, prototype);
 

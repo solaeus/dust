@@ -5,7 +5,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxKind::*, SyntaxChildren},
+        node::{SyntaxChildren, SyntaxKind::*},
     },
 };
 
@@ -26,7 +26,7 @@ fn while_expression() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 31), SyntaxId(12)),
-            FunctionItem.with_children(Span::new(0, 31), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 31), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -59,7 +59,7 @@ fn break_empty() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 39), SyntaxId(10)),
-            FunctionItem.with_children(Span::new(0, 39), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 39), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -90,7 +90,7 @@ fn break_with_value() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 41), SyntaxId(11)),
-            FunctionItem.with_children(Span::new(0, 41), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 41), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),

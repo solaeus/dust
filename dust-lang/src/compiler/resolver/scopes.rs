@@ -1,30 +1,65 @@
-use smallvec::SmallVec;
-
-use crate::compiler::{error::CompileError, resolver::declarations::DeclarationId};
+use crate::compiler::resolver::{declarations::DeclarationId, symbols::SymbolId};
 
 #[derive(Debug, Default)]
 pub struct Scopes {
     scopes: Vec<Scope>,
+    namespace: Vec<(SymbolId, DeclarationId)>,
 }
 
 impl Scopes {
     pub fn new() -> Self {
-        Self { scopes: Vec::new() }
+        Self {
+            scopes: Vec::new(),
+            namespace: Vec::new(),
+        }
     }
 
-    pub fn add_scope(&mut self, scope: Scope) -> ScopeId {
+    pub fn enter_scope(&mut self, kind: ScopeKind, parent: ScopeId) -> ScopeId {
         let id = ScopeId(self.scopes.len() as u32);
 
-        self.scopes.push(scope);
+        self.scopes.push(Scope {
+            kind,
+            parent,
+            namespace_range: (0, 0),
+        });
 
         id
     }
 
-    pub fn get_scope(&self, id: ScopeId) -> Result<&Scope, CompileError> {
-        self.scopes
-            .get(id.0 as usize)
-            .ok_or(CompileError::MissingScope(id))
+    pub fn exit_scope<T>(&mut self, id: ScopeId, entries: T)
+    where
+        T: IntoIterator<Item = (SymbolId, DeclarationId)>,
+    {
+        let scope = &mut self.scopes[id.0 as usize];
+
+        scope.namespace_range.0 = self.namespace.len() as u32;
+
+        self.namespace.extend(entries);
+
+        scope.namespace_range.1 = self.namespace.len() as u32;
     }
+
+    pub fn get_scope(&self, id: ScopeId) -> &Scope {
+        &self.scopes[id.0 as usize]
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Scope {
+    kind: ScopeKind,
+    parent: ScopeId,
+    namespace_range: (u32, u32),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ScopeKind {
+    Crate,
+    Module,
+    Impl,
+    Type,
+    Trait,
+    Function,
+    Block,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -39,20 +74,7 @@ impl ScopeId {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Scope {
-    pub kind: ScopeKind,
-    pub parent: ScopeId,
-    pub modules: SmallVec<[ScopeId; 4]>,
-    pub imports: SmallVec<[DeclarationId; 4]>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum ScopeKind {
-    Crate,
-    Module,
-    Function,
-    Block,
-    Impl,
-    Trait,
+pub struct ScopeFrame {
+    pub scope_id: ScopeId,
+    pub type_entries_start: u32,
 }

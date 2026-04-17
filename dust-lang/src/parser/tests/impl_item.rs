@@ -4,7 +4,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxChildren, SyntaxFlag, SyntaxKind::*},
+        node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
     },
 };
 
@@ -51,7 +51,7 @@ fn with_function() {
             TypePath.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
             ImplBody.with_single_child(Span::new(9, 28), SyntaxId(10)),
-            FunctionItem.with_children(Span::new(11, 26), SyntaxChildren::new(1, 4),),
+            FnItem.with_children(Span::new(11, 26), SyntaxChildren::new(1, 4),),
             SimplePath.empty(Span::new(14, 17)),
             FunctionSignature.with_children(Span::new(11, 23), SyntaxChildren::new(0, 1),),
             FunctionParameters.with_single_child(Span::new(11, 23), SyntaxId(6)),
@@ -84,9 +84,9 @@ fn with_pub_function() {
             TypePath.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
             ImplBody.with_single_child(Span::new(9, 32), SyntaxId(10)),
-            FunctionItem
+            FnItem
                 .with_children(Span::new(15, 30), SyntaxChildren::new(1, 4))
-                .with_flag(SyntaxFlag::PUBLIC),
+                .with_flag(SyntaxFlags::PUBLIC),
             SimplePath.empty(Span::new(18, 21)),
             FunctionSignature.with_children(Span::new(15, 27), SyntaxChildren::new(0, 1),),
             FunctionParameters.with_single_child(Span::new(15, 27), SyntaxId(6)),
@@ -144,7 +144,7 @@ fn with_where_clause() {
             Root.with_single_child(Span::new(0, 26), SyntaxId(11)),
             ImplItem
                 .with_children(Span::new(0, 26), SyntaxChildren::new(0, 3))
-                .with_flag(SyntaxFlag::WHERE_CLAUSE),
+                .with_flag(SyntaxFlags::WHERE_CLAUSE),
             TypePath.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
             ImplBody.empty(Span::new(24, 26)),

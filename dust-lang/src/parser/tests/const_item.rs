@@ -4,7 +4,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxChildren, SyntaxFlag, SyntaxKind::*},
+        node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
     },
 };
 
@@ -52,7 +52,7 @@ fn pub_const() {
             Root.with_single_child(Span::new(0, 22), SyntaxId(4)),
             ConstItem
                 .with_children(Span::new(4, 22), SyntaxChildren::new(0, 3))
-                .with_flag(SyntaxFlag::PUBLIC),
+                .with_flag(SyntaxFlags::PUBLIC),
             SimplePath.empty(Span::new(10, 11)),
             I64Type.empty(Span::new(13, 16)),
             IntegerExpression.empty(Span::new(19, 21)),

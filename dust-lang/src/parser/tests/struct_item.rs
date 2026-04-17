@@ -4,7 +4,7 @@ use crate::{
     source::{FileId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxKind::*, SyntaxChildren},
+        node::{SyntaxChildren, SyntaxKind::*},
     },
 };
 
@@ -27,7 +27,7 @@ fn empty() {
             Root.with_single_child(Span::new(0, 13), SyntaxId(3)),
             StructItem.with_binary_children(Span::new(0, 13), SyntaxId(1), SyntaxId(2)),
             SimplePath.empty(Span::new(7, 10)),
-            StructItemStructFields.empty(Span::new(11, 13)),
+            NamedFields.empty(Span::new(11, 13)),
         ]
     );
 }
@@ -51,7 +51,7 @@ fn tuple() {
             Root.with_single_child(Span::new(0, 21), SyntaxId(5)),
             StructItem.with_binary_children(Span::new(0, 21), SyntaxId(1), SyntaxId(4)),
             SimplePath.empty(Span::new(7, 10)),
-            StructItemTupleFields.with_binary_children(Span::new(10, 20), SyntaxId(2), SyntaxId(3)),
+            TupleFields.with_binary_children(Span::new(10, 20), SyntaxId(2), SyntaxId(3)),
             I64Type.empty(Span::new(11, 14)),
             I64Type.empty(Span::new(16, 19)),
         ]
@@ -77,7 +77,7 @@ fn fields() {
             Root.with_single_child(Span::new(0, 29), SyntaxId(7)),
             StructItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(7, 10)),
-            StructItemStructFields.with_children(Span::new(11, 29), SyntaxChildren::new(0, 4)),
+            NamedFields.with_children(Span::new(11, 29), SyntaxChildren::new(0, 4)),
             SimplePath.empty(Span::new(13, 14)),
             I64Type.empty(Span::new(16, 19)),
             SimplePath.empty(Span::new(21, 22)),
@@ -105,7 +105,7 @@ fn type_parameters() {
             Root.with_single_child(Span::new(0, 22), SyntaxId(10)),
             StructItem.with_children(Span::new(0, 22), SyntaxChildren::new(3, 6)),
             SimplePath.empty(Span::new(7, 10)),
-            StructItemStructFields.empty(Span::new(20, 22)),
+            NamedFields.empty(Span::new(20, 22)),
             TypeParameters.with_children(Span::new(10, 19), SyntaxChildren::new(0, 3)),
             TypeParameter.with_single_child(Span::new(11, 12), SyntaxId(2)),
             SimplePath.empty(Span::new(11, 12)),

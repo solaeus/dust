@@ -1,5 +1,5 @@
 use crate::function_wrapper;
-use crate::syntax::node::SyntaxFlag;
+use crate::syntax::node::SyntaxFlags;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
@@ -27,7 +27,7 @@ fn let_statement() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 29), SyntaxId(9)),
-            FunctionItem.with_children(Span::new(0, 29), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 29), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -57,7 +57,7 @@ fn let_statement_with_type() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 34), SyntaxId(10)),
-            FunctionItem.with_children(Span::new(0, 34), SyntaxChildren::new(4, 7)),
+            FnItem.with_children(Span::new(0, 34), SyntaxChildren::new(4, 7)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -88,7 +88,7 @@ fn let_mut_statement() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(9)),
-            FunctionItem.with_children(Span::new(0, 33), SyntaxChildren::new(1, 4)),
+            FnItem.with_children(Span::new(0, 33), SyntaxChildren::new(1, 4)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -96,7 +96,7 @@ fn let_mut_statement() {
             BlockExpression.with_single_child(Span::new(10, 33), SyntaxId(7)),
             LetStatement
                 .with_binary_children(Span::new(16, 31), SyntaxId(5), SyntaxId(6))
-                .with_flag(SyntaxFlag::MUTABLE),
+                .with_flag(SyntaxFlags::MUTABLE),
             SimplePath.empty(Span::new(24, 25)),
             IntegerExpression.empty(Span::new(28, 30)),
         ]
@@ -120,7 +120,7 @@ fn let_mut_statement_with_type() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 38), SyntaxId(10)),
-            FunctionItem.with_children(Span::new(0, 38), SyntaxChildren::new(4, 7)),
+            FnItem.with_children(Span::new(0, 38), SyntaxChildren::new(4, 7)),
             SimplePath.empty(Span::new(3, 7)),
             FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
             FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
@@ -128,7 +128,7 @@ fn let_mut_statement_with_type() {
             BlockExpression.with_single_child(Span::new(10, 38), SyntaxId(8)),
             LetStatement
                 .with_children(Span::new(16, 36), SyntaxChildren::new(1, 4))
-                .with_flag(SyntaxFlag::MUTABLE),
+                .with_flag(SyntaxFlags::MUTABLE),
             SimplePath.empty(Span::new(24, 25)),
             IntegerExpression.empty(Span::new(33, 35)),
             I64Type.empty(Span::new(27, 30)),

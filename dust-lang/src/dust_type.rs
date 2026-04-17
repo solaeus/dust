@@ -118,19 +118,13 @@ impl Display for DustType {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct DustFunctionType {
-    pub type_parameters: Vec<String>,
     pub value_parameters: Vec<DustType>,
     pub return_type: DustType,
 }
 
 impl DustFunctionType {
-    pub fn new<T: Into<Vec<String>>, U: Into<Vec<DustType>>>(
-        type_parameters: T,
-        value_parameters: U,
-        return_type: DustType,
-    ) -> Self {
+    pub fn new<T: Into<Vec<DustType>>>(value_parameters: T, return_type: DustType) -> Self {
         DustFunctionType {
-            type_parameters: type_parameters.into(),
             value_parameters: value_parameters.into(),
             return_type,
         }
@@ -139,23 +133,7 @@ impl DustFunctionType {
 
 impl Display for DustFunctionType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "fn")?;
-
-        if !self.type_parameters.is_empty() {
-            write!(f, "<")?;
-
-            for (index, type_parameter_name) in self.type_parameters.iter().enumerate() {
-                if index > 0 {
-                    write!(f, ", ")?;
-                }
-
-                write!(f, "{type_parameter_name}")?;
-            }
-
-            write!(f, ">")?;
-        }
-
-        write!(f, "(")?;
+        write!(f, "fn (")?;
 
         if !self.value_parameters.is_empty() {
             for (index, r#type) in self.value_parameters.iter().enumerate() {
@@ -174,7 +152,7 @@ impl Display for DustFunctionType {
 #[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct DustStructType {
     pub name: String,
-    pub value_type: DustStructValueType,
+    pub value_type: DustStructTypeFields,
 }
 
 impl Display for DustStructType {
@@ -186,7 +164,7 @@ impl Display for DustStructType {
 #[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct DustEnumType {
     pub name: String,
-    pub variants: Vec<(String, DustStructValueType)>,
+    pub variants: Vec<(String, DustStructTypeFields)>,
 }
 
 impl Display for DustEnumType {
@@ -206,17 +184,17 @@ impl Display for DustEnumType {
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum DustStructValueType {
+pub enum DustStructTypeFields {
     Unit,
     Tuple(Vec<DustType>),
-    Struct(Vec<(String, DustType)>),
+    Named(Vec<(String, DustType)>),
 }
 
-impl Display for DustStructValueType {
+impl Display for DustStructTypeFields {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            DustStructValueType::Unit => Ok(()),
-            DustStructValueType::Tuple(types) => {
+            DustStructTypeFields::Unit => Ok(()),
+            DustStructTypeFields::Tuple(types) => {
                 write!(f, "(")?;
 
                 for (index, r#type) in types.iter().enumerate() {
@@ -229,7 +207,7 @@ impl Display for DustStructValueType {
 
                 write!(f, ")")
             }
-            DustStructValueType::Struct(fields) => {
+            DustStructTypeFields::Named(fields) => {
                 if fields.len() == 1 {
                     let (field_name, field_type) = &fields[0];
 

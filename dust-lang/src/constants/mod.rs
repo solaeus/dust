@@ -182,7 +182,7 @@ impl ConstantsBuilder {
             return *id;
         }
 
-        self.add_payloads([integer], key, OperandType::U_32)
+        self.add_constant([integer], key, OperandType::U_32)
     }
 
     pub fn add_i32(&mut self, integer: i32) -> ConstantId {
@@ -199,7 +199,7 @@ impl ConstantsBuilder {
             return *id;
         }
 
-        self.add_payloads([integer as u32], key, OperandType::I_32)
+        self.add_constant([integer as u32], key, OperandType::I_32)
     }
 
     pub fn add_u64(&mut self, integer: u64) -> ConstantId {
@@ -219,7 +219,7 @@ impl ConstantsBuilder {
         let low_payload = (integer & 0xFFFFFFFF) as u32;
         let high_payload = ((integer >> 32) & 0xFFFFFFFF) as u32;
 
-        self.add_payloads([low_payload, high_payload], key, OperandType::U_64)
+        self.add_constant([low_payload, high_payload], key, OperandType::U_64)
     }
 
     pub fn add_i64(&mut self, integer: i64) -> ConstantId {
@@ -239,7 +239,7 @@ impl ConstantsBuilder {
         let low_payload = (integer & 0xFFFFFFFF) as u32;
         let high_payload = ((integer >> 32) & 0xFFFFFFFF) as u32;
 
-        self.add_payloads([low_payload, high_payload], key, OperandType::I_64)
+        self.add_constant([low_payload, high_payload], key, OperandType::I_64)
     }
 
     pub fn add_u128(&mut self, integer: u128) -> ConstantId {
@@ -261,7 +261,7 @@ impl ConstantsBuilder {
         let payload_2 = ((integer >> 64) & 0xFFFFFFFF) as u32;
         let payload_3 = ((integer >> 96) & 0xFFFFFFFF) as u32;
 
-        self.add_payloads(
+        self.add_constant(
             [payload_0, payload_1, payload_2, payload_3],
             key,
             OperandType::U_128,
@@ -287,7 +287,7 @@ impl ConstantsBuilder {
         let payload_2 = ((integer >> 64) & 0xFFFFFFFF) as u32;
         let payload_3 = ((integer >> 96) & 0xFFFFFFFF) as u32;
 
-        self.add_payloads(
+        self.add_constant(
             [payload_0, payload_1, payload_2, payload_3],
             key,
             OperandType::I_128,
@@ -309,7 +309,7 @@ impl ConstantsBuilder {
             return *id;
         }
 
-        self.add_payloads([bits], key, OperandType::F_32)
+        self.add_constant([bits], key, OperandType::F_32)
     }
 
     pub fn add_f64(&mut self, float: f64) -> ConstantId {
@@ -330,7 +330,7 @@ impl ConstantsBuilder {
         let low_payload = (bits & 0xFFFFFFFF) as u32;
         let high_payload = ((bits >> 32) & 0xFFFFFFFF) as u32;
 
-        self.add_payloads([low_payload, high_payload], key, OperandType::F_64)
+        self.add_constant([low_payload, high_payload], key, OperandType::F_64)
     }
 
     pub fn add_character(&mut self, character: char) -> ConstantId {
@@ -349,7 +349,7 @@ impl ConstantsBuilder {
 
         let payload = character as u32;
 
-        self.add_payloads([payload], key, OperandType::CHARACTER)
+        self.add_constant([payload], key, OperandType::CHARACTER)
     }
 
     pub fn add_string(&mut self, str: &str) -> ConstantId {
@@ -373,10 +373,10 @@ impl ConstantsBuilder {
         let end = self.string_pool.len() as u16;
         let payload = ((start as u32) << 16) | (end as u32);
 
-        self.add_payloads([payload], key, OperandType::POINTER)
+        self.add_constant([payload], key, OperandType::POINTER)
     }
 
-    fn add_payloads<const COUNT: usize>(
+    fn add_constant<const COUNT: usize>(
         &mut self,
         payloads: [u32; COUNT],
         key: u64,
