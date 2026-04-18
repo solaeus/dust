@@ -330,20 +330,20 @@ pub enum Type {
     /// `T` in `fn foo<T>(x: T) -> T`
     Generic { declaration_id: DeclarationId },
 
-    /// A type that was not specified by the user and may be resolved to a concrete type through
-    /// type unification.
-    Inferred {
-        inferred_id: InferredTypeId,
-        constraint: Option<InferredTypeConstraint>,
-        resolved: Option<TypeId>,
-    },
-
     /// An internal type used to represent the pointer fields of types like `Vec` and `String`. The
     /// type arguments make each instance unique but the size is always the size of a pointer on the
     /// target platform.
     Pointer {
         declaration_id: DeclarationId,
         type_arguments: TypeMembers,
+    },
+
+    /// A type that was not specified by the user and may be resolved to a concrete type through
+    /// type unification.
+    Inferred {
+        inferred_id: InferredTypeId,
+        constraint: Option<InferredTypeConstraint>,
+        resolved: Option<TypeId>,
     },
 }
 

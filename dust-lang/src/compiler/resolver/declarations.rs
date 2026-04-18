@@ -69,12 +69,10 @@ impl Declarations {
     }
 
     pub fn set_reserved_declaration(&mut self, id: DeclarationId, definition: Definition) {
-        debug_assert_eq!(
-            self.declarations[id.0 as usize].symbol_id,
-            SymbolId::PLACEHOLDER
-        );
-
         let declaration = &mut self.declarations[id.0 as usize];
+
+        debug_assert_eq!(declaration.definition, Definition::Placeholder);
+
         let key = DeclarationKey {
             symbol_id: declaration.symbol_id,
             scope_id: declaration.scope_id,
@@ -213,7 +211,7 @@ pub struct Declaration {
     pub syntax: Option<(Position, SyntaxId)>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Definition {
     /// A `let` statement or a function value parameter.
     ///
@@ -372,7 +370,7 @@ pub enum Definition {
 
     TraitImplementation {
         type_parameters: DeclarationMembers,
-        trait_declaration_id: Option<DeclarationId>,
+        trait_declaration_id: DeclarationId,
         trait_type_arguments: TypeMembers,
         declarations: DeclarationMembers,
     },

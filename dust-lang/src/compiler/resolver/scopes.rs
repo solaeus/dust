@@ -47,19 +47,20 @@ impl Scopes {
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Scope {
     kind: ScopeKind,
-    parent: ScopeId,
+    pub parent: ScopeId,
     namespace_range: (u32, u32),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ScopeKind {
-    Crate,
-    Module,
-    Impl,
-    Type,
-    Trait,
-    Function,
     Block,
+    Function,
+    Closure,
+    Module,
+    TypeTraitOrImpl,
+    Associated,
+    Constant,
+    TypeParameters,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
