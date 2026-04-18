@@ -25,7 +25,7 @@ fn block_creates_block_scope() {
         if node.node.kind == SyntaxKind::BlockExpression
             && let Ok(&scope_id) = resolver.get_scope_binding(&node.id)
         {
-            let scope = resolver.scopes.get_scope(scope_id).unwrap();
+            let scope = resolver.scopes.get_scope(scope_id);
 
             if scope.kind == ScopeKind::Block && scope.parent == fn_body_scope {
                 found_block_scope = true;
@@ -56,7 +56,7 @@ fn if_branches_create_scopes() {
         if node.node.kind == SyntaxKind::BlockExpression
             && let Ok(&scope_id) = resolver.get_scope_binding(&node.id)
         {
-            let scope = resolver.scopes.get_scope(scope_id).unwrap();
+            let scope = resolver.scopes.get_scope(scope_id);
 
             if scope.kind == ScopeKind::Block && scope.parent == fn_body_scope {
                 block_scope_count += 1;
@@ -86,7 +86,7 @@ fn while_body_creates_scope() {
         if node.node.kind == SyntaxKind::BlockExpression
             && let Ok(&scope_id) = resolver.get_scope_binding(&node.id)
         {
-            let scope = resolver.scopes.get_scope(scope_id).unwrap();
+            let scope = resolver.scopes.get_scope(scope_id);
 
             if scope.kind == ScopeKind::Block && scope.parent == fn_body_scope {
                 found_while_body_scope = true;

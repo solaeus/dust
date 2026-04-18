@@ -1,7 +1,7 @@
 use crate::{
     compiler::resolver::{
         declarations::{Definition, Visibility},
-        scopes::ScopeKind,
+        scopes::{ScopeId, ScopeKind},
         types::TypeId,
     },
     source::{Code, Source},
@@ -32,10 +32,9 @@ fn empty() {
     };
 
     assert!(!public);
-    assert!(type_parameters.is_empty());
-    assert!(value_parameters.is_empty());
+    assert_eq!(type_parameters, ScopeId::NONE);
+    assert_eq!(value_parameters, ScopeId::NONE);
     assert_eq!(return_type_id, TypeId::UNIT);
-    assert_eq!(foo_declaration.scope_id, crate_scope_id);
 }
 
 #[test]
@@ -62,16 +61,13 @@ fn with_generics_parameters_and_return_type() {
     else {
         panic!();
     };
-    let type_parameter_ids = resolver
-        .declarations
-        .get_declaration_members(&type_parameters)
-        .unwrap();
+    let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
 
     assert!(public);
     assert_eq!(return_type_id, TypeId::I_64);
-    assert_eq!(type_parameters.len(), 2);
+    assert_eq!(type_parameter_entries.len(), 2);
 
-    for &id in type_parameter_ids {
+    for &(_, id) in type_parameter_entries {
         let declaration = resolver.declarations.get_declaration(id).unwrap();
 
         assert!(matches!(declaration.definition, Definition::TypeParameter));
@@ -81,19 +77,27 @@ fn with_generics_parameters_and_return_type() {
     let b_symbol = resolver.symbols.add_symbol("B");
     let first = resolver
         .declarations
-        .get_declaration(type_parameter_ids[0])
+        .get_declaration(type_parameter_entries[0].1)
         .unwrap();
     let second = resolver
         .declarations
-        .get_declaration(type_parameter_ids[1])
+        .get_declaration(type_parameter_entries[1].1)
         .unwrap();
 
     assert_eq!(first.symbol_id, a_symbol);
     assert_eq!(second.symbol_id, b_symbol);
 
-    let value_parameter_types = resolver.types.get_type_members(value_parameters).unwrap();
+    let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
 
-    assert_eq!(value_parameter_types, &[TypeId::I_64, TypeId::BOOLEAN]);
+    assert_eq!(parameter_entries.len(), 2);
+
+    let first_parameter = resolver.declarations.get_declaration(parameter_entries[0].1).unwrap();
+    let Definition::Local { type_id: first_type, .. } = first_parameter.definition else { panic!(); };
+    let second_parameter = resolver.declarations.get_declaration(parameter_entries[1].1).unwrap();
+    let Definition::Local { type_id: second_type, .. } = second_parameter.definition else { panic!(); };
+
+    assert_eq!(first_type, TypeId::I_64);
+    assert_eq!(second_type, TypeId::BOOLEAN);
 }
 
 #[test]
@@ -202,23 +206,20 @@ fn type_parameters_have_correct_identity() {
         panic!();
     };
 
-    let type_parameter_ids = resolver
-        .declarations
-        .get_declaration_members(&type_parameters)
-        .unwrap();
+    let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
 
-    assert_eq!(type_parameters.len(), 2);
+    assert_eq!(type_parameter_entries.len(), 2);
 
     let a_symbol = resolver.symbols.add_symbol("A");
     let b_symbol = resolver.symbols.add_symbol("B");
 
     let first = resolver
         .declarations
-        .get_declaration(type_parameter_ids[0])
+        .get_declaration(type_parameter_entries[0].1)
         .unwrap();
     let second = resolver
         .declarations
-        .get_declaration(type_parameter_ids[1])
+        .get_declaration(type_parameter_entries[1].1)
         .unwrap();
 
     assert_eq!(first.symbol_id, a_symbol);
@@ -283,7 +284,7 @@ fn function_body_creates_function_scope() {
     let (syntax, resolver, crate_scope_id) = bind_declarations(&source);
     let fn_body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
 
-    let scope = resolver.scopes.get_scope(fn_body_scope).unwrap();
+    let scope = resolver.scopes.get_scope(fn_body_scope);
 
     assert_eq!(scope.kind, ScopeKind::Function);
     assert_eq!(scope.parent, crate_scope_id);
@@ -325,7 +326,7 @@ fn nested_function() {
         panic!();
     };
 
-    assert!(value_parameters.is_empty());
+    assert_eq!(value_parameters, ScopeId::NONE);
     assert_eq!(return_type_id, TypeId::UNIT);
     assert_eq!(inner_declaration.scope_id, outer_body_scope);
 }

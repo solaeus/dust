@@ -18,14 +18,12 @@ mod use_item;
 
 use std::path::{Path, PathBuf};
 
-use smallvec::SmallVec;
-
 use crate::{
     compiler::{
         declaration_binder::DeclarationBinder,
         resolver::{
             Resolver,
-            scopes::{Scope, ScopeId, ScopeKind},
+            scopes::{ScopeId, ScopeKind},
         },
         tests::bind_declarations,
     },
@@ -73,12 +71,7 @@ fn bind_declarations_with_errors(source: &Source) -> (Syntax, Resolver, ScopeId,
     }
 
     let mut resolver = Resolver::new();
-    let crate_scope_id = resolver.scopes.add_scope(Scope {
-        kind: ScopeKind::Crate,
-        parent: ScopeId::NONE,
-        modules: SmallVec::new(),
-        imports: SmallVec::new(),
-    });
+    let crate_scope_id = resolver.scopes.enter_scope(ScopeKind::Module, ScopeId::NONE);
 
     let main_root = syntax.get_tree(FileId::MAIN).unwrap().root().unwrap();
 
@@ -86,7 +79,7 @@ fn bind_declarations_with_errors(source: &Source) -> (Syntax, Resolver, ScopeId,
     let mut declaration_binder =
         DeclarationBinder::new(source, &syntax, &mut resolver, &mut errors, crate_scope_id);
 
-    match declaration_binder.visit_root(main_root) {
+    match declaration_binder.bind_root(main_root) {
         Ok(()) => {}
         Err(error) => errors.push(ErrorKind::Compile(error)),
     }
@@ -105,10 +98,26 @@ fn find_function_body_scope(
         if reader.node.kind == SyntaxKind::BlockExpression
             && let Ok(&scope_id) = resolver.get_scope_binding(&reader.id)
         {
-            let scope = resolver.scopes.get_scope(scope_id).unwrap();
+            let scope = resolver.scopes.get_scope(scope_id);
 
-            if scope.kind == ScopeKind::Function && scope.parent == parent_scope_id {
-                return scope_id;
+            if scope.kind == ScopeKind::Function {
+                let mut ancestor_id = scope.parent;
+
+                loop {
+                    if ancestor_id == parent_scope_id {
+                        return scope_id;
+                    }
+
+                    let ancestor = resolver.scopes.get_scope(ancestor_id);
+
+                    if ancestor.kind == ScopeKind::TypeParameters
+                        || ancestor.kind == ScopeKind::ValueParameters
+                    {
+                        ancestor_id = ancestor.parent;
+                    } else {
+                        break;
+                    }
+                }
             }
         }
     }

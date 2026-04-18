@@ -25,7 +25,6 @@ fn with_method_and_const() {
         .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
         .unwrap();
     let Definition::Trait {
-        inner_scope_id,
         declarations,
         ..
     } = foo_declaration.definition
@@ -33,19 +32,16 @@ fn with_method_and_const() {
         panic!();
     };
 
-    assert_eq!(declarations.len(), 2);
+    assert_eq!(resolver.scopes.namespace_len(declarations), 2);
 
-    let member_ids = resolver
-        .declarations
-        .get_declaration_members(&declarations)
-        .unwrap();
+    let member_entries = resolver.scopes.get_namespace_entries(declarations);
 
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let n_symbol = resolver.symbols.add_symbol("N");
 
     let bar_decl = resolver
         .declarations
-        .get_declaration(member_ids[0])
+        .get_declaration(member_entries[0].1)
         .unwrap();
     let Definition::Function {
         value_parameters,
@@ -57,13 +53,13 @@ fn with_method_and_const() {
     };
 
     assert_eq!(bar_decl.symbol_id, bar_symbol);
-    assert_eq!(value_parameters.len(), 1);
+    assert_eq!(resolver.scopes.namespace_len(value_parameters), 1);
     assert_eq!(return_type_id, TypeId::UNIT);
-    assert_eq!(bar_decl.scope_id, inner_scope_id);
+    assert_eq!(bar_decl.scope_id, declarations);
 
     let n_decl = resolver
         .declarations
-        .get_declaration(member_ids[1])
+        .get_declaration(member_entries[1].1)
         .unwrap();
     let Definition::InherentAssociatedConstant {
         parent, type_id, ..
@@ -75,7 +71,7 @@ fn with_method_and_const() {
     assert_eq!(n_decl.symbol_id, n_symbol);
     assert_eq!(type_id, TypeId::I_64);
     assert_eq!(parent, foo_id);
-    assert_eq!(n_decl.scope_id, inner_scope_id);
+    assert_eq!(n_decl.scope_id, declarations);
 }
 
 #[test]
@@ -103,14 +99,11 @@ fn supertraits_resolved() {
         panic!();
     };
 
-    assert_eq!(supertraits.len(), 1);
+    assert_eq!(resolver.scopes.namespace_len(supertraits), 1);
 
-    let supertrait_ids = resolver
-        .declarations
-        .get_declaration_members(&supertraits)
-        .unwrap();
+    let supertrait_entries = resolver.scopes.get_namespace_entries(supertraits);
 
-    assert_eq!(supertrait_ids[0], bar_id);
+    assert_eq!(supertrait_entries[0].1, bar_id);
 }
 
 #[test]
@@ -125,12 +118,12 @@ fn trait_creates_trait_scope() {
         .declarations
         .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
         .unwrap();
-    let Definition::Trait { inner_scope_id, .. } = foo_declaration.definition else {
+    let Definition::Trait { declarations, .. } = foo_declaration.definition else {
         panic!();
     };
 
-    let scope = resolver.scopes.get_scope(inner_scope_id).unwrap();
+    let scope = resolver.scopes.get_scope(declarations);
 
-    assert_eq!(scope.kind, ScopeKind::Trait);
+    assert_eq!(scope.kind, ScopeKind::TypeTraitOrImpl);
     assert_eq!(scope.parent, crate_scope_id);
 }

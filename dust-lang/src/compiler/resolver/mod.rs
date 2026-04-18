@@ -15,9 +15,7 @@ use crate::{
     compiler::{
         error::CompileError,
         resolver::{
-            declarations::{
-                Declaration, DeclarationId, DeclarationMembers, Declarations, Definition,
-            },
+            declarations::{Declaration, DeclarationId, Declarations, Definition},
             scopes::{ScopeFrame, ScopeId, ScopeKind, Scopes},
             symbols::{SymbolId, Symbols},
             types::{
@@ -294,53 +292,49 @@ impl Resolver {
                         type_parameters,
                         ..
                     } => {
-                        let type_parameter_argument_pairs = type_parameters
-                            .as_range()
+                        let type_param_entries =
+                            self.scopes.get_namespace_entries(*type_parameters);
+                        let type_parameter_argument_pairs = type_param_entries
+                            .iter()
                             .zip(type_arguments.as_range())
-                            .filter_map(|(parameter_index, argument_index)| {
-                                let parameter_declaration_id = self
-                                    .declarations
-                                    .get_declaration_member(parameter_index)
-                                    .ok()?;
+                            .filter_map(|(&(_, parameter_declaration_id), argument_index)| {
                                 let argument_type_id =
                                     self.types.get_type_member(argument_index).ok()?;
 
-                                Some((*parameter_declaration_id, *argument_type_id))
+                                Some((parameter_declaration_id, *argument_type_id))
                             });
 
-                        let variant_declaration_ids =
-                            self.declarations.get_declaration_members(variants)?;
+                        let variant_entries = self.scopes.get_namespace_entries(*variants);
 
                         let mut largest_variant_operand_types: Vec<OperandType> = Vec::new();
                         let mut largest_variant_register_count: u16 = 0;
 
-                        for variant_declaration_id in variant_declaration_ids {
+                        for &(_, variant_declaration_id) in variant_entries {
                             let variant_declaration =
-                                self.declarations.get_declaration(*variant_declaration_id)?;
+                                self.declarations.get_declaration(variant_declaration_id)?;
                             let Definition::Variant { fields, .. } =
                                 &variant_declaration.definition
                             else {
                                 return Err(CompileError::ExpectedVariantDefinition(
-                                    *variant_declaration_id,
+                                    variant_declaration_id,
                                 ));
                             };
 
-                            let field_declaration_ids =
-                                self.declarations.get_declaration_members(fields)?;
+                            let field_entries = self.scopes.get_namespace_entries(*fields);
 
                             let mut variant_operand_types: Vec<OperandType> = Vec::new();
                             let mut variant_register_count: u16 = 0;
 
-                            for field_declaration_id in field_declaration_ids {
+                            for &(_, field_declaration_id) in field_entries {
                                 let field_declaration =
-                                    self.declarations.get_declaration(*field_declaration_id)?;
+                                    self.declarations.get_declaration(field_declaration_id)?;
                                 let Definition::Field {
                                     type_id: field_type_id,
                                     ..
                                 } = field_declaration.definition
                                 else {
                                     return Err(CompileError::ExpectedFieldDefinition(
-                                        *field_declaration_id,
+                                        field_declaration_id,
                                     ));
                                 };
 
@@ -359,7 +353,7 @@ impl Resolver {
                                             }
                                         })
                                         .ok_or(CompileError::MissingTypeArgument(
-                                            *field_declaration_id,
+                                            field_declaration_id,
                                         ))?
                                 } else {
                                     field_type_id
@@ -415,28 +409,26 @@ impl Resolver {
                         type_parameters,
                         ..
                     } => {
-                        let mut operand_types = SmallVec::with_capacity(fields.len() as usize);
+                        let mut operand_types =
+                            SmallVec::with_capacity(self.scopes.namespace_len(*fields));
 
-                        let type_parameter_argument_pairs = type_parameters
-                            .as_range()
+                        let type_param_entries =
+                            self.scopes.get_namespace_entries(*type_parameters);
+                        let type_parameter_argument_pairs = type_param_entries
+                            .iter()
                             .zip(type_arguments.as_range())
-                            .filter_map(|(parameter_index, argument_index)| {
-                                let parameter_declaration_id = self
-                                    .declarations
-                                    .get_declaration_member(parameter_index)
-                                    .ok()?;
+                            .filter_map(|(&(_, parameter_declaration_id), argument_index)| {
                                 let argument_type_id =
                                     self.types.get_type_member(argument_index).ok()?;
 
-                                Some((*parameter_declaration_id, *argument_type_id))
+                                Some((parameter_declaration_id, *argument_type_id))
                             });
 
-                        let field_declaration_ids =
-                            self.declarations.get_declaration_members(fields)?;
+                        let field_entries = self.scopes.get_namespace_entries(*fields);
 
-                        for field_declaration_id in field_declaration_ids {
+                        for &(_, field_declaration_id) in field_entries {
                             let field_declaration =
-                                self.declarations.get_declaration(*field_declaration_id)?;
+                                self.declarations.get_declaration(field_declaration_id)?;
                             let Definition::Field {
                                 type_id: field_type_id,
                                 ..
@@ -460,7 +452,7 @@ impl Resolver {
                                         }
                                     })
                                     .ok_or(CompileError::MissingTypeArgument(
-                                        *field_declaration_id,
+                                        field_declaration_id,
                                     ))?
                             } else {
                                 field_type_id
@@ -530,7 +522,7 @@ impl Resolver {
                 definition: Definition::TypeAlias {
                     public: true,
                     aliased_type_id: type_id,
-                    type_parameters: DeclarationMembers::default(),
+                    type_parameters: ScopeId::NONE,
                 },
                 scope_id: external_scope_id,
                 syntax: None,
@@ -628,62 +620,45 @@ impl Resolver {
 
                 let mut type_bindings = Vec::new();
 
-                let fields = match value_type {
-                    DustStructTypeFields::Unit => DeclarationMembers::default(),
+                match value_type {
+                    DustStructTypeFields::Unit => {}
                     DustStructTypeFields::Tuple(types) => {
-                        let field_ids = types
-                            .iter()
-                            .enumerate()
-                            .map(|(index, field_type)| {
-                                let field_type_id =
-                                    self.add_external_type(field_type, struct_scope_id);
-                                let field_symbol_id = self.symbols.add_index_symbol(index as u32);
-                                let field_declaration_id =
-                                    self.declarations.add_declaration(Declaration {
-                                        symbol_id: field_symbol_id,
-                                        definition: Definition::Field {
-                                            public: true,
-                                            parent_struct: struct_declaration_id,
-                                            type_id: field_type_id,
-                                        },
-                                        scope_id: struct_scope_id,
-                                        syntax: None,
-                                    });
+                        for (index, field_type) in types.iter().enumerate() {
+                            let field_type_id = self.add_external_type(field_type, struct_scope_id);
+                            let field_symbol_id = self.symbols.add_index_symbol(index as u32);
+                            let field_declaration_id =
+                                self.declarations.add_declaration(Declaration {
+                                    symbol_id: field_symbol_id,
+                                    definition: Definition::Field {
+                                        public: true,
+                                        parent_struct: struct_declaration_id,
+                                        type_id: field_type_id,
+                                    },
+                                    scope_id: struct_scope_id,
+                                    syntax: None,
+                                });
 
-                                type_bindings.push((field_symbol_id, field_declaration_id));
-
-                                field_declaration_id
-                            })
-                            .collect::<DeclarationId::SmallVec>();
-
-                        self.declarations.add_declaration_members(field_ids)
+                            type_bindings.push((field_symbol_id, field_declaration_id));
+                        }
                     }
                     DustStructTypeFields::Named(fields) => {
-                        let field_ids = fields
-                            .iter()
-                            .map(|(field_name, field_type)| {
-                                let field_type_id =
-                                    self.add_external_type(field_type, struct_scope_id);
-                                let field_symbol_id = self.symbols.add_symbol(field_name);
-                                let field_declaration_id =
-                                    self.declarations.add_declaration(Declaration {
-                                        symbol_id: field_symbol_id,
-                                        definition: Definition::Field {
-                                            public: true,
-                                            parent_struct: struct_declaration_id,
-                                            type_id: field_type_id,
-                                        },
-                                        scope_id: struct_scope_id,
-                                        syntax: None,
-                                    });
+                        for (field_name, field_type) in fields.iter() {
+                            let field_type_id = self.add_external_type(field_type, struct_scope_id);
+                            let field_symbol_id = self.symbols.add_symbol(field_name);
+                            let field_declaration_id =
+                                self.declarations.add_declaration(Declaration {
+                                    symbol_id: field_symbol_id,
+                                    definition: Definition::Field {
+                                        public: true,
+                                        parent_struct: struct_declaration_id,
+                                        type_id: field_type_id,
+                                    },
+                                    scope_id: struct_scope_id,
+                                    syntax: None,
+                                });
 
-                                type_bindings.push((field_symbol_id, field_declaration_id));
-
-                                field_declaration_id
-                            })
-                            .collect::<DeclarationId::SmallVec>();
-
-                        self.declarations.add_declaration_members(field_ids)
+                            type_bindings.push((field_symbol_id, field_declaration_id));
+                        }
                     }
                 };
 
@@ -692,9 +667,8 @@ impl Resolver {
                     struct_declaration_id,
                     Definition::StructType {
                         public: true,
-                        type_parameters: DeclarationMembers::default(),
-                        fields,
-                        inner_scope_id: struct_scope_id,
+                        type_parameters: ScopeId::NONE,
+                        fields: struct_scope_id,
                     },
                 );
                 self.types.add_type(Type::Algebraic {
@@ -711,108 +685,96 @@ impl Resolver {
                 let enum_declaration_id =
                     self.declarations
                         .reserve_declaration_id(enum_symbol_id, enum_scope_id, None);
-                let variant_fields = variants
-                    .iter()
-                    .enumerate()
-                    .map(|(discriminant, (variant_name, variant_value_type))| {
-                        let variant_symbol_id = self.symbols.add_symbol(variant_name);
-                        let fields = match variant_value_type {
-                            DustStructTypeFields::Unit => DeclarationMembers::default(),
-                            DustStructTypeFields::Tuple(types) => {
-                                let enum_variant_scope_id = self
-                                    .scopes
-                                    .enter_scope(ScopeKind::TypeTraitOrImpl, enum_scope_id);
+                let mut enum_type_bindings = Vec::new();
 
-                                let mut type_bindings = Vec::new();
+                for (discriminant, (variant_name, variant_value_type)) in
+                    variants.iter().enumerate()
+                {
+                    let variant_symbol_id = self.symbols.add_symbol(variant_name);
+                    let fields = match variant_value_type {
+                        DustStructTypeFields::Unit => ScopeId::NONE,
+                        DustStructTypeFields::Tuple(types) => {
+                            let enum_variant_scope_id = self
+                                .scopes
+                                .enter_scope(ScopeKind::TypeTraitOrImpl, enum_scope_id);
 
-                                let field_declaration_ids = types
-                                    .iter()
-                                    .enumerate()
-                                    .map(|(index, field_type)| {
-                                        let field_symbol_id =
-                                            self.symbols.add_index_symbol(index as u32);
-                                        let field_type_id = self
-                                            .add_external_type(field_type, enum_variant_scope_id);
-                                        let field_declaration_id =
-                                            self.declarations.add_declaration(Declaration {
-                                                symbol_id: field_symbol_id,
-                                                definition: Definition::Field {
-                                                    public: true,
-                                                    parent_struct: enum_declaration_id,
-                                                    type_id: field_type_id,
-                                                },
-                                                scope_id: ScopeId::NONE,
-                                                syntax: None,
-                                            });
+                            let mut type_bindings = Vec::new();
 
-                                        type_bindings.push((field_symbol_id, field_declaration_id));
+                            for (index, field_type) in types.iter().enumerate() {
+                                let field_symbol_id = self.symbols.add_index_symbol(index as u32);
+                                let field_type_id =
+                                    self.add_external_type(field_type, enum_variant_scope_id);
+                                let field_declaration_id =
+                                    self.declarations.add_declaration(Declaration {
+                                        symbol_id: field_symbol_id,
+                                        definition: Definition::Field {
+                                            public: true,
+                                            parent_struct: enum_declaration_id,
+                                            type_id: field_type_id,
+                                        },
+                                        scope_id: enum_variant_scope_id,
+                                        syntax: None,
+                                    });
 
-                                        field_declaration_id
-                                    })
-                                    .collect::<DeclarationId::SmallVec>();
-
-                                self.scopes.exit_scope(enum_variant_scope_id, type_bindings);
-                                self.declarations
-                                    .add_declaration_members(field_declaration_ids)
+                                type_bindings.push((field_symbol_id, field_declaration_id));
                             }
-                            DustStructTypeFields::Named(fields) => {
-                                let enum_variant_scope_id = self
-                                    .scopes
-                                    .enter_scope(ScopeKind::TypeTraitOrImpl, enum_scope_id);
 
-                                let mut type_bindings = Vec::new();
+                            self.scopes.exit_scope(enum_variant_scope_id, type_bindings);
+                            enum_variant_scope_id
+                        }
+                        DustStructTypeFields::Named(fields) => {
+                            let enum_variant_scope_id = self
+                                .scopes
+                                .enter_scope(ScopeKind::TypeTraitOrImpl, enum_scope_id);
 
-                                let field_declaration_ids = fields
-                                    .iter()
-                                    .map(|(field_name, field_type)| {
-                                        let field_symbol_id = self.symbols.add_symbol(field_name);
-                                        let field_type_id = self
-                                            .add_external_type(field_type, enum_variant_scope_id);
-                                        let field_declaration_id =
-                                            self.declarations.add_declaration(Declaration {
-                                                symbol_id: field_symbol_id,
-                                                definition: Definition::Field {
-                                                    public: true,
-                                                    parent_struct: enum_declaration_id,
-                                                    type_id: field_type_id,
-                                                },
-                                                scope_id: ScopeId::NONE,
-                                                syntax: None,
-                                            });
+                            let mut type_bindings = Vec::new();
 
-                                        type_bindings.push((field_symbol_id, field_declaration_id));
+                            for (field_name, field_type) in fields.iter() {
+                                let field_symbol_id = self.symbols.add_symbol(field_name);
+                                let field_type_id =
+                                    self.add_external_type(field_type, enum_variant_scope_id);
+                                let field_declaration_id =
+                                    self.declarations.add_declaration(Declaration {
+                                        symbol_id: field_symbol_id,
+                                        definition: Definition::Field {
+                                            public: true,
+                                            parent_struct: enum_declaration_id,
+                                            type_id: field_type_id,
+                                        },
+                                        scope_id: enum_variant_scope_id,
+                                        syntax: None,
+                                    });
 
-                                        field_declaration_id
-                                    })
-                                    .collect::<DeclarationId::SmallVec>();
-
-                                self.scopes.exit_scope(enum_variant_scope_id, type_bindings);
-                                self.declarations
-                                    .add_declaration_members(field_declaration_ids)
+                                type_bindings.push((field_symbol_id, field_declaration_id));
                             }
-                        };
 
-                        self.declarations.add_declaration(Declaration {
-                            symbol_id: variant_symbol_id,
-                            definition: Definition::Variant {
-                                discriminant: discriminant as u16,
-                                enum_declaration_id,
-                                fields,
-                            },
-                            scope_id: ScopeId::NONE,
-                            syntax: None,
-                        })
-                    })
-                    .collect::<DeclarationId::SmallVec>();
+                            self.scopes.exit_scope(enum_variant_scope_id, type_bindings);
+                            enum_variant_scope_id
+                        }
+                    };
 
-                let variants = self.declarations.add_declaration_members(variant_fields);
+                    let variant_declaration_id = self.declarations.add_declaration(Declaration {
+                        symbol_id: variant_symbol_id,
+                        definition: Definition::Variant {
+                            discriminant: discriminant as u16,
+                            enum_declaration_id,
+                            fields,
+                        },
+                        scope_id: enum_scope_id,
+                        syntax: None,
+                    });
+
+                    enum_type_bindings.push((variant_symbol_id, variant_declaration_id));
+                }
+
+                self.scopes.exit_scope(enum_scope_id, enum_type_bindings);
 
                 self.declarations.set_reserved_declaration(
                     enum_declaration_id,
                     Definition::EnumType {
                         public: true,
-                        type_parameters: DeclarationMembers::default(),
-                        variants,
+                        type_parameters: ScopeId::NONE,
+                        variants: enum_scope_id,
                     },
                 );
 
@@ -891,28 +853,25 @@ impl Resolver {
                         let enum_name =
                             self.symbols.get_symbol(&declaration.symbol_id)?.to_string();
 
+                        let type_param_entries =
+                            self.scopes.get_namespace_entries(*type_parameters);
                         let type_parameter_map: SmallVec<[(DeclarationId, TypeId); 4]> =
-                            type_parameters
-                                .as_range()
+                            type_param_entries
+                                .iter()
                                 .zip(type_arguments.as_range())
-                                .filter_map(|(parameter_index, argument_index)| {
-                                    let parameter_declaration_id = self
-                                        .declarations
-                                        .get_declaration_member(parameter_index)
-                                        .ok()?;
+                                .filter_map(|(&(_, parameter_declaration_id), argument_index)| {
                                     let argument_type_id =
                                         self.types.get_type_member(argument_index).ok()?;
-                                    Some((*parameter_declaration_id, *argument_type_id))
+                                    Some((parameter_declaration_id, *argument_type_id))
                                 })
                                 .collect();
 
-                        let variant_declaration_ids =
-                            self.declarations.get_declaration_members(variants)?;
-                        let mut variants = Vec::with_capacity(variant_declaration_ids.len());
+                        let variant_entries = self.scopes.get_namespace_entries(*variants);
+                        let mut variants = Vec::with_capacity(variant_entries.len());
 
-                        for variant_declaration_id in variant_declaration_ids {
+                        for &(_, variant_declaration_id) in variant_entries {
                             let variant_declaration =
-                                self.declarations.get_declaration(*variant_declaration_id)?;
+                                self.declarations.get_declaration(variant_declaration_id)?;
                             let Definition::Variant { fields, .. } =
                                 &variant_declaration.definition
                             else {
@@ -924,15 +883,14 @@ impl Resolver {
                                 .get_symbol(&variant_declaration.symbol_id)?
                                 .to_string();
 
-                            let field_declaration_ids =
-                                self.declarations.get_declaration_members(fields)?;
+                            let field_entries = self.scopes.get_namespace_entries(*fields);
                             let mut field_types = Vec::new();
 
-                            for (field_index, field_declaration_id) in
-                                field_declaration_ids.iter().enumerate()
+                            for (field_index, &(_, field_declaration_id)) in
+                                field_entries.iter().enumerate()
                             {
                                 let field_declaration =
-                                    self.declarations.get_declaration(*field_declaration_id)?;
+                                    self.declarations.get_declaration(field_declaration_id)?;
                                 let Definition::Field {
                                     type_id: field_type_id,
                                     ..
@@ -1002,13 +960,12 @@ impl Resolver {
                         let struct_name =
                             self.symbols.get_symbol(&declaration.symbol_id)?.to_string();
 
-                        let field_declaration_ids =
-                            self.declarations.get_declaration_members(fields)?;
+                        let field_entries = self.scopes.get_namespace_entries(*fields);
                         let mut field_types = Vec::new();
 
-                        for field_declaration_id in field_declaration_ids {
+                        for &(_, field_declaration_id) in field_entries {
                             let field_declaration =
-                                self.declarations.get_declaration(*field_declaration_id)?;
+                                self.declarations.get_declaration(field_declaration_id)?;
                             let Definition::Field {
                                 type_id: field_type_id,
                                 ..
@@ -1109,28 +1066,30 @@ impl Resolver {
                         type_parameters,
                         ..
                     } => {
-                        let parameter_declaration_ids = self
-                            .declarations
-                            .get_declaration_members(value_parameters)?;
-                        let value_parameters = parameter_declaration_ids
-                            .iter()
-                            .map(|parameter_declaration_id| {
-                                let parameter_declaration = self
-                                    .declarations
-                                    .get_declaration(*parameter_declaration_id)?;
-                                let type_id = if let Definition::Local { type_id, .. } =
-                                    parameter_declaration.definition
-                                {
-                                    type_id
-                                } else {
-                                    return Err(CompileError::ExpectedLocalDefinition(
-                                        *parameter_declaration_id,
-                                    ));
-                                };
+                        let value_parameters = if *value_parameters != ScopeId::NONE {
+                            self.scopes
+                                .get_namespace_entries(*value_parameters)
+                                .iter()
+                                .map(|&(_, parameter_declaration_id)| {
+                                    let parameter_declaration = self
+                                        .declarations
+                                        .get_declaration(parameter_declaration_id)?;
+                                    let type_id = if let Definition::Local { type_id, .. } =
+                                        parameter_declaration.definition
+                                    {
+                                        type_id
+                                    } else {
+                                        return Err(CompileError::ExpectedLocalDefinition(
+                                            parameter_declaration_id,
+                                        ));
+                                    };
 
-                                self.get_external_type(type_id)
-                            })
-                            .try_collect::<Vec<DustType>>()?;
+                                    self.get_external_type(type_id)
+                                })
+                                .try_collect::<Vec<DustType>>()?
+                        } else {
+                            Vec::new()
+                        };
 
                         let return_dust_type = self.get_external_type(*return_type_id)?;
 
@@ -1157,46 +1116,6 @@ impl Resolver {
                 ..
             } => Err(CompileError::ExpectedConcreteType),
         }
-    }
-
-    fn get_declaration_member_names(
-        &self,
-        members: DeclarationMembers,
-    ) -> impl Iterator<Item = Result<String, CompileError>> {
-        members.as_range().map(|member_index| {
-            let declaration_id = self.declarations.get_declaration_member(member_index)?;
-            let declaration = self.declarations.get_declaration(*declaration_id)?;
-            let name = self.symbols.get_symbol(&declaration.symbol_id)?.to_string();
-
-            Ok(name)
-        })
-    }
-
-    fn get_type_members_as_full_types(
-        &self,
-        members: TypeMembers,
-    ) -> impl Iterator<Item = Result<DustType, CompileError>> {
-        members.as_range().map(|member_index| {
-            let type_id = *self.types.get_type_member(member_index)?;
-
-            self.get_external_type(type_id)
-        })
-    }
-
-    pub fn definition_display_iterator(
-        &self,
-    ) -> impl Iterator<Item = Result<(&str, String), CompileError>> {
-        self.declarations.iter().map(|(_, declaration)| {
-            let symbol = self.symbols.get_symbol(&declaration.symbol_id)?;
-
-            Ok((symbol, format!("{:#?}", declaration.definition)))
-        })
-    }
-}
-
-impl Default for Resolver {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -1256,14 +1175,10 @@ fn add_built_in_type(
 
     namespace_entries.push((symbol_id, declaration_id));
 
-    let scope_frame = enter_scope(
-        ScopeKind::TypeTraitOrImpl,
-        parent_scope_id,
-        namespace_entries,
-        &mut resolver.scopes,
-    );
-
-    let mut type_parameter_declaration_ids = Vec::new();
+    let type_parameters_scope_id = resolver
+        .scopes
+        .enter_scope(ScopeKind::TypeParameters, parent_scope_id);
+    let mut type_parameter_entries = Vec::new();
     let mut type_parameter_type_ids = Vec::new();
 
     for parameter_name in type_parameter_names {
@@ -1271,35 +1186,42 @@ fn add_built_in_type(
         let parameter_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: parameter_symbol_id,
             definition: Definition::TypeParameter,
-            scope_id: scope_frame.scope_id,
+            scope_id: type_parameters_scope_id,
             syntax: None,
         });
         let parameter_type_id = resolver.types.add_type(Type::Generic {
             declaration_id: parameter_declaration_id,
         });
 
-        namespace_entries.push((parameter_symbol_id, parameter_declaration_id));
-        type_parameter_declaration_ids.push(parameter_declaration_id);
+        type_parameter_entries.push((parameter_symbol_id, parameter_declaration_id));
         type_parameter_type_ids.push(parameter_type_id);
     }
+
+    resolver
+        .scopes
+        .exit_scope(type_parameters_scope_id, type_parameter_entries);
+
+    let scope_frame = enter_scope(
+        ScopeKind::TypeTraitOrImpl,
+        type_parameters_scope_id,
+        namespace_entries,
+        &mut resolver.scopes,
+    );
 
     let add_fields = |fields: BuiltInStructFields,
                       parent: DeclarationId,
                       scope_id: ScopeId,
                       resolver: &mut Resolver,
-                      namespace_entries: &mut Vec<(SymbolId, DeclarationId)>|
-     -> Vec<DeclarationId> {
+                      namespace_entries: &mut Vec<(SymbolId, DeclarationId)>| {
         let resolve_field_type = |field_type: BuiltInType| match field_type {
             BuiltInType::Generic { parameter_index } => type_parameter_type_ids[parameter_index],
             _ => panic!("only BuiltInType::Generic is supported as a field type"),
         };
 
         match fields {
-            BuiltInStructFields::Unit => Vec::new(),
-            BuiltInStructFields::Tuple(field_types) => field_types
-                .iter()
-                .enumerate()
-                .map(|(index, field_type)| {
+            BuiltInStructFields::Unit => {}
+            BuiltInStructFields::Tuple(field_types) => {
+                for (index, field_type) in field_types.iter().enumerate() {
                     let field_symbol_id = resolver.symbols.add_index_symbol(index as u32);
                     let field_declaration_id = resolver.declarations.add_declaration(Declaration {
                         symbol_id: field_symbol_id,
@@ -1313,13 +1235,10 @@ fn add_built_in_type(
                     });
 
                     namespace_entries.push((field_symbol_id, field_declaration_id));
-
-                    field_declaration_id
-                })
-                .collect(),
-            BuiltInStructFields::Named(named_fields) => named_fields
-                .iter()
-                .map(|(field_name, field_type)| {
+                }
+            }
+            BuiltInStructFields::Named(named_fields) => {
+                for (field_name, field_type) in named_fields.iter() {
                     let field_symbol_id = resolver.symbols.add_symbol(field_name);
                     let field_declaration_id = resolver.declarations.add_declaration(Declaration {
                         symbol_id: field_symbol_id,
@@ -1333,16 +1252,14 @@ fn add_built_in_type(
                     });
 
                     namespace_entries.push((field_symbol_id, field_declaration_id));
-
-                    field_declaration_id
-                })
-                .collect(),
+                }
+            }
         }
     };
 
     match built_in_type {
         BuiltInType::Struct { fields, .. } => {
-            let field_declaration_ids = add_fields(
+            add_fields(
                 fields,
                 declaration_id,
                 scope_frame.scope_id,
@@ -1350,46 +1267,33 @@ fn add_built_in_type(
                 namespace_entries,
             );
 
-            let type_parameters_members = resolver
-                .declarations
-                .add_declaration_members(type_parameter_declaration_ids);
-            let fields_members = resolver
-                .declarations
-                .add_declaration_members(field_declaration_ids);
-
             resolver.declarations.set_reserved_declaration(
                 declaration_id,
                 Definition::StructType {
                     public: true,
-                    type_parameters: type_parameters_members,
-                    fields: fields_members,
-                    inner_scope_id: scope_frame.scope_id,
+                    type_parameters: type_parameters_scope_id,
+                    fields: scope_frame.scope_id,
                 },
             );
         }
         BuiltInType::Enum { variants, .. } => {
-            let mut variant_declaration_ids = Vec::new();
-
             for (discriminant, (variant_name, variant_fields)) in variants.iter().enumerate() {
                 let variant_symbol_id = resolver.symbols.add_symbol(variant_name);
 
-                let variant_declaration_id = if matches!(variant_fields, BuiltInStructFields::Unit)
-                {
+                if matches!(variant_fields, BuiltInStructFields::Unit) {
                     let variant_declaration_id =
                         resolver.declarations.add_declaration(Declaration {
                             symbol_id: variant_symbol_id,
                             definition: Definition::Variant {
                                 discriminant: discriminant as u16,
                                 enum_declaration_id: declaration_id,
-                                fields: DeclarationMembers::default(),
+                                fields: ScopeId::NONE,
                             },
                             scope_id: scope_frame.scope_id,
                             syntax: None,
                         });
 
                     namespace_entries.push((variant_symbol_id, variant_declaration_id));
-
-                    variant_declaration_id
                 } else {
                     let variant_declaration_id = resolver.declarations.reserve_declaration_id(
                         variant_symbol_id,
@@ -1406,17 +1310,13 @@ fn add_built_in_type(
                         &mut resolver.scopes,
                     );
 
-                    let field_declaration_ids = add_fields(
+                    add_fields(
                         *variant_fields,
                         variant_declaration_id,
                         variant_scope_frame.scope_id,
                         resolver,
                         namespace_entries,
                     );
-
-                    let fields_members = resolver
-                        .declarations
-                        .add_declaration_members(field_declaration_ids);
 
                     resolver.scopes.exit_scope(
                         variant_scope_frame.scope_id,
@@ -1427,29 +1327,18 @@ fn add_built_in_type(
                         Definition::Variant {
                             discriminant: discriminant as u16,
                             enum_declaration_id: declaration_id,
-                            fields: fields_members,
+                            fields: variant_scope_frame.scope_id,
                         },
                     );
-
-                    variant_declaration_id
                 };
-
-                variant_declaration_ids.push(variant_declaration_id);
             }
-
-            let type_parameters_members = resolver
-                .declarations
-                .add_declaration_members(type_parameter_declaration_ids);
-            let variants_members = resolver
-                .declarations
-                .add_declaration_members(variant_declaration_ids);
 
             resolver.declarations.set_reserved_declaration(
                 declaration_id,
                 Definition::EnumType {
                     public: true,
-                    type_parameters: type_parameters_members,
-                    variants: variants_members,
+                    type_parameters: type_parameters_scope_id,
+                    variants: scope_frame.scope_id,
                 },
             );
         }

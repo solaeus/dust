@@ -70,7 +70,7 @@ fn inline_creates_module_scope() {
         panic!();
     };
 
-    let scope = resolver.scopes.get_scope(inner_scope_id).unwrap();
+    let scope = resolver.scopes.get_scope(inner_scope_id);
 
     assert_eq!(scope.kind, ScopeKind::Module);
     assert_eq!(scope.parent, crate_scope_id);
@@ -143,7 +143,7 @@ fn nested_inline() {
         panic!();
     };
 
-    let bar_scope = resolver.scopes.get_scope(bar_scope_id).unwrap();
+    let bar_scope = resolver.scopes.get_scope(bar_scope_id);
 
     assert_eq!(bar_scope.kind, ScopeKind::Module);
     assert_eq!(bar_scope.parent, foo_scope_id);

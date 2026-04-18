@@ -1,6 +1,3 @@
-use std::{collections::HashMap, ops::Range};
-
-use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 
 use crate::{
@@ -17,29 +14,19 @@ use crate::{
 #[derive(Debug)]
 pub struct Declarations {
     declarations: Vec<Declaration>,
-    declaration_lookup: HashMap<DeclarationKey, DeclarationId, FxBuildHasher>,
-    declaration_members: Vec<DeclarationId>,
 }
 
 impl Declarations {
     pub fn new() -> Self {
         Self {
             declarations: Vec::new(),
-            declaration_lookup: HashMap::default(),
-            declaration_members: Vec::new(),
         }
     }
 
     pub fn add_declaration(&mut self, declaration: Declaration) -> DeclarationId {
-        let key = DeclarationKey {
-            symbol_id: declaration.symbol_id,
-            scope_id: declaration.scope_id,
-            visibility: declaration.definition.visibility(),
-        };
         let declaration_id = DeclarationId(self.declarations.len() as u32);
 
         self.declarations.push(declaration);
-        self.declaration_lookup.insert(key, declaration_id);
 
         declaration_id
     }
@@ -73,37 +60,22 @@ impl Declarations {
 
         debug_assert_eq!(declaration.definition, Definition::Placeholder);
 
-        let key = DeclarationKey {
-            symbol_id: declaration.symbol_id,
-            scope_id: declaration.scope_id,
-            visibility: definition.visibility(),
-        };
         declaration.definition = definition;
-
-        self.declaration_lookup.insert(key, id);
     }
 
     pub fn find_declaration(
         &self,
         symbol_id: SymbolId,
         scope_id: ScopeId,
-        visibility: Visibility,
+        _visibility: Visibility,
     ) -> Option<(DeclarationId, &Declaration)> {
-        let key = DeclarationKey {
-            symbol_id,
-            scope_id,
-            visibility,
-        };
-
-        self.declaration_lookup.get(&key).and_then(|id| {
-            let declaration = &self.declarations[id.0 as usize];
-
-            match (visibility, declaration.definition.visibility()) {
-                (Visibility::Block, _) => Some((*id, declaration)),
-                (Visibility::Module, Visibility::Module) => Some((*id, declaration)),
-                _ => None,
+        for (index, declaration) in self.declarations.iter().enumerate().rev() {
+            if declaration.symbol_id == symbol_id && declaration.scope_id == scope_id {
+                return Some((DeclarationId(index as u32), declaration));
             }
-        })
+        }
+
+        None
     }
 
     /// Finds the declaration with the given type ID, if it exists. This is O(n) and should only be
@@ -148,34 +120,6 @@ impl Declarations {
 
     pub fn next_declaration_id(&self) -> DeclarationId {
         DeclarationId(self.declarations.len() as u32)
-    }
-
-    pub fn add_declaration_members(
-        &mut self,
-        parameter_ids: impl IntoIterator<Item = DeclarationId>,
-    ) -> DeclarationMembers {
-        let start = self.declaration_members.len() as u32;
-
-        self.declaration_members.extend(parameter_ids);
-
-        let end = self.declaration_members.len() as u32;
-
-        DeclarationMembers { start, end }
-    }
-
-    pub fn get_declaration_member(&self, index: u32) -> Result<&DeclarationId, CompileError> {
-        self.declaration_members
-            .get(index as usize)
-            .ok_or(CompileError::MissingDeclarationMember(index))
-    }
-
-    pub fn get_declaration_members(
-        &self,
-        members: &DeclarationMembers,
-    ) -> Result<&[DeclarationId], CompileError> {
-        self.declaration_members
-            .get(members.as_usize_range())
-            .ok_or(CompileError::MissingDeclarationMembers(*members))
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (DeclarationId, &Declaration)> + '_ {
@@ -250,8 +194,8 @@ pub enum Definition {
     /// - `fn foo<T>(x: T) -> T { ... }`
     Function {
         public: bool,
-        type_parameters: DeclarationMembers,
-        value_parameters: DeclarationMembers,
+        type_parameters: ScopeId,
+        value_parameters: ScopeId,
         return_type_id: TypeId,
     },
 
@@ -265,7 +209,7 @@ pub enum Definition {
     /// - `core::string::String::join`
     NativeFunction {
         function: NativeFunction,
-        type_parameters: DeclarationMembers,
+        type_parameters: ScopeId,
         value_parameters: TypeMembers,
         return_type_id: TypeId,
     },
@@ -277,9 +221,8 @@ pub enum Definition {
     /// - `struct Foo { x: f32 }`
     StructType {
         public: bool,
-        type_parameters: DeclarationMembers,
-        fields: DeclarationMembers,
-        inner_scope_id: ScopeId,
+        type_parameters: ScopeId,
+        fields: ScopeId,
     },
 
     /// Fields are the members of a struct type.
@@ -303,8 +246,8 @@ pub enum Definition {
     /// ```
     EnumType {
         public: bool,
-        type_parameters: DeclarationMembers,
-        variants: DeclarationMembers,
+        type_parameters: ScopeId,
+        variants: ScopeId,
     },
 
     /// Variants are the members of an enum type. This is essentially a struct type with a
@@ -322,7 +265,7 @@ pub enum Definition {
     Variant {
         discriminant: u16,
         enum_declaration_id: DeclarationId,
-        fields: DeclarationMembers,
+        fields: ScopeId,
     },
 
     /// Type parameters have a unique `Type::Generic` type. When a type is instantiated, the type
@@ -333,7 +276,7 @@ pub enum Definition {
 
     TypeAlias {
         public: bool,
-        type_parameters: DeclarationMembers,
+        type_parameters: ScopeId,
         aliased_type_id: TypeId,
     },
 
@@ -343,8 +286,8 @@ pub enum Definition {
     },
 
     InherentImplementation {
-        type_parameters: DeclarationMembers,
-        declarations: DeclarationMembers,
+        type_parameters: ScopeId,
+        declarations: ScopeId,
     },
 
     InherentAssociatedConstant {
@@ -356,23 +299,22 @@ pub enum Definition {
     InherentAssociatedType {
         public: bool,
         parent: DeclarationId,
-        type_parameters: DeclarationMembers,
+        type_parameters: ScopeId,
         aliased_type_id: TypeId,
     },
 
     Trait {
         public: bool,
-        inner_scope_id: ScopeId,
-        type_parameters: DeclarationMembers,
-        supertraits: DeclarationMembers,
-        declarations: DeclarationMembers,
+        type_parameters: ScopeId,
+        supertraits: ScopeId,
+        declarations: ScopeId,
     },
 
     TraitImplementation {
-        type_parameters: DeclarationMembers,
+        type_parameters: ScopeId,
         trait_declaration_id: DeclarationId,
         trait_type_arguments: TypeMembers,
-        declarations: DeclarationMembers,
+        declarations: ScopeId,
     },
 
     TraitAssociatedConstant {
@@ -383,7 +325,7 @@ pub enum Definition {
 
     TraitAssociatedType {
         parent: DeclarationId,
-        type_parameters: DeclarationMembers,
+        type_parameters: ScopeId,
         default_aliased_type_id: Option<TypeId>,
     },
 
@@ -392,7 +334,7 @@ pub enum Definition {
 }
 
 impl Definition {
-    fn visibility(&self) -> Visibility {
+    pub fn visibility(&self) -> Visibility {
         match self {
             Definition::Local { .. } => Visibility::Block,
             Definition::Module { .. }
@@ -425,41 +367,10 @@ pub enum Visibility {
     Type,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DeclarationMembers {
-    start: u32,
-    end: u32,
-}
-
-impl DeclarationMembers {
-    pub fn len(&self) -> u32 {
-        self.end - self.start
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    pub fn as_range(&self) -> Range<u32> {
-        self.start..self.end
-    }
-
-    pub fn as_usize_range(&self) -> Range<usize> {
-        self.start as usize..self.end as usize
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ModuleKind {
     File { file_id: FileId },
     Inline,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct DeclarationKey {
-    symbol_id: SymbolId,
-    scope_id: ScopeId,
-    visibility: Visibility,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -1,13 +1,13 @@
 #![allow(clippy::disallowed_macros)]
 #![allow(clippy::disallowed_methods)]
 
-use smallvec::{SmallVec, smallvec};
+use smallvec::smallvec;
 
 use crate::{
     compiler::resolver::{
         Resolver,
         declarations::{Definition, Visibility},
-        scopes::{Scope, ScopeId, ScopeKind},
+        scopes::{ScopeId, ScopeKind},
     },
     compiler::{Compiler, declaration_binder::DeclarationBinder, type_binder::TypeBinder},
     error::ErrorKind,
@@ -45,12 +45,7 @@ pub fn bind_declarations(source: &Source) -> (Syntax, Resolver, ScopeId) {
     }
 
     let mut resolver = Resolver::new();
-    let crate_scope_id = resolver.scopes.add_scope(Scope {
-        kind: ScopeKind::Crate,
-        parent: ScopeId::NONE,
-        modules: SmallVec::new(),
-        imports: SmallVec::new(),
-    });
+    let crate_scope_id = resolver.scopes.enter_scope(ScopeKind::Module, ScopeId::NONE);
 
     let main_root = syntax.get_tree(FileId::MAIN).unwrap().root().unwrap();
 
@@ -100,12 +95,9 @@ pub fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
 
     resolver.type_parameter_map.clear();
 
-    let type_parameter_declaration_ids = resolver
-        .declarations
-        .get_declaration_members(&type_parameters)
-        .unwrap();
+    let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
 
-    for &type_parameter_declaration_id in type_parameter_declaration_ids {
+    for &(_, type_parameter_declaration_id) in type_parameter_entries {
         let inferred_type_id = resolver.types.create_inferred_type(None);
         resolver
             .type_parameter_map

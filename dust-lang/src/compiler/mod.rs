@@ -261,13 +261,12 @@ impl<'src> Compiler<'src> {
 
             self.resolver.type_parameter_map.clear();
 
-            let type_parameter_declaration_ids = unwrap_or_return!(
-                self.resolver
-                    .declarations
-                    .get_declaration_members(&type_parameters)
-            );
+            let type_param_entries = self
+                .resolver
+                .scopes
+                .get_namespace_entries(type_parameters);
 
-            for &type_parameter_declaration_id in type_parameter_declaration_ids {
+            for &(_, type_parameter_declaration_id) in type_param_entries {
                 let inferred_type_id = self.resolver.types.create_inferred_type(None);
 
                 self.resolver
@@ -280,8 +279,8 @@ impl<'src> Compiler<'src> {
                 .get_concrete_type_arguments(prototype_id)
                 .cloned()
             {
-                for (&type_parameter_declaration_id, concrete_type_id) in
-                    type_parameter_declaration_ids
+                for (&(_, type_parameter_declaration_id), concrete_type_id) in
+                    type_param_entries
                         .iter()
                         .zip(concrete_type_arguments.iter())
                 {
@@ -299,7 +298,7 @@ impl<'src> Compiler<'src> {
                 let scope = unwrap_or_return!(self.resolver.scopes.get_scope(trait_scope_id));
 
                 if scope.kind == ScopeKind::Trait {
-                    let mut type_argument_index = type_parameter_declaration_ids.len();
+                    let mut type_argument_index = type_param_entries.len();
 
                     for (declaration_id, declaration) in self.resolver.declarations.iter() {
                         if matches!(declaration.definition, Definition::TypeParameter)

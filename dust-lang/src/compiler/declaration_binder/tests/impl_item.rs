@@ -1,6 +1,7 @@
 use crate::{
     compiler::resolver::{
         declarations::{Definition, Visibility},
+        scopes::ScopeId,
         types::TypeId,
     },
     source::{Code, Source},
@@ -28,15 +29,12 @@ fn with_method() {
         panic!();
     };
 
-    assert_eq!(declarations.len(), 1);
+    assert_eq!(resolver.scopes.namespace_len(declarations), 1);
 
-    let method_ids = resolver
-        .declarations
-        .get_declaration_members(&declarations)
-        .unwrap();
+    let method_entries = resolver.scopes.get_namespace_entries(declarations);
     let method = resolver
         .declarations
-        .get_declaration(method_ids[0])
+        .get_declaration(method_entries[0].1)
         .unwrap();
     let bar_symbol = resolver.symbols.add_symbol("bar");
 
@@ -51,7 +49,7 @@ fn with_method() {
         panic!();
     };
 
-    assert!(value_parameters.is_empty());
+    assert_eq!(value_parameters, ScopeId::NONE);
     assert_eq!(return_type_id, TypeId::UNIT);
 }
 

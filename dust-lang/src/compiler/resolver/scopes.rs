@@ -42,11 +42,44 @@ impl Scopes {
     pub fn get_scope(&self, id: ScopeId) -> &Scope {
         &self.scopes[id.0 as usize]
     }
+
+    pub fn get_namespace_entries(&self, id: ScopeId) -> &[(SymbolId, DeclarationId)] {
+        let scope = &self.scopes[id.0 as usize];
+        let start = scope.namespace_range.0 as usize;
+        let end = scope.namespace_range.1 as usize;
+
+        &self.namespace[start..end]
+    }
+
+    pub fn find_in_namespace(
+        &self,
+        scope_id: ScopeId,
+        symbol_id: SymbolId,
+    ) -> Option<DeclarationId> {
+        self.get_namespace_entries(scope_id)
+            .iter()
+            .find(|(entry_symbol_id, _)| *entry_symbol_id == symbol_id)
+            .map(|(_, declaration_id)| *declaration_id)
+    }
+
+    pub fn get_nth_namespace_entry(
+        &self,
+        scope_id: ScopeId,
+        index: usize,
+    ) -> Option<(SymbolId, DeclarationId)> {
+        self.get_namespace_entries(scope_id).get(index).copied()
+    }
+
+    pub fn namespace_len(&self, scope_id: ScopeId) -> usize {
+        let scope = &self.scopes[scope_id.0 as usize];
+
+        (scope.namespace_range.1 - scope.namespace_range.0) as usize
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Scope {
-    kind: ScopeKind,
+    pub kind: ScopeKind,
     pub parent: ScopeId,
     namespace_range: (u32, u32),
 }
@@ -61,6 +94,7 @@ pub enum ScopeKind {
     Associated,
     Constant,
     TypeParameters,
+    ValueParameters,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -109,11 +109,8 @@ fn generic_return_type_resolves_through_type_parameter_map() {
         panic!();
     };
 
-    let type_parameter_declaration_ids = resolver
-        .declarations
-        .get_declaration_members(&type_parameters)
-        .unwrap();
-    let type_parameter_declaration_id = type_parameter_declaration_ids[0];
+    let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
+    let type_parameter_declaration_id = type_parameter_entries[0].1;
 
     let inferred_type_id = *resolver
         .type_parameter_map

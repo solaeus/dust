@@ -13,10 +13,10 @@ use crate::{
         resolver::{
             Resolver,
             declarations::{
-                Declaration, DeclarationId, DeclarationMembers, Declarations, Definition,
+                Declaration, DeclarationId, Declarations, Definition,
                 ModuleKind, Visibility,
             },
-            scopes::{Scope, ScopeFrame, ScopeId, ScopeKind},
+            scopes::{Scope, ScopeFrame, ScopeId, ScopeKind, Scopes},
             symbols::{SymbolId, Symbols},
             types::{Type, TypeId, TypeMembers},
         },
@@ -25,7 +25,7 @@ use crate::{
     error::ErrorKind,
     source::{Position, Source, Span},
     syntax::{
-        Syntax,
+        Syntax, SyntaxId,
         components::{
             ArrayExpression, ArrayRepeatExpression, ArrayType, AssignmentExpression,
             CallExpression, ComparisonExpression, ConstItem, EnumItem, EnumItemTupleVariant,
@@ -110,24 +110,55 @@ impl<'a> DeclarationBinder<'a> {
 
     fn exit_scope(&mut self) {
         if let Some(frame) = self.scope_stack.pop() {
+            let parent = self.resolver.scopes.get_scope(frame.scope_id).parent;
+
             self.resolver.scopes.exit_scope(
                 frame.scope_id,
                 self.scoped_declarations
                     .drain(frame.type_entries_start as usize..),
             );
 
-            self.scoped_declarations
-                .truncate(frame.type_entries_start as usize);
+            self.current_scope_id = parent;
         }
+    }
+
+    fn add_scoped_declaration(&mut self, declaration: Declaration) -> DeclarationId {
+        let symbol_id = declaration.symbol_id;
+
+        debug_assert_eq!(declaration.scope_id, self.current_scope_id);
+
+        let declaration_id = self.resolver.declarations.add_declaration(declaration);
+
+        self.scoped_declarations.push((symbol_id, declaration_id));
+
+        declaration_id
+    }
+
+    fn reserve_scoped_declaration(
+        &mut self,
+        symbol_id: SymbolId,
+        syntax: Option<(Position, SyntaxId)>,
+    ) -> DeclarationId {
+        let declaration_id = self.resolver.declarations.reserve_declaration_id(
+            symbol_id,
+            self.current_scope_id,
+            syntax,
+        );
+
+        self.scoped_declarations.push((symbol_id, declaration_id));
+
+        declaration_id
     }
 
     fn find_declaration_in_scope(
         &mut self,
         symbol_id: SymbolId,
-        target_scope_id: ScopeId,
-        visibility: Visibility,
+        start_scope_id: ScopeId,
     ) -> Option<(DeclarationId, &Declaration)> {
-        let mut current_scope_id = target_scope_id;
+        let mut current_scope_id = start_scope_id;
+        let mut block_blocked = false;
+        let mut module_blocked = false;
+        let mut type_blocked = false;
 
         loop {
             if current_scope_id == ScopeId::NONE {
@@ -137,20 +168,67 @@ impl<'a> DeclarationBinder<'a> {
             }
 
             if !self.scope_search.insert(current_scope_id) {
+                let parent = self.resolver.scopes.get_scope(current_scope_id).parent;
+                current_scope_id = parent;
+
                 continue;
             }
 
-            if let Some((declaration_id, declaration)) = self
-                .resolver
-                .declarations
-                .find_declaration(symbol_id, current_scope_id, visibility)
-            {
-                return Some((declaration_id, declaration));
+            let found = lookup_symbol(
+                &self.scope_stack,
+                &self.scoped_declarations,
+                &self.resolver.scopes,
+                current_scope_id,
+                symbol_id,
+            );
+
+            if let Some(declaration_id) = found {
+                self.scope_search.clear();
+
+                if let Ok(declaration) = self.resolver.declarations.get_declaration(declaration_id)
+                {
+                    let is_blocked = match declaration.definition.visibility() {
+                        Visibility::Block => block_blocked,
+                        Visibility::Module => module_blocked,
+                        Visibility::Type => type_blocked,
+                    };
+
+                    if is_blocked {
+                        return None;
+                    }
+
+                    return Some((declaration_id, declaration));
+                }
+
+                return None;
             }
 
-            let current_scope = self.resolver.scopes.get_scope(current_scope_id);
-            current_scope_id = current_scope.parent;
+            let scope = self.resolver.scopes.get_scope(current_scope_id);
+            block_blocked |= is_barrier(scope.kind, Visibility::Block);
+            module_blocked |= is_barrier(scope.kind, Visibility::Module);
+            type_blocked |= is_barrier(scope.kind, Visibility::Type);
+            current_scope_id = scope.parent;
         }
+    }
+
+    fn find_declaration_direct(
+        &self,
+        scope_id: ScopeId,
+        symbol_id: SymbolId,
+    ) -> Option<(DeclarationId, &Declaration)> {
+        let declaration_id = lookup_symbol(
+            &self.scope_stack,
+            &self.scoped_declarations,
+            &self.resolver.scopes,
+            scope_id,
+            symbol_id,
+        )?;
+
+        self.resolver
+            .declarations
+            .get_declaration(declaration_id)
+            .ok()
+            .map(|declaration| (declaration_id, declaration))
     }
 
     fn bind_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
@@ -187,25 +265,16 @@ impl<'a> DeclarationBinder<'a> {
         let module_name_str = self.source.get_content(&name.position())?;
         let module_symbol_id = self.resolver.symbols.add_symbol(module_name_str);
 
-        let outer_scope_id = self.current_scope_id;
+        let module_declaration_id =
+            self.reserve_scoped_declaration(module_symbol_id, Some((name.position(), reader.id)));
 
         self.enter_scope(ScopeKind::Module);
 
-        if let Some(module_body) = body {
-            let starting_scope_id = self.current_scope_id;
-            let module_declaration_id = self.resolver.declarations.add_declaration(Declaration {
-                symbol_id: module_symbol_id,
-                definition: Definition::Module {
-                    public,
-                    kind: ModuleKind::Inline,
-                    inner_scope_id: self.current_scope_id,
-                },
-                scope_id: outer_scope_id,
-                syntax: Some((name.position(), reader.id)),
-            });
+        let inner_scope_id = self.current_scope_id;
 
+        if let Some(module_body) = body {
             self.resolver
-                .add_scope_binding(module_body.id, self.current_scope_id);
+                .add_scope_binding(module_body.id, inner_scope_id);
             self.resolver
                 .add_declaration_binding(reader.id, module_declaration_id);
 
@@ -216,7 +285,16 @@ impl<'a> DeclarationBinder<'a> {
                 }
             }
 
-            self.current_scope_id = starting_scope_id;
+            self.exit_scope();
+
+            self.resolver.declarations.set_reserved_declaration(
+                module_declaration_id,
+                Definition::Module {
+                    public,
+                    kind: ModuleKind::Inline,
+                    inner_scope_id,
+                },
+            );
         } else {
             let module_file_id = self
                 .source
@@ -237,18 +315,6 @@ impl<'a> DeclarationBinder<'a> {
                 .ok_or(CompileError::UnresolvedModule {
                     symbol_id: module_symbol_id,
                 })?;
-            let module_declaration_id = self.resolver.declarations.add_declaration(Declaration {
-                symbol_id: module_symbol_id,
-                definition: Definition::Module {
-                    public,
-                    kind: ModuleKind::File {
-                        file_id: module_file_id,
-                    },
-                    inner_scope_id: self.current_scope_id,
-                },
-                scope_id: outer_scope_id,
-                syntax: Some((name.position(), reader.id)),
-            });
 
             self.resolver
                 .add_declaration_binding(name.id, module_declaration_id);
@@ -256,9 +322,20 @@ impl<'a> DeclarationBinder<'a> {
             let module_root = self.syntax.get_tree(module_file_id)?.root()?;
 
             self.bind_root(module_root)?;
-        }
 
-        self.exit_scope();
+            self.exit_scope();
+
+            self.resolver.declarations.set_reserved_declaration(
+                module_declaration_id,
+                Definition::Module {
+                    public,
+                    kind: ModuleKind::File {
+                        file_id: module_file_id,
+                    },
+                    inner_scope_id,
+                },
+            );
+        }
 
         Ok(())
     }
@@ -268,11 +345,11 @@ impl<'a> DeclarationBinder<'a> {
         fn search_enum_variants(
             target_str: &str,
             parent_enum_id: DeclarationId,
-            variant_ids: std::slice::Iter<'_, DeclarationId>,
+            variant_entries: &[(SymbolId, DeclarationId)],
             symbols: &Symbols,
             declarations: &Declarations,
         ) -> Result<Option<DeclarationId>, CompileError> {
-            for &variant_id in variant_ids {
+            for &(_, variant_id) in variant_entries {
                 let variant_declaration = declarations.get_declaration(variant_id)?;
                 let variant_symbol = symbols.get_symbol(&variant_declaration.symbol_id)?;
                 let variant_parent_id = if let Definition::Variant {
@@ -296,7 +373,7 @@ impl<'a> DeclarationBinder<'a> {
         let start = reader.node.span.start();
         let file = self.source.get_code(path.file_id())?;
 
-        let mut current_scope_id = self.current_scope_id;
+        let mut direct_scope: Option<ScopeId> = None;
         let mut current_declaration_id = None;
         let mut current_end = start;
         let mut symbol_id = SymbolId::PLACEHOLDER;
@@ -306,12 +383,15 @@ impl<'a> DeclarationBinder<'a> {
         while let Some(segment) = path_segments.next() {
             let segment_str = file.get_str(segment.node.span)?;
             let segment_symbol_id = self.resolver.symbols.add_symbol(segment_str);
-            let (declaration_id, declaration) = self
-                .find_declaration_in_scope(segment_symbol_id, current_scope_id, Visibility::Module)
-                .ok_or(CompileError::Undeclared {
-                    symbol_id: segment_symbol_id,
-                    usage_position: segment.position(),
-                })?;
+            let (declaration_id, declaration) = if let Some(scope_id) = direct_scope {
+                self.find_declaration_direct(scope_id, segment_symbol_id)
+            } else {
+                self.find_declaration_in_scope(segment_symbol_id, self.current_scope_id)
+            }
+            .ok_or(CompileError::Undeclared {
+                symbol_id: segment_symbol_id,
+                usage_position: segment.position(),
+            })?;
 
             current_declaration_id = Some(declaration_id);
             current_end = segment.node.span.end();
@@ -323,24 +403,20 @@ impl<'a> DeclarationBinder<'a> {
                     inner_scope_id,
                     ..
                 } => {
-                    current_scope_id = inner_scope_id;
+                    direct_scope = Some(inner_scope_id);
                 }
                 Definition::EnumType {
                     public: true,
                     variants,
                     ..
                 } => {
-                    let variant_ids = self
-                        .resolver
-                        .declarations
-                        .get_declaration_members(&variants)?
-                        .iter();
+                    let variant_entries = self.resolver.scopes.get_namespace_entries(variants);
 
                     if let Some(next_segment) = path_segments.next()
                         && let Some(found_variant_id) = search_enum_variants(
                             file.get_str(next_segment.node.span)?,
                             declaration_id,
-                            variant_ids,
+                            variant_entries,
                             &self.resolver.symbols,
                             &self.resolver.declarations,
                         )?
@@ -362,7 +438,7 @@ impl<'a> DeclarationBinder<'a> {
         }
 
         if let Some(current_declaration_id) = current_declaration_id {
-            let use_declaration_id = self.resolver.declarations.add_declaration(Declaration {
+            let use_declaration_id = self.add_scoped_declaration(Declaration {
                 symbol_id,
                 definition: Definition::Use {
                     public,
@@ -393,80 +469,46 @@ impl<'a> DeclarationBinder<'a> {
             body,
         } = reader.as_component()?;
 
-        let outer_scope_id = self.current_scope_id;
+        let function_name_str = self.source.get_content(&name.position())?;
+        let function_symbol_id = self.resolver.symbols.add_symbol(function_name_str);
 
-        self.enter_scope(ScopeKind::Function);
+        let function_declaration_id = self
+            .reserve_scoped_declaration(function_symbol_id, Some((reader.position(), reader.id)));
 
-        let mut type_parameter_ids = if let Some(type_parameters) = type_parameters {
-            let mut type_parameter_ids =
-                DeclarationId::SmallVec::with_capacity(type_parameters.child_count());
-
-            for type_parameter in type_parameters.children() {
-                let type_parameter_name_str =
-                    self.source.get_content(&type_parameter.position())?;
-                let type_parameter_symbol_id =
-                    self.resolver.symbols.add_symbol(type_parameter_name_str);
-                let type_parameter_declaration_id =
-                    self.resolver.declarations.add_declaration(Declaration {
-                        symbol_id: type_parameter_symbol_id,
-                        definition: Definition::TypeParameter,
-                        scope_id: self.current_scope_id,
-                        syntax: Some((type_parameter.position(), type_parameter.id)),
-                    });
-
-                type_parameter_ids.push(type_parameter_declaration_id);
-                self.resolver
-                    .add_declaration_binding(type_parameter.id, type_parameter_declaration_id);
-            }
-
-            type_parameter_ids
+        let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
+            self.bind_type_parameters(type_parameters)?
         } else {
-            DeclarationId::SmallVec::new()
+            ScopeId::NONE
         };
-        let value_parameters = if let Some(value_parameters) = value_parameters {
+
+        let value_parameters_scope_id = if let Some(value_parameters) = value_parameters {
             let ValueParameters { name_type_pairs } = value_parameters.as_component()?;
 
-            let mut value_parameter_ids =
-                DeclarationId::SmallVec::with_capacity(value_parameters.child_count());
+            self.enter_scope(ScopeKind::ValueParameters);
 
             for (parameter_name, parameter_type) in name_type_pairs {
                 let parameter_name_str = self.source.get_content(&parameter_name.position())?;
                 let parameter_symbol_id = self.resolver.symbols.add_symbol(parameter_name_str);
                 let parameter_type_id = self.get_explicit_type(parameter_type)?;
-                let parameter_declaration_id =
-                    self.resolver.declarations.add_declaration(Declaration {
-                        symbol_id: parameter_symbol_id,
-                        definition: Definition::Local {
-                            mutable: false,
-                            shadowed: None,
-                            type_id: parameter_type_id,
-                        },
-                        scope_id: self.current_scope_id,
-                        syntax: Some((parameter_name.position(), parameter_name.id)),
-                    });
+                let parameter_declaration_id = self.add_scoped_declaration(Declaration {
+                    symbol_id: parameter_symbol_id,
+                    definition: Definition::Local {
+                        mutable: false,
+                        shadowed: None,
+                        type_id: parameter_type_id,
+                    },
+                    scope_id: self.current_scope_id,
+                    syntax: Some((parameter_name.position(), parameter_name.id)),
+                });
 
                 self.resolver
                     .add_declaration_binding(parameter_name.id, parameter_declaration_id);
-
-                if let Ok(Type::Slice { declaration_id, .. }) =
-                    self.resolver.types.get_type(parameter_type_id)
-                {
-                    type_parameter_ids.push(*declaration_id);
-                }
-
-                value_parameter_ids.push(parameter_declaration_id);
             }
 
-            self.resolver
-                .declarations
-                .add_declaration_members(value_parameter_ids)
+            self.current_scope_id
         } else {
-            DeclarationMembers::default()
+            ScopeId::NONE
         };
-        let type_parameters = self
-            .resolver
-            .declarations
-            .add_declaration_members(type_parameter_ids);
 
         let return_type_id = if let Some(return_type) = return_type {
             self.get_explicit_type(return_type)?
@@ -474,22 +516,7 @@ impl<'a> DeclarationBinder<'a> {
             TypeId::UNIT
         };
 
-        let function_name_str = self.source.get_content(&name.position())?;
-        let function_symbol_id = self.resolver.symbols.add_symbol(function_name_str);
-        let function_declaration_id = self.resolver.declarations.add_declaration(Declaration {
-            symbol_id: function_symbol_id,
-            definition: Definition::Function {
-                public,
-                type_parameters,
-                value_parameters,
-                return_type_id,
-            },
-            scope_id: outer_scope_id,
-            syntax: Some((reader.position(), reader.id)),
-        });
-
-        self.resolver
-            .add_declaration_binding(name.id, function_declaration_id);
+        self.enter_scope(ScopeKind::Function);
 
         if let Some(body) = body {
             self.resolver
@@ -509,6 +536,27 @@ impl<'a> DeclarationBinder<'a> {
 
         self.exit_scope();
 
+        if value_parameters_scope_id != ScopeId::NONE {
+            self.exit_scope();
+        }
+
+        if type_parameters_scope_id != ScopeId::NONE {
+            self.exit_scope();
+        }
+
+        self.resolver.declarations.set_reserved_declaration(
+            function_declaration_id,
+            Definition::Function {
+                public,
+                type_parameters: type_parameters_scope_id,
+                value_parameters: value_parameters_scope_id,
+                return_type_id,
+            },
+        );
+
+        self.resolver
+            .add_declaration_binding(name.id, function_declaration_id);
+
         Ok(function_declaration_id)
     }
 
@@ -523,22 +571,18 @@ impl<'a> DeclarationBinder<'a> {
 
         let struct_name_str = self.source.get_content(&name.position())?;
         let struct_symbol_id = self.resolver.symbols.add_symbol(struct_name_str);
-        let struct_declaration_id = self.resolver.declarations.reserve_declaration_id(
-            struct_symbol_id,
-            self.current_scope_id,
-            Some((reader.position(), reader.id)),
-        );
+        let struct_declaration_id =
+            self.reserve_scoped_declaration(struct_symbol_id, Some((reader.position(), reader.id)));
+
+        let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
+            self.bind_type_parameters(type_parameters)?
+        } else {
+            ScopeId::NONE
+        };
 
         self.enter_scope(ScopeKind::TypeTraitOrImpl);
 
-        let type_parameters = if let Some(type_parameters) = type_parameters {
-            self.bind_type_parameters(type_parameters)?
-        } else {
-            DeclarationMembers::default()
-        };
         let fields = if let Some(fields) = fields {
-            let mut field_declaration_ids = SmallVec::<[DeclarationId; 4]>::new();
-
             match fields.node.kind {
                 SyntaxKind::TupleFields => {
                     let TupleFields { types } = TupleFields::from_reader(&fields)?;
@@ -547,21 +591,16 @@ impl<'a> DeclarationBinder<'a> {
                         let public = field_type.node.flags.get_flag(SyntaxFlags::PUBLIC);
                         let symbol_id = self.resolver.symbols.add_index_symbol(index as u32);
                         let type_id = self.get_explicit_type(field_type)?;
-                        let field_declaration_id =
-                            self.resolver.declarations.add_declaration(Declaration {
-                                symbol_id,
-                                definition: Definition::Field {
-                                    public,
-                                    parent_struct: struct_declaration_id,
-                                    type_id,
-                                },
-                                scope_id: self.current_scope_id,
-                                syntax: Some((field_type.position(), field_type.id)),
-                            });
-
-                        self.resolver
-                            .add_declaration_binding(field_type.id, field_declaration_id);
-                        field_declaration_ids.push(field_declaration_id);
+                        self.add_scoped_declaration(Declaration {
+                            symbol_id,
+                            definition: Definition::Field {
+                                public,
+                                parent_struct: struct_declaration_id,
+                                type_id,
+                            },
+                            scope_id: self.current_scope_id,
+                            syntax: Some((field_type.position(), field_type.id)),
+                        });
                     }
                 }
                 SyntaxKind::NamedFields => {
@@ -574,21 +613,19 @@ impl<'a> DeclarationBinder<'a> {
                         let field_name_str = file.get_str(field_name.node.span)?;
                         let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
                         let field_type_id = self.get_explicit_type(field_type)?;
-                        let field_declaration_id =
-                            self.resolver.declarations.add_declaration(Declaration {
-                                symbol_id: field_symbol_id,
-                                definition: Definition::Field {
-                                    public,
-                                    parent_struct: struct_declaration_id,
-                                    type_id: field_type_id,
-                                },
-                                scope_id: self.current_scope_id,
-                                syntax: Some((field_name.position(), field_name.id)),
-                            });
+                        let field_declaration_id = self.add_scoped_declaration(Declaration {
+                            symbol_id: field_symbol_id,
+                            definition: Definition::Field {
+                                public,
+                                parent_struct: struct_declaration_id,
+                                type_id: field_type_id,
+                            },
+                            scope_id: self.current_scope_id,
+                            syntax: Some((field_name.position(), field_name.id)),
+                        });
 
                         self.resolver
                             .add_declaration_binding(field_name.id, field_declaration_id);
-                        field_declaration_ids.push(field_declaration_id);
                     }
                 }
                 _ => {
@@ -599,21 +636,23 @@ impl<'a> DeclarationBinder<'a> {
                 }
             }
 
-            self.resolver
-                .declarations
-                .add_declaration_members(field_declaration_ids)
+            self.current_scope_id
         } else {
-            DeclarationMembers::default()
+            ScopeId::NONE
         };
 
         self.exit_scope();
+
+        if type_parameters_scope_id != ScopeId::NONE {
+            self.exit_scope();
+        }
+
         self.resolver.declarations.set_reserved_declaration(
             struct_declaration_id,
             Definition::StructType {
                 public,
-                type_parameters,
+                type_parameters: type_parameters_scope_id,
                 fields,
-                inner_scope_id: self.current_scope_id,
             },
         );
         self.resolver
@@ -632,43 +671,35 @@ impl<'a> DeclarationBinder<'a> {
 
         let enum_name_str = self.source.get_content(&name.position())?;
         let enum_symbol_id = self.resolver.symbols.add_symbol(enum_name_str);
-        let enum_declaration_id = self.resolver.declarations.reserve_declaration_id(
-            enum_symbol_id,
-            self.current_scope_id,
-            Some((reader.position(), reader.id)),
-        );
+        let enum_declaration_id =
+            self.reserve_scoped_declaration(enum_symbol_id, Some((reader.position(), reader.id)));
+
+        let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
+            self.bind_type_parameters(type_parameters)?
+        } else {
+            ScopeId::NONE
+        };
 
         self.enter_scope(ScopeKind::TypeTraitOrImpl);
 
-        let type_parameters = if let Some(type_parameters) = type_parameters {
-            self.bind_type_parameters(type_parameters)?
-        } else {
-            DeclarationMembers::default()
-        };
-
-        let mut variant_declaration_ids =
-            DeclarationId::SmallVec::with_capacity(variants.child_count());
-
         for (index, variant) in variants.children().enumerate() {
-            let variant_declaration_id =
-                self.bind_enum_variant(variant, enum_declaration_id, index as u16)?;
-
-            variant_declaration_ids.push(variant_declaration_id);
+            self.bind_enum_variant(variant, enum_declaration_id, index as u16)?;
         }
 
-        let variants = self
-            .resolver
-            .declarations
-            .add_declaration_members(variant_declaration_ids);
+        let variants_scope_id = self.current_scope_id;
 
         self.exit_scope();
+
+        if type_parameters_scope_id != ScopeId::NONE {
+            self.exit_scope();
+        }
 
         self.resolver.declarations.set_reserved_declaration(
             enum_declaration_id,
             Definition::EnumType {
                 public,
-                type_parameters,
-                variants,
+                type_parameters: type_parameters_scope_id,
+                variants: variants_scope_id,
             },
         );
         self.resolver
@@ -680,35 +711,27 @@ impl<'a> DeclarationBinder<'a> {
     fn bind_type_parameters(
         &mut self,
         type_parameters_reader: SyntaxReader,
-    ) -> Result<DeclarationMembers, CompileError> {
+    ) -> Result<ScopeId, CompileError> {
         self.enter_scope(ScopeKind::TypeParameters);
 
-        let mut type_parameter_ids =
-            DeclarationId::SmallVec::with_capacity(type_parameters_reader.child_count());
+        let type_parameters_scope_id = self.current_scope_id;
 
         for type_parameter in type_parameters_reader.children() {
             let type_parameter_name_str = self.source.get_content(&type_parameter.position())?;
             let type_parameter_symbol_id =
                 self.resolver.symbols.add_symbol(type_parameter_name_str);
-            let type_parameter_declaration_id =
-                self.resolver.declarations.add_declaration(Declaration {
-                    symbol_id: type_parameter_symbol_id,
-                    definition: Definition::TypeParameter,
-                    scope_id: self.current_scope_id,
-                    syntax: Some((type_parameter.position(), type_parameter.id)),
-                });
+            let type_parameter_declaration_id = self.add_scoped_declaration(Declaration {
+                symbol_id: type_parameter_symbol_id,
+                definition: Definition::TypeParameter,
+                scope_id: self.current_scope_id,
+                syntax: Some((type_parameter.position(), type_parameter.id)),
+            });
 
-            type_parameter_ids.push(type_parameter_declaration_id);
             self.resolver
                 .add_declaration_binding(type_parameter.id, type_parameter_declaration_id);
         }
 
-        self.exit_scope();
-
-        Ok(self
-            .resolver
-            .declarations
-            .add_declaration_members(type_parameter_ids))
+        Ok(type_parameters_scope_id)
     }
 
     fn bind_enum_variant(
@@ -725,17 +748,16 @@ impl<'a> DeclarationBinder<'a> {
 
                 let variant_name_str = file.get_str(name.node.span)?;
                 let variant_symbol_id = self.resolver.symbols.add_symbol(variant_name_str);
-                let variant_declaration_id =
-                    self.resolver.declarations.add_declaration(Declaration {
-                        symbol_id: variant_symbol_id,
-                        definition: Definition::Variant {
-                            discriminant,
-                            enum_declaration_id,
-                            fields: DeclarationMembers::default(),
-                        },
-                        scope_id: self.current_scope_id,
-                        syntax: Some((name.position(), name.id)),
-                    });
+                let variant_declaration_id = self.add_scoped_declaration(Declaration {
+                    symbol_id: variant_symbol_id,
+                    definition: Definition::Variant {
+                        discriminant,
+                        enum_declaration_id,
+                        fields: ScopeId::NONE,
+                    },
+                    scope_id: self.current_scope_id,
+                    syntax: Some((name.position(), name.id)),
+                });
 
                 self.resolver
                     .add_declaration_binding(name.id, variant_declaration_id);
@@ -748,50 +770,37 @@ impl<'a> DeclarationBinder<'a> {
 
                 let variant_name_str = file.get_str(name.node.span)?;
                 let variant_symbol_id = self.resolver.symbols.add_symbol(variant_name_str);
-                let variant_declaration_id = self.resolver.declarations.reserve_declaration_id(
+                let variant_declaration_id = self.reserve_scoped_declaration(
                     variant_symbol_id,
-                    self.current_scope_id,
                     Some((reader.position(), reader.id)),
                 );
 
-                let mut field_ids = DeclarationId::SmallVec::with_capacity(types.len());
-
                 self.enter_scope(ScopeKind::TypeTraitOrImpl);
 
-                for field_type in types {
-                    let symbol_id = self
-                        .resolver
-                        .symbols
-                        .add_index_symbol(field_ids.len() as u32);
+                for (index, field_type) in types.enumerate() {
+                    let symbol_id = self.resolver.symbols.add_index_symbol(index as u32);
                     let type_id = self.get_explicit_type(field_type)?;
-                    let field_declaration_id =
-                        self.resolver.declarations.add_declaration(Declaration {
-                            symbol_id,
-                            definition: Definition::Field {
-                                public: false,
-                                parent_struct: variant_declaration_id,
-                                type_id,
-                            },
-                            scope_id: self.current_scope_id,
-                            syntax: Some((field_type.position(), field_type.id)),
-                        });
-
-                    field_ids.push(field_declaration_id);
+                    self.add_scoped_declaration(Declaration {
+                        symbol_id,
+                        definition: Definition::Field {
+                            public: false,
+                            parent_struct: variant_declaration_id,
+                            type_id,
+                        },
+                        scope_id: self.current_scope_id,
+                        syntax: Some((field_type.position(), field_type.id)),
+                    });
                 }
 
+                let fields_scope_id = self.current_scope_id;
                 self.exit_scope();
-
-                let fields = self
-                    .resolver
-                    .declarations
-                    .add_declaration_members(field_ids);
 
                 self.resolver.declarations.set_reserved_declaration(
                     variant_declaration_id,
                     Definition::Variant {
                         discriminant,
                         enum_declaration_id,
-                        fields,
+                        fields: fields_scope_id,
                     },
                 );
                 self.resolver
@@ -805,13 +814,10 @@ impl<'a> DeclarationBinder<'a> {
 
                 let variant_name_str = file.get_str(name.node.span)?;
                 let variant_symbol_id = self.resolver.symbols.add_symbol(variant_name_str);
-                let variant_declaration_id = self.resolver.declarations.reserve_declaration_id(
+                let variant_declaration_id = self.reserve_scoped_declaration(
                     variant_symbol_id,
-                    self.current_scope_id,
                     Some((name.position(), name.id)),
                 );
-
-                let mut field_ids = DeclarationId::SmallVec::with_capacity(name_type_pairs.len());
 
                 self.enter_scope(ScopeKind::TypeTraitOrImpl);
 
@@ -819,34 +825,27 @@ impl<'a> DeclarationBinder<'a> {
                     let field_name_str = file.get_str(field_name.node.span)?;
                     let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
                     let field_type_id = self.get_explicit_type(field_type)?;
-                    let field_declaration_id =
-                        self.resolver.declarations.add_declaration(Declaration {
-                            symbol_id: field_symbol_id,
-                            definition: Definition::Field {
-                                public: false,
-                                parent_struct: variant_declaration_id,
-                                type_id: field_type_id,
-                            },
-                            scope_id: self.current_scope_id,
-                            syntax: Some((field_name.position(), field_name.id)),
-                        });
-
-                    field_ids.push(field_declaration_id);
+                    self.add_scoped_declaration(Declaration {
+                        symbol_id: field_symbol_id,
+                        definition: Definition::Field {
+                            public: false,
+                            parent_struct: variant_declaration_id,
+                            type_id: field_type_id,
+                        },
+                        scope_id: self.current_scope_id,
+                        syntax: Some((field_name.position(), field_name.id)),
+                    });
                 }
 
+                let fields_scope_id = self.current_scope_id;
                 self.exit_scope();
-
-                let fields = self
-                    .resolver
-                    .declarations
-                    .add_declaration_members(field_ids);
 
                 self.resolver.declarations.set_reserved_declaration(
                     variant_declaration_id,
                     Definition::Variant {
                         discriminant,
                         enum_declaration_id,
-                        fields,
+                        fields: fields_scope_id,
                     },
                 );
                 self.resolver
@@ -882,7 +881,7 @@ impl<'a> DeclarationBinder<'a> {
         let const_name_str = self.source.get_content(&name.position())?;
         let const_symbol_id = self.resolver.symbols.add_symbol(const_name_str);
         let type_id = self.get_explicit_type(type_notation)?;
-        let const_declaration_id = self.resolver.declarations.add_declaration(Declaration {
+        let const_declaration_id = self.add_scoped_declaration(Declaration {
             symbol_id: const_symbol_id,
             definition: Definition::Constant { public, type_id },
             scope_id: self.current_scope_id,
@@ -910,43 +909,25 @@ impl<'a> DeclarationBinder<'a> {
             });
         };
 
-        let type_parameters = if let Some(type_parameters) = type_parameters {
-            let mut type_parameter_ids =
-                SmallVec::<[DeclarationId; 4]>::with_capacity(type_parameters.child_count());
-
-            for type_parameter in type_parameters.children() {
-                let type_parameter_name_str =
-                    self.source.get_content(&type_parameter.position())?;
-                let type_parameter_symbol_id =
-                    self.resolver.symbols.add_symbol(type_parameter_name_str);
-                let type_parameter_declaration_id =
-                    self.resolver.declarations.add_declaration(Declaration {
-                        symbol_id: type_parameter_symbol_id,
-                        definition: Definition::TypeParameter,
-                        scope_id: self.current_scope_id,
-                        syntax: Some((type_parameter.position(), type_parameter.id)),
-                    });
-
-                type_parameter_ids.push(type_parameter_declaration_id);
-                self.resolver
-                    .add_declaration_binding(type_parameter.id, type_parameter_declaration_id);
-            }
-
-            self.resolver
-                .declarations
-                .add_declaration_members(type_parameter_ids)
+        let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
+            self.bind_type_parameters(type_parameters)?
         } else {
-            DeclarationMembers::default()
+            ScopeId::NONE
         };
 
         let aliased_type_id = self.get_explicit_type(aliased_type)?;
+
+        if type_parameters_scope_id != ScopeId::NONE {
+            self.exit_scope();
+        }
+
         let type_alias_name_str = self.source.get_content(&name.position())?;
         let type_alias_symbol_id = self.resolver.symbols.add_symbol(type_alias_name_str);
-        let declaration_id = self.resolver.declarations.add_declaration(Declaration {
+        let declaration_id = self.add_scoped_declaration(Declaration {
             symbol_id: type_alias_symbol_id,
             definition: Definition::TypeAlias {
                 public,
-                type_parameters,
+                type_parameters: type_parameters_scope_id,
                 aliased_type_id,
             },
             scope_id: self.current_scope_id,
@@ -969,39 +950,32 @@ impl<'a> DeclarationBinder<'a> {
             body,
         } = reader.as_component()?;
 
-        self.enter_scope(ScopeKind::TypeTraitOrImpl);
-
-        let type_parameters = if let Some(type_parameters) = type_parameters {
+        let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
             self.bind_type_parameters(type_parameters)?
         } else {
-            DeclarationMembers::default()
+            ScopeId::NONE
         };
+
+        self.enter_scope(ScopeKind::TypeTraitOrImpl);
+
         let trait_declaration_id = if let Some(trait_path) = trait_path {
-            Some(self.bind_path(trait_path, Visibility::Module)?)
+            Some(self.bind_path(trait_path)?)
         } else {
             None
         };
         let self_type_id = self.get_explicit_type(self_name)?;
         let previous_self_type_id = self.current_self_type_id.replace(self_type_id);
 
-        let mut member_declaration_ids = DeclarationId::SmallVec::new();
-
         for child in body.children() {
             match child.node.kind {
                 SyntaxKind::FnItem => {
-                    let function_declaration_id = self.bind_fn_item(child)?;
-
-                    member_declaration_ids.push(function_declaration_id);
+                    self.bind_fn_item(child)?;
                 }
                 SyntaxKind::ConstItem => {
-                    let const_declaration_id = self.bind_const_item(child)?;
-
-                    member_declaration_ids.push(const_declaration_id);
+                    self.bind_const_item(child)?;
                 }
                 SyntaxKind::TypeItem => {
-                    let type_declaration_id = self.bind_type_item(child)?;
-
-                    member_declaration_ids.push(type_declaration_id);
+                    self.bind_type_item(child)?;
                 }
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
@@ -1011,11 +985,6 @@ impl<'a> DeclarationBinder<'a> {
                 }
             }
         }
-
-        let declarations = self
-            .resolver
-            .declarations
-            .add_declaration_members(member_declaration_ids);
 
         let trait_type_arguments = if let Some(type_arguments) = type_arguments {
             let mut type_argument_ids =
@@ -1034,23 +1003,29 @@ impl<'a> DeclarationBinder<'a> {
 
         self.current_self_type_id = previous_self_type_id;
 
+        let impl_scope_id = self.current_scope_id;
+
         self.exit_scope();
+
+        if type_parameters_scope_id != ScopeId::NONE {
+            self.exit_scope();
+        }
 
         let impl_symbol_id = self.resolver.symbols.add_impl_symbol();
         let definition = if let Some(trait_declaration_id) = trait_declaration_id {
             Definition::TraitImplementation {
-                type_parameters,
+                type_parameters: type_parameters_scope_id,
                 trait_declaration_id,
                 trait_type_arguments,
-                declarations,
+                declarations: impl_scope_id,
             }
         } else {
             Definition::InherentImplementation {
-                type_parameters,
-                declarations,
+                type_parameters: type_parameters_scope_id,
+                declarations: impl_scope_id,
             }
         };
-        let impl_declaration_id = self.resolver.declarations.add_declaration(Declaration {
+        let impl_declaration_id = self.add_scoped_declaration(Declaration {
             symbol_id: impl_symbol_id,
             definition,
             scope_id: self.current_scope_id,
@@ -1059,8 +1034,7 @@ impl<'a> DeclarationBinder<'a> {
 
         self.resolver
             .add_declaration_binding(reader.id, impl_declaration_id);
-        self.resolver
-            .add_scope_binding(body.id, self.current_scope_id);
+        self.resolver.add_scope_binding(body.id, impl_scope_id);
 
         Ok(())
     }
@@ -1072,43 +1046,48 @@ impl<'a> DeclarationBinder<'a> {
             body,
             type_parameters,
             supertraits,
-            where_clause,
+            where_clause: _,
         } = reader.as_component()?;
 
         let trait_name_str = self.source.get_content(&name.position())?;
         let trait_symbol_id = self.resolver.symbols.add_symbol(trait_name_str);
-        let trait_declaration_id = self.resolver.declarations.reserve_declaration_id(
-            trait_symbol_id,
-            self.current_scope_id,
-            Some((reader.position(), reader.id)),
-        );
+        let trait_declaration_id =
+            self.reserve_scoped_declaration(trait_symbol_id, Some((reader.position(), reader.id)));
+
+        let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
+            self.bind_type_parameters(type_parameters)?
+        } else {
+            ScopeId::NONE
+        };
+
+        let supertraits_scope_id = if let Some(supertraits) = supertraits {
+            self.enter_scope(ScopeKind::TypeTraitOrImpl);
+
+            for supertrait in supertraits.children() {
+                let supertrait_declaration_id = self.bind_path(supertrait)?;
+                let supertrait_declaration = self
+                    .resolver
+                    .declarations
+                    .get_declaration(supertrait_declaration_id)?;
+                let supertrait_symbol_id = supertrait_declaration.symbol_id;
+
+                self.scoped_declarations
+                    .push((supertrait_symbol_id, supertrait_declaration_id));
+            }
+
+            let supertraits_scope_id = self.current_scope_id;
+            self.exit_scope();
+
+            supertraits_scope_id
+        } else {
+            ScopeId::NONE
+        };
 
         self.enter_scope(ScopeKind::TypeTraitOrImpl);
 
-        let type_parameters = if let Some(type_parameters) = type_parameters {
-            self.bind_type_parameters(type_parameters)?
-        } else {
-            DeclarationMembers::default()
-        };
-        let supertraits = if let Some(supertraits) = supertraits {
-            let mut supertrait_ids =
-                DeclarationId::SmallVec::with_capacity(supertraits.child_count());
-
-            for supertrait in supertraits.children() {
-                let supertrait_declaration_id = self.bind_path(supertrait, Visibility::Module)?;
-
-                supertrait_ids.push(supertrait_declaration_id);
-            }
-
-            self.resolver
-                .declarations
-                .add_declaration_members(supertrait_ids)
-        } else {
-            DeclarationMembers::default()
-        };
-
-        let self_type_declaration_id = self.resolver.declarations.add_declaration(Declaration {
-            symbol_id: self.resolver.symbols.add_self_symbol(),
+        let self_symbol_id = self.resolver.symbols.add_self_symbol();
+        let self_type_declaration_id = self.add_scoped_declaration(Declaration {
+            symbol_id: self_symbol_id,
             definition: Definition::TypeParameter,
             scope_id: self.current_scope_id,
             syntax: None,
@@ -1118,18 +1097,18 @@ impl<'a> DeclarationBinder<'a> {
         });
         let previous_self_type_id = self.current_self_type_id.replace(self_type_id);
 
-        let mut member_declaration_ids = DeclarationId::SmallVec::new();
-
         for child in body.children() {
-            let member_declaration_id = match child.node.kind {
-                SyntaxKind::FnItem => self.bind_fn_item(child)?,
+            match child.node.kind {
+                SyntaxKind::FnItem => {
+                    self.bind_fn_item(child)?;
+                }
                 SyntaxKind::TypeItem => {
                     self.bind_type_item(child)?;
 
                     let TypeItem {
-                        public,
+                        public: _,
                         name,
-                        type_parameters,
+                        type_parameters: _,
                         aliased_type,
                     } = child.as_component()?;
 
@@ -1138,26 +1117,23 @@ impl<'a> DeclarationBinder<'a> {
                         .transpose()?;
                     let type_name_str = self.source.get_content(&name.position())?;
                     let type_symbol_id = self.resolver.symbols.add_symbol(type_name_str);
-                    let type_declaration_id =
-                        self.resolver.declarations.add_declaration(Declaration {
-                            symbol_id: type_symbol_id,
-                            definition: Definition::TraitAssociatedType {
-                                parent: trait_declaration_id,
-                                type_parameters: DeclarationMembers::default(),
-                                default_aliased_type_id: aliased_type_id,
-                            },
-                            scope_id: self.current_scope_id,
-                            syntax: Some((child.position(), child.id)),
-                        });
+                    let type_declaration_id = self.add_scoped_declaration(Declaration {
+                        symbol_id: type_symbol_id,
+                        definition: Definition::TraitAssociatedType {
+                            parent: trait_declaration_id,
+                            type_parameters: ScopeId::NONE,
+                            default_aliased_type_id: aliased_type_id,
+                        },
+                        scope_id: self.current_scope_id,
+                        syntax: Some((child.position(), child.id)),
+                    });
 
                     self.resolver
                         .add_declaration_binding(name.id, type_declaration_id);
-
-                    type_declaration_id
                 }
                 SyntaxKind::ConstItem => {
                     let ConstItem {
-                        public,
+                        public: _,
                         name,
                         type_notation,
                         value,
@@ -1170,22 +1146,19 @@ impl<'a> DeclarationBinder<'a> {
                     let const_name_str = self.source.get_content(&name.position())?;
                     let const_symbol_id = self.resolver.symbols.add_symbol(const_name_str);
                     let type_id = self.get_explicit_type(type_notation)?;
-                    let const_declaration_id =
-                        self.resolver.declarations.add_declaration(Declaration {
-                            symbol_id: const_symbol_id,
-                            definition: Definition::InherentAssociatedConstant {
-                                public: false,
-                                parent: trait_declaration_id,
-                                type_id,
-                            },
-                            scope_id: self.current_scope_id,
-                            syntax: Some((child.position(), child.id)),
-                        });
+                    let const_declaration_id = self.add_scoped_declaration(Declaration {
+                        symbol_id: const_symbol_id,
+                        definition: Definition::InherentAssociatedConstant {
+                            public: false,
+                            parent: trait_declaration_id,
+                            type_id,
+                        },
+                        scope_id: self.current_scope_id,
+                        syntax: Some((child.position(), child.id)),
+                    });
 
                     self.resolver
                         .add_declaration_binding(name.id, const_declaration_id);
-
-                    const_declaration_id
                 }
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
@@ -1198,34 +1171,32 @@ impl<'a> DeclarationBinder<'a> {
                     });
                 }
             };
-
-            member_declaration_ids.push(member_declaration_id);
         }
-
-        let declarations = self
-            .resolver
-            .declarations
-            .add_declaration_members(member_declaration_ids);
 
         self.current_self_type_id = previous_self_type_id;
 
+        let declarations_scope_id = self.current_scope_id;
+
         self.exit_scope();
+
+        if type_parameters_scope_id != ScopeId::NONE {
+            self.exit_scope();
+        }
 
         self.resolver.declarations.set_reserved_declaration(
             trait_declaration_id,
             Definition::Trait {
                 public,
-                inner_scope_id: self.current_scope_id,
-                type_parameters,
-                supertraits,
-                declarations,
+                type_parameters: type_parameters_scope_id,
+                supertraits: supertraits_scope_id,
+                declarations: declarations_scope_id,
             },
         );
 
         self.resolver
             .add_declaration_binding(name.id, trait_declaration_id);
         self.resolver
-            .add_scope_binding(body.id, self.current_scope_id);
+            .add_scope_binding(body.id, declarations_scope_id);
 
         Ok(())
     }
@@ -1259,9 +1230,9 @@ impl<'a> DeclarationBinder<'a> {
             self.resolver.types.create_inferred_type(None)
         };
         let shadowed = self
-            .find_declaration_in_scope(symbol_id, self.current_scope_id, Visibility::Block)
+            .find_declaration_in_scope(symbol_id, self.current_scope_id)
             .map(|(declaration_id, _)| declaration_id);
-        let declaration_id = self.resolver.declarations.add_declaration(Declaration {
+        let declaration_id = self.add_scoped_declaration(Declaration {
             symbol_id,
             definition: Definition::Local {
                 mutable,
@@ -1411,10 +1382,10 @@ impl<'a> DeclarationBinder<'a> {
     }
 
     fn bind_path_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        let declaration_id = search_path_segments(self, reader, Visibility::Block)?;
-
-        self.resolver
-            .add_declaration_binding(reader.id, declaration_id);
+        if let Some(declaration_id) = search_path_segments(self, reader)? {
+            self.resolver
+                .add_declaration_binding(reader.id, declaration_id);
+        }
 
         Ok(())
     }
@@ -1425,13 +1396,13 @@ impl<'a> DeclarationBinder<'a> {
             name_expression_pairs,
         } = fields.as_component()?;
 
-        let struct_declaration_id = self.bind_path(path, Visibility::Module)?;
+        let struct_declaration_id = self.bind_path(path)?;
         let struct_declaration = self
             .resolver
             .declarations
             .get_declaration(struct_declaration_id)?;
         let Definition::StructType {
-            fields: struct_fields,
+            fields: fields_scope_id,
             ..
         } = struct_declaration.definition
         else {
@@ -1443,11 +1414,12 @@ impl<'a> DeclarationBinder<'a> {
             let field_name_str = self.source.get_content(&field_name.position())?;
             let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
 
-            let field_declaration = self.resolver.declarations.find_declaration(
-                field_symbol_id,
-                struct_declaration.scope_id,
-                Visibility::Type,
-            );
+            if let Some((field_declaration_id, _)) =
+                self.find_declaration_direct(fields_scope_id, field_symbol_id)
+            {
+                self.resolver
+                    .add_declaration_binding(field_name.id, field_declaration_id);
+            }
 
             self.bind_expression(field_value)?;
         }
@@ -1644,18 +1616,13 @@ impl<'a> DeclarationBinder<'a> {
                     }
                 };
 
-                let field_declaration_ids = self
-                    .resolver
-                    .declarations
-                    .get_declaration_members(&fields)?;
+                let field_entries = self.resolver.scopes.get_namespace_entries(fields);
 
                 let mut found_field_declaration_id = None;
 
-                for &field_id in field_declaration_ids {
-                    let field_declaration = self.resolver.declarations.get_declaration(field_id)?;
-
-                    if field_declaration.symbol_id == field_symbol_id {
-                        found_field_declaration_id = Some(field_id);
+                for &(entry_symbol_id, field_declaration_id) in field_entries {
+                    if entry_symbol_id == field_symbol_id {
+                        found_field_declaration_id = Some(field_declaration_id);
 
                         break;
                     }
@@ -1744,7 +1711,7 @@ impl<'a> DeclarationBinder<'a> {
 
                 let element_type_id = self.get_explicit_type(element_type)?;
                 let slice_symbol_id = self.resolver.symbols.add_symbol("[]");
-                let declaration_id = self.resolver.declarations.add_declaration(Declaration {
+                let declaration_id = self.add_scoped_declaration(Declaration {
                     symbol_id: slice_symbol_id,
                     definition: Definition::TypeParameter,
                     scope_id: self.current_scope_id,
@@ -1791,8 +1758,7 @@ impl<'a> DeclarationBinder<'a> {
                 }))
             }
             SyntaxKind::TypePath => {
-                if let Some(declaration_id) = search_path_segments(self, reader, Visibility::Block)?
-                {
+                if let Some(declaration_id) = search_path_segments(self, reader)? {
                     self.resolver
                         .add_declaration_binding(reader.id, declaration_id);
 
@@ -1854,15 +1820,22 @@ impl<'a> DeclarationBinder<'a> {
         }
     }
 
-    fn bind_path(
-        &mut self,
-        path: SyntaxReader,
-        visibility: Visibility,
-    ) -> Result<DeclarationId, CompileError> {
+    fn bind_path(&mut self, path: SyntaxReader) -> Result<DeclarationId, CompileError> {
         debug!("Visiting path");
         debug_assert_eq!(path.node.kind, SyntaxKind::Path);
 
-        let declaration_id = search_path_segments(self, path, visibility)?;
+        let declaration_id = search_path_segments(self, path)?.ok_or_else(|| {
+            let segment_str = self
+                .source
+                .get_content(&path.position())
+                .unwrap_or("unknown");
+            let symbol_id = self.resolver.symbols.add_symbol(segment_str);
+
+            CompileError::Undeclared {
+                symbol_id,
+                usage_position: path.position(),
+            }
+        })?;
 
         self.resolver
             .add_declaration_binding(path.id, declaration_id);
@@ -1873,15 +1846,18 @@ impl<'a> DeclarationBinder<'a> {
     fn bind_simple_path(
         &mut self,
         simple_path: SyntaxReader,
-        visibility: Visibility,
     ) -> Result<DeclarationId, CompileError> {
         debug!("Visiting simple path");
         debug_assert_eq!(simple_path.node.kind, SyntaxKind::SimplePath);
 
         let identifier = self.source.get_content(&simple_path.position())?;
         let symbol_id = self.resolver.symbols.add_symbol(identifier);
-        let (declaration_id, _) =
-            self.find_declaration_in_scope(symbol_id, self.current_scope_id, visibility)?;
+        let (declaration_id, _) = self
+            .find_declaration_in_scope(symbol_id, self.current_scope_id)
+            .ok_or(CompileError::Undeclared {
+                symbol_id,
+                usage_position: simple_path.position(),
+            })?;
 
         self.resolver
             .add_declaration_binding(simple_path.id, declaration_id);
@@ -1893,32 +1869,39 @@ impl<'a> DeclarationBinder<'a> {
 fn search_path_segments<'a>(
     binder: &mut DeclarationBinder<'a>,
     path_expression: SyntaxReader,
-    visibility: Visibility,
 ) -> Result<Option<DeclarationId>, CompileError> {
     let file = binder.source.get_code(path_expression.file_id())?;
 
-    let mut current_scope_id = binder.current_scope_id;
+    let mut direct_scope: Option<ScopeId> = None;
     let mut parent_declaration_id = None;
     let mut impl_member_scope: Option<DeclarationId> = None;
+    let mut current_declaration_id = None;
 
-    let mut search = |segment: SyntaxReader| {
+    for segment in path_expression.children() {
         let segment_str = file.get_str(segment.node.span)?;
         let symbol_id = binder.resolver.symbols.add_symbol(segment_str);
 
-        let (next_declaration_id, next_definition) =
-            if let Some(type_declaration_id) = impl_member_scope.take() {
-                search_impl_member(binder, type_declaration_id, symbol_id, &segment)?
-            } else if let Some((id, declaration)) =
-                binder.find_declaration_in_scope(symbol_id, current_scope_id, visibility)
-            {
+        let (next_declaration_id, next_definition) = if let Some(type_declaration_id) =
+            impl_member_scope.take()
+        {
+            search_impl_member(binder, type_declaration_id, symbol_id, &segment)?
+        } else if let Some(scope_id) = direct_scope {
+            if let Some((id, declaration)) = binder.find_declaration_direct(scope_id, symbol_id) {
                 (id, declaration.definition)
             } else {
                 return Ok(None);
-            };
+            }
+        } else if let Some((id, declaration)) =
+            binder.find_declaration_in_scope(symbol_id, binder.current_scope_id)
+        {
+            (id, declaration.definition)
+        } else {
+            return Ok(None);
+        };
 
         match next_definition {
             Definition::Module { inner_scope_id, .. } => {
-                current_scope_id = inner_scope_id;
+                direct_scope = Some(inner_scope_id);
             }
             Definition::StructType { .. } | Definition::EnumType { .. } => {
                 impl_member_scope = Some(next_declaration_id);
@@ -1947,16 +1930,7 @@ fn search_path_segments<'a>(
             }
         }
 
-        Ok(Some(next_declaration_id))
-    };
-
-    let mut current_declaration_id = None;
-
-    for segment in path_expression.children() {
-        current_declaration_id = match search(segment)? {
-            Some(declaration_id) => Some(declaration_id),
-            None => return Ok(None),
-        };
+        current_declaration_id = Some(next_declaration_id);
     }
 
     Ok(current_declaration_id)
@@ -1982,12 +1956,9 @@ fn search_impl_member<'a>(
         match declaration.definition {
             Definition::InherentImplementation { declarations, .. }
             | Definition::TraitImplementation { declarations, .. } => {
-                let member_ids = binder
-                    .resolver
-                    .declarations
-                    .get_declaration_members(&declarations)?;
+                let member_entries = binder.resolver.scopes.get_namespace_entries(declarations);
 
-                for &member_id in member_ids {
+                for &(_, member_id) in member_entries {
                     let member = binder.resolver.declarations.get_declaration(member_id)?;
 
                     if member.symbol_id == symbol_id {
@@ -1996,7 +1967,7 @@ fn search_impl_member<'a>(
                 }
 
                 if let Definition::TraitImplementation {
-                    trait_declaration_id: Some(trait_declaration_id),
+                    trait_declaration_id,
                     ..
                 } = declaration.definition
                 {
@@ -2010,12 +1981,12 @@ fn search_impl_member<'a>(
                         ..
                     } = trait_declaration.definition
                     {
-                        let trait_member_ids = binder
+                        let trait_member_entries = binder
                             .resolver
-                            .declarations
-                            .get_declaration_members(&trait_declarations)?;
+                            .scopes
+                            .get_namespace_entries(trait_declarations);
 
-                        for &trait_member_id in trait_member_ids {
+                        for &(_, trait_member_id) in trait_member_entries {
                             let trait_member = binder
                                 .resolver
                                 .declarations
@@ -2042,4 +2013,56 @@ fn search_impl_member<'a>(
         symbol_id,
         usage_position: segment.position(),
     })
+}
+
+fn lookup_symbol(
+    scope_stack: &[ScopeFrame],
+    scoped_declarations: &[(SymbolId, DeclarationId)],
+    scopes: &Scopes,
+    scope_id: ScopeId,
+    symbol_id: SymbolId,
+) -> Option<DeclarationId> {
+    for (i, frame) in scope_stack.iter().enumerate() {
+        if frame.scope_id == scope_id {
+            let start = frame.type_entries_start as usize;
+            let end = scope_stack
+                .get(i + 1)
+                .map(|next| next.type_entries_start as usize)
+                .unwrap_or(scoped_declarations.len());
+
+            for &(entry_symbol_id, declaration_id) in scoped_declarations[start..end].iter().rev() {
+                if entry_symbol_id == symbol_id {
+                    return Some(declaration_id);
+                }
+            }
+
+            return None;
+        }
+    }
+
+    scopes.find_in_namespace(scope_id, symbol_id)
+}
+
+fn is_barrier(scope_kind: ScopeKind, visibility: Visibility) -> bool {
+    match (scope_kind, visibility) {
+        (ScopeKind::Block, _) => false,
+        (ScopeKind::Function, Visibility::Block) => true,
+        (ScopeKind::Function, Visibility::Module) | (ScopeKind::Function, Visibility::Type) => {
+            false
+        }
+        (ScopeKind::Closure, _) => false,
+        (ScopeKind::Module, Visibility::Block) | (ScopeKind::Module, Visibility::Type) => true,
+        (ScopeKind::Module, Visibility::Module) => false,
+        (ScopeKind::TypeTraitOrImpl, Visibility::Block) => true,
+        (ScopeKind::TypeTraitOrImpl, Visibility::Module)
+        | (ScopeKind::TypeTraitOrImpl, Visibility::Type) => false,
+        (ScopeKind::Associated, Visibility::Block) => true,
+        (ScopeKind::Associated, Visibility::Module) | (ScopeKind::Associated, Visibility::Type) => {
+            false
+        }
+        (ScopeKind::Constant, Visibility::Block) | (ScopeKind::Constant, Visibility::Type) => true,
+        (ScopeKind::Constant, Visibility::Module) => false,
+        (ScopeKind::TypeParameters, _) => false,
+        (ScopeKind::ValueParameters, _) => false,
+    }
 }

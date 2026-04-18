@@ -3837,21 +3837,21 @@ pub fn get_byte_size(
                 fields,
                 ..
             } => {
-                let field_declaration_ids =
-                    resolver.declarations.get_declaration_members(fields)?;
+                let field_entries =
+                    resolver.scopes.get_namespace_entries(*fields);
                 let mut total_size = 0;
 
-                for field_declaration_id in field_declaration_ids {
+                for &(_, field_declaration_id) in field_entries {
                     let field_declaration = resolver
                         .declarations
-                        .get_declaration(*field_declaration_id)?;
+                        .get_declaration(field_declaration_id)?;
                     let Definition::Field {
                         type_id: field_type_id,
                         ..
                     } = field_declaration.definition
                     else {
-                        return Err(CompileError::ExpectedFieldDeclaration(
-                            *field_declaration_id,
+                        return Err(CompileError::ExpectedFieldDefinition(
+                            field_declaration_id,
                         ));
                     };
 
@@ -3862,16 +3862,13 @@ pub fn get_byte_size(
                             declaration_id: parameter_declaration_id,
                         } = field_type
                         {
-                            type_parameters
-                                .as_range()
+                            let type_param_entries =
+                                resolver.scopes.get_namespace_entries(*type_parameters);
+                            type_param_entries
+                                .iter()
                                 .zip(type_arguments.as_range())
-                                .find_map(|(parameter_member_index, argument_member_index)| {
-                                    let declaration_member_id = resolver
-                                        .declarations
-                                        .get_declaration_member(parameter_member_index)
-                                        .ok()?;
-
-                                    if declaration_member_id == parameter_declaration_id {
+                                .find_map(|(&(_, param_decl_id), argument_member_index)| {
+                                    if &param_decl_id == parameter_declaration_id {
                                         let argument_type_id = resolver
                                             .types
                                             .get_type_member(argument_member_index)
@@ -3908,26 +3905,26 @@ pub fn get_byte_size(
                 variants,
                 ..
             } => {
-                let variant_declaration_ids =
-                    resolver.declarations.get_declaration_members(variants)?;
+                let variant_entries =
+                    resolver.scopes.get_namespace_entries(*variants);
                 let mut max_variant_size = 0;
 
-                for variant_declaration_id in variant_declaration_ids {
+                for &(_, variant_declaration_id) in variant_entries {
                     let variant_declaration = resolver
                         .declarations
-                        .get_declaration(*variant_declaration_id)?;
+                        .get_declaration(variant_declaration_id)?;
                     let Definition::Variant { fields, .. } = &variant_declaration.definition else {
                         continue;
                     };
 
-                    let field_declaration_ids =
-                        resolver.declarations.get_declaration_members(fields)?;
+                    let field_entries =
+                        resolver.scopes.get_namespace_entries(*fields);
                     let mut variant_size = 0;
 
-                    for field_declaration_id in field_declaration_ids {
+                    for &(_, field_declaration_id) in field_entries {
                         let field_declaration = resolver
                             .declarations
-                            .get_declaration(*field_declaration_id)?;
+                            .get_declaration(field_declaration_id)?;
                         let Definition::Field {
                             type_id: field_type_id,
                             ..
@@ -3943,16 +3940,13 @@ pub fn get_byte_size(
                                 declaration_id: parameter_declaration_id,
                             } = field_type
                             {
-                                type_parameters
-                                    .as_range()
+                                let type_param_entries =
+                                    resolver.scopes.get_namespace_entries(*type_parameters);
+                                type_param_entries
+                                    .iter()
                                     .zip(type_arguments.as_range())
-                                    .find_map(|(parameter_index, argument_index)| {
-                                        let declaration_member = resolver
-                                            .declarations
-                                            .get_declaration_member(parameter_index)
-                                            .ok()?;
-
-                                        if declaration_member == parameter_declaration_id {
+                                    .find_map(|(&(_, param_decl_id), argument_index)| {
+                                        if &param_decl_id == parameter_declaration_id {
                                             let argument_type_id = resolver
                                                 .types
                                                 .get_type_member(argument_index)

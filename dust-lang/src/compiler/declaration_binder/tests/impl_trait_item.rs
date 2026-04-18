@@ -38,16 +38,13 @@ fn with_method() {
         panic!();
     };
 
-    assert_eq!(trait_declaration_id, Some(bar_id));
-    assert_eq!(declarations.len(), 1);
+    assert_eq!(trait_declaration_id, bar_id);
+    assert_eq!(resolver.scopes.namespace_len(declarations), 1);
 
-    let member_ids = resolver
-        .declarations
-        .get_declaration_members(&declarations)
-        .unwrap();
+    let member_entries = resolver.scopes.get_namespace_entries(declarations);
     let baz_decl = resolver
         .declarations
-        .get_declaration(member_ids[0])
+        .get_declaration(member_entries[0].1)
         .unwrap();
     let baz_symbol = resolver.symbols.add_symbol("baz");
 
@@ -74,15 +71,12 @@ fn with_associated_type() {
         panic!();
     };
 
-    assert_eq!(declarations.len(), 1);
+    assert_eq!(resolver.scopes.namespace_len(declarations), 1);
 
-    let member_ids = resolver
-        .declarations
-        .get_declaration_members(&declarations)
-        .unwrap();
+    let member_entries = resolver.scopes.get_namespace_entries(declarations);
     let item_decl = resolver
         .declarations
-        .get_declaration(member_ids[0])
+        .get_declaration(member_entries[0].1)
         .unwrap();
     let Definition::InherentAssociatedType {
         aliased_type_id, ..

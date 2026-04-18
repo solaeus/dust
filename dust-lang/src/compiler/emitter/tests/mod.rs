@@ -78,8 +78,10 @@ fn emit_function(source_code: &str) -> Prototype {
     let concrete_return_type_id = resolver.resolve_type(return_type_id).unwrap();
 
     let mut argument_count = 0u16;
-    for index in value_parameters.as_range() {
-        let parameter_type_id = *resolver.types.get_type_member(index).unwrap();
+    let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
+    for &(_, parameter_declaration_id) in parameter_entries {
+        let parameter_declaration = resolver.declarations.get_declaration(parameter_declaration_id).unwrap();
+        let Definition::Local { type_id: parameter_type_id, .. } = parameter_declaration.definition else { panic!(); };
         let concrete_parameter_type_id = resolver.resolve_type(parameter_type_id).unwrap();
         let register_size = get_register_size(concrete_parameter_type_id, None, &resolver).unwrap();
         argument_count += register_size.unwrap_or(0) as u16;

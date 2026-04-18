@@ -1,6 +1,7 @@
 use crate::{
     compiler::resolver::{
         declarations::{Definition, Visibility},
+        scopes::ScopeId,
         types::{Type, TypeId},
     },
     source::{Code, Source},
@@ -30,7 +31,7 @@ fn simple() {
     };
 
     assert!(!public);
-    assert!(type_parameters.is_empty());
+    assert_eq!(type_parameters, ScopeId::NONE);
     assert_eq!(aliased_type_id, TypeId::I_64);
     assert_eq!(foo_declaration.scope_id, crate_scope_id);
 }
@@ -56,14 +57,11 @@ fn generic_alias_resolves_type_parameter() {
         panic!();
     };
 
-    assert_eq!(type_parameters.len(), 1);
+    assert_eq!(resolver.scopes.namespace_len(type_parameters), 1);
 
-    let type_parameter_ids = resolver
-        .declarations
-        .get_declaration_members(&type_parameters)
-        .unwrap();
+    let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
 
-    let t_declaration_id = type_parameter_ids[0];
+    let t_declaration_id = type_parameter_entries[0].1;
     let t_symbol = resolver.symbols.add_symbol("T");
     let t_declaration = resolver
         .declarations

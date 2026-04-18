@@ -5,7 +5,7 @@ use crate::{
         emitter::JumpId,
         resolver::{
             Resolver,
-            declarations::{DeclarationId, DeclarationMembers},
+            declarations::DeclarationId,
             scopes::ScopeId,
             symbols::SymbolId,
             types::{Type, TypeId, TypeMembers},
@@ -161,8 +161,6 @@ pub enum CompileError {
     ExpectedJumpPlacement(JumpId),
     MissingSymbol(SymbolId),
     MissingDeclaration(DeclarationId),
-    MissingDeclarationMember(u32),
-    MissingDeclarationMembers(DeclarationMembers),
     MissingDeclarationType(DeclarationId),
     MissingDeclarationBinding(SyntaxId),
     MissingTypeDeclaration(DeclarationId),
@@ -1141,8 +1139,6 @@ impl<'a> AnnotatedError<'a> for CompileError {
             | CompileError::ValueCreation(_)
             | CompileError::MissingSymbol(_)
             | CompileError::MissingDeclaration(_)
-            | CompileError::MissingDeclarationMember(_)
-            | CompileError::MissingDeclarationMembers(_)
             | CompileError::MissingDeclarationType(_)
             | CompileError::MissingDeclarationBinding(_)
             | CompileError::MissingTypeDeclaration(_)
