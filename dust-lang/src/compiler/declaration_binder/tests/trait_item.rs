@@ -1,10 +1,6 @@
 use crate::{
-    compiler::resolver::{
-        declarations::{Definition, Visibility},
-        scopes::ScopeKind,
-        types::TypeId,
-    },
-    source::{Code, Source},
+    compiler::resolver::{declarations::Definition, scopes::ScopeKind, types::TypeId},
+    source::{Source, SourceCode},
 };
 
 use super::bind_declarations;
@@ -13,7 +9,7 @@ use super::bind_declarations;
 fn with_method_and_const() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "trait Foo { fn bar(x: i64); const N: i64; }",
     ));
@@ -22,13 +18,9 @@ fn with_method_and_const() {
     let foo_symbol = resolver.symbols.add_symbol("Foo");
     let (foo_id, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
-    let Definition::Trait {
-        declarations,
-        ..
-    } = foo_declaration.definition
-    else {
+    let Definition::Trait { declarations, .. } = foo_declaration.definition else {
         panic!();
     };
 
@@ -78,7 +70,7 @@ fn with_method_and_const() {
 fn supertraits_resolved() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "trait Bar {} trait Foo: Bar {}",
     ));
@@ -87,13 +79,13 @@ fn supertraits_resolved() {
     let bar_symbol = resolver.symbols.add_symbol("Bar");
     let (bar_id, _) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(bar_symbol, crate_scope_id)
         .unwrap();
 
     let foo_symbol = resolver.symbols.add_symbol("Foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Trait { supertraits, .. } = foo_declaration.definition else {
         panic!();
@@ -110,13 +102,13 @@ fn supertraits_resolved() {
 fn trait_creates_trait_scope() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "trait Foo {}"));
+    source.add_code(SourceCode::validated_borrowed("test", "trait Foo {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Trait { declarations, .. } = foo_declaration.definition else {
         panic!();

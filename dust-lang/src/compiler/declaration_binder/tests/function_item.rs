@@ -1,10 +1,10 @@
 use crate::{
     compiler::resolver::{
-        declarations::{Definition, Visibility},
+        declarations::Definition,
         scopes::{ScopeId, ScopeKind},
         types::TypeId,
     },
-    source::{Code, Source},
+    source::{Source, SourceCode},
 };
 
 use super::{bind_declarations, find_function_body_scope};
@@ -13,13 +13,13 @@ use super::{bind_declarations, find_function_body_scope};
 fn empty() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "fn foo() {}"));
+    source.add_code(SourceCode::validated_borrowed("test", "fn foo() {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         public,
@@ -41,7 +41,7 @@ fn empty() {
 fn with_generics_parameters_and_return_type() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "pub fn foo<A, B>(x: i64, y: bool) -> i64 {}",
     ));
@@ -50,7 +50,7 @@ fn with_generics_parameters_and_return_type() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         public,
@@ -91,10 +91,28 @@ fn with_generics_parameters_and_return_type() {
 
     assert_eq!(parameter_entries.len(), 2);
 
-    let first_parameter = resolver.declarations.get_declaration(parameter_entries[0].1).unwrap();
-    let Definition::Local { type_id: first_type, .. } = first_parameter.definition else { panic!(); };
-    let second_parameter = resolver.declarations.get_declaration(parameter_entries[1].1).unwrap();
-    let Definition::Local { type_id: second_type, .. } = second_parameter.definition else { panic!(); };
+    let first_parameter = resolver
+        .declarations
+        .get_declaration(parameter_entries[0].1)
+        .unwrap();
+    let Definition::Local {
+        type_id: first_type,
+        ..
+    } = first_parameter.definition
+    else {
+        panic!();
+    };
+    let second_parameter = resolver
+        .declarations
+        .get_declaration(parameter_entries[1].1)
+        .unwrap();
+    let Definition::Local {
+        type_id: second_type,
+        ..
+    } = second_parameter.definition
+    else {
+        panic!();
+    };
 
     assert_eq!(first_type, TypeId::I_64);
     assert_eq!(second_type, TypeId::BOOLEAN);
@@ -104,14 +122,13 @@ fn with_generics_parameters_and_return_type() {
 fn parameters_not_visible_in_declaring_scope() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "fn foo(x: i64) {}"));
+    source.add_code(SourceCode::validated_borrowed("test", "fn foo(x: i64) {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let x_symbol = resolver.symbols.add_symbol("x");
-    let result =
-        resolver
-            .declarations
-            .find_declaration(x_symbol, crate_scope_id, Visibility::Block);
+    let result = resolver
+        .declarations
+        .find_declaration(x_symbol, crate_scope_id);
 
     assert!(
         result.is_none(),
@@ -123,7 +140,7 @@ fn parameters_not_visible_in_declaring_scope() {
 fn same_name_in_different_modules() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod a { fn foo() -> i64 {} } mod b { fn foo() -> bool {} }",
     ));
@@ -133,7 +150,7 @@ fn same_name_in_different_modules() {
     let a_symbol = resolver.symbols.add_symbol("a");
     let (_, a_declaration) = resolver
         .declarations
-        .find_declaration(a_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(a_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: a_scope,
@@ -146,7 +163,7 @@ fn same_name_in_different_modules() {
     let b_symbol = resolver.symbols.add_symbol("b");
     let (_, b_declaration) = resolver
         .declarations
-        .find_declaration(b_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(b_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: b_scope,
@@ -159,7 +176,7 @@ fn same_name_in_different_modules() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (a_foo_id, a_foo) = resolver
         .declarations
-        .find_declaration(foo_symbol, a_scope, Visibility::Module)
+        .find_declaration(foo_symbol, a_scope)
         .unwrap();
     let Definition::Function {
         return_type_id: a_return,
@@ -173,7 +190,7 @@ fn same_name_in_different_modules() {
 
     let (b_foo_id, b_foo) = resolver
         .declarations
-        .find_declaration(foo_symbol, b_scope, Visibility::Module)
+        .find_declaration(foo_symbol, b_scope)
         .unwrap();
     let Definition::Function {
         return_type_id: b_return,
@@ -191,13 +208,13 @@ fn same_name_in_different_modules() {
 fn type_parameters_have_correct_identity() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "fn foo<A, B>() {}"));
+    source.add_code(SourceCode::validated_borrowed("test", "fn foo<A, B>() {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         type_parameters, ..
@@ -232,7 +249,7 @@ fn type_parameters_have_correct_identity() {
 fn value_parameter_declarations() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "fn foo(x: i64, y: bool) {}",
     ));
@@ -243,7 +260,7 @@ fn value_parameter_declarations() {
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, fn_body_scope, Visibility::Block)
+        .find_declaration(x_symbol, fn_body_scope)
         .unwrap();
     let Definition::Local {
         mutable: x_mutable,
@@ -260,7 +277,7 @@ fn value_parameter_declarations() {
     let y_symbol = resolver.symbols.add_symbol("y");
     let (_, y_declaration) = resolver
         .declarations
-        .find_declaration(y_symbol, fn_body_scope, Visibility::Block)
+        .find_declaration(y_symbol, fn_body_scope)
         .unwrap();
     let Definition::Local {
         mutable: y_mutable,
@@ -279,7 +296,7 @@ fn value_parameter_declarations() {
 fn function_body_creates_function_scope() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "fn foo() {}"));
+    source.add_code(SourceCode::validated_borrowed("test", "fn foo() {}"));
 
     let (syntax, resolver, crate_scope_id) = bind_declarations(&source);
     let fn_body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
@@ -294,7 +311,7 @@ fn function_body_creates_function_scope() {
 fn nested_function() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "fn outer() { fn inner() {} }",
     ));
@@ -303,7 +320,7 @@ fn nested_function() {
     let outer_symbol = resolver.symbols.add_symbol("outer");
     let (_, outer_declaration) = resolver
         .declarations
-        .find_declaration(outer_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(outer_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -315,7 +332,7 @@ fn nested_function() {
     let inner_symbol = resolver.symbols.add_symbol("inner");
     let (_, inner_declaration) = resolver
         .declarations
-        .find_declaration(inner_symbol, outer_body_scope, Visibility::Block)
+        .find_declaration(inner_symbol, outer_body_scope)
         .unwrap();
     let Definition::Function {
         value_parameters,

@@ -678,7 +678,7 @@ impl<'a> Emitter<'a> {
                     Ok(Place::Register(allocation))
                 } else {
                     Err(CompileError::ExpectedValue {
-                        file_id: syntax.file_id(),
+                        source_id: syntax.source_id(),
                         syntax_id: syntax.id,
                     })
                 }
@@ -687,7 +687,7 @@ impl<'a> Emitter<'a> {
                 position: syntax.position(),
             }),
             _ => Err(CompileError::ExpectedValue {
-                file_id: syntax.file_id(),
+                source_id: syntax.source_id(),
                 syntax_id: syntax.id,
             }),
         }
@@ -835,7 +835,7 @@ impl<'a> Emitter<'a> {
                         allocation.operand_types(),
                     )),
                     None => Err(CompileError::ExpectedValue {
-                        file_id: operand.file_id(),
+                        source_id: operand.source_id(),
                         syntax_id: operand.id,
                     }),
                 }
@@ -844,7 +844,7 @@ impl<'a> Emitter<'a> {
                 position: operand.position(),
             }),
             Emission::Never => Err(CompileError::ExpectedValue {
-                file_id: operand.file_id(),
+                source_id: operand.source_id(),
                 syntax_id: operand.id,
             }),
         }
@@ -1228,7 +1228,7 @@ impl<'a> Emitter<'a> {
     fn emit_const_item(&mut self, syntax: SyntaxReader) -> Result<(), CompileError> {
         let ConstItem { name, value, .. } = syntax.as_component()?;
         let value = value.ok_or(CompileError::ExpectedValue {
-            file_id: syntax.file_id(),
+            source_id: syntax.source_id(),
             syntax_id: syntax.id,
         })?;
 
@@ -1239,7 +1239,7 @@ impl<'a> Emitter<'a> {
             constant
         } else {
             return Err(CompileError::ExpectedValue {
-                file_id: value.file_id(),
+                source_id: value.source_id(),
                 syntax_id: value.id,
             });
         };
@@ -1323,7 +1323,7 @@ impl<'a> Emitter<'a> {
                 pending_drops,
             }) => {
                 let registers = target_registers.ok_or_else(|| CompileError::ExpectedValue {
-                    file_id: expression.file_id(),
+                    source_id: expression.source_id(),
                     syntax_id: expression.id,
                 })?;
 
@@ -1372,7 +1372,7 @@ impl<'a> Emitter<'a> {
                 }
                 Emission::Instructions(_) => {
                     return Err(CompileError::ExpectedValue {
-                        file_id: target.file_id(),
+                        source_id: target.source_id(),
                         syntax_id: target.id,
                     });
                 }
@@ -1466,7 +1466,7 @@ impl<'a> Emitter<'a> {
             }
             Emission::Never => {
                 return Err(CompileError::ExpectedValue {
-                    file_id: source.file_id(),
+                    source_id: source.source_id(),
                     syntax_id: source.id,
                 });
             }
@@ -1715,7 +1715,7 @@ impl<'a> Emitter<'a> {
                 Emission::Instructions(instructions) => {
                     let registers = instructions.target_registers.clone().ok_or(
                         CompileError::ExpectedValue {
-                            file_id: collection.file_id(),
+                            source_id: collection.source_id(),
                             syntax_id: collection.id,
                         },
                     )?;
@@ -1724,7 +1724,7 @@ impl<'a> Emitter<'a> {
                 }
                 _ => {
                     return Err(CompileError::ExpectedValue {
-                        file_id: collection.file_id(),
+                        source_id: collection.source_id(),
                         syntax_id: collection.id,
                     });
                 }
@@ -2078,7 +2078,7 @@ impl<'a> Emitter<'a> {
                     .resolver
                     .get_constant_item_value(&declaration_id)
                     .ok_or_else(|| CompileError::ExpectedValue {
-                        file_id: reader.file_id(),
+                        source_id: reader.source_id(),
                         syntax_id: reader.id,
                     })?;
 
@@ -2086,7 +2086,7 @@ impl<'a> Emitter<'a> {
             }
             _ => {
                 return Err(CompileError::ExpectedValue {
-                    file_id: reader.file_id(),
+                    source_id: reader.source_id(),
                     syntax_id: reader.id,
                 });
             }
@@ -2185,7 +2185,7 @@ impl<'a> Emitter<'a> {
     ) -> Result<Emission, CompileError> {
         let GroupedExpression { expression } = reader.as_component()?;
         let expression = expression.ok_or(CompileError::ExpectedValue {
-            file_id: reader.file_id(),
+            source_id: reader.source_id(),
             syntax_id: reader.id,
         })?;
 
@@ -3370,7 +3370,7 @@ impl<'a> Emitter<'a> {
                     Place::Register(registers) => registers,
                     _ => {
                         return Err(CompileError::ExpectedValue {
-                            file_id: struct_expression.file_id(),
+                            source_id: struct_expression.source_id(),
                             syntax_id: struct_expression.id,
                         });
                     }
@@ -3388,7 +3388,7 @@ impl<'a> Emitter<'a> {
             Definition::Field { parent_struct, .. } => parent_struct,
             _ => {
                 return Err(CompileError::ExpectedValue {
-                    file_id: field_name.file_id(),
+                    source_id: field_name.source_id(),
                     syntax_id: field_name.id,
                 });
             }
@@ -3400,7 +3400,7 @@ impl<'a> Emitter<'a> {
             Definition::StructType { fields, .. } => fields,
             _ => {
                 return Err(CompileError::ExpectedValue {
-                    file_id: field_name.file_id(),
+                    source_id: field_name.source_id(),
                     syntax_id: field_name.id,
                 });
             }
@@ -3431,7 +3431,7 @@ impl<'a> Emitter<'a> {
                 kind: struct_registers.kind,
             }))),
             None => Err(CompileError::ExpectedValue {
-                file_id: field_name.file_id(),
+                source_id: field_name.source_id(),
                 syntax_id: field_name.id,
             }),
         }

@@ -2,23 +2,15 @@ use std::fmt::{self, Display, Formatter};
 
 use annotate_snippets::Renderer;
 
-use crate::{
-    error::AnnotatedError,
-    source::FileId,
-    syntax::{SyntaxId, node::SyntaxKind},
-};
+use crate::{error::DustError, source::SourceCodeId, syntax::SyntaxId};
 
 #[derive(Debug)]
 pub enum SyntaxError {
-    MissingSyntaxTree(FileId),
-    MissingSyntaxNode(SyntaxId),
-    MissingSyntaxChild {
+    MissingTree(SourceCodeId),
+    MissingNode(SyntaxId),
+    MissingChild {
         missing_index: u32,
         total_children: u32,
-    },
-    Unexpected {
-        expected: &'static [SyntaxKind],
-        found: SyntaxKind,
     },
 }
 
@@ -35,7 +27,7 @@ impl Display for SyntaxError {
     }
 }
 
-impl<'a> AnnotatedError<'a> for SyntaxError {
+impl<'a> DustError<'a> for SyntaxError {
     type Context = ();
 
     fn add_report(&self, _: Self::Context, groups: &mut Vec<annotate_snippets::Group<'a>>) {

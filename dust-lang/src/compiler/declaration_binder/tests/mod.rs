@@ -30,8 +30,8 @@ use crate::{
     error::ErrorKind,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Source},
-    syntax::{Syntax, node::SyntaxKind, visitor::SyntaxVisitor},
+    source::{Source, SourceCodeId},
+    syntax::{Syntax, node::SyntaxKind},
 };
 
 fn create_module_file(name: &str, content: &str) -> PathBuf {
@@ -58,9 +58,9 @@ fn cleanup_module_file(path: &Path) {
 fn bind_declarations_with_errors(source: &Source) -> (Syntax, Resolver, ScopeId, Vec<ErrorKind>) {
     let mut syntax = Syntax::with_capacity(source.file_count());
 
-    for (file_id, file) in source.iter() {
+    for (source_id, file) in source.iter() {
         let lexer = Lexer::with_validated_source(file.content_as_str());
-        let parser = Parser::new(file_id, lexer);
+        let parser = Parser::new(source_id, lexer);
         let ParseResult {
             syntax_tree,
             errors,
@@ -71,9 +71,11 @@ fn bind_declarations_with_errors(source: &Source) -> (Syntax, Resolver, ScopeId,
     }
 
     let mut resolver = Resolver::new();
-    let crate_scope_id = resolver.scopes.enter_scope(ScopeKind::Module, ScopeId::NONE);
+    let crate_scope_id = resolver
+        .scopes
+        .enter_scope(ScopeKind::Module, ScopeId::NONE);
 
-    let main_root = syntax.get_tree(FileId::MAIN).unwrap().root().unwrap();
+    let main_root = syntax.get_tree(SourceCodeId::MAIN).unwrap().root().unwrap();
 
     let mut errors = Vec::new();
     let mut declaration_binder =
@@ -92,7 +94,7 @@ fn find_function_body_scope(
     resolver: &Resolver,
     parent_scope_id: ScopeId,
 ) -> ScopeId {
-    let tree = syntax.get_tree(FileId::MAIN).unwrap();
+    let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();
 
     for reader in tree.iter() {
         if reader.node.kind == SyntaxKind::BlockExpression

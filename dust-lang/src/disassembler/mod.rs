@@ -17,7 +17,7 @@ use crate::{
     instruction::OperandType,
     program::Program,
     prototype::Prototype,
-    source::{Code, FileId, Source},
+    source::{Source, SourceCode, SourceCodeId},
     syntax::{Syntax, tree::SyntaxTree},
 };
 
@@ -44,10 +44,10 @@ impl<'a> Disassembler<'a> {
     ) -> Self {
         let mut tabs = Vec::with_capacity(source.file_count() + program.prototypes.len() + 1);
 
-        for (file_id, file) in source.iter() {
+        for (source_id, file) in source.iter() {
             tabs.push(Tab::SourceFile {
                 file_name: file.file_name(),
-                file_id,
+                source_id,
             });
         }
 
@@ -125,7 +125,7 @@ impl<'a> Disassembler<'a> {
 
     fn draw_source_tab(
         &self,
-        source_file: &Code,
+        source_file: &SourceCode,
         syntax_tree: &SyntaxTree,
         area: Rect,
         buffer: &mut Buffer,
@@ -355,10 +355,10 @@ impl Widget for &mut Disassembler<'_> {
         match &self.tabs[self.selection_state.current_tab] {
             Tab::SourceFile {
                 file_name: _,
-                file_id,
+                source_id,
             } => {
-                let source_file = self.source.get_code(*file_id).unwrap();
-                let syntax_tree = self.syntax.get_tree(*file_id).unwrap();
+                let source_file = self.source.get_code(*source_id).unwrap();
+                let syntax_tree = self.syntax.get_tree(*source_id).unwrap();
 
                 self.draw_source_tab(source_file, syntax_tree, tab_content_area, buffer);
             }
@@ -437,7 +437,10 @@ impl SelectionState {
 }
 
 enum Tab<'a> {
-    SourceFile { file_name: &'a str, file_id: FileId },
+    SourceFile {
+        file_name: &'a str,
+        source_id: SourceCodeId,
+    },
     Constants,
     Prototype(PrototypeTab<'a>),
 }

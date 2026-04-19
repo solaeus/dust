@@ -1,10 +1,10 @@
 use crate::{
     compiler::resolver::{
-        declarations::{Definition, Visibility},
+        declarations::Definition,
         scopes::ScopeId,
         types::{Type, TypeId},
     },
-    source::{Code, Source},
+    source::{Source, SourceCode},
 };
 
 use super::bind_declarations;
@@ -13,13 +13,13 @@ use super::bind_declarations;
 fn empty() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "struct Foo {}"));
+    source.add_code(SourceCode::validated_borrowed("test", "struct Foo {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::StructType {
         public,
@@ -40,7 +40,7 @@ fn empty() {
 fn with_named_fields() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "struct Foo { x: i64, y: bool }",
     ));
@@ -49,7 +49,7 @@ fn with_named_fields() {
     let foo_symbol = resolver.symbols.add_symbol("Foo");
     let (foo_id, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::StructType { fields, .. } = foo_declaration.definition else {
         panic!();
@@ -61,7 +61,10 @@ fn with_named_fields() {
     let x_symbol = resolver.symbols.add_symbol("x");
     let y_symbol = resolver.symbols.add_symbol("y");
 
-    let first_field = resolver.declarations.get_declaration(field_entries[0].1).unwrap();
+    let first_field = resolver
+        .declarations
+        .get_declaration(field_entries[0].1)
+        .unwrap();
     let Definition::Field {
         parent_struct: first_parent,
         type_id: first_type,
@@ -74,7 +77,10 @@ fn with_named_fields() {
     assert_eq!(first_type, TypeId::I_64);
     assert_eq!(first_parent, foo_id);
 
-    let second_field = resolver.declarations.get_declaration(field_entries[1].1).unwrap();
+    let second_field = resolver
+        .declarations
+        .get_declaration(field_entries[1].1)
+        .unwrap();
     let Definition::Field {
         parent_struct: second_parent,
         type_id: second_type,
@@ -92,13 +98,16 @@ fn with_named_fields() {
 fn tuple() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "struct Bar(i64, bool);"));
+    source.add_code(SourceCode::validated_borrowed(
+        "test",
+        "struct Bar(i64, bool);",
+    ));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let bar_symbol = resolver.symbols.add_symbol("Bar");
     let (bar_id, bar_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(bar_symbol, crate_scope_id)
         .unwrap();
     let Definition::StructType { fields, .. } = bar_declaration.definition else {
         panic!();
@@ -107,7 +116,10 @@ fn tuple() {
     let field_entries = resolver.scopes.get_namespace_entries(fields);
     assert_eq!(field_entries.len(), 2);
 
-    let first_field = resolver.declarations.get_declaration(field_entries[0].1).unwrap();
+    let first_field = resolver
+        .declarations
+        .get_declaration(field_entries[0].1)
+        .unwrap();
     let Definition::Field {
         parent_struct: first_parent,
         type_id: first_type,
@@ -119,7 +131,10 @@ fn tuple() {
     assert_eq!(first_type, TypeId::I_64);
     assert_eq!(first_parent, bar_id);
 
-    let second_field = resolver.declarations.get_declaration(field_entries[1].1).unwrap();
+    let second_field = resolver
+        .declarations
+        .get_declaration(field_entries[1].1)
+        .unwrap();
     let Definition::Field {
         parent_struct: second_parent,
         type_id: second_type,
@@ -136,7 +151,7 @@ fn tuple() {
 fn public_generic() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "pub struct Pair<A, B> { x: i64 }",
     ));
@@ -145,7 +160,7 @@ fn public_generic() {
     let pair_symbol = resolver.symbols.add_symbol("Pair");
     let (_, pair_declaration) = resolver
         .declarations
-        .find_declaration(pair_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(pair_symbol, crate_scope_id)
         .unwrap();
     let Definition::StructType {
         public,
@@ -181,7 +196,10 @@ fn public_generic() {
     let field_entries = resolver.scopes.get_namespace_entries(fields);
     assert_eq!(field_entries.len(), 1);
 
-    let field = resolver.declarations.get_declaration(field_entries[0].1).unwrap();
+    let field = resolver
+        .declarations
+        .get_declaration(field_entries[0].1)
+        .unwrap();
     let Definition::Field { type_id, .. } = field.definition else {
         panic!();
     };
@@ -192,14 +210,16 @@ fn public_generic() {
 fn fields_not_visible_at_module_scope() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "struct Foo { x: i64 }"));
+    source.add_code(SourceCode::validated_borrowed(
+        "test",
+        "struct Foo { x: i64 }",
+    ));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let x_symbol = resolver.symbols.add_symbol("x");
-    let result =
-        resolver
-            .declarations
-            .find_declaration(x_symbol, crate_scope_id, Visibility::Module);
+    let result = resolver
+        .declarations
+        .find_declaration(x_symbol, crate_scope_id);
 
     assert!(
         result.is_none(),
@@ -210,7 +230,7 @@ fn fields_not_visible_at_module_scope() {
 #[test]
 fn same_name_in_different_modules() {
     let mut source = Source::new();
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod a { struct Foo { x: i64 } } mod b { struct Foo { x: bool } }",
     ));
@@ -220,7 +240,7 @@ fn same_name_in_different_modules() {
     let a_symbol = resolver.symbols.add_symbol("a");
     let (_, a_declaration) = resolver
         .declarations
-        .find_declaration(a_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(a_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: a_scope,
@@ -233,7 +253,7 @@ fn same_name_in_different_modules() {
     let b_symbol = resolver.symbols.add_symbol("b");
     let (_, b_declaration) = resolver
         .declarations
-        .find_declaration(b_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(b_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: b_scope,
@@ -247,7 +267,7 @@ fn same_name_in_different_modules() {
 
     let (a_foo_id, a_foo) = resolver
         .declarations
-        .find_declaration(foo_symbol, a_scope, Visibility::Module)
+        .find_declaration(foo_symbol, a_scope)
         .unwrap();
     let Definition::StructType {
         fields: a_fields, ..
@@ -271,7 +291,7 @@ fn same_name_in_different_modules() {
 
     let (b_foo_id, b_foo) = resolver
         .declarations
-        .find_declaration(foo_symbol, b_scope, Visibility::Module)
+        .find_declaration(foo_symbol, b_scope)
         .unwrap();
     let Definition::StructType {
         fields: b_fields, ..
@@ -300,13 +320,13 @@ fn same_name_in_different_modules() {
 fn unit() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "struct Foo;"));
+    source.add_code(SourceCode::validated_borrowed("test", "struct Foo;"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::StructType {
         public,
@@ -326,7 +346,7 @@ fn unit() {
 fn field_publicity() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "struct Foo { pub x: i64, y: bool }",
     ));
@@ -335,7 +355,7 @@ fn field_publicity() {
     let foo_symbol = resolver.symbols.add_symbol("Foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::StructType { fields, .. } = foo_declaration.definition else {
         panic!();
@@ -344,7 +364,10 @@ fn field_publicity() {
     let field_entries = resolver.scopes.get_namespace_entries(fields);
     assert_eq!(field_entries.len(), 2);
 
-    let first_field = resolver.declarations.get_declaration(field_entries[0].1).unwrap();
+    let first_field = resolver
+        .declarations
+        .get_declaration(field_entries[0].1)
+        .unwrap();
     let Definition::Field {
         public: first_public,
         ..
@@ -354,7 +377,10 @@ fn field_publicity() {
     };
     assert!(first_public);
 
-    let second_field = resolver.declarations.get_declaration(field_entries[1].1).unwrap();
+    let second_field = resolver
+        .declarations
+        .get_declaration(field_entries[1].1)
+        .unwrap();
     let Definition::Field {
         public: second_public,
         ..
@@ -369,13 +395,16 @@ fn field_publicity() {
 fn generic_field_uses_type_parameter() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "struct Foo<T> { x: T }"));
+    source.add_code(SourceCode::validated_borrowed(
+        "test",
+        "struct Foo<T> { x: T }",
+    ));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::StructType {
         type_parameters,
@@ -395,7 +424,10 @@ fn generic_field_uses_type_parameter() {
 
     assert_eq!(field_entries.len(), 1);
 
-    let field = resolver.declarations.get_declaration(field_entries[0].1).unwrap();
+    let field = resolver
+        .declarations
+        .get_declaration(field_entries[0].1)
+        .unwrap();
     let Definition::Field { type_id, .. } = field.definition else {
         panic!();
     };

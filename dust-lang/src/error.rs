@@ -89,6 +89,7 @@ pub enum ErrorKind {
     Parse(ParseError),
     Compile(CompileError),
     Vm(VmError),
+    Meta(MissingErrorContext),
 }
 
 impl From<ParseError> for ErrorKind {
@@ -127,7 +128,13 @@ impl From<SourceError> for ErrorKind {
     }
 }
 
-impl<'a> AnnotatedError<'a> for ErrorKind {
+impl From<MissingErrorContext> for ErrorKind {
+    fn from(error: MissingErrorContext) -> Self {
+        ErrorKind::Meta(error)
+    }
+}
+
+impl<'a> DustError<'a> for ErrorKind {
     type Context = (
         Option<&'a Source<'a>>,
         Option<&'a Syntax>,
@@ -157,6 +164,9 @@ impl<'a> AnnotatedError<'a> for ErrorKind {
             ErrorKind::Vm(vm_error) => {
                 vm_error.add_report((), groups);
             }
+            ErrorKind::Meta(meta_error) => {
+                meta_error.add_report((), groups);
+            }
         }
     }
 }
@@ -165,7 +175,7 @@ impl<'a> AnnotatedError<'a> for ErrorKind {
 #[derive(Debug)]
 pub struct MissingErrorContext;
 
-impl<'a> AnnotatedError<'a> for MissingErrorContext {
+impl<'a> DustError<'a> for MissingErrorContext {
     type Context = ();
 
     fn add_report(&self, _: Self::Context, groups: &mut Vec<Group<'a>>) {
@@ -173,10 +183,17 @@ impl<'a> AnnotatedError<'a> for MissingErrorContext {
     }
 }
 
-pub trait AnnotatedError<'a> {
+pub trait DustError<'a>: Sized + Debug
+where
+    ErrorKind: From<Self>,
+{
     type Context;
 
     fn add_report(&self, context: Self::Context, groups: &mut Vec<Group<'a>>);
+
+    fn to_full_error(self) -> Error<'a> {
+        Error::new(vec![ErrorKind::from(self)], ErrorContext::None)
+    }
 
     fn add_internal_report(&self, groups: &mut Vec<Group<'a>>)
     where

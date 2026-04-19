@@ -1,7 +1,7 @@
 use crate::{
     constants::ConstantsError,
     dust_type::DustType,
-    error::AnnotatedError,
+    error::DustError,
     instruction::{MemoryKind, OperandType, Operation},
 };
 
@@ -37,7 +37,7 @@ impl From<ConstantsError> for VmError {
     }
 }
 
-impl<'a> AnnotatedError<'a> for VmError {
+impl<'a> DustError<'a> for VmError {
     type Context = ();
 
     fn add_report(&self, _: Self::Context, groups: &mut Vec<annotate_snippets::Group<'a>>) {

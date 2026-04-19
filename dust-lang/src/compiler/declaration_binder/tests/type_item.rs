@@ -1,10 +1,10 @@
 use crate::{
     compiler::resolver::{
-        declarations::{Definition, Visibility},
+        declarations::Definition,
         scopes::ScopeId,
         types::{Type, TypeId},
     },
-    source::{Code, Source},
+    source::{Source, SourceCode},
 };
 
 use super::bind_declarations;
@@ -13,13 +13,13 @@ use super::bind_declarations;
 fn simple() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "type Foo = i64;"));
+    source.add_code(SourceCode::validated_borrowed("test", "type Foo = i64;"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::TypeAlias {
         public,
@@ -40,13 +40,13 @@ fn simple() {
 fn generic_alias_resolves_type_parameter() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "type Pair<T> = T;"));
+    source.add_code(SourceCode::validated_borrowed("test", "type Pair<T> = T;"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let pair_symbol = resolver.symbols.add_symbol("Pair");
     let (_, pair_declaration) = resolver
         .declarations
-        .find_declaration(pair_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(pair_symbol, crate_scope_id)
         .unwrap();
     let Definition::TypeAlias {
         type_parameters,

@@ -1,9 +1,6 @@
 use crate::{
-    compiler::resolver::{
-        declarations::{Definition, Visibility},
-        types::TypeId,
-    },
-    source::{Code, Source},
+    compiler::resolver::{declarations::Definition, types::TypeId},
+    source::{Source, SourceCode},
 };
 
 use super::bind_declarations;
@@ -12,7 +9,7 @@ use super::bind_declarations;
 fn with_method() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "trait Bar { fn baz(); } struct Foo {} impl Bar for Foo { fn baz() {} }",
     ));
@@ -21,7 +18,7 @@ fn with_method() {
     let bar_symbol = resolver.symbols.add_symbol("Bar");
     let (bar_id, _) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(bar_symbol, crate_scope_id)
         .unwrap();
 
     let (_, impl_declaration) = resolver
@@ -56,7 +53,7 @@ fn with_method() {
 fn with_associated_type() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "trait Bar { type Item; } struct Foo {} impl Bar for Foo { type Item = i64; }",
     ));

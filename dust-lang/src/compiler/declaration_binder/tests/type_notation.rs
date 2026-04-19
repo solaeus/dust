@@ -1,10 +1,12 @@
 use crate::{
-    compiler::declaration_binder::tests::bind_declarations_with_errors,
-    compiler::resolver::{
-        declarations::{Definition, Visibility},
-        types::{Type, TypeId},
+    compiler::{
+        declaration_binder::tests::bind_declarations_with_errors,
+        resolver::{
+            declarations::Definition,
+            types::{Type, TypeId},
+        },
     },
-    source::{Code, FileId, Source},
+    source::{Source, SourceCode, SourceCodeId},
     syntax::node::SyntaxKind,
 };
 
@@ -13,13 +15,13 @@ use super::bind_declarations;
 fn parameter_type_of_foo(source_code: &str) -> TypeId {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", source_code));
+    source.add_code(SourceCode::validated_borrowed("test", source_code));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -159,13 +161,13 @@ fn character_type() {
 fn tuple_type_empty() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "fn foo(x: ()) {}"));
+    source.add_code(SourceCode::validated_borrowed("test", "fn foo(x: ()) {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -198,7 +200,7 @@ fn tuple_type_empty() {
 #[test]
 fn tuple_type_multiple() {
     let mut source = Source::new();
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "fn foo(x: (i64, bool)) {}",
     ));
@@ -207,7 +209,7 @@ fn tuple_type_multiple() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -242,13 +244,16 @@ fn tuple_type_multiple() {
 fn slice_type() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "fn foo(x: [i64]) {}"));
+    source.add_code(SourceCode::validated_borrowed(
+        "test",
+        "fn foo(x: [i64]) {}",
+    ));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -285,7 +290,7 @@ fn slice_type() {
 fn function_type_basic() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "fn foo(x: fn(i64) -> i64) {}",
     ));
@@ -294,7 +299,7 @@ fn function_type_basic() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -339,7 +344,7 @@ fn function_type_basic() {
 fn function_type_no_params() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "fn foo(x: fn() -> bool) {}",
     ));
@@ -348,7 +353,7 @@ fn function_type_no_params() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -387,7 +392,7 @@ fn function_type_no_params() {
 fn function_type_multiple_params() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "fn foo(x: fn(i64, bool) -> char) {}",
     ));
@@ -396,7 +401,7 @@ fn function_type_multiple_params() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -439,13 +444,13 @@ fn function_type_multiple_params() {
 fn function_type_no_return() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "foo(x: fn(i64)) {}"));
+    source.add_code(SourceCode::validated_borrowed("test", "foo(x: fn(i64)) {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -488,7 +493,7 @@ fn function_type_no_return() {
 fn type_path_to_struct() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "struct Bar {} fn foo(x: Bar) {}",
     ));
@@ -497,13 +502,13 @@ fn type_path_to_struct() {
     let bar_symbol = resolver.symbols.add_symbol("Bar");
     let (bar_declaration_id, _) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(bar_symbol, crate_scope_id)
         .unwrap();
 
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -541,7 +546,7 @@ fn type_path_to_struct() {
 fn type_path_to_enum() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "enum Color { Red } fn foo(x: Color) {}",
     ));
@@ -550,13 +555,13 @@ fn type_path_to_enum() {
     let color_symbol = resolver.symbols.add_symbol("Color");
     let (color_declaration_id, _) = resolver
         .declarations
-        .find_declaration(color_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(color_symbol, crate_scope_id)
         .unwrap();
 
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -589,13 +594,13 @@ fn type_path_to_enum() {
 fn type_path_to_type_parameter() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "fn foo<T>(x: T) {}"));
+    source.add_code(SourceCode::validated_borrowed("test", "fn foo<T>(x: T) {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         type_parameters,
@@ -635,7 +640,7 @@ fn type_path_to_type_parameter() {
 fn type_path_to_non_type_errors() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "fn bar() {} fn foo(x: bar) {}",
     ));
@@ -649,7 +654,7 @@ fn type_path_to_non_type_errors() {
 fn type_path_in_turbofish_binds_declaration() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "struct Bar {} fn foo<T>() {} fn main() { foo::<Bar>(); }",
     ));
@@ -659,10 +664,10 @@ fn type_path_in_turbofish_binds_declaration() {
     let bar_symbol = resolver.symbols.add_symbol("Bar");
     let (bar_declaration_id, _) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(bar_symbol, crate_scope_id)
         .unwrap();
 
-    let tree = syntax.get_tree(FileId::MAIN).unwrap();
+    let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();
     let type_path = tree
         .iter()
         .find(|node| node.node.kind == SyntaxKind::TypePath)

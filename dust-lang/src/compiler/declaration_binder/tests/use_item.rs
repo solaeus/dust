@@ -1,6 +1,6 @@
 use crate::{
-    compiler::resolver::declarations::{Definition, Visibility},
-    source::{Code, Source},
+    compiler::resolver::declarations::Definition,
+    source::{Source, SourceCode},
 };
 
 use super::{bind_declarations, bind_declarations_with_errors};
@@ -9,13 +9,16 @@ use super::{bind_declarations, bind_declarations_with_errors};
 fn module() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "mod foo {} use foo;"));
+    source.add_code(SourceCode::validated_borrowed(
+        "test",
+        "mod foo {} use foo;",
+    ));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -28,13 +31,16 @@ fn module() {
 fn public_module() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "mod foo {} pub use foo;"));
+    source.add_code(SourceCode::validated_borrowed(
+        "test",
+        "mod foo {} pub use foo;",
+    ));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -47,13 +53,16 @@ fn public_module() {
 fn resolves_to_module() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "mod foo {} use foo;"));
+    source.add_code(SourceCode::validated_borrowed(
+        "test",
+        "mod foo {} use foo;",
+    ));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -74,7 +83,7 @@ fn resolves_to_module() {
 fn function_from_module() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod foo { fn bar() {} } use foo::bar;",
     ));
@@ -83,7 +92,7 @@ fn function_from_module() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(bar_symbol, crate_scope_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -104,7 +113,7 @@ fn function_from_module() {
 fn struct_from_module() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod foo { struct Bar; } use foo::Bar;",
     ));
@@ -113,7 +122,7 @@ fn struct_from_module() {
     let bar_symbol = resolver.symbols.add_symbol("Bar");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(bar_symbol, crate_scope_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -134,7 +143,7 @@ fn struct_from_module() {
 fn from_nested_module() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod foo { mod bar { fn baz() {} } } use foo::bar::baz;",
     ));
@@ -143,7 +152,7 @@ fn from_nested_module() {
     let baz_symbol = resolver.symbols.add_symbol("baz");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(baz_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(baz_symbol, crate_scope_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -164,7 +173,7 @@ fn from_nested_module() {
 fn nested_module() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod foo { mod bar {} } use foo::bar;",
     ));
@@ -173,7 +182,7 @@ fn nested_module() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(bar_symbol, crate_scope_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -194,7 +203,7 @@ fn nested_module() {
 fn inside_module() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod foo { fn bar() {} } mod baz { use foo::bar; }",
     ));
@@ -203,7 +212,7 @@ fn inside_module() {
     let baz_symbol = resolver.symbols.add_symbol("baz");
     let (_, baz_declaration) = resolver
         .declarations
-        .find_declaration(baz_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(baz_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module { inner_scope_id, .. } = baz_declaration.definition else {
         panic!();
@@ -211,7 +220,7 @@ fn inside_module() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, inner_scope_id, Visibility::Module)
+        .find_declaration(bar_symbol, inner_scope_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -232,7 +241,7 @@ fn inside_module() {
 fn public_function() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod foo { fn bar() {} } pub use foo::bar;",
     ));
@@ -241,7 +250,7 @@ fn public_function() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(bar_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -254,25 +263,23 @@ fn public_function() {
 fn multiple() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod foo { fn bar() {} fn baz() {} } use foo::bar; use foo::baz;",
     ));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let bar_symbol = resolver.symbols.add_symbol("bar");
-    let bar_result =
-        resolver
-            .declarations
-            .find_declaration(bar_symbol, crate_scope_id, Visibility::Module);
+    let bar_result = resolver
+        .declarations
+        .find_declaration(bar_symbol, crate_scope_id);
 
     assert!(bar_result.is_some());
 
     let baz_symbol = resolver.symbols.add_symbol("baz");
-    let baz_result =
-        resolver
-            .declarations
-            .find_declaration(baz_symbol, crate_scope_id, Visibility::Module);
+    let baz_result = resolver
+        .declarations
+        .find_declaration(baz_symbol, crate_scope_id);
 
     assert!(baz_result.is_some());
 }
@@ -281,7 +288,7 @@ fn multiple() {
 fn enum_from_module() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod foo { pub enum Color { Red } } use foo::Color;",
     ));
@@ -290,7 +297,7 @@ fn enum_from_module() {
     let color_symbol = resolver.symbols.add_symbol("Color");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(color_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(color_symbol, crate_scope_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -311,7 +318,7 @@ fn enum_from_module() {
 fn enum_variant_from_module() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod foo { pub enum Color { Red } } use foo::Color::Red;",
     ));
@@ -320,7 +327,7 @@ fn enum_variant_from_module() {
     let red_symbol = resolver.symbols.add_symbol("Red");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(red_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(red_symbol, crate_scope_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -341,7 +348,7 @@ fn enum_variant_from_module() {
 fn private_enum_import_errors() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod foo { enum Color { Red } } use foo::Color::Red;",
     ));

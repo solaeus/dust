@@ -1,10 +1,6 @@
 use crate::{
-    compiler::resolver::{
-        declarations::{Definition, Visibility},
-        scopes::ScopeId,
-        types::TypeId,
-    },
-    source::{Code, Source},
+    compiler::resolver::{declarations::Definition, scopes::ScopeId, types::TypeId},
+    source::{Source, SourceCode},
 };
 
 use super::{bind_declarations, bind_declarations_with_errors};
@@ -13,7 +9,7 @@ use super::{bind_declarations, bind_declarations_with_errors};
 fn with_method() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "struct Foo {} impl Foo { fn bar() {} }",
     ));
@@ -57,17 +53,16 @@ fn with_method() {
 fn methods_not_visible_at_module_scope() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "struct Foo {} impl Foo { fn bar() {} }",
     ));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let bar_symbol = resolver.symbols.add_symbol("bar");
-    let result =
-        resolver
-            .declarations
-            .find_declaration(bar_symbol, crate_scope_id, Visibility::Module);
+    let result = resolver
+        .declarations
+        .find_declaration(bar_symbol, crate_scope_id);
 
     assert!(result.is_none());
 }
@@ -76,7 +71,7 @@ fn methods_not_visible_at_module_scope() {
 fn impl_method_path_resolves() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "struct Foo {} impl Foo { fn value() -> i32 { 42 } } fn main() { Foo::value(); }",
     ));
@@ -90,7 +85,7 @@ fn impl_method_path_resolves() {
 fn impl_method_with_arguments_resolves() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "struct Foo {} impl Foo { fn add(a: i32, b: i32) -> i32 { a + b } } fn main() { Foo::add(1, 2); }",
     ));

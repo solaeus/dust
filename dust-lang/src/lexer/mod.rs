@@ -6,14 +6,14 @@ use std::hint::cold_path;
 use crate::{
     error::ErrorKind,
     parser::error::ParseError,
-    source::{Code, Position, Source, Span},
+    source::{Position, Source, SourceCode, Span},
     token::{Token, TokenKind},
 };
 use unicode_ident::{is_xid_continue, is_xid_start};
 
 pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, ErrorKind> {
     let mut source = Source::with_capacity(1);
-    let file_id = source.add_code(Code::borrowed("tokenize", bytes));
+    let source_id = source.add_code(SourceCode::borrowed("tokenize", bytes));
 
     let mut lexer = Lexer::with_unvalidated_source(bytes);
     let mut tokens = Vec::new();
@@ -24,7 +24,7 @@ pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, ErrorKind> {
 
     if lexer.error {
         let error_index = lexer.error_index().unwrap_or(0);
-        let position = Position::new(file_id, Span::new(error_index, error_index));
+        let position = Position::new(source_id, Span::new(error_index, error_index));
 
         return Err(ErrorKind::Parse(ParseError::InvalidUtf8 { position }));
     }
@@ -34,7 +34,7 @@ pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, ErrorKind> {
 
 pub fn tokenize_str(str: &str) -> Result<Vec<Token>, ErrorKind> {
     let mut source = Source::with_capacity(1);
-    let file_id = source.add_code(Code::validated_borrowed("tokenize", str));
+    let source_id = source.add_code(SourceCode::validated_borrowed("tokenize", str));
 
     let mut lexer = Lexer::with_validated_source(str);
     let mut tokens = Vec::new();
@@ -44,7 +44,7 @@ pub fn tokenize_str(str: &str) -> Result<Vec<Token>, ErrorKind> {
     }
 
     if let Some(error_index) = lexer.error_index() {
-        let position = Position::new(file_id, Span::new(error_index, error_index));
+        let position = Position::new(source_id, Span::new(error_index, error_index));
 
         return Err(ErrorKind::Parse(ParseError::InvalidUtf8 { position }));
     }

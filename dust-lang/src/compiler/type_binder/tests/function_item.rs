@@ -1,8 +1,5 @@
 use crate::{
-    compiler::resolver::{
-        declarations::{Definition, Visibility},
-        types::TypeId,
-    },
+    compiler::resolver::{declarations::Definition, types::TypeId},
     compiler::tests::type_bind_function,
 };
 
@@ -98,7 +95,7 @@ fn generic_return_type_resolves_through_type_parameter_map() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let foo_declaration = *foo_declaration;
 

@@ -1,9 +1,6 @@
 use crate::{
-    compiler::resolver::{
-        declarations::{Definition, Visibility},
-        types::TypeId,
-    },
-    source::{Code, Source},
+    compiler::resolver::{declarations::Definition, types::TypeId},
+    source::{Source, SourceCode},
 };
 
 use super::bind_declarations;
@@ -12,13 +9,13 @@ use super::bind_declarations;
 fn simple() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "const X: i64 = 42;"));
+    source.add_code(SourceCode::validated_borrowed("test", "const X: i64 = 42;"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let x_symbol = resolver.symbols.add_symbol("X");
     let (_, x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(x_symbol, crate_scope_id)
         .unwrap();
     let Definition::Constant { public, type_id } = x_declaration.definition else {
         panic!();
@@ -33,7 +30,7 @@ fn simple() {
 fn value_expression_scoped() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "const X: i64 = { let y = 1; y };",
     ));
@@ -42,7 +39,7 @@ fn value_expression_scoped() {
     let x_symbol = resolver.symbols.add_symbol("X");
     let (_, x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(x_symbol, crate_scope_id)
         .unwrap();
     let Definition::Constant { public, type_id } = x_declaration.definition else {
         panic!();
@@ -52,10 +49,9 @@ fn value_expression_scoped() {
     assert_eq!(type_id, TypeId::I_64);
 
     let y_symbol = resolver.symbols.add_symbol("y");
-    let result =
-        resolver
-            .declarations
-            .find_declaration(y_symbol, crate_scope_id, Visibility::Block);
+    let result = resolver
+        .declarations
+        .find_declaration(y_symbol, crate_scope_id);
 
     assert!(result.is_none());
 }

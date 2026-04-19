@@ -7,7 +7,7 @@ use crate::{
     },
     native_function::NativeFunction,
     optimal_small_vec_inline_capacity,
-    source::{FileId, Position, Span},
+    source::{Position, SourceCodeId, Span},
     syntax::SyntaxId,
 };
 
@@ -149,8 +149,8 @@ impl DeclarationId {
 #[derive(Clone, Copy, Debug)]
 pub struct Declaration {
     pub symbol_id: SymbolId,
-    pub definition: Definition,
     pub scope_id: ScopeId,
+    pub definition: Definition,
     pub syntax: Option<(Position, SyntaxId)>,
 }
 
@@ -334,7 +334,7 @@ pub enum Definition {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ModuleKind {
-    File { file_id: FileId },
+    File { source_id: SourceCodeId },
     Inline,
 }
 
@@ -342,7 +342,7 @@ pub enum ModuleKind {
 enum DeclarationDebugInfo {
     Embedded {},
     Source {
-        file_id: FileId,
+        source_id: SourceCodeId,
         span: Span,
         syntax_id: SyntaxId,
     },

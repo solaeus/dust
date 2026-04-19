@@ -11,11 +11,11 @@ use annotate_snippets::{Group, Level, Renderer};
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
-use crate::error::{AnnotatedError, Error, ErrorContext, ErrorKind};
+use crate::error::{DustError, Error, ErrorContext, ErrorKind};
 
 #[derive(Debug, Clone)]
 pub struct Source<'src> {
-    code: Vec<Code<'src>>,
+    code: Vec<SourceCode<'src>>,
 }
 
 impl<'src> Source<'src> {
@@ -33,55 +33,55 @@ impl<'src> Source<'src> {
         self.code.len()
     }
 
-    pub fn code(&self) -> &[Code<'src>] {
+    pub fn code(&self) -> &[SourceCode<'src>] {
         &self.code
     }
 
-    pub fn add_code(&mut self, file: Code<'src>) -> FileId {
-        let id = FileId(self.code.len() as u32);
+    pub fn add_code(&mut self, file: SourceCode<'src>) -> SourceCodeId {
+        let id = SourceCodeId(self.code.len() as u32);
 
         self.code.push(file);
 
         id
     }
 
-    pub fn get_code(&self, file_id: FileId) -> Result<&Code<'src>, SourceError> {
+    pub fn get_code(&self, source_id: SourceCodeId) -> Result<&SourceCode<'src>, SourceError> {
         self.code
-            .get(file_id.0 as usize)
-            .ok_or(SourceError::MissingSourceFile(file_id))
+            .get(source_id.0 as usize)
+            .ok_or(SourceError::MissingSourceFile(source_id))
     }
 
     pub fn get_content(&self, position: Position) -> Result<&str, SourceError> {
-        self.get_code(position.file_id)?.get_str(position.span)
+        self.get_code(position.source_id)?.get_str(position.span)
     }
 
-    pub fn set_utf8_validated(&mut self, file_id: FileId) {
+    pub fn set_utf8_validated(&mut self, source_id: SourceCodeId) {
         if let Some(
-            Code::File { utf8_validated, .. }
-            | Code::Borrowed { utf8_validated, .. }
-            | Code::Owned { utf8_validated, .. },
-        ) = self.code.get_mut(file_id.0 as usize)
+            SourceCode::File { utf8_validated, .. }
+            | SourceCode::Borrowed { utf8_validated, .. }
+            | SourceCode::Owned { utf8_validated, .. },
+        ) = self.code.get_mut(source_id.0 as usize)
         {
             *utf8_validated = true;
         }
     }
 
-    pub fn ids(&self) -> impl Iterator<Item = FileId> {
-        (0..self.code.len() as u32).map(FileId)
+    pub fn ids(&self) -> impl Iterator<Item = SourceCodeId> {
+        (0..self.code.len() as u32).map(SourceCodeId)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (FileId, &Code<'src>)> {
+    pub fn iter(&self) -> impl Iterator<Item = (SourceCodeId, &SourceCode<'src>)> {
         self.code
             .iter()
             .enumerate()
-            .map(|(index, file)| (FileId(index as u32), file))
+            .map(|(index, file)| (SourceCodeId(index as u32), file))
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (FileId, &mut Code<'src>)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (SourceCodeId, &mut SourceCode<'src>)> {
         self.code
             .iter_mut()
             .enumerate()
-            .map(|(index, file)| (FileId(index as u32), file))
+            .map(|(index, file)| (SourceCodeId(index as u32), file))
     }
 }
 
@@ -92,10 +92,10 @@ impl Default for Source<'_> {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct FileId(u32);
+pub struct SourceCodeId(u32);
 
-impl FileId {
-    pub const MAIN: Self = FileId(0);
+impl SourceCodeId {
+    pub const MAIN: Self = SourceCodeId(0);
 
     pub fn inner(self) -> u32 {
         self.0
@@ -103,7 +103,7 @@ impl FileId {
 }
 
 #[derive(Debug, Clone)]
-pub enum Code<'src> {
+pub enum SourceCode<'src> {
     File {
         path: PathBuf,
         content: Vec<u8>,
@@ -121,7 +121,7 @@ pub enum Code<'src> {
     },
 }
 
-impl<'src> Code<'src> {
+impl<'src> SourceCode<'src> {
     pub fn file<P: AsRef<Path>>(path: P) -> Result<Self, SourceError> {
         let path = path
             .as_ref()
@@ -152,7 +152,7 @@ impl<'src> Code<'src> {
                 io_error: error.kind(),
             })?;
 
-        Ok(Code::File {
+        Ok(SourceCode::File {
             path,
             content,
             utf8_validated: false,
@@ -160,7 +160,7 @@ impl<'src> Code<'src> {
     }
 
     pub fn borrowed(name: &'src str, content: &'src [u8]) -> Self {
-        Code::Borrowed {
+        SourceCode::Borrowed {
             name,
             content,
             utf8_validated: false,
@@ -168,7 +168,7 @@ impl<'src> Code<'src> {
     }
 
     pub const fn validated_borrowed(name: &'src str, content: &'src str) -> Self {
-        Code::Borrowed {
+        SourceCode::Borrowed {
             name,
             content: content.as_bytes(),
             utf8_validated: true,
@@ -176,7 +176,7 @@ impl<'src> Code<'src> {
     }
 
     pub fn owned(name: &'src str, content: Vec<u8>) -> Self {
-        Code::Owned {
+        SourceCode::Owned {
             name,
             content,
             utf8_validated: false,
@@ -184,7 +184,7 @@ impl<'src> Code<'src> {
     }
 
     pub fn validated_owned(name: &'src str, content: String) -> Self {
-        Code::Owned {
+        SourceCode::Owned {
             name,
             content: content.into_bytes(),
             utf8_validated: true,
@@ -325,33 +325,33 @@ impl<'src> Code<'src> {
 /// Represents a slice of a file's content that can be read from the `Source`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Position {
-    pub file_id: FileId,
+    pub source_id: SourceCodeId,
     pub span: Span,
 }
 
 impl Position {
-    pub fn new(file_id: FileId, span: Span) -> Self {
-        Self { file_id, span }
+    pub fn new(source_id: SourceCodeId, span: Span) -> Self {
+        Self { source_id, span }
     }
 
     pub fn shrink(self, offset: u32) -> Position {
         Position {
-            file_id: self.file_id,
+            source_id: self.source_id,
             span: self.span.shrink(offset),
         }
     }
 }
 
 /// Half-open range of byte indices in a source file.
-///
-/// A `Span` is alway a valid range: the end is always greater than or equal to the start.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Span(u32, u32);
 
 impl Span {
     pub fn new<T: IntoSpanIndex>(start: T, end: T) -> Self {
         let start = start.into_span_index();
-        let end = end.into_span_index().max(start);
+        let end = end.into_span_index();
+
+        debug_assert!(start <= end);
 
         Self(start, end)
     }
@@ -427,7 +427,7 @@ pub enum SourceError {
     ExpectedFilePath { found: String },
 
     // Internal errors
-    MissingSourceFile(FileId),
+    MissingSourceFile(SourceCodeId),
     FileContentOutOfBounds { span: Span, length: usize },
 }
 
@@ -450,7 +450,7 @@ impl Display for SourceError {
     }
 }
 
-impl<'src> AnnotatedError<'src> for SourceError {
+impl<'src> DustError<'src> for SourceError {
     type Context = ();
 
     fn add_report(&self, _: Self::Context, reports: &mut Vec<Group<'src>>) {

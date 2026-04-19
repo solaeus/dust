@@ -4,7 +4,7 @@ use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use dust_lang::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::FileId,
+    source::SourceCodeId,
 };
 
 const BENCHES: [(&str, usize); 3] = [
@@ -84,7 +84,7 @@ fn main() {
 
 fn parse_bench(source: &[u8]) {
     let ParseResult { errors, .. } =
-        Parser::new(FileId::MAIN, Lexer::with_unvalidated_source(source)).parse();
+        Parser::new(SourceCodeId::MAIN, Lexer::with_unvalidated_source(source)).parse();
 
     assert!(errors.is_empty(), "{errors:#?}");
 }

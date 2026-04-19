@@ -32,14 +32,14 @@ mod struct_expression;
 mod while_expression;
 
 use crate::{
-    compiler::resolver::declarations::{Definition, Visibility},
+    compiler::resolver::declarations::Definition,
     compiler::{
         emitter::{Emitter, get_register_size},
         tests::type_bind_function,
     },
     constants::ConstantsBuilder,
     prototype::Prototype,
-    source::{Code, Source},
+    source::{Source, SourceCode},
     syntax::components::{FnItem, FunctionSignature},
 };
 
@@ -49,7 +49,7 @@ fn emit_function(source_code: &str) -> Prototype {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (declaration_id, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let foo_declaration = *foo_declaration;
 
@@ -65,7 +65,7 @@ fn emit_function(source_code: &str) -> Prototype {
     let (position, syntax_id) = foo_declaration.syntax.unwrap();
 
     let function_item = syntax
-        .get_tree(position.file_id)
+        .get_tree(position.source_id)
         .and_then(|tree| tree.read_node(syntax_id))
         .unwrap();
     let FnItem {
@@ -80,15 +80,24 @@ fn emit_function(source_code: &str) -> Prototype {
     let mut argument_count = 0u16;
     let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
     for &(_, parameter_declaration_id) in parameter_entries {
-        let parameter_declaration = resolver.declarations.get_declaration(parameter_declaration_id).unwrap();
-        let Definition::Local { type_id: parameter_type_id, .. } = parameter_declaration.definition else { panic!(); };
+        let parameter_declaration = resolver
+            .declarations
+            .get_declaration(parameter_declaration_id)
+            .unwrap();
+        let Definition::Local {
+            type_id: parameter_type_id,
+            ..
+        } = parameter_declaration.definition
+        else {
+            panic!();
+        };
         let concrete_parameter_type_id = resolver.resolve_type(parameter_type_id).unwrap();
         let register_size = get_register_size(concrete_parameter_type_id, None, &resolver).unwrap();
         argument_count += register_size.unwrap_or(0) as u16;
     }
 
     let mut source = Source::new();
-    source.add_code(Code::validated_borrowed("test", source_code));
+    source.add_code(SourceCode::validated_borrowed("test", source_code));
 
     let mut constants = ConstantsBuilder::new();
     let prototype_id = resolver.reserve_prototype_id();

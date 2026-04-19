@@ -1,6 +1,6 @@
 use crate::{
     compiler::{resolver::types::TypeId, tests::type_bind_function},
-    source::FileId,
+    source::SourceCodeId,
     syntax::node::SyntaxKind,
 };
 
@@ -45,7 +45,7 @@ fn trait_method_return_type() {
         "#,
     );
 
-    let tree = syntax.get_tree(FileId::MAIN).unwrap();
+    let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();
     let call_expression = tree
         .iter()
         .find(|node| node.node.kind == SyntaxKind::CallExpression)
@@ -166,7 +166,7 @@ fn self_as_return_type() {
         "#,
     );
 
-    let tree = syntax.get_tree(FileId::MAIN).unwrap();
+    let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();
     let call_expression = tree
         .iter()
         .find(|node| node.node.kind == SyntaxKind::CallExpression)

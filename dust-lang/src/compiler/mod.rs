@@ -33,7 +33,7 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     program::Program,
-    source::{FileId, Source},
+    source::{Source, SourceCodeId},
     syntax::{Syntax, components::FnItem},
 };
 
@@ -135,13 +135,13 @@ impl<'src> Compiler<'src> {
             let span = span!(Level::INFO, "parse");
             let _enter = span.enter();
 
-            for (file_id, file) in self.source.iter_mut() {
+            for (source_id, file) in self.source.iter_mut() {
                 let lexer = if file.utf8_validated() {
                     Lexer::with_validated_source(file.content_as_str())
                 } else {
                     Lexer::with_unvalidated_source(file.content_as_bytes())
                 };
-                let parser = Parser::new(file_id, lexer);
+                let parser = Parser::new(source_id, lexer);
                 let ParseResult {
                     syntax_tree,
                     errors: parse_errors,
@@ -154,10 +154,13 @@ impl<'src> Compiler<'src> {
             }
         }
 
-        let crate_scope_id = self.resolver.scopes.enter_scope(ScopeKind::Crate, ScopeId::NONE);
+        let crate_scope_id = self
+            .resolver
+            .scopes
+            .enter_scope(ScopeKind::Crate, ScopeId::NONE);
         let main_file_root = unwrap_or_return!(
             self.syntax
-                .get_tree(FileId::MAIN)
+                .get_tree(SourceCodeId::MAIN)
                 .and_then(|tree| tree.root())
         );
 
@@ -241,7 +244,7 @@ impl<'src> Compiler<'src> {
             };
             let function_syntax = unwrap_or_return!(
                 self.syntax
-                    .get_tree(position.file_id)
+                    .get_tree(position.source_id)
                     .and_then(|tree| tree.read_node(syntax_id))
             );
 
@@ -256,10 +259,7 @@ impl<'src> Compiler<'src> {
 
             self.resolver.type_parameter_map.clear();
 
-            let type_param_entries = self
-                .resolver
-                .scopes
-                .get_namespace_entries(type_parameters);
+            let type_param_entries = self.resolver.scopes.get_namespace_entries(type_parameters);
 
             for &(_, type_parameter_declaration_id) in type_param_entries {
                 let inferred_type_id = self.resolver.types.create_inferred_type(None);
@@ -274,10 +274,9 @@ impl<'src> Compiler<'src> {
                 .get_concrete_type_arguments(prototype_id)
                 .cloned()
             {
-                for (&(_, type_parameter_declaration_id), concrete_type_id) in
-                    type_param_entries
-                        .iter()
-                        .zip(concrete_type_arguments.iter())
+                for (&(_, type_parameter_declaration_id), concrete_type_id) in type_param_entries
+                    .iter()
+                    .zip(concrete_type_arguments.iter())
                 {
                     let inferred_type_id =
                         self.resolver.type_parameter_map[&type_parameter_declaration_id];

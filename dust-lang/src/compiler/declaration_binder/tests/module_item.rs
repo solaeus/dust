@@ -1,9 +1,9 @@
 use crate::{
     compiler::resolver::{
-        declarations::{Definition, ModuleKind, Visibility},
+        declarations::{Definition, ModuleKind},
         scopes::ScopeKind,
     },
-    source::{Code, Source},
+    source::{Source, SourceCode},
 };
 
 use super::{bind_declarations, cleanup_module_file, create_module_file};
@@ -12,13 +12,13 @@ use super::{bind_declarations, cleanup_module_file, create_module_file};
 fn inline() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "mod foo {}"));
+    source.add_code(SourceCode::validated_borrowed("test", "mod foo {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -35,13 +35,13 @@ fn inline() {
 fn public_inline() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "pub mod foo {}"));
+    source.add_code(SourceCode::validated_borrowed("test", "pub mod foo {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -58,13 +58,13 @@ fn public_inline() {
 fn inline_creates_module_scope() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "mod foo {}"));
+    source.add_code(SourceCode::validated_borrowed("test", "mod foo {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module { inner_scope_id, .. } = foo_declaration.definition else {
         panic!();
@@ -80,7 +80,7 @@ fn inline_creates_module_scope() {
 fn inline_with_function() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod foo { fn bar() {} }",
     ));
@@ -89,7 +89,7 @@ fn inline_with_function() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module { inner_scope_id, .. } = foo_declaration.definition else {
         panic!();
@@ -98,7 +98,7 @@ fn inline_with_function() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let (_, bar_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, inner_scope_id, Visibility::Module)
+        .find_declaration(bar_symbol, inner_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -111,7 +111,7 @@ fn inline_with_function() {
 fn nested_inline() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod foo { mod bar {} }",
     ));
@@ -120,7 +120,7 @@ fn nested_inline() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: foo_scope_id,
@@ -133,7 +133,7 @@ fn nested_inline() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let (_, bar_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, foo_scope_id, Visibility::Module)
+        .find_declaration(bar_symbol, foo_scope_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: bar_scope_id,
@@ -153,24 +153,22 @@ fn nested_inline() {
 fn multiple_inline() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod foo {} mod bar {}",
     ));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let foo_result =
-        resolver
-            .declarations
-            .find_declaration(foo_symbol, crate_scope_id, Visibility::Module);
+    let foo_result = resolver
+        .declarations
+        .find_declaration(foo_symbol, crate_scope_id);
     assert!(foo_result.is_some());
 
     let bar_symbol = resolver.symbols.add_symbol("bar");
-    let bar_result =
-        resolver
-            .declarations
-            .find_declaration(bar_symbol, crate_scope_id, Visibility::Module);
+    let bar_result = resolver
+        .declarations
+        .find_declaration(bar_symbol, crate_scope_id);
     assert!(bar_result.is_some());
 }
 
@@ -179,8 +177,8 @@ fn file() {
     let path = create_module_file("foo", "");
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "mod foo;"));
-    source.add_code(Code::file(path.clone()).unwrap());
+    source.add_code(SourceCode::validated_borrowed("test", "mod foo;"));
+    source.add_code(SourceCode::file(path.clone()).unwrap());
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 
@@ -189,7 +187,7 @@ fn file() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -207,8 +205,8 @@ fn public_file() {
     let path = create_module_file("foo", "");
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "pub mod foo;"));
-    source.add_code(Code::file(path.clone()).unwrap());
+    source.add_code(SourceCode::validated_borrowed("test", "pub mod foo;"));
+    source.add_code(SourceCode::file(path.clone()).unwrap());
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 
@@ -217,7 +215,7 @@ fn public_file() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -235,8 +233,8 @@ fn file_binds_contents() {
     let path = create_module_file("foo", "fn bar() {}");
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "mod foo;"));
-    source.add_code(Code::file(path.clone()).unwrap());
+    source.add_code(SourceCode::validated_borrowed("test", "mod foo;"));
+    source.add_code(SourceCode::file(path.clone()).unwrap());
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 
@@ -245,7 +243,7 @@ fn file_binds_contents() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module { inner_scope_id, .. } = foo_declaration.definition else {
         panic!();
@@ -254,7 +252,7 @@ fn file_binds_contents() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let (_, bar_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, inner_scope_id, Visibility::Module)
+        .find_declaration(bar_symbol, inner_scope_id)
         .unwrap();
 
     assert!(matches!(

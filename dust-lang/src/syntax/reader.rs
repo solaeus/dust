@@ -1,5 +1,5 @@
 use crate::{
-    source::{FileId, Position},
+    source::{Position, SourceCodeId},
     syntax::{
         SyntaxId,
         components::SyntaxComponent,
@@ -21,16 +21,12 @@ impl<'a> SyntaxReader<'a> {
         Self { id, node, tree }
     }
 
-    pub fn root(&self) -> Result<Self, SyntaxError> {
-        self.tree.root()
-    }
-
-    pub fn file_id(&self) -> FileId {
-        self.tree.file_id
+    pub fn source_id(&self) -> SourceCodeId {
+        self.tree.source_id
     }
 
     pub fn position(&self) -> Position {
-        Position::new(self.tree.file_id, self.node.span)
+        Position::new(self.tree.source_id, self.node.span)
     }
 
     pub fn child_count(&self) -> usize {
@@ -190,7 +186,7 @@ pub struct SyntaxIterator<'a> {
 
 impl<'a> SyntaxIterator<'a> {
     pub fn expect_next(&mut self) -> Result<SyntaxReader<'a>, SyntaxError> {
-        self.next().ok_or_else(|| SyntaxError::MissingSyntaxChild {
+        self.next().ok_or_else(|| SyntaxError::MissingChild {
             missing_index: self.current_index as u32,
             total_children: self.parent.child_count() as u32,
         })
@@ -278,7 +274,7 @@ impl<'a> SyntaxPairIterator<'a> {
     pub fn expect_next_pair(
         &mut self,
     ) -> Result<(SyntaxReader<'a>, SyntaxReader<'a>), SyntaxError> {
-        self.next().ok_or_else(|| SyntaxError::MissingSyntaxChild {
+        self.next().ok_or_else(|| SyntaxError::MissingChild {
             missing_index: self.current_index as u32,
             total_children: self.parent.child_count() as u32,
         })

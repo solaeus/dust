@@ -354,7 +354,7 @@ impl ConstantValue {
                         exponent_value: other,
                         exponent_span: right.node.span,
                         operator: $syntax.node.kind,
-                        file_id: $syntax.file_id(),
+                        source_id: $syntax.source_id(),
                     },
                     Err(error) => CompileError::Syntax(error),
                 }
@@ -590,7 +590,7 @@ impl ConstantValue {
             value: self,
             operand_span: syntax.node.span,
             operator: syntax.node.kind,
-            file_id: syntax.file_id(),
+            source_id: syntax.source_id(),
         };
 
         match self {
@@ -633,7 +633,7 @@ impl ConstantValue {
                 right_value: other,
                 right_span: right.node.span,
                 operator: syntax.node.kind,
-                file_id: syntax.file_id(),
+                source_id: syntax.source_id(),
             },
             Err(error) => CompileError::Syntax(error),
         }

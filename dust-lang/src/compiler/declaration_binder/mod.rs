@@ -166,14 +166,12 @@ impl<'a> DeclarationBinder<'a> {
     }
 
     fn lookup_symbol(&self, scope_id: ScopeId, symbol_id: SymbolId) -> Option<DeclarationId> {
-        for &(entry_symbol_id, declaration_id) in self.scoped_declarations.iter().rev() {
-            if entry_symbol_id == symbol_id {
-                if let Ok(declaration) = self.resolver.declarations.get_declaration(declaration_id)
-                {
-                    if declaration.scope_id == scope_id {
-                        return Some(declaration_id);
-                    }
-                }
+        for &(entry_symbol_id, declaration_id) in &self.scoped_declarations {
+            if entry_symbol_id == symbol_id
+                && let Ok(declaration) = self.resolver.declarations.get_declaration(declaration_id)
+                && declaration.scope_id == scope_id
+            {
+                return Some(declaration_id);
             }
         }
 
@@ -243,10 +241,10 @@ impl<'a> DeclarationBinder<'a> {
                 },
             );
         } else {
-            let module_file_id = self
+            let module_source_id = self
                 .source
                 .iter()
-                .find_map(|(file_id, file)| {
+                .find_map(|(source_id, file)| {
                     if file
                         .path()?
                         .file_stem()
@@ -254,7 +252,7 @@ impl<'a> DeclarationBinder<'a> {
                         .map(|stem_str| stem_str == module_name_str)
                         .unwrap_or(false)
                     {
-                        Some(file_id)
+                        Some(source_id)
                     } else {
                         None
                     }
@@ -266,7 +264,7 @@ impl<'a> DeclarationBinder<'a> {
             self.resolver
                 .add_declaration_binding(name.id, module_declaration_id);
 
-            let module_root = self.syntax.get_tree(module_file_id)?.root()?;
+            let module_root = self.syntax.get_tree(module_source_id)?.root()?;
 
             self.bind_root(module_root)?;
 
@@ -277,7 +275,7 @@ impl<'a> DeclarationBinder<'a> {
                 Definition::Module {
                     public,
                     kind: ModuleKind::File {
-                        file_id: module_file_id,
+                        source_id: module_source_id,
                     },
                     inner_scope_id,
                 },
@@ -318,7 +316,7 @@ impl<'a> DeclarationBinder<'a> {
         }
 
         let start = reader.node.span.start();
-        let file = self.source.get_code(path.file_id())?;
+        let file = self.source.get_code(path.source_id())?;
 
         let mut direct_scope: Option<ScopeId> = None;
         let mut current_declaration_id = None;
@@ -393,7 +391,7 @@ impl<'a> DeclarationBinder<'a> {
                 },
                 scope_id: self.current_scope_id,
                 syntax: Some((
-                    Position::new(reader.file_id(), Span::new(start, current_end)),
+                    Position::new(reader.source_id(), Span::new(start, current_end)),
                     reader.id,
                 )),
             });
@@ -550,7 +548,7 @@ impl<'a> DeclarationBinder<'a> {
                 SyntaxKind::NamedFields => {
                     let NamedFields { name_type_pairs } = NamedFields::from_reader(&fields)?;
 
-                    let file = self.source.get_code(name.file_id())?;
+                    let file = self.source.get_code(name.source_id())?;
 
                     for (field_name, field_type) in name_type_pairs {
                         let public = field_name.node.flags.get_flag(SyntaxFlags::PUBLIC);
@@ -684,7 +682,7 @@ impl<'a> DeclarationBinder<'a> {
         enum_declaration_id: DeclarationId,
         discriminant: u16,
     ) -> Result<DeclarationId, CompileError> {
-        let file = self.source.get_code(reader.file_id())?;
+        let file = self.source.get_code(reader.source_id())?;
 
         match reader.node.kind {
             SyntaxKind::EnumUnitVariant => {
@@ -848,7 +846,7 @@ impl<'a> DeclarationBinder<'a> {
 
         let Some(aliased_type) = aliased_type else {
             return Err(CompileError::ExpectedValue {
-                file_id: reader.file_id(),
+                source_id: reader.source_id(),
                 syntax_id: reader.id,
             });
         };
@@ -1517,7 +1515,7 @@ impl<'a> DeclarationBinder<'a> {
             Definition::Function { return_type_id, .. } => return_type_id,
             _ => {
                 return Err(CompileError::ExpectedValue {
-                    file_id: struct_expression.file_id(),
+                    source_id: struct_expression.source_id(),
                     syntax_id: struct_expression.id,
                 });
             }
@@ -1798,7 +1796,7 @@ fn search_path_segments<'a>(
     binder: &mut DeclarationBinder<'a>,
     path_expression: SyntaxReader,
 ) -> Result<Option<DeclarationId>, CompileError> {
-    let file = binder.source.get_code(path_expression.file_id())?;
+    let file = binder.source.get_code(path_expression.source_id())?;
 
     let mut direct_scope: Option<ScopeId> = None;
     let mut parent_declaration_id = None;

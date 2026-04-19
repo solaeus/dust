@@ -1,7 +1,7 @@
 use crate::{
     compiler::resolver::types::{Type, TypeId},
     compiler::tests::type_bind_function,
-    source::FileId,
+    source::SourceCodeId,
     syntax::{components::CallExpression, node::SyntaxKind},
 };
 
@@ -15,7 +15,7 @@ fn turbofish_type_arguments() {
     let (syntax, resolver, _) =
         type_bind_function("fn bar<T>(x: T) -> T { x } fn foo() -> i32 { bar::<i32>(1) }");
 
-    let tree = syntax.get_tree(FileId::MAIN).unwrap();
+    let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();
     let call_expression = tree
         .iter()
         .find(|node| node.node.kind == SyntaxKind::CallExpression)
@@ -40,7 +40,7 @@ fn generic_infers_type_from_argument() {
     let (syntax, mut resolver, _) =
         type_bind_function("fn bar<T>(x: T) -> T { x } fn foo() -> i32 { bar(1) }");
 
-    let tree = syntax.get_tree(FileId::MAIN).unwrap();
+    let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();
     let call_expr = tree
         .iter()
         .find(|n| n.node.kind == SyntaxKind::CallExpression)
@@ -58,7 +58,7 @@ fn method_return_type() {
         "struct Foo {} impl Foo { fn bar(self) -> i32 { 1 } } fn foo(f: Foo) -> i32 { f.bar() }",
     );
 
-    let tree = syntax.get_tree(FileId::MAIN).unwrap();
+    let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();
     let call_expr = tree
         .iter()
         .find(|n| n.node.kind == SyntaxKind::CallExpression)

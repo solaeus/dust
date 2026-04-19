@@ -13,7 +13,7 @@ use annotate_snippets::Group;
 use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
 
-use crate::{error::AnnotatedError, instruction::OperandType};
+use crate::{error::DustError, instruction::OperandType};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Constants {
@@ -407,7 +407,7 @@ pub enum ConstantsError {
     MissingConstant(u16),
 }
 
-impl<'a> AnnotatedError<'a> for ConstantsError {
+impl<'a> DustError<'a> for ConstantsError {
     type Context = ();
 
     fn add_report(&self, _: Self::Context, groups: &mut Vec<Group<'a>>) {

@@ -1,6 +1,6 @@
 use crate::{
     compiler::{resolver::types::TypeId, tests::type_bind_function},
-    source::FileId,
+    source::SourceCodeId,
     syntax::node::SyntaxKind,
 };
 
@@ -8,7 +8,7 @@ use crate::{
 fn preserves_type() {
     let (syntax, mut resolver, _) = type_bind_function("fn foo(x: i32) -> i32 { -x }");
 
-    let tree = syntax.get_tree(FileId::MAIN).unwrap();
+    let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();
     let neg_expr = tree
         .iter()
         .find(|n| n.node.kind == SyntaxKind::NegationExpression)

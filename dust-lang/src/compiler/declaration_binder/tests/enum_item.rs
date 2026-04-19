@@ -1,10 +1,10 @@
 use crate::{
     compiler::resolver::{
-        declarations::{Definition, Visibility},
+        declarations::Definition,
         scopes::ScopeId,
         types::{Type, TypeId},
     },
-    source::{Code, Source},
+    source::{Source, SourceCode},
 };
 
 use super::bind_declarations;
@@ -13,7 +13,7 @@ use super::bind_declarations;
 fn with_unit_variants() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "enum Color { Red, Green, Blue }",
     ));
@@ -22,7 +22,7 @@ fn with_unit_variants() {
     let color_symbol = resolver.symbols.add_symbol("Color");
     let (color_id, color_declaration) = resolver
         .declarations
-        .find_declaration(color_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(color_symbol, crate_scope_id)
         .unwrap();
     let Definition::EnumType {
         public,
@@ -100,7 +100,7 @@ fn with_unit_variants() {
 fn public_generic() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "pub enum Opt<A, B> { None, Some }",
     ));
@@ -109,7 +109,7 @@ fn public_generic() {
     let opt_symbol = resolver.symbols.add_symbol("Opt");
     let (_, opt_declaration) = resolver
         .declarations
-        .find_declaration(opt_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(opt_symbol, crate_scope_id)
         .unwrap();
     let Definition::EnumType {
         public,
@@ -147,7 +147,7 @@ fn public_generic() {
 #[test]
 fn with_mixed_variants() {
     let mut source = Source::new();
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "enum Shape { Point, Line(i64), Rect { w: i64, h: i64 } }",
     ));
@@ -156,7 +156,7 @@ fn with_mixed_variants() {
     let shape_symbol = resolver.symbols.add_symbol("Shape");
     let (shape_id, shape_declaration) = resolver
         .declarations
-        .find_declaration(shape_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(shape_symbol, crate_scope_id)
         .unwrap();
     let Definition::EnumType { variants, .. } = shape_declaration.definition else {
         panic!();
@@ -266,14 +266,13 @@ fn with_mixed_variants() {
 fn variants_not_visible_at_module_scope() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed("test", "enum Foo { Bar }"));
+    source.add_code(SourceCode::validated_borrowed("test", "enum Foo { Bar }"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let bar_symbol = resolver.symbols.add_symbol("Bar");
-    let result =
-        resolver
-            .declarations
-            .find_declaration(bar_symbol, crate_scope_id, Visibility::Module);
+    let result = resolver
+        .declarations
+        .find_declaration(bar_symbol, crate_scope_id);
 
     assert!(
         result.is_none(),
@@ -285,7 +284,7 @@ fn variants_not_visible_at_module_scope() {
 fn same_name_in_different_modules() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "mod a { enum Foo { X } } mod b { enum Foo { Y } }",
     ));
@@ -295,7 +294,7 @@ fn same_name_in_different_modules() {
     let a_symbol = resolver.symbols.add_symbol("a");
     let (_, a_declaration) = resolver
         .declarations
-        .find_declaration(a_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(a_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: a_scope,
@@ -308,7 +307,7 @@ fn same_name_in_different_modules() {
     let b_symbol = resolver.symbols.add_symbol("b");
     let (_, b_declaration) = resolver
         .declarations
-        .find_declaration(b_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(b_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: b_scope,
@@ -322,7 +321,7 @@ fn same_name_in_different_modules() {
 
     let (a_foo_id, a_foo) = resolver
         .declarations
-        .find_declaration(foo_symbol, a_scope, Visibility::Module)
+        .find_declaration(foo_symbol, a_scope)
         .unwrap();
     let Definition::EnumType {
         variants: a_variants,
@@ -342,7 +341,7 @@ fn same_name_in_different_modules() {
 
     let (b_foo_id, b_foo) = resolver
         .declarations
-        .find_declaration(foo_symbol, b_scope, Visibility::Module)
+        .find_declaration(foo_symbol, b_scope)
         .unwrap();
     let Definition::EnumType {
         variants: b_variants,
@@ -366,7 +365,7 @@ fn same_name_in_different_modules() {
 fn generic_variant_field() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "enum Opt<T> { Some(T), None }",
     ));
@@ -375,7 +374,7 @@ fn generic_variant_field() {
     let opt_symbol = resolver.symbols.add_symbol("Opt");
     let (_, opt_declaration) = resolver
         .declarations
-        .find_declaration(opt_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(opt_symbol, crate_scope_id)
         .unwrap();
     let Definition::EnumType {
         type_parameters,

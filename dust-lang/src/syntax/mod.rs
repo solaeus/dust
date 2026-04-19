@@ -6,7 +6,7 @@ pub mod tree;
 
 use serde::{Deserialize, Serialize};
 
-use crate::source::FileId;
+use crate::source::SourceCodeId;
 
 use error::SyntaxError;
 use tree::SyntaxTree;
@@ -36,7 +36,7 @@ impl Syntax {
     }
 
     pub fn add_tree(&mut self, tree: SyntaxTree) {
-        let index = tree.file_id.inner() as usize;
+        let index = tree.source_id.inner() as usize;
 
         while self.trees.len() <= index {
             self.trees.push(SyntaxTree::placeholder());
@@ -45,12 +45,12 @@ impl Syntax {
         self.trees[index] = tree;
     }
 
-    pub fn get_tree(&self, file_id: FileId) -> Result<&SyntaxTree, SyntaxError> {
-        let index = file_id.inner() as usize;
+    pub fn get_tree(&self, source_id: SourceCodeId) -> Result<&SyntaxTree, SyntaxError> {
+        let index = source_id.inner() as usize;
 
         self.trees
             .get(index)
-            .ok_or(SyntaxError::MissingSyntaxTree(file_id))
+            .ok_or(SyntaxError::MissingTree(source_id))
     }
 }
 

@@ -31,13 +31,13 @@ pub fn handle_parse_command(command: ParseCommand) {
 
     let mut parse_errors = Vec::new();
 
-    for (file_id, file) in source.iter() {
+    for (source_id, file) in source.iter() {
         let lexer = if file.utf8_validated() {
             Lexer::with_validated_source(file.content_as_str())
         } else {
             Lexer::with_unvalidated_source(file.content_as_bytes())
         };
-        let parser = Parser::new(file_id, lexer);
+        let parser = Parser::new(source_id, lexer);
         let ParseResult {
             syntax_tree,
             errors,

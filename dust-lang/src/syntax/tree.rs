@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    source::FileId,
+    source::SourceCodeId,
     syntax::{
         SyntaxId,
         error::SyntaxError,
@@ -15,7 +15,7 @@ use crate::{
 /// Parsed Dust source code.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SyntaxTree {
-    pub file_id: FileId,
+    pub source_id: SourceCodeId,
 
     /// Append-only list of syntax nodes. Each node's ID is its index in this list.
     pub(super) nodes: Vec<SyntaxNode>,
@@ -25,9 +25,9 @@ pub struct SyntaxTree {
 }
 
 impl SyntaxTree {
-    pub fn new(file_id: FileId) -> Self {
+    pub fn new(source_id: SourceCodeId) -> Self {
         Self {
-            file_id,
+            source_id,
             nodes: Vec::new(),
             children: Vec::new(),
         }
@@ -35,14 +35,14 @@ impl SyntaxTree {
 
     pub(crate) fn placeholder() -> Self {
         Self {
-            file_id: FileId::MAIN,
+            source_id: SourceCodeId::MAIN,
             nodes: Vec::new(),
             children: Vec::new(),
         }
     }
 
-    pub fn file_id(&self) -> FileId {
-        self.file_id
+    pub fn source_id(&self) -> SourceCodeId {
+        self.source_id
     }
 
     pub fn node_count(&self) -> usize {
@@ -63,7 +63,7 @@ impl SyntaxTree {
         let root_node = self
             .nodes
             .first()
-            .ok_or(SyntaxError::MissingSyntaxNode(SyntaxId::ROOT))?;
+            .ok_or(SyntaxError::MissingNode(SyntaxId::ROOT))?;
 
         Ok(SyntaxReader::new(SyntaxId::ROOT, *root_node, self))
     }
@@ -84,7 +84,7 @@ impl SyntaxTree {
         let node = self
             .nodes
             .get(id.0 as usize)
-            .ok_or(SyntaxError::MissingSyntaxNode(id))?;
+            .ok_or(SyntaxError::MissingNode(id))?;
 
         Ok(SyntaxReader::new(id, *node, self))
     }

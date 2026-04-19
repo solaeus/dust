@@ -89,16 +89,16 @@ pub struct Scope {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ScopeKind {
-    Block,
+    Crate,
+    Module,
     Function,
     Closure,
-    Module,
-    Crate,
+    TypeParameters,
+    ValueParameters,
+    Block,
     TypeTraitOrImpl,
     Associated,
     Constant,
-    TypeParameters,
-    ValueParameters,
 }
 
 impl ScopeKind {

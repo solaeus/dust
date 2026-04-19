@@ -6,7 +6,7 @@ use smallvec::smallvec;
 use crate::{
     compiler::resolver::{
         Resolver,
-        declarations::{Definition, Visibility},
+        declarations::Definition,
         scopes::{ScopeId, ScopeKind},
     },
     compiler::{Compiler, declaration_binder::DeclarationBinder, type_binder::TypeBinder},
@@ -16,13 +16,13 @@ use crate::{
     parser::{ParseResult, Parser},
     program::Program,
     prototype::Prototype,
-    source::{Code, FileId, Source},
+    source::{Source, SourceCode, SourceCodeId},
     syntax::{Syntax, components::FnItem},
 };
 
 fn compile(source_code: &str) -> Program {
     let mut source = Source::new();
-    source.add_code(Code::validated_borrowed("test", source_code));
+    source.add_code(SourceCode::validated_borrowed("test", source_code));
 
     Compiler::new(source).compile(None).unwrap()
 }
@@ -30,9 +30,9 @@ fn compile(source_code: &str) -> Program {
 pub fn bind_declarations(source: &Source) -> (Syntax, Resolver, ScopeId) {
     let mut syntax = Syntax::with_capacity(source.file_count());
 
-    for (file_id, file) in source.iter() {
+    for (source_id, file) in source.iter() {
         let lexer = Lexer::with_validated_source(file.content_as_str());
-        let parser = Parser::new(file_id, lexer);
+        let parser = Parser::new(source_id, lexer);
         let ParseResult {
             syntax_tree,
             errors,
@@ -49,7 +49,7 @@ pub fn bind_declarations(source: &Source) -> (Syntax, Resolver, ScopeId) {
         .scopes
         .enter_scope(ScopeKind::Module, ScopeId::NONE);
 
-    let main_root = syntax.get_tree(FileId::MAIN).unwrap().root().unwrap();
+    let main_root = syntax.get_tree(SourceCodeId::MAIN).unwrap().root().unwrap();
 
     let mut errors = Vec::new();
     let mut declaration_binder =
@@ -67,14 +67,14 @@ pub fn bind_declarations(source: &Source) -> (Syntax, Resolver, ScopeId) {
 
 pub fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
     let mut source = Source::new();
-    source.add_code(Code::validated_borrowed("test", source_code));
+    source.add_code(SourceCode::validated_borrowed("test", source_code));
 
     let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
     let foo_declaration = *foo_declaration;
 
@@ -90,7 +90,7 @@ pub fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
     let (position, syntax_id) = foo_declaration.syntax.unwrap();
 
     let function_item = syntax
-        .get_tree(position.file_id)
+        .get_tree(position.source_id)
         .and_then(|tree| tree.read_node(syntax_id))
         .unwrap();
     let FnItem { body, .. } = function_item.as_component().unwrap();

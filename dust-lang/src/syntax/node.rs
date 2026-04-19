@@ -13,6 +13,13 @@ pub struct SyntaxNode {
     pub(crate) span: Span,
 }
 
+impl SyntaxNode {
+    pub fn with_flags(mut self, flags: SyntaxFlags) -> Self {
+        self.flags.set_flag(flags);
+        self
+    }
+}
+
 impl Display for SyntaxNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.kind)
@@ -111,7 +118,6 @@ pub enum SyntaxKind {
     TraitBody,
     ValueArguments,
 
-    FunctionSignature,
     ValueParameters,
     TypeParameters,
     TypeArguments,
@@ -333,7 +339,6 @@ impl SyntaxKind {
             SyntaxKind::FieldAccessExpression => "field access expression",
             SyntaxKind::FloatExpression => "float expression",
             SyntaxKind::FnItem => "function item",
-            SyntaxKind::FunctionSignature => "function signature",
             SyntaxKind::FunctionType => "function type",
             SyntaxKind::GreaterThanExpression => "greater than expression",
             SyntaxKind::GreaterThanOrEqualExpression => "greater than or equal expression",
@@ -480,6 +485,10 @@ impl SyntaxFlags {
 
     pub fn new(flags: u8) -> Self {
         Self(flags)
+    }
+
+    pub fn and(self, other: Self) -> Self {
+        Self(self.0 & other.0)
     }
 
     pub fn set_flag(&mut self, flag: SyntaxFlags) {

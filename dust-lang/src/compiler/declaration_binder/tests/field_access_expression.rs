@@ -1,9 +1,6 @@
 use crate::{
-    compiler::resolver::{
-        declarations::{Definition, Visibility},
-        types::TypeId,
-    },
-    source::{Code, FileId, Source},
+    compiler::resolver::{declarations::Definition, types::TypeId},
+    source::{Source, SourceCode, SourceCodeId},
     syntax::{
         components::{FieldAccessExpression, SyntaxComponent},
         node::SyntaxKind,
@@ -16,14 +13,14 @@ use super::bind_declarations;
 fn field_access_binds_field_declaration() {
     let mut source = Source::new();
 
-    source.add_code(Code::validated_borrowed(
+    source.add_code(SourceCode::validated_borrowed(
         "test",
         "struct Foo { x: i64 } fn bar() { let f: Foo = Foo { x: 1 }; f.x; }",
     ));
 
     let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 
-    let tree = syntax.get_tree(FileId::MAIN).unwrap();
+    let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();
     let field_access = tree
         .iter()
         .find(|node| node.node.kind == SyntaxKind::FieldAccessExpression)
@@ -42,7 +39,7 @@ fn field_access_binds_field_declaration() {
     let foo_symbol = resolver.symbols.add_symbol("Foo");
     let (foo_id, _) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id, Visibility::Module)
+        .find_declaration(foo_symbol, crate_scope_id)
         .unwrap();
 
     let Definition::Field {

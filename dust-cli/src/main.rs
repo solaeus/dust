@@ -16,7 +16,7 @@ use std::{
 use clap::Parser as CliParser;
 use dust_lang::{
     project::{EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
-    source::{Code, Source},
+    source::{Source, SourceCode},
 };
 use tracing::{Event, Level, Subscriber, info, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -179,7 +179,7 @@ fn build_source<'src>(eval: Option<String>, path: Option<PathBuf>, stdin: bool) 
 
     if let Some(input) = eval {
         let eval_program = format!("fn main<T>() -> T {{\n    {input}\n}}");
-        let code = Code::validated_owned("CLI Input", eval_program);
+        let code = SourceCode::validated_owned("CLI Input", eval_program);
 
         source.add_code(code);
     }
@@ -210,7 +210,7 @@ fn build_source<'src>(eval: Option<String>, path: Option<PathBuf>, stdin: bool) 
             } else {
                 path.join("src").join("main.ds")
             };
-            let code = Code::file(main_file_path)
+            let code = SourceCode::file(main_file_path)
                 .unwrap_or_else(|error| error.to_full_error().print_and_exit());
 
             source.add_code(code);
@@ -218,14 +218,14 @@ fn build_source<'src>(eval: Option<String>, path: Option<PathBuf>, stdin: bool) 
             let lib_file_path = path.join("src").join("lib.ds");
 
             if lib_file_path.exists() {
-                let code = Code::file(lib_file_path)
+                let code = SourceCode::file(lib_file_path)
                     .unwrap_or_else(|error| error.to_full_error().print_and_exit());
 
                 source.add_code(code);
             }
         } else {
-            let code =
-                Code::file(path).unwrap_or_else(|error| error.to_full_error().print_and_exit());
+            let code = SourceCode::file(path)
+                .unwrap_or_else(|error| error.to_full_error().print_and_exit());
 
             source.add_code(code);
         }
@@ -238,7 +238,7 @@ fn build_source<'src>(eval: Option<String>, path: Option<PathBuf>, stdin: bool) 
             .read_to_end(&mut buffer)
             .expect("Failed to read from stdin");
 
-        let code = Code::owned("stdin", buffer);
+        let code = SourceCode::owned("stdin", buffer);
 
         source.add_code(code);
     }
