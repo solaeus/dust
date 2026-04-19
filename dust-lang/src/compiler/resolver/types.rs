@@ -245,7 +245,7 @@ pub enum Type {
     /// An anonymous heterogeneous product type.
     ///
     /// `()`, `(i32, T)`, `(f64, bool, char)`, etc.
-    Tuple { element_type_ids: TypeMembers },
+    Tuple { element_types: TypeMembers },
 
     /// An anonymous homogeneous product type with a fixed length.
     ///
@@ -350,7 +350,7 @@ pub enum Type {
 impl Type {
     pub fn unit_type() -> Self {
         Type::Tuple {
-            element_type_ids: TypeMembers::default(),
+            element_types: TypeMembers::default(),
         }
     }
 }
@@ -367,12 +367,12 @@ impl PartialEq for Type {
             (Type::Never, Type::Never) => true,
             (
                 Type::Tuple {
-                    element_type_ids: left_element_type_ids,
+                    element_types: left_element_types,
                 },
                 Type::Tuple {
-                    element_type_ids: right_element_type_ids,
+                    element_types: right_element_types,
                 },
-            ) => left_element_type_ids == right_element_type_ids,
+            ) => left_element_types == right_element_types,
 
             (
                 Type::Array {
@@ -494,12 +494,12 @@ impl Ord for Type {
             (Type::Never, _) => Ordering::Less,
             (
                 Type::Tuple {
-                    element_type_ids: left_element_type_ids,
+                    element_types: left_element_types,
                 },
                 Type::Tuple {
-                    element_type_ids: right_element_type_ids,
+                    element_types: right_element_types,
                 },
-            ) => left_element_type_ids.cmp(right_element_type_ids),
+            ) => left_element_types.cmp(right_element_types),
             (Type::Tuple { .. }, _) => Ordering::Less,
             (
                 Type::Array {
@@ -671,7 +671,9 @@ impl Hash for Type {
             Type::Never => {
                 state.write_u8(16);
             }
-            Type::Tuple { element_type_ids } => {
+            Type::Tuple {
+                element_types: element_type_ids,
+            } => {
                 state.write_u8(17);
                 element_type_ids.hash(state);
             }

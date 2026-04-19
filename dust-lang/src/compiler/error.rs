@@ -61,6 +61,12 @@ pub enum CompileError {
         operator: SyntaxKind,
         file_id: FileId,
     },
+    ConstantUnaryOverflow {
+        value: ConstantValue,
+        operand_span: Span,
+        operator: SyntaxKind,
+        file_id: FileId,
+    },
     InvalidConstantExponent {
         base_value: ConstantValue,
         base_span: Span,
@@ -188,6 +194,24 @@ pub enum CompileError {
     ExpectedLocalDefinition(DeclarationId),
     ExpectedVariantDefinition(DeclarationId),
     ExpectedStructDefinition(DeclarationId),
+}
+
+impl From<SyntaxError> for CompileError {
+    fn from(error: SyntaxError) -> Self {
+        CompileError::Syntax(error)
+    }
+}
+
+impl From<ConstantsError> for CompileError {
+    fn from(error: ConstantsError) -> Self {
+        CompileError::ConstantList(error)
+    }
+}
+
+impl From<SourceError> for CompileError {
+    fn from(error: SourceError) -> Self {
+        CompileError::Source(error)
+    }
 }
 
 impl<'a> AnnotatedError<'a> for CompileError {
@@ -416,8 +440,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 found_position,
             } => {
                 let title = "Type conflict";
-                let expected_type_string = match resolver.get_external_type(*expected_type)
-                {
+                let expected_type_string = match resolver.get_external_type(*expected_type) {
                     Ok(r#type) => match r#type {
                         DustType::Struct(struct_type) => struct_type.name,
                         _ => r#type.to_string(),
@@ -1057,6 +1080,33 @@ impl<'a> AnnotatedError<'a> for CompileError {
 
                 groups.push(group);
             }
+            CompileError::ConstantUnaryOverflow {
+                value,
+                operand_span,
+                operator,
+                file_id,
+            } => {
+                let title = "Constant overflow";
+                let file_content = match source.get_code(*file_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title))
+                    .element(
+                        Snippet::source(file_content).annotation(
+                            AnnotationKind::Primary
+                                .span(operand_span.as_usize_range())
+                                .label(format!("Operand has value {value}.")),
+                        ),
+                    )
+                    .element(Level::ERROR.message(format!(
+                        "Applying operator {operator} to this value causes an overflow."
+                    )));
+
+                groups.push(group);
+            }
             CompileError::InvalidConstantExponent {
                 base_value,
                 base_span,
@@ -1163,23 +1213,5 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 self.add_internal_report(groups);
             }
         }
-    }
-}
-
-impl From<SyntaxError> for CompileError {
-    fn from(error: SyntaxError) -> Self {
-        CompileError::Syntax(error)
-    }
-}
-
-impl From<ConstantsError> for CompileError {
-    fn from(error: ConstantsError) -> Self {
-        CompileError::ConstantList(error)
-    }
-}
-
-impl From<SourceError> for CompileError {
-    fn from(error: SourceError) -> Self {
-        CompileError::Source(error)
     }
 }

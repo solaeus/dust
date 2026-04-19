@@ -1659,10 +1659,9 @@ impl<'a> DeclarationBinder<'a> {
                     .try_collect::<SmallVec<[TypeId; 4]>>()?;
                 let element_type_ids = self.resolver.types.add_type_members(element_type_ids);
 
-                Ok(self
-                    .resolver
-                    .types
-                    .add_type(Type::Tuple { element_type_ids }))
+                Ok(self.resolver.types.add_type(Type::Tuple {
+                    element_types: element_type_ids,
+                }))
             }
             SyntaxKind::FunctionType => {
                 let FunctionType {

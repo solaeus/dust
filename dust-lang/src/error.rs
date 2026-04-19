@@ -85,6 +85,7 @@ impl<'src> ErrorContext<'src> {
 /// An error that can occur while interpreting Dust code.
 #[derive(Debug)]
 pub enum ErrorKind {
+    Source(SourceError),
     Parse(ParseError),
     Compile(CompileError),
     Vm(VmError),
@@ -122,7 +123,7 @@ impl From<ConstantsError> for ErrorKind {
 
 impl From<SourceError> for ErrorKind {
     fn from(error: SourceError) -> Self {
-        ErrorKind::Compile(CompileError::Source(error))
+        ErrorKind::Source(error)
     }
 }
 
@@ -135,6 +136,7 @@ impl<'a> AnnotatedError<'a> for ErrorKind {
 
     fn add_report(&self, (source, syntax, resolver): Self::Context, groups: &mut Vec<Group<'a>>) {
         match self {
+            ErrorKind::Source(source_error) => source_error.add_report((), groups),
             ErrorKind::Parse(parse_error) => {
                 if let Some(source) = source {
                     parse_error.add_report(source, groups)

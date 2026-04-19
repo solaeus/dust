@@ -1,5 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     source::FileId,
     syntax::{
@@ -11,7 +13,7 @@ use crate::{
 };
 
 /// Parsed Dust source code.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SyntaxTree {
     pub file_id: FileId,
 

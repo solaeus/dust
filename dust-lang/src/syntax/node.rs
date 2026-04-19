@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{source::Span, syntax::SyntaxId};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SyntaxNode {
     pub(crate) kind: SyntaxKind,
     pub(crate) children: SyntaxChildren,
@@ -19,7 +19,7 @@ impl Display for SyntaxNode {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub enum SyntaxKind {
     Root,
 

@@ -403,10 +403,8 @@ impl<'a> Emitter<'a> {
                 Type::Float(FloatType::F32) => OperandType::F_32,
                 Type::Float(FloatType::F64) => OperandType::F_64,
                 Type::Character => OperandType::CHARACTER,
-                Type::Tuple { element_type_ids } => {
-                    let element_type_ids = *element_type_ids;
-
-                    for index in element_type_ids.as_range() {
+                Type::Tuple { element_types } => {
+                    for index in element_types.as_range() {
                         let element_type = *emitter.resolver.types.get_type_member(index)?;
 
                         collect_registers(element_type, kind, registers, emitter)?;
@@ -824,7 +822,7 @@ impl<'a> Emitter<'a> {
             }) => Ok((MemoryKind::CONSTANT, index, smallvec![operand_type])),
             Emission::Place(Place::Register(allocation)) => Ok((
                 MemoryKind::REGISTER,
-                allocation.base_index(),
+                allocation.expect_base_index()?,
                 allocation.operand_types(),
             )),
             Emission::Instructions(operand_instructions) => {
@@ -833,7 +831,7 @@ impl<'a> Emitter<'a> {
                 match &instructions.target_registers {
                     Some(allocation) => Ok((
                         MemoryKind::REGISTER,
-                        allocation.base_index(),
+                        allocation.expect_base_index()?,
                         allocation.operand_types(),
                     )),
                     None => Err(CompileError::ExpectedValue {
@@ -877,8 +875,12 @@ impl<'a> Emitter<'a> {
                 Ok(())
             }
             Emission::Place(Place::Register(allocation)) if allocation.len() == 1 => {
-                let test_instruction =
-                    Instruction::test(comparator, MemoryKind::REGISTER, allocation.base_index(), 0);
+                let test_instruction = Instruction::test(
+                    comparator,
+                    MemoryKind::REGISTER,
+                    allocation.expect_base_index()?,
+                    0,
+                );
 
                 instructions.push(test_instruction);
 
@@ -960,15 +962,14 @@ impl<'a> Emitter<'a> {
         &mut self,
         branch_emission: Emission,
         instructions: &mut InstructionsEmission,
-        allocation: &RegisterClaims,
+        target: &RegisterClaims,
         node: SyntaxReader,
     ) -> Result<(), CompileError> {
         match branch_emission {
             Emission::Value(constant) => {
-                let destination = allocation.expect_single()?;
                 let address = self.materialize_value(constant)?;
                 let move_instruction = Instruction::r#move(
-                    destination.index,
+                    target.expect_base_index()?,
                     constant.operand_type(),
                     address.memory,
                     address.index,
@@ -977,21 +978,17 @@ impl<'a> Emitter<'a> {
                 instructions.push(move_instruction);
             }
             Emission::Place(Place::Constant {
-                operand_type: r#type,
+                operand_type,
                 index,
             }) => {
-                let destination = allocation.expect_single()?;
+                let destination = target.expect_base_index()?;
                 let move_instruction =
-                    Instruction::r#move(destination.index, r#type, MemoryKind::CONSTANT, index);
+                    Instruction::r#move(destination, operand_type, MemoryKind::CONSTANT, index);
 
                 instructions.push(move_instruction);
             }
             Emission::Place(Place::Register(operand_registers)) => {
-                let destination_registers = allocation.expect_multiple(operand_registers.len())?;
-
-                for (destination, operand) in
-                    destination_registers.iter().zip(operand_registers.claims)
-                {
+                for (destination, operand) in target.claims.iter().zip(operand_registers.claims) {
                     let move_instruction = Instruction::r#move(
                         destination.index,
                         operand.operand_type,
@@ -1027,7 +1024,7 @@ impl<'a> Emitter<'a> {
                     self.allocate_registers(self.return_type_id, RegisterKind::Reserved)?;
                 let address = self.materialize_value(value)?;
                 let move_instruction = Instruction::r#move(
-                    allocation.base_index(),
+                    allocation.expect_base_index()?,
                     value.operand_type(),
                     address.memory,
                     address.index,
@@ -1045,7 +1042,7 @@ impl<'a> Emitter<'a> {
                 let allocation =
                     self.allocate_registers(self.return_type_id, RegisterKind::Reserved)?;
                 let move_instruction = Instruction::r#move(
-                    allocation.base_index(),
+                    allocation.expect_base_index()?,
                     operand_type,
                     MemoryKind::CONSTANT,
                     index,
@@ -1325,13 +1322,13 @@ impl<'a> Emitter<'a> {
                 target_registers,
                 pending_drops,
             }) => {
-                let target = target_registers.ok_or_else(|| CompileError::ExpectedValue {
+                let registers = target_registers.ok_or_else(|| CompileError::ExpectedValue {
                     file_id: expression.file_id(),
                     syntax_id: expression.id,
                 })?;
 
                 self.locals
-                    .insert(declaration_id, Local::Place(Place::Register(target)));
+                    .insert(declaration_id, Local::Place(Place::Register(registers)));
 
                 Ok(Some(InstructionsEmission {
                     instructions,
@@ -1403,14 +1400,15 @@ impl<'a> Emitter<'a> {
             }
         };
 
-        let source_emission = self.emit_expression(source, ExpressionTarget::None)?;
+        let source_emission =
+            self.emit_expression(source, ExpressionTarget::Claimed(target_allocation.clone()))?;
 
         match source_emission {
             Emission::Value(value) => {
                 let operand_type = value.operand_type();
                 let address = self.materialize_value(value)?;
                 let move_instruction = Instruction::r#move(
-                    target_allocation.base_index(),
+                    target_allocation.expect_base_index()?,
                     operand_type,
                     address.memory,
                     address.index,
@@ -1653,17 +1651,17 @@ impl<'a> Emitter<'a> {
             } else {
                 return Err(CompileError::ExpectedArrayType(array_type_id));
             };
-        let array_target = match target {
+        let array_registers = match target {
             ExpressionTarget::Claimed(allocation) => allocation,
             ExpressionTarget::Unclaimed(allocation_kind) => {
                 self.allocate_registers(array_type_id, allocation_kind)?
             }
             ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
         };
-        let registers_per_element = array_target.len() / array_length as usize;
+        let registers_per_element = array_registers.len() / array_length as usize;
         let first_element_target = ExpressionTarget::Claimed(RegisterClaims {
-            claims: array_target.claims[0..registers_per_element].into(),
-            kind: array_target.kind,
+            claims: array_registers.claims[0..registers_per_element].into(),
+            kind: array_registers.kind,
         });
 
         match self.emit_expression(element, first_element_target)? {
@@ -1673,12 +1671,12 @@ impl<'a> Emitter<'a> {
             _ => return Err(CompileError::InvalidEmission),
         }
 
-        let first_element_registers = &array_target.claims[0..registers_per_element];
+        let first_element_registers = &array_registers.claims[0..registers_per_element];
 
         for index in 1..array_length {
             let register_start = index * registers_per_element;
             let register_end = register_start + registers_per_element;
-            let element_registers = &array_target.claims[register_start..register_end];
+            let element_registers = &array_registers.claims[register_start..register_end];
 
             for (source_register, destination_register) in
                 first_element_registers.iter().zip(element_registers)
@@ -1694,7 +1692,7 @@ impl<'a> Emitter<'a> {
             }
         }
 
-        array_instructions.set_target(Some(array_target));
+        array_instructions.set_target(Some(array_registers));
 
         Ok(Emission::Instructions(array_instructions))
     }
@@ -1841,7 +1839,8 @@ impl<'a> Emitter<'a> {
             return Ok(Emission::Place(Place::Register(element_allocation)));
         }
 
-        let index_emission = self.emit_expression(index, None)?;
+        let index_emission =
+            self.emit_expression(index, ExpressionTarget::Unclaimed(RegisterKind::Temporary))?;
 
         let (index_memory, index_index) = if let Emission::Value(constant) = &index_emission
             && let Some(encoded) = constant.encoded_u16()
@@ -1866,11 +1865,16 @@ impl<'a> Emitter<'a> {
             }
         };
 
-        let base_index = list_registers.base_index();
+        let base_index = list_registers.expect_base_index()?;
 
         let element_type_id = *self.resolver.get_type_binding(&reader.id)?;
-        let allocation_kind = allocation.ok_or(CompileError::ExpectedAllocation)?;
-        let destination = self.allocate_registers(element_type_id, allocation_kind)?;
+        let destination = match target {
+            ExpressionTarget::Claimed(registers) => registers,
+            ExpressionTarget::Unclaimed(allocation_kind) => {
+                self.allocate_registers(element_type_id, allocation_kind)?
+            }
+            ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
+        };
 
         let destination_register = destination.expect_single()?;
 
@@ -1907,13 +1911,23 @@ impl<'a> Emitter<'a> {
         let RangeExpression { start, end } = reader.as_component()?;
 
         let type_id = *self.resolver.get_type_binding(&reader.id)?;
-        let allocation_kind = allocation.ok_or(CompileError::ExpectedAllocation)?;
-        let target = self.allocate_registers(type_id, allocation_kind)?;
+        let target_registers = match target {
+            ExpressionTarget::Claimed(registers) => registers,
+            ExpressionTarget::Unclaimed(allocation_kind) => {
+                self.allocate_registers(type_id, allocation_kind)?
+            }
+            ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
+        };
 
         let mut range_instructions = InstructionsEmission::new();
 
-        for (field_expression, destination) in [start, end].into_iter().zip(&target.claims) {
-            let field_emission = self.emit_expression(field_expression, None)?;
+        for (field_expression, destination) in
+            [start, end].into_iter().zip(&target_registers.claims)
+        {
+            let field_emission = self.emit_expression(
+                field_expression,
+                ExpressionTarget::Unclaimed(RegisterKind::Temporary),
+            )?;
 
             if let Emission::Value(constant) = &field_emission
                 && let Some(encoded) = constant.encoded_u16()
@@ -1961,7 +1975,7 @@ impl<'a> Emitter<'a> {
             }
         }
 
-        range_instructions.set_target(Some(target));
+        range_instructions.set_target(Some(target_registers));
 
         Ok(Emission::Instructions(range_instructions))
     }
@@ -1982,9 +1996,14 @@ impl<'a> Emitter<'a> {
             && fields == ScopeId::NONE
         {
             let type_id = *self.resolver.get_type_binding(&reader.id)?;
-            let allocation_kind = allocation.ok_or(CompileError::ExpectedAllocation)?;
-            let target = self.allocate_registers(type_id, allocation_kind)?;
-            let destination = target.base_index();
+            let target_registers = match target {
+                ExpressionTarget::Claimed(registers) => registers,
+                ExpressionTarget::Unclaimed(allocation_kind) => {
+                    self.allocate_registers(type_id, allocation_kind)?
+                }
+                ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
+            };
+            let destination = target_registers.expect_base_index()?;
             let move_instruction = Instruction::r#move(
                 destination,
                 OperandType::U_16,
@@ -1995,7 +2014,7 @@ impl<'a> Emitter<'a> {
             let mut instructions = InstructionsEmission::new();
 
             instructions.push(move_instruction);
-            instructions.set_target(Some(target));
+            instructions.set_target(Some(target_registers));
 
             return Ok(Emission::Instructions(instructions));
         }
@@ -2090,13 +2109,23 @@ impl<'a> Emitter<'a> {
         } = struct_fields.as_component()?;
 
         let type_id = *self.resolver.get_type_binding(&reader.id)?;
-        let allocation_kind = allocation.ok_or(CompileError::ExpectedAllocation)?;
-        let target = self.allocate_registers(type_id, allocation_kind)?;
+        let target_registers = match target {
+            ExpressionTarget::Claimed(registers) => registers,
+            ExpressionTarget::Unclaimed(allocation_kind) => {
+                self.allocate_registers(type_id, allocation_kind)?
+            }
+            ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
+        };
 
         let mut struct_instructions = InstructionsEmission::new();
 
-        for ((_, field_expression), destination) in name_expression_pairs.zip(&target.claims) {
-            let field_emission = self.emit_expression(field_expression, None)?;
+        for ((_, field_expression), destination) in
+            name_expression_pairs.zip(&target_registers.claims)
+        {
+            let field_emission = self.emit_expression(
+                field_expression,
+                ExpressionTarget::Unclaimed(RegisterKind::Temporary),
+            )?;
 
             if let Emission::Value(constant) = &field_emission
                 && let Some(encoded) = constant.encoded_u16()
@@ -2144,7 +2173,7 @@ impl<'a> Emitter<'a> {
             }
         }
 
-        struct_instructions.set_target(Some(target));
+        struct_instructions.set_target(Some(target_registers));
 
         Ok(Emission::Instructions(struct_instructions))
     }
@@ -2160,7 +2189,7 @@ impl<'a> Emitter<'a> {
             syntax_id: reader.id,
         })?;
 
-        self.emit_expression(expression, allocation)
+        self.emit_expression(expression, target)
     }
 
     fn emit_block_expression(
@@ -2171,12 +2200,20 @@ impl<'a> Emitter<'a> {
         let BlockExpression { children } = reader.as_component()?;
         let saved_register_tracker = self.register_tracker;
         let mut block_instructions = InstructionsEmission::new();
-        let mut last_child = None;
         let mut last_emission = None;
 
         self.enter_drop_context();
 
         let child_count = children.len();
+
+        let type_id = *self.resolver.get_type_binding(&reader.id)?;
+        let target_registers = match target {
+            ExpressionTarget::Claimed(registers) => registers,
+            ExpressionTarget::Unclaimed(allocation_kind) => {
+                self.allocate_registers(type_id, allocation_kind)?
+            }
+            ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
+        };
 
         for (index, child) in children.enumerate() {
             let is_last = index == child_count - 1;
@@ -2190,7 +2227,8 @@ impl<'a> Emitter<'a> {
             }
 
             if !is_last {
-                let expression_emission = self.emit_expression(child, None)?;
+                let expression_emission = self
+                    .emit_expression(child, ExpressionTarget::Unclaimed(RegisterKind::Temporary))?;
 
                 if let Emission::Instructions(expression_instructions) = expression_emission {
                     block_instructions.merge(expression_instructions);
@@ -2199,100 +2237,14 @@ impl<'a> Emitter<'a> {
                 continue;
             }
 
-            last_child = Some(child);
-            last_emission = Some(self.emit_expression(child, allocation)?);
+            last_emission = Some(
+                self.emit_expression(child, ExpressionTarget::Claimed(target_registers.clone()))?,
+            );
             break;
         }
 
         let mut result_emission = if let Some(last_emission) = last_emission {
-            let last_child = last_child.expect("last child should exist for last emission");
-
             match last_emission {
-                Emission::Value(constant) => {
-                    if let Some(allocation_kind) = allocation {
-                        let type_id = *self.resolver.get_type_binding(&last_child.id)?;
-                        let target_allocation =
-                            self.allocate_registers(type_id, allocation_kind)?;
-                        let destination_register = target_allocation.expect_single()?;
-                        let address = self.materialize_value(constant)?;
-                        let move_instruction = Instruction::r#move(
-                            destination_register.index,
-                            constant.operand_type(),
-                            address.memory,
-                            address.index,
-                        );
-
-                        block_instructions.push(move_instruction);
-                        block_instructions.set_target(Some(target_allocation));
-
-                        Emission::Instructions(block_instructions)
-                    } else if block_instructions.is_empty() {
-                        Emission::Value(constant)
-                    } else {
-                        return Err(CompileError::ExpectedAllocation);
-                    }
-                }
-                Emission::Place(Place::Constant {
-                    operand_type,
-                    index,
-                }) => {
-                    if let Some(allocation_kind) = allocation {
-                        let type_id = *self.resolver.get_type_binding(&last_child.id)?;
-                        let target_allocation =
-                            self.allocate_registers(type_id, allocation_kind)?;
-                        let destination_register = target_allocation.expect_single()?;
-                        let move_instruction = Instruction::r#move(
-                            destination_register.index,
-                            operand_type,
-                            MemoryKind::CONSTANT,
-                            index,
-                        );
-
-                        block_instructions.push(move_instruction);
-                        block_instructions.set_target(Some(target_allocation));
-
-                        Emission::Instructions(block_instructions)
-                    } else if block_instructions.is_empty() {
-                        Emission::Place(Place::Constant {
-                            operand_type,
-                            index,
-                        })
-                    } else {
-                        return Err(CompileError::ExpectedAllocation);
-                    }
-                }
-                Emission::Place(Place::Register(source_allocation)) => {
-                    if let Some(allocation_kind) = allocation {
-                        let type_id = *self.resolver.get_type_binding(&last_child.id)?;
-                        let target_allocation =
-                            self.allocate_registers(type_id, allocation_kind)?;
-                        let destination_registers =
-                            target_allocation.expect_multiple(source_allocation.len())?;
-
-                        for (destination_register, source_register) in
-                            destination_registers.iter().zip(source_allocation.claims)
-                        {
-                            let move_instruction = Instruction::r#move(
-                                destination_register.index,
-                                source_register.operand_type,
-                                MemoryKind::REGISTER,
-                                source_register.index,
-                            );
-
-                            block_instructions.push(move_instruction);
-                        }
-
-                        block_instructions.set_target(Some(target_allocation));
-
-                        Emission::Instructions(block_instructions)
-                    } else if block_instructions.is_empty() {
-                        Emission::Place(Place::Register(source_allocation))
-                    } else {
-                        block_instructions.set_target(Some(source_allocation));
-
-                        Emission::Instructions(block_instructions)
-                    }
-                }
                 Emission::Instructions(instructions) => {
                     if block_instructions.is_empty() {
                         Emission::Instructions(instructions)
@@ -2302,18 +2254,7 @@ impl<'a> Emitter<'a> {
                         Emission::Instructions(block_instructions)
                     }
                 }
-                Emission::NativeFunction(_) => {
-                    return Err(CompileError::ExpectedNativeFunctionCall {
-                        position: reader.position(),
-                    });
-                }
-                Emission::Never => {
-                    if block_instructions.is_empty() {
-                        Emission::Never
-                    } else {
-                        Emission::Instructions(block_instructions)
-                    }
-                }
+                _ => return Err(CompileError::InvalidEmission),
             }
         } else {
             Emission::Instructions(block_instructions)
@@ -2377,15 +2318,20 @@ impl<'a> Emitter<'a> {
 
         let mut if_instructions = InstructionsEmission::new();
 
-        let condition_emission = self.emit_expression(condition, None)?;
+        let condition_emission = self.emit_expression(
+            condition,
+            ExpressionTarget::Unclaimed(RegisterKind::Temporary),
+        )?;
 
         self.handle_condition_emission(&mut if_instructions, condition_emission, &condition, true)?;
 
         let type_id = *self.resolver.get_type_binding(&reader.id)?;
-        let result_allocation_kind = if type_id == TypeId::UNIT || type_id == TypeId::NEVER {
-            None
-        } else {
-            Some(allocation.ok_or(CompileError::ExpectedAllocation)?)
+        let target_registers = match target {
+            ExpressionTarget::Claimed(registers) => registers,
+            ExpressionTarget::Unclaimed(allocation_kind) => {
+                self.allocate_registers(type_id, allocation_kind)?
+            }
+            ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
         };
         let jump_over_then_id = self.create_jump_id();
         let start_else_anchor_count = self.jump_over_branch_ids.len();
@@ -2394,19 +2340,19 @@ impl<'a> Emitter<'a> {
             id: jump_over_then_id,
         });
 
-        if let Some(result_allocation_kind) = result_allocation_kind {
+        {
             let saved_register_tracker = self.register_tracker;
-            let target_allocation = self.allocate_registers(type_id, result_allocation_kind)?;
-            self.register_tracker = saved_register_tracker;
 
-            let then_emission =
-                self.emit_block_expression(then_branch, Some(result_allocation_kind))?;
+            let then_emission = self.emit_block_expression(
+                then_branch,
+                ExpressionTarget::Claimed(target_registers.clone()),
+            )?;
             let then_register_tracker = self.register_tracker;
 
             self.handle_branch_emission(
                 then_emission,
                 &mut if_instructions,
-                &target_allocation,
+                &target_registers,
                 then_branch,
             )?;
 
@@ -2423,45 +2369,29 @@ impl<'a> Emitter<'a> {
                 });
 
                 self.register_tracker = saved_register_tracker;
-                let else_emission =
-                    self.emit_block_expression(else_branch, Some(result_allocation_kind))?;
+                let else_emission = self.emit_block_expression(
+                    else_branch,
+                    ExpressionTarget::Claimed(target_registers.clone()),
+                )?;
                 let else_register_tracker = self.register_tracker;
 
                 self.handle_branch_emission(
                     else_emission,
                     &mut if_instructions,
-                    &target_allocation,
+                    &target_registers,
                     else_branch,
                 )?;
 
                 self.register_tracker = else_register_tracker;
                 self.register_tracker.max =
                     self.register_tracker.max.max(then_register_tracker.max);
-                if_instructions.set_target(Some(target_allocation));
+                if_instructions.set_target(Some(target_registers));
             } else {
                 self.register_tracker = then_register_tracker;
                 if_instructions.push_jump_anchor(JumpAnchor::ForwardToNext {
                     id: jump_over_then_id,
                 });
-                if_instructions.set_target(Some(target_allocation));
-            }
-        } else {
-            let then_emission = self.emit_block_expression(then_branch, None)?;
-
-            if let Emission::Instructions(then_instructions) = then_emission {
-                if_instructions.merge(then_instructions);
-            }
-
-            if_instructions.push_jump_anchor(JumpAnchor::ForwardToNext {
-                id: jump_over_then_id,
-            });
-
-            if let Some(else_branch) = else_branch {
-                let else_emission = self.emit_block_expression(else_branch, None)?;
-
-                if let Emission::Instructions(else_instructions) = else_emission {
-                    if_instructions.merge(else_instructions);
-                }
+                if_instructions.set_target(Some(target_registers));
             }
         }
 
@@ -2483,8 +2413,10 @@ impl<'a> Emitter<'a> {
     ) -> Result<Emission, CompileError> {
         let MathExpression { left, right } = reader.as_component()?;
 
-        let mut left_emission = self.emit_expression(left, None)?;
-        let right_emission = self.emit_expression(right, None)?;
+        let left_emission =
+            self.emit_expression(left, ExpressionTarget::Unclaimed(RegisterKind::Temporary))?;
+        let right_emission =
+            self.emit_expression(right, ExpressionTarget::Unclaimed(RegisterKind::Temporary))?;
 
         if let (Emission::Value(left_value), Emission::Value(right_value)) =
             (&left_emission, &right_emission)
@@ -2523,29 +2455,18 @@ impl<'a> Emitter<'a> {
         let mut math_emission = InstructionsEmission::new();
 
         let place_target = if let Emission::Place(Place::Register(allocation)) = &left_emission {
-            Some(allocation.clone())
+            Some(allocation.kind)
+        } else if let Emission::Instructions(instructions) = &left_emission {
+            instructions.target_registers.as_ref().map(|r| r.kind)
         } else {
             None
         };
-        let left_target = left_emission.take_allocation().or(place_target);
         let (left_memory, left_index, _) =
             self.handle_operand_emission(&mut math_emission, left_emission, &left)?;
         let (right_memory, right_index, _) =
             self.handle_operand_emission(&mut math_emission, right_emission, &right)?;
 
         let type_id = *self.resolver.get_type_binding(&reader.id)?;
-        let mut handle_target_register = |kind: Option<RegisterKind>,
-                                          node: &SyntaxReader|
-         -> Result<RegisterClaim, CompileError> {
-            let allocation =
-                self.allocate_registers(type_id, kind.unwrap_or(RegisterKind::Temporary))?;
-
-            let register = allocation.expect_single()?;
-
-            math_emission.set_target(Some(allocation));
-
-            Ok(register)
-        };
 
         let is_assignment = matches!(
             reader.node.kind,
@@ -2558,9 +2479,22 @@ impl<'a> Emitter<'a> {
         );
 
         let register = if is_assignment {
-            handle_target_register(left_target, &left)?
+            let kind = place_target.unwrap_or(RegisterKind::Temporary);
+            let allocation = self.allocate_registers(type_id, kind)?;
+            let reg = allocation.expect_single()?;
+            math_emission.set_target(Some(allocation));
+            reg
         } else {
-            handle_target_register(allocation, &reader)?
+            let target_registers = match target {
+                ExpressionTarget::Claimed(registers) => registers,
+                ExpressionTarget::Unclaimed(allocation_kind) => {
+                    self.allocate_registers(type_id, allocation_kind)?
+                }
+                ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
+            };
+            let reg = target_registers.expect_single()?;
+            math_emission.set_target(Some(target_registers));
+            reg
         };
 
         let destination = if is_assignment {
@@ -2656,8 +2590,10 @@ impl<'a> Emitter<'a> {
     ) -> Result<Emission, CompileError> {
         let ComparisonExpression { left, right } = reader.as_component()?;
 
-        let left_emission = self.emit_expression(left, None)?;
-        let right_emission = self.emit_expression(right, None)?;
+        let left_emission =
+            self.emit_expression(left, ExpressionTarget::Unclaimed(RegisterKind::Temporary))?;
+        let right_emission =
+            self.emit_expression(right, ExpressionTarget::Unclaimed(RegisterKind::Temporary))?;
 
         if let Emission::Value(left_constant) = left_emission
             && let Emission::Value(right_constant) = right_emission
@@ -2707,9 +2643,15 @@ impl<'a> Emitter<'a> {
             self.handle_operand_emission(&mut comparison_emission, right_emission, &right)?;
 
         let type_id = *self.resolver.get_type_binding(&reader.id)?;
-        let allocation_kind = allocation.ok_or(CompileError::ExpectedAllocation)?;
-        let target = self.allocate_registers(type_id, allocation_kind)?;
-        let register = target.expect_single()?;
+        let target_registers = match target {
+            ExpressionTarget::Claimed(registers) => registers,
+            ExpressionTarget::Unclaimed(allocation_kind) => {
+                self.allocate_registers(type_id, allocation_kind)?
+            }
+            ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
+        };
+        let register = target_registers.expect_single()?;
+
         let comparison_instruction = match reader.node.kind {
             SyntaxKind::EqualExpression => Instruction::equal(
                 true,
@@ -2791,7 +2733,7 @@ impl<'a> Emitter<'a> {
         comparison_emission.push(comparison_instruction);
         comparison_emission.push(load_false_instruction);
         comparison_emission.push(load_true_instruction);
-        comparison_emission.set_target(Some(target));
+        comparison_emission.set_target(Some(target_registers));
 
         Ok(Emission::Instructions(comparison_emission))
     }
@@ -2803,8 +2745,10 @@ impl<'a> Emitter<'a> {
     ) -> Result<Emission, CompileError> {
         let LogicExpression { left, right } = reader.as_component()?;
 
-        let left_emission = self.emit_expression(left, None)?;
-        let right_emission = self.emit_expression(right, None)?;
+        let left_emission =
+            self.emit_expression(left, ExpressionTarget::Unclaimed(RegisterKind::Temporary))?;
+        let right_emission =
+            self.emit_expression(right, ExpressionTarget::Unclaimed(RegisterKind::Temporary))?;
 
         if let Emission::Value(left_constant) = left_emission
             && let Emission::Value(right_constant) = right_emission
@@ -2831,9 +2775,14 @@ impl<'a> Emitter<'a> {
             self.handle_operand_emission(&mut logic_instructions, right_emission, &right)?;
 
         let type_id = *self.resolver.get_type_binding(&reader.id)?;
-        let allocation_kind = allocation.ok_or(CompileError::ExpectedAllocation)?;
-        let target = self.allocate_registers(type_id, allocation_kind)?;
-        let register = target.expect_single()?;
+        let target_registers = match target {
+            ExpressionTarget::Claimed(registers) => registers,
+            ExpressionTarget::Unclaimed(allocation_kind) => {
+                self.allocate_registers(type_id, allocation_kind)?
+            }
+            ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
+        };
+        let register = target_registers.expect_single()?;
 
         let test_instruction = match reader.node.kind {
             SyntaxKind::AndExpression => Instruction::test(false, left_memory, left_index, 1),
@@ -2863,7 +2812,7 @@ impl<'a> Emitter<'a> {
         logic_instructions.push(test_instruction);
         logic_instructions.push(right_move_instruction);
         logic_instructions.push(left_move_instruction);
-        logic_instructions.set_target(Some(target));
+        logic_instructions.set_target(Some(target_registers));
 
         Ok(Emission::Instructions(logic_instructions))
     }
@@ -2875,18 +2824,15 @@ impl<'a> Emitter<'a> {
     ) -> Result<Emission, CompileError> {
         let NegationExpression { operand } = reader.as_component()?;
 
-        let expression_emission = self.emit_expression(operand, None)?;
+        let expression_emission = self.emit_expression(
+            operand,
+            ExpressionTarget::Unclaimed(RegisterKind::Temporary),
+        )?;
 
         if let Emission::Value(constant) = &expression_emission
             && operand.node.kind != SyntaxKind::PathExpression
         {
-            let negated = constant
-                .negate()
-                .ok_or_else(|| CompileError::CannotApplyOperator {
-                    operator: reader.node.kind,
-                    type_id: constant.type_id(),
-                    operand_position: operand.position(),
-                })?;
+            let negated = constant.negate(&operand)?;
 
             return Ok(Emission::Value(negated));
         }
@@ -2896,9 +2842,14 @@ impl<'a> Emitter<'a> {
         let (operand_memory, operand_index, _) =
             self.handle_operand_emission(&mut negation_emission, expression_emission, &operand)?;
         let type_id = *self.resolver.get_type_binding(&reader.id)?;
-        let allocation_kind = allocation.ok_or(CompileError::ExpectedAllocation)?;
-        let target = self.allocate_registers(type_id, allocation_kind)?;
-        let register = target.expect_single()?;
+        let target_registers = match target {
+            ExpressionTarget::Claimed(registers) => registers,
+            ExpressionTarget::Unclaimed(allocation_kind) => {
+                self.allocate_registers(type_id, allocation_kind)?
+            }
+            ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
+        };
+        let register = target_registers.expect_single()?;
 
         let negate_instruction = Instruction::negate(
             register.index,
@@ -2908,7 +2859,7 @@ impl<'a> Emitter<'a> {
         );
 
         negation_emission.push(negate_instruction);
-        negation_emission.set_target(Some(target));
+        negation_emission.set_target(Some(target_registers));
 
         Ok(Emission::Instructions(negation_emission))
     }
@@ -2920,18 +2871,15 @@ impl<'a> Emitter<'a> {
     ) -> Result<Emission, CompileError> {
         let NotExpression { operand } = reader.as_component()?;
 
-        let expression_emission = self.emit_expression(operand, None)?;
+        let expression_emission = self.emit_expression(
+            operand,
+            ExpressionTarget::Unclaimed(RegisterKind::Temporary),
+        )?;
 
         if let Emission::Value(constant) = &expression_emission
             && operand.node.kind != SyntaxKind::PathExpression
         {
-            let negated = constant
-                .negate()
-                .ok_or_else(|| CompileError::CannotApplyOperator {
-                    operator: reader.node.kind,
-                    type_id: constant.type_id(),
-                    operand_position: operand.position(),
-                })?;
+            let negated = constant.negate(&operand)?;
 
             return Ok(Emission::Value(negated));
         }
@@ -2941,9 +2889,14 @@ impl<'a> Emitter<'a> {
         let (operand_memory, operand_index, _) =
             self.handle_operand_emission(&mut negation_emission, expression_emission, &operand)?;
         let type_id = *self.resolver.get_type_binding(&reader.id)?;
-        let allocation_kind = allocation.ok_or(CompileError::ExpectedAllocation)?;
-        let target = self.allocate_registers(type_id, allocation_kind)?;
-        let register = target.expect_single()?;
+        let target_registers = match target {
+            ExpressionTarget::Claimed(registers) => registers,
+            ExpressionTarget::Unclaimed(allocation_kind) => {
+                self.allocate_registers(type_id, allocation_kind)?
+            }
+            ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
+        };
+        let register = target_registers.expect_single()?;
 
         let negate_instruction = Instruction::negate(
             register.index,
@@ -2953,7 +2906,7 @@ impl<'a> Emitter<'a> {
         );
 
         negation_emission.push(negate_instruction);
-        negation_emission.set_target(Some(target));
+        negation_emission.set_target(Some(target_registers));
 
         Ok(Emission::Instructions(negation_emission))
     }
@@ -2967,7 +2920,10 @@ impl<'a> Emitter<'a> {
 
         let mut while_instructions = InstructionsEmission::new();
 
-        let condition_emission = self.emit_expression(condition, None)?;
+        let condition_emission = self.emit_expression(
+            condition,
+            ExpressionTarget::Unclaimed(RegisterKind::Temporary),
+        )?;
 
         self.handle_condition_emission(
             &mut while_instructions,
@@ -2983,7 +2939,7 @@ impl<'a> Emitter<'a> {
             forward_id: jump_forward_id,
         });
 
-        let body_emission = self.emit_block_expression(body, allocation)?;
+        let body_emission = self.emit_block_expression(body, target)?;
 
         if let Emission::Instructions(instructions) = body_emission {
             while_instructions.merge(instructions);
@@ -3038,15 +2994,18 @@ impl<'a> Emitter<'a> {
             fields,
             ..
         } = definition
-            && !fields == ScopeId::NONE
+            && fields != ScopeId::NONE
         {
             let return_type_id = *self.resolver.get_type_binding(&reader.id)?;
-            let target = self.allocate_registers(
-                return_type_id,
-                allocation.unwrap_or(RegisterKind::Temporary),
-            )?;
+            let target_registers = match target {
+                ExpressionTarget::Claimed(registers) => registers,
+                ExpressionTarget::Unclaimed(allocation_kind) => {
+                    self.allocate_registers(return_type_id, allocation_kind)?
+                }
+                ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
+            };
 
-            let destination = allocation.index();
+            let destination = target_registers.expect_base_index()?;
             let move_instruction = Instruction::r#move(
                 destination,
                 OperandType::U_16,
@@ -3058,10 +3017,13 @@ impl<'a> Emitter<'a> {
 
             variant_instructions.push(move_instruction);
 
-            let field_registers = allocation.iter().skip(1);
+            let field_registers = target_registers.claims.iter().skip(1);
 
             for (argument, field_register) in arguments.children().zip(field_registers) {
-                let argument_emission = self.emit_expression(argument, None)?;
+                let argument_emission = self.emit_expression(
+                    argument,
+                    ExpressionTarget::Unclaimed(RegisterKind::Temporary),
+                )?;
 
                 if let Emission::Value(constant) = &argument_emission
                     && let Some(encoded) = constant.encoded_u16()
@@ -3109,23 +3071,20 @@ impl<'a> Emitter<'a> {
                 }
             }
 
-            variant_instructions.set_target(Some(allocation));
+            variant_instructions.set_target(Some(target_registers));
 
             return Ok(Emission::Instructions(variant_instructions));
         }
 
         let return_type_id = *self.resolver.get_type_binding(&reader.id)?;
-        let allocation = if allocation.is_some() {
-            allocation
-        } else if return_type_id != TypeId::UNIT {
-            Some(self.allocate_registers(return_type_id, RegisterKind::Temporary)?)
-        } else {
-            None
+        let target_registers = match target {
+            ExpressionTarget::Claimed(registers) => registers,
+            ExpressionTarget::Unclaimed(allocation_kind) => {
+                self.allocate_registers(return_type_id, allocation_kind)?
+            }
+            ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
         };
-        let destination = allocation
-            .as_ref()
-            .map(|allocation| allocation.index())
-            .unwrap_or(u16::MAX);
+        let destination = target_registers.expect_base_index()?;
 
         let mut call_instructions = InstructionsEmission::new();
 
@@ -3178,7 +3137,7 @@ impl<'a> Emitter<'a> {
                         .declarations
                         .get_declaration(declaration_id)?
                         .scope_id,
-                )?;
+                );
 
                 if callee_scope.kind == ScopeKind::TypeTraitOrImpl
                     && callee.node.kind == SyntaxKind::FieldAccessExpression
@@ -3224,12 +3183,10 @@ impl<'a> Emitter<'a> {
                             | Definition::InherentImplementation { declarations, .. } =
                                 decl.definition
                             {
-                                let member_ids = self
-                                    .resolver
-                                    .declarations
-                                    .get_declaration_members(&declarations)?;
+                                let member_entries =
+                                    self.resolver.scopes.get_namespace_entries(declarations);
 
-                                for &member_id in member_ids {
+                                for &(_, member_id) in member_entries {
                                     let member =
                                         self.resolver.declarations.get_declaration(member_id)?;
 
@@ -3274,15 +3231,14 @@ impl<'a> Emitter<'a> {
             let argument_target =
                 self.allocate_registers(argument_type_id, RegisterKind::Reserved)?;
 
-            let argument_emission = self.emit_expression(argument, Some(argument_target))?;
+            let argument_emission =
+                self.emit_expression(argument, ExpressionTarget::Claimed(argument_target))?;
 
             if let Emission::Value(constant) = &argument_emission
                 && let Some(encoded) = constant.encoded_u16()
             {
                 let operand_type = constant.operand_type();
-                let destination = self
-                    .register_tracker
-                    .allocate_next_temporary(RegisterWidth::from(operand_type));
+                let destination = self.register_tracker.allocate_next_temporary(operand_type);
                 let move_instruction =
                     Instruction::r#move(destination, operand_type, MemoryKind::ENCODED, encoded);
 
@@ -3303,9 +3259,7 @@ impl<'a> Emitter<'a> {
                     operand_type,
                     index,
                 } => {
-                    let destination = self
-                        .register_tracker
-                        .allocate_next_temporary(RegisterWidth::from(operand_type));
+                    let destination = self.register_tracker.allocate_next_temporary(operand_type);
                     let move_instruction =
                         Instruction::r#move(destination, operand_type, MemoryKind::CONSTANT, index);
 
@@ -3315,7 +3269,7 @@ impl<'a> Emitter<'a> {
                     for register in &allocation.claims {
                         let destination = self
                             .register_tracker
-                            .allocate_next_temporary(RegisterWidth::from(register.operand_type));
+                            .allocate_next_temporary(register.operand_type);
                         let move_instruction = Instruction::r#move(
                             destination,
                             register.operand_type,
@@ -3340,7 +3294,8 @@ impl<'a> Emitter<'a> {
         let (callee_memory, callee_index) = if let Some(prototype_id) = monomorphized_prototype_id {
             (MemoryKind::ENCODED, prototype_id.inner())
         } else {
-            let callee_emission = self.emit_expression(callee, None)?;
+            let callee_emission =
+                self.emit_expression(callee, ExpressionTarget::Unclaimed(RegisterKind::Temporary))?;
 
             let callee_place = match callee_emission {
                 Emission::Place(place) => place,
@@ -3381,7 +3336,7 @@ impl<'a> Emitter<'a> {
             Instruction::call(destination, callee_memory, callee_index, arguments_start);
 
         call_instructions.push(call_instruction);
-        call_instructions.set_target(allocation);
+        call_instructions.set_target(Some(target_registers));
 
         Ok(Emission::Instructions(call_instructions))
     }
@@ -3396,7 +3351,10 @@ impl<'a> Emitter<'a> {
             field_name,
         } = reader.as_component()?;
 
-        let operand_emission = self.emit_expression(struct_expression, None)?;
+        let operand_emission = self.emit_expression(
+            struct_expression,
+            ExpressionTarget::Unclaimed(RegisterKind::Temporary),
+        )?;
 
         let struct_registers = match operand_emission {
             Emission::Place(Place::Register(registers)) => registers,
@@ -3448,14 +3406,11 @@ impl<'a> Emitter<'a> {
             }
         };
 
-        let field_ids = self
-            .resolver
-            .declarations
-            .get_declaration_members(&fields)?;
+        let field_entries = self.resolver.scopes.get_namespace_entries(fields);
 
         let mut register_offset = 0usize;
 
-        for &field_id in field_ids {
+        for &(_, field_id) in field_entries {
             if field_id == field_declaration_id {
                 break;
             }
@@ -3613,8 +3568,19 @@ impl RegisterClaims {
         self.kind == RegisterKind::Temporary
     }
 
-    fn base_index(&self) -> u16 {
-        self.claims[0].index
+    fn expect_base_index(&self) -> Result<u16, CompileError> {
+        self.claims
+            .first()
+            .map(|claim| claim.index)
+            .ok_or(CompileError::ExpectedAllocation)
+    }
+
+    fn expect_single(&self) -> Result<RegisterClaim, CompileError> {
+        if self.claims.len() == 1 {
+            Ok(self.claims[0])
+        } else {
+            Err(CompileError::ExpectedAllocation)
+        }
     }
 
     fn len(&self) -> usize {
@@ -3626,31 +3592,6 @@ impl RegisterClaims {
             .iter()
             .map(|register| register.operand_type)
             .collect()
-    }
-
-    fn expect_single(&self) -> Result<RegisterClaim, CompileError> {
-        if self.claims.len() == 1 {
-            Ok(self.claims[0])
-        } else {
-            Err(CompileError::InvalidRegisterCount {
-                expected: 1,
-                found: self.claims.len(),
-            })
-        }
-    }
-
-    fn expect_multiple(
-        &self,
-        expected: usize,
-    ) -> Result<&SmallVec<[RegisterClaim; 4]>, CompileError> {
-        if self.claims.len() == expected {
-            Ok(&self.claims)
-        } else {
-            Err(CompileError::InvalidRegisterCount {
-                expected,
-                found: self.claims.len(),
-            })
-        }
     }
 }
 
@@ -4003,7 +3944,9 @@ pub fn get_byte_size(
         | Type::Float(FloatType::F64) => Ok(Some(8)),
         Type::SignedInteger(SignedIntegerType::I128)
         | Type::UnsignedInteger(UnsignedIntegerType::U128) => Ok(Some(16)),
-        Type::Tuple { element_type_ids } => {
+        Type::Tuple {
+            element_types: element_type_ids,
+        } => {
             let type_ids = resolver.types.get_type_members(*element_type_ids)?;
             let mut total_size = 0;
 

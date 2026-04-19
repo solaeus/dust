@@ -10,6 +10,7 @@ use crate::{
             Resolver,
             declarations::{Declaration, DeclarationId, Definition},
             scopes::ScopeId,
+            symbols::SymbolId,
             types::{InferredTypeConstraint, Type, TypeId, TypeMembers},
         },
         value_creation::create_usize_from_decimal,
@@ -539,9 +540,12 @@ impl TypeBinder<'_> {
         let ConstItem {
             name,
             type_notation: _,
-            value,
+            value: Some(value),
             ..
-        } = reader.as_component()?;
+        } = reader.as_component()?
+        else {
+            return Ok(());
+        };
 
         let declaration_id = *self.resolver.get_declaration_binding(&name.id)?;
         let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
@@ -639,7 +643,7 @@ impl TypeBinder<'_> {
         let declaration_id = *self.resolver.get_declaration_binding(&name.id)?;
         let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
         let Definition::Local { type_id, .. } = declaration.definition else {
-            return Err(CompileError::ExpectedLocalDefinition);
+            return Err(CompileError::ExpectedLocalDefinition(declaration_id));
         };
         let expression_type_id = self.visit_expression(expression, ())?;
 
@@ -894,7 +898,8 @@ impl TypeBinder<'_> {
         let type_id = match declaration.definition {
             Definition::Local { type_id, .. }
             | Definition::Constant { type_id, .. }
-            | Definition::AssociatedConstant { type_id, .. } => {
+            | Definition::InherentAssociatedConstant { type_id, .. }
+            | Definition::TraitAssociatedConstant { type_id, .. } => {
                 self.resolver.resolve_type(type_id)?
             }
             Definition::Function {
@@ -996,7 +1001,8 @@ impl TypeBinder<'_> {
                 match target_declaration.definition {
                     Definition::Local { type_id, .. }
                     | Definition::Constant { type_id, .. }
-                    | Definition::AssociatedConstant { type_id, .. } => {
+                    | Definition::InherentAssociatedConstant { type_id, .. }
+                    | Definition::TraitAssociatedConstant { type_id, .. } => {
                         self.resolver.resolve_type(type_id)?
                     }
                     _ => {
@@ -1029,7 +1035,7 @@ impl TypeBinder<'_> {
             name_expression_pairs,
         } = fields.as_component()?;
 
-        for [field_name, field_value] in name_expression_pairs {
+        for (field_name, field_value) in name_expression_pairs {
             let field_declaration_id = *self.resolver.get_declaration_binding(&field_name.id)?;
             let field_declaration = self
                 .resolver
@@ -1252,42 +1258,35 @@ impl TypeBinder<'_> {
             } => {
                 let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
 
-                let (type_parameters, value_parameters, return_type_id) =
-                    match declaration.definition {
-                        Definition::Function {
-                            type_parameters,
-                            value_parameters,
-                            return_type_id,
-                            ..
-                        } => (type_parameters, value_parameters, return_type_id),
-                        Definition::NativeFunction {
-                            type_parameters,
-                            value_parameters,
-                            return_type_id,
-                            ..
-                        } => (type_parameters, value_parameters, return_type_id),
-                        _ => {
-                            return Err(CompileError::ExpectedFunctionType {
-                                found: resolved_callee_type_id,
-                                position: callee.position(),
-                            });
-                        }
-                    };
+                let (type_parameters, return_type_id) = match declaration.definition {
+                    Definition::Function {
+                        type_parameters,
+                        return_type_id,
+                        ..
+                    } => (type_parameters, return_type_id),
+                    Definition::NativeFunction {
+                        type_parameters,
+                        return_type_id,
+                        ..
+                    } => (type_parameters, return_type_id),
+                    _ => {
+                        return Err(CompileError::ExpectedFunctionType {
+                            found: resolved_callee_type_id,
+                            position: callee.position(),
+                        });
+                    }
+                };
 
                 let mut inserted_type_parameters = SmallVec::<[DeclarationId; 4]>::new();
 
                 if !type_arguments.is_empty() {
-                    let type_parameter_declaration_ids = self
-                        .resolver
-                        .declarations
-                        .get_declaration_members(&type_parameters)?;
+                    let type_parameter_entries =
+                        self.resolver.scopes.get_namespace_entries(type_parameters);
 
                     let type_argument_ids = self.resolver.types.get_type_members(type_arguments)?;
 
-                    for (&type_parameter_declaration_id, &type_argument_id) in
-                        type_parameter_declaration_ids
-                            .iter()
-                            .zip(type_argument_ids.iter())
+                    for (&(_, type_parameter_declaration_id), &type_argument_id) in
+                        type_parameter_entries.iter().zip(type_argument_ids.iter())
                     {
                         self.resolver
                             .type_parameter_map
@@ -1297,47 +1296,118 @@ impl TypeBinder<'_> {
                 }
 
                 let mut argument_count = 0;
-                let parameter_entries =
-                    self.resolver.scopes.get_namespace_entries(value_parameters);
-                let mut parameter_iter = parameter_entries.iter();
 
-                if callee.node.kind == SyntaxKind::FieldAccessExpression {
-                    parameter_iter.next(); // For method calls, skip the `self` parameter
-                }
+                match declaration.definition {
+                    Definition::Function {
+                        value_parameters, ..
+                    } => {
+                        let parameter_entries: SmallVec<[(SymbolId, DeclarationId); 8]> = self
+                            .resolver
+                            .scopes
+                            .get_namespace_entries(value_parameters)
+                            .iter()
+                            .copied()
+                            .collect();
+                        let mut parameter_iter = parameter_entries.iter();
 
-                for argument in arguments.children() {
-                    let Some(&(_, parameter_declaration_id)) = parameter_iter.next() else {
-                        return Err(CompileError::ExpectedArguments {
-                            function_type: resolved_callee_type_id,
-                            expected_count: parameter_entries.len(),
-                            found_count: arguments.child_count(),
-                            found_position: arguments.position(),
+                        if callee.node.kind == SyntaxKind::FieldAccessExpression {
+                            parameter_iter.next(); // For method calls, skip the `self` parameter
+                        }
+
+                        for argument in arguments.children() {
+                            let Some(&(_, parameter_declaration_id)) = parameter_iter.next() else {
+                                return Err(CompileError::ExpectedArguments {
+                                    function_type: resolved_callee_type_id,
+                                    expected_count: parameter_entries.len(),
+                                    found_count: arguments.child_count(),
+                                    found_position: arguments.position(),
+                                });
+                            };
+                            let parameter_declaration = self
+                                .resolver
+                                .declarations
+                                .get_declaration(parameter_declaration_id)?;
+                            let parameter_type_id = match parameter_declaration.definition {
+                                Definition::Local { type_id, .. } => type_id,
+                                _ => continue,
+                            };
+                            let resolved_parameter_type_id =
+                                self.resolver.resolve_type(parameter_type_id)?;
+                            let argument_type_id = self.visit_expression(argument, ())?;
+
+                            self.unify_types(
+                                resolved_parameter_type_id,
+                                None,
+                                argument_type_id,
+                                argument,
+                            )?;
+
+                            argument_count += 1;
+                        }
+
+                        if parameter_iter.next().is_some() {
+                            return Err(CompileError::ExpectedArguments {
+                                function_type: resolved_callee_type_id,
+                                expected_count: parameter_entries.len(),
+                                found_count: argument_count,
+                                found_position: arguments.position(),
+                            });
+                        }
+                    }
+                    Definition::NativeFunction {
+                        value_parameters, ..
+                    } => {
+                        let parameter_type_ids: SmallVec<[TypeId; 8]> = self
+                            .resolver
+                            .types
+                            .get_type_members(value_parameters)?
+                            .iter()
+                            .copied()
+                            .collect();
+                        let mut parameter_iter = parameter_type_ids.iter();
+
+                        if callee.node.kind == SyntaxKind::FieldAccessExpression {
+                            parameter_iter.next(); // For method calls, skip the `self` parameter
+                        }
+
+                        for argument in arguments.children() {
+                            let Some(&parameter_type_id) = parameter_iter.next() else {
+                                return Err(CompileError::ExpectedArguments {
+                                    function_type: resolved_callee_type_id,
+                                    expected_count: parameter_type_ids.len(),
+                                    found_count: arguments.child_count(),
+                                    found_position: arguments.position(),
+                                });
+                            };
+                            let resolved_parameter_type_id =
+                                self.resolver.resolve_type(parameter_type_id)?;
+                            let argument_type_id = self.visit_expression(argument, ())?;
+
+                            self.unify_types(
+                                resolved_parameter_type_id,
+                                None,
+                                argument_type_id,
+                                argument,
+                            )?;
+
+                            argument_count += 1;
+                        }
+
+                        if parameter_iter.next().is_some() {
+                            return Err(CompileError::ExpectedArguments {
+                                function_type: resolved_callee_type_id,
+                                expected_count: parameter_type_ids.len(),
+                                found_count: argument_count,
+                                found_position: arguments.position(),
+                            });
+                        }
+                    }
+                    _ => {
+                        return Err(CompileError::ExpectedFunctionType {
+                            found: resolved_callee_type_id,
+                            position: callee.position(),
                         });
-                    };
-                    let parameter_declaration = self
-                        .resolver
-                        .declarations
-                        .get_declaration(parameter_declaration_id)?;
-                    let parameter_type_id = match parameter_declaration.definition {
-                        Definition::Local { type_id, .. } => type_id,
-                        _ => continue,
-                    };
-                    let resolved_parameter_type_id =
-                        self.resolver.resolve_type(parameter_type_id)?;
-                    let argument_type_id = self.visit_expression(argument, ())?;
-
-                    self.unify_types(resolved_parameter_type_id, None, argument_type_id, argument)?;
-
-                    argument_count += 1;
-                }
-
-                if parameter_iter.next().is_some() {
-                    return Err(CompileError::ExpectedArguments {
-                        function_type: resolved_callee_type_id,
-                        expected_count: parameter_entries.len(),
-                        found_count: argument_count,
-                        found_position: arguments.position(),
-                    });
+                    }
                 }
 
                 let resolved_return_type_id = self.resolver.resolve_type(return_type_id)?;
@@ -1396,7 +1466,13 @@ impl TypeBinder<'_> {
                 }
 
                 let mut argument_count = 0;
-                let field_entries = self.resolver.scopes.get_namespace_entries(fields);
+                let field_entries: SmallVec<[(SymbolId, DeclarationId); 8]> = self
+                    .resolver
+                    .scopes
+                    .get_namespace_entries(fields)
+                    .iter()
+                    .copied()
+                    .collect();
                 let mut field_iter = field_entries.iter();
 
                 for argument in arguments.children() {
@@ -1426,10 +1502,10 @@ impl TypeBinder<'_> {
                     argument_count += 1;
                 }
 
-                if argument_count != fields.len() {
+                if argument_count != self.resolver.scopes.namespace_len(fields) {
                     return Err(CompileError::ExpectedArguments {
                         function_type: resolved_callee_type_id,
-                        expected_count: fields.len() as usize,
+                        expected_count: self.resolver.scopes.namespace_len(fields),
                         found_count: argument_count as usize,
                         found_position: arguments.position(),
                     });
@@ -1515,12 +1591,9 @@ impl TypeBinder<'_> {
                     .children()
                     .map(|element_type| self.visit_type(element_type))
                     .try_collect::<SmallVec<[TypeId; 4]>>()?;
-                let element_type_ids = self.resolver.types.add_type_members(element_type_ids);
+                let element_types = self.resolver.types.add_type_members(element_type_ids);
 
-                Ok(self
-                    .resolver
-                    .types
-                    .add_type(Type::Tuple { element_type_ids }))
+                Ok(self.resolver.types.add_type(Type::Tuple { element_types }))
             }
             SyntaxKind::FunctionType => {
                 let FunctionType {

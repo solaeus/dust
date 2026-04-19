@@ -585,6 +585,46 @@ impl ConstantValue {
         }
     }
 
+    pub fn negate(self, syntax: &SyntaxReader) -> Result<Self, CompileError> {
+        let overflow_error = || CompileError::ConstantUnaryOverflow {
+            value: self,
+            operand_span: syntax.node.span,
+            operator: syntax.node.kind,
+            file_id: syntax.file_id(),
+        };
+
+        match self {
+            ConstantValue::Boolean(boolean) => Ok(ConstantValue::Boolean(!boolean)),
+            ConstantValue::I8(integer) => integer
+                .checked_neg()
+                .map(ConstantValue::I8)
+                .ok_or_else(overflow_error),
+            ConstantValue::I16(integer) => integer
+                .checked_neg()
+                .map(ConstantValue::I16)
+                .ok_or_else(overflow_error),
+            ConstantValue::I32(integer) => integer
+                .checked_neg()
+                .map(ConstantValue::I32)
+                .ok_or_else(overflow_error),
+            ConstantValue::I64(integer) => integer
+                .checked_neg()
+                .map(ConstantValue::I64)
+                .ok_or_else(overflow_error),
+            ConstantValue::I128(integer) => integer
+                .checked_neg()
+                .map(ConstantValue::I128)
+                .ok_or_else(overflow_error),
+            ConstantValue::F32(float) => Ok(ConstantValue::F32(-float)),
+            ConstantValue::F64(float) => Ok(ConstantValue::F64(-float)),
+            _ => Err(CompileError::CannotApplyOperator {
+                operator: syntax.node.kind,
+                type_id: self.type_id(),
+                operand_position: syntax.position(),
+            }),
+        }
+    }
+
     fn create_overflow_error(self, other: Self, syntax: &SyntaxReader) -> CompileError {
         match syntax.as_component() {
             Ok(MathExpression { left, right }) => CompileError::ConstantOverflow {

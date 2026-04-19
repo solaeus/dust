@@ -11,7 +11,7 @@ use annotate_snippets::{Group, Level, Renderer};
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
-use crate::error::AnnotatedError;
+use crate::error::{AnnotatedError, Error, ErrorContext, ErrorKind};
 
 #[derive(Debug, Clone)]
 pub struct Source<'src> {
@@ -397,7 +397,7 @@ impl Display for Span {
     }
 }
 
-trait IntoSpanIndex {
+pub trait IntoSpanIndex {
     fn into_span_index(self) -> u32;
 }
 
@@ -429,6 +429,12 @@ pub enum SourceError {
     // Internal errors
     MissingSourceFile(FileId),
     FileContentOutOfBounds { span: Span, length: usize },
+}
+
+impl<'src> SourceError {
+    pub fn to_full_error(self) -> Error<'src> {
+        Error::new(vec![ErrorKind::Source(self)], ErrorContext::None)
+    }
 }
 
 impl Display for SourceError {

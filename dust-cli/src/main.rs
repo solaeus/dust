@@ -210,19 +210,22 @@ fn build_source<'src>(eval: Option<String>, path: Option<PathBuf>, stdin: bool) 
             } else {
                 path.join("src").join("main.ds")
             };
-            let code = Code::file(main_file_path).unwrap_or_else(|error| error.print_and_exit());
+            let code = Code::file(main_file_path)
+                .unwrap_or_else(|error| error.to_full_error().print_and_exit());
 
             source.add_code(code);
 
             let lib_file_path = path.join("src").join("lib.ds");
 
             if lib_file_path.exists() {
-                let code = Code::file(lib_file_path).unwrap_or_else(|error| error.print_and_exit());
+                let code = Code::file(lib_file_path)
+                    .unwrap_or_else(|error| error.to_full_error().print_and_exit());
 
                 source.add_code(code);
             }
         } else {
-            let code = Code::file(path).unwrap_or_else(|error| error.print_and_exit());
+            let code =
+                Code::file(path).unwrap_or_else(|error| error.to_full_error().print_and_exit());
 
             source.add_code(code);
         }

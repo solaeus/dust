@@ -175,15 +175,24 @@ fn tuple_type_empty() {
     };
 
     let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
-    let parameter_declaration = resolver.declarations.get_declaration(parameter_entries[0].1).unwrap();
-    let Definition::Local { type_id: parameter_type_id, .. } = parameter_declaration.definition else { panic!(); };
+    let parameter_declaration = resolver
+        .declarations
+        .get_declaration(parameter_entries[0].1)
+        .unwrap();
+    let Definition::Local {
+        type_id: parameter_type_id,
+        ..
+    } = parameter_declaration.definition
+    else {
+        panic!();
+    };
     let tuple_type = resolver.types.get_type(parameter_type_id).unwrap();
-    let Type::Tuple { element_type_ids } = tuple_type else {
+    let Type::Tuple { element_types } = tuple_type else {
         panic!();
     };
 
     assert_eq!(parameter_entries.len(), 1);
-    assert!(element_type_ids.is_empty());
+    assert!(element_types.is_empty());
 }
 
 #[test]
@@ -208,13 +217,22 @@ fn tuple_type_multiple() {
     };
 
     let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
-    let parameter_declaration = resolver.declarations.get_declaration(parameter_entries[0].1).unwrap();
-    let Definition::Local { type_id: parameter_type_id, .. } = parameter_declaration.definition else { panic!(); };
-    let tuple_type = resolver.types.get_type(parameter_type_id).unwrap();
-    let Type::Tuple { element_type_ids } = tuple_type else {
+    let parameter_declaration = resolver
+        .declarations
+        .get_declaration(parameter_entries[0].1)
+        .unwrap();
+    let Definition::Local {
+        type_id: parameter_type_id,
+        ..
+    } = parameter_declaration.definition
+    else {
         panic!();
     };
-    let elements = resolver.types.get_type_members(*element_type_ids).unwrap();
+    let tuple_type = resolver.types.get_type(parameter_type_id).unwrap();
+    let Type::Tuple { element_types } = tuple_type else {
+        panic!();
+    };
+    let elements = resolver.types.get_type_members(*element_types).unwrap();
 
     assert_eq!(parameter_entries.len(), 1);
     assert_eq!(elements, &[TypeId::I_64, TypeId::BOOLEAN]);
@@ -240,8 +258,17 @@ fn slice_type() {
     };
 
     let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
-    let parameter_declaration = resolver.declarations.get_declaration(parameter_entries[0].1).unwrap();
-    let Definition::Local { type_id: parameter_type_id, .. } = parameter_declaration.definition else { panic!(); };
+    let parameter_declaration = resolver
+        .declarations
+        .get_declaration(parameter_entries[0].1)
+        .unwrap();
+    let Definition::Local {
+        type_id: parameter_type_id,
+        ..
+    } = parameter_declaration.definition
+    else {
+        panic!();
+    };
     let slice_type = resolver.types.get_type(parameter_type_id).unwrap();
     let Type::Slice {
         element_type_id, ..
@@ -280,8 +307,17 @@ fn function_type_basic() {
 
     assert_eq!(parameter_entries.len(), 1);
 
-    let parameter_declaration = resolver.declarations.get_declaration(parameter_entries[0].1).unwrap();
-    let Definition::Local { type_id: parameter_type_id, .. } = parameter_declaration.definition else { panic!(); };
+    let parameter_declaration = resolver
+        .declarations
+        .get_declaration(parameter_entries[0].1)
+        .unwrap();
+    let Definition::Local {
+        type_id: parameter_type_id,
+        ..
+    } = parameter_declaration.definition
+    else {
+        panic!();
+    };
     let function_type = resolver.types.get_type(parameter_type_id).unwrap();
     let Type::Function {
         value_parameters: function_value_parameters,
@@ -322,8 +358,17 @@ fn function_type_no_params() {
     };
 
     let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
-    let parameter_declaration = resolver.declarations.get_declaration(parameter_entries[0].1).unwrap();
-    let Definition::Local { type_id: parameter_type_id, .. } = parameter_declaration.definition else { panic!(); };
+    let parameter_declaration = resolver
+        .declarations
+        .get_declaration(parameter_entries[0].1)
+        .unwrap();
+    let Definition::Local {
+        type_id: parameter_type_id,
+        ..
+    } = parameter_declaration.definition
+    else {
+        panic!();
+    };
     let function_type = resolver.types.get_type(parameter_type_id).unwrap();
     let Type::Function {
         value_parameters: function_value_parameters,
@@ -361,8 +406,17 @@ fn function_type_multiple_params() {
     };
 
     let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
-    let parameter_declaration = resolver.declarations.get_declaration(parameter_entries[0].1).unwrap();
-    let Definition::Local { type_id: parameter_type_id, .. } = parameter_declaration.definition else { panic!(); };
+    let parameter_declaration = resolver
+        .declarations
+        .get_declaration(parameter_entries[0].1)
+        .unwrap();
+    let Definition::Local {
+        type_id: parameter_type_id,
+        ..
+    } = parameter_declaration.definition
+    else {
+        panic!();
+    };
     let function_type = resolver.types.get_type(parameter_type_id).unwrap();
     let Type::Function {
         value_parameters: function_value_parameters,
@@ -401,8 +455,17 @@ fn function_type_no_return() {
     };
 
     let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
-    let parameter_declaration = resolver.declarations.get_declaration(parameter_entries[0].1).unwrap();
-    let Definition::Local { type_id: parameter_type_id, .. } = parameter_declaration.definition else { panic!(); };
+    let parameter_declaration = resolver
+        .declarations
+        .get_declaration(parameter_entries[0].1)
+        .unwrap();
+    let Definition::Local {
+        type_id: parameter_type_id,
+        ..
+    } = parameter_declaration.definition
+    else {
+        panic!();
+    };
     let function_type = resolver.types.get_type(parameter_type_id).unwrap();
     let Type::Function {
         value_parameters: function_value_parameters,
@@ -412,7 +475,10 @@ fn function_type_no_return() {
     else {
         panic!();
     };
-    let function_value_parameters = resolver.types.get_type_members(*function_value_parameters).unwrap();
+    let function_value_parameters = resolver
+        .types
+        .get_type_members(*function_value_parameters)
+        .unwrap();
 
     assert_eq!(function_value_parameters, &[TypeId::I_64]);
     assert_eq!(*return_type_id, TypeId::UNIT);
@@ -447,8 +513,17 @@ fn type_path_to_struct() {
     };
 
     let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
-    let parameter_declaration = resolver.declarations.get_declaration(parameter_entries[0].1).unwrap();
-    let Definition::Local { type_id: parameter_type_id, .. } = parameter_declaration.definition else { panic!(); };
+    let parameter_declaration = resolver
+        .declarations
+        .get_declaration(parameter_entries[0].1)
+        .unwrap();
+    let Definition::Local {
+        type_id: parameter_type_id,
+        ..
+    } = parameter_declaration.definition
+    else {
+        panic!();
+    };
     let parameter_type = resolver.types.get_type(parameter_type_id).unwrap();
     let Type::Algebraic {
         declaration_id,
@@ -491,8 +566,17 @@ fn type_path_to_enum() {
     };
 
     let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
-    let parameter_declaration = resolver.declarations.get_declaration(parameter_entries[0].1).unwrap();
-    let Definition::Local { type_id: parameter_type_id, .. } = parameter_declaration.definition else { panic!(); };
+    let parameter_declaration = resolver
+        .declarations
+        .get_declaration(parameter_entries[0].1)
+        .unwrap();
+    let Definition::Local {
+        type_id: parameter_type_id,
+        ..
+    } = parameter_declaration.definition
+    else {
+        panic!();
+    };
     let parameter_type = resolver.types.get_type(parameter_type_id).unwrap();
     let Type::Algebraic { declaration_id, .. } = parameter_type else {
         panic!();
@@ -528,8 +612,17 @@ fn type_path_to_type_parameter() {
 
     let t_declaration_id = type_parameter_entries[0].1;
     let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
-    let parameter_declaration = resolver.declarations.get_declaration(parameter_entries[0].1).unwrap();
-    let Definition::Local { type_id: parameter_type_id, .. } = parameter_declaration.definition else { panic!(); };
+    let parameter_declaration = resolver
+        .declarations
+        .get_declaration(parameter_entries[0].1)
+        .unwrap();
+    let Definition::Local {
+        type_id: parameter_type_id,
+        ..
+    } = parameter_declaration.definition
+    else {
+        panic!();
+    };
     let parameter_type = resolver.types.get_type(parameter_type_id).unwrap();
     let Type::Generic { declaration_id } = parameter_type else {
         panic!();

@@ -92,6 +92,29 @@ impl<'a> SyntaxReader<'a> {
         }
     }
 
+    pub fn last_child(&self) -> Result<Option<Self>, SyntaxError> {
+        if !self.has_children() {
+            return Ok(None);
+        }
+
+        match self.node.children_kind {
+            SyntaxChildrenKind::None => Ok(None),
+            SyntaxChildrenKind::Single => {
+                let id = self.node.children.left_id();
+                self.tree.read_node(id).map(Some)
+            }
+            SyntaxChildrenKind::Binary => {
+                let id = self.node.children.right_id();
+                self.tree.read_node(id).map(Some)
+            }
+            SyntaxChildrenKind::ThreeOrMore => {
+                let last_index = self.node.children.right as usize - 1;
+                let id = self.tree.children[last_index];
+                self.tree.read_node(id).map(Some)
+            }
+        }
+    }
+
     pub fn child_pairs(self) -> SyntaxPairIterator<'a> {
         SyntaxPairIterator {
             parent: self,

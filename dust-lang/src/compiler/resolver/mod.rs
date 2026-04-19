@@ -238,8 +238,8 @@ impl Resolver {
             }
             Type::Float(FloatType::F32) => Ok(smallvec![OperandType::F_32]),
             Type::Float(FloatType::F64) => Ok(smallvec![OperandType::F_64]),
-            Type::Tuple { element_type_ids } => {
-                let element_type_ids = self.types.get_type_members(*element_type_ids)?;
+            Type::Tuple { element_types } => {
+                let element_type_ids = self.types.get_type_members(*element_types)?;
                 let mut operand_types = SmallVec::with_capacity(element_type_ids.len());
 
                 for element_type_id in element_type_ids {
@@ -551,9 +551,9 @@ impl Resolver {
                     .iter()
                     .map(|element_type| self.add_external_type(element_type, type_scope_id))
                     .collect::<TypeId::SmallVec>();
-                let element_type_ids = self.types.add_type_members(element_type_ids);
+                let element_types = self.types.add_type_members(element_type_ids);
 
-                self.types.add_type(Type::Tuple { element_type_ids })
+                self.types.add_type(Type::Tuple { element_types })
             }
             DustType::Array(element_type, length) => {
                 let element_type_id = self.add_external_type(element_type, scope_id);
@@ -801,12 +801,12 @@ impl Resolver {
                 FloatType::F32 => Ok(DustType::F32),
                 FloatType::F64 => Ok(DustType::F64),
             },
-            Type::Tuple { element_type_ids } => {
-                if element_type_ids.is_empty() {
+            Type::Tuple { element_types } => {
+                if element_types.is_empty() {
                     Ok(DustType::Unit)
                 } else {
                     let element_types: Vec<DustType> = self
-                        .get_type_members_as_full_types(*element_type_ids)
+                        .get_type_members_as_full_types(*element_types)
                         .collect::<Result<_, _>>()?;
 
                     Ok(DustType::Tuple(element_types))
@@ -1145,10 +1145,11 @@ fn add_built_in_type(
     namespace_entries: &mut Vec<(SymbolId, DeclarationId)>,
     parent_scope_id: ScopeId,
 ) -> DeclarationId {
-    let enter_scope = |kind, parent, namespace_entries: &Vec<_>, scopes: &mut Scopes| -> (ScopeId, usize) {
-        let scope_id = scopes.enter_scope(kind, parent);
-        (scope_id, namespace_entries.len())
-    };
+    let enter_scope =
+        |kind, parent, namespace_entries: &Vec<_>, scopes: &mut Scopes| -> (ScopeId, usize) {
+            let scope_id = scopes.enter_scope(kind, parent);
+            (scope_id, namespace_entries.len())
+        };
 
     let (name, type_parameter_names) = match built_in_type {
         BuiltInType::Struct {
@@ -1344,10 +1345,9 @@ fn add_built_in_type(
         BuiltInType::Generic { .. } => unreachable!(),
     }
 
-    resolver.scopes.exit_scope(
-        scope_id,
-        namespace_entries.drain(scope_entries_start..),
-    );
+    resolver
+        .scopes
+        .exit_scope(scope_id, namespace_entries.drain(scope_entries_start..));
 
     declaration_id
 }

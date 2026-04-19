@@ -45,7 +45,9 @@ pub fn bind_declarations(source: &Source) -> (Syntax, Resolver, ScopeId) {
     }
 
     let mut resolver = Resolver::new();
-    let crate_scope_id = resolver.scopes.enter_scope(ScopeKind::Module, ScopeId::NONE);
+    let crate_scope_id = resolver
+        .scopes
+        .enter_scope(ScopeKind::Module, ScopeId::NONE);
 
     let main_root = syntax.get_tree(FileId::MAIN).unwrap().root().unwrap();
 
