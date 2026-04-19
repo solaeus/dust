@@ -63,7 +63,7 @@ impl SyntaxTree {
             .first()
             .ok_or(SyntaxError::MissingSyntaxNode(SyntaxId::ROOT))?;
 
-        Ok(SyntaxReader::new(SyntaxId::ROOT, root_node, self))
+        Ok(SyntaxReader::new(SyntaxId::ROOT, *root_node, self))
     }
 
     pub fn add_node(&mut self, node: SyntaxNode) -> SyntaxId {
@@ -84,7 +84,7 @@ impl SyntaxTree {
             .get(id.0 as usize)
             .ok_or(SyntaxError::MissingSyntaxNode(id))?;
 
-        Ok(SyntaxReader::new(id, node, self))
+        Ok(SyntaxReader::new(id, *node, self))
     }
 
     pub fn add_children(&mut self, children: impl IntoIterator<Item = SyntaxId>) -> SyntaxChildren {
@@ -104,12 +104,12 @@ impl SyntaxTree {
         self.nodes
             .iter()
             .enumerate()
-            .map(|(index, node)| SyntaxReader::new(SyntaxId(index as u32), node, self))
+            .map(|(index, node)| SyntaxReader::new(SyntaxId(index as u32), *node, self))
     }
 
     pub fn sorted_nodes(&self) -> Vec<SyntaxNode> {
         fn collect_depth_first(reader: SyntaxReader, nodes: &mut Vec<SyntaxNode>) {
-            nodes.push(*reader.node);
+            nodes.push(reader.node);
 
             for child in reader.children() {
                 collect_depth_first(child, nodes);

@@ -20,8 +20,8 @@ use crate::{
         error::CompileError,
         resolver::{
             PrototypeId, Resolver,
-            declarations::{DeclarationId, Definition, Visibility},
-            scopes::{Scope, ScopeId, ScopeKind},
+            declarations::{DeclarationId, Definition},
+            scopes::{ScopeId, ScopeKind},
             types::Type,
         },
         type_binder::TypeBinder,
@@ -154,12 +154,7 @@ impl<'src> Compiler<'src> {
             }
         }
 
-        let crate_scope_id = self.resolver.scopes.add_scope(Scope {
-            kind: ScopeKind::Crate,
-            parent: ScopeId::NONE,
-            modules: SmallVec::new(),
-            imports: SmallVec::new(),
-        });
+        let crate_scope_id = self.resolver.scopes.enter_scope(ScopeKind::Crate, ScopeId::NONE);
         let main_file_root = unwrap_or_return!(
             self.syntax
                 .get_tree(FileId::MAIN)
@@ -195,7 +190,7 @@ impl<'src> Compiler<'src> {
         let (main_declaration_id, main_declaration) = match self
             .resolver
             .declarations
-            .find_declaration(main_symbol_id, crate_scope_id, Visibility::Module)
+            .find_declaration(main_symbol_id, crate_scope_id)
         {
             Some(declaration) => declaration,
             None => {
@@ -295,9 +290,9 @@ impl<'src> Compiler<'src> {
                 }
 
                 let trait_scope_id = declaration.scope_id;
-                let scope = unwrap_or_return!(self.resolver.scopes.get_scope(trait_scope_id));
+                let scope = self.resolver.scopes.get_scope(trait_scope_id);
 
-                if scope.kind == ScopeKind::Trait {
+                if scope.kind == ScopeKind::TypeTraitOrImpl {
                     let mut type_argument_index = type_param_entries.len();
 
                     for (declaration_id, declaration) in self.resolver.declarations.iter() {
@@ -389,7 +384,7 @@ impl<'src> Compiler<'src> {
 
         let main_function_return_type_id = unwrap_or_return!(
             self.resolver
-                .get_external_type(concrete_main_return_type_id, &self.source)
+                .get_external_type(concrete_main_return_type_id)
         );
 
         if errors.is_empty() {

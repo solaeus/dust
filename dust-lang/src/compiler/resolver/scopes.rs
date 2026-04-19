@@ -1,4 +1,7 @@
-use crate::compiler::resolver::{declarations::DeclarationId, symbols::SymbolId};
+use crate::compiler::resolver::{
+    declarations::{DeclarationId, Definition},
+    symbols::SymbolId,
+};
 
 #[derive(Debug, Default)]
 pub struct Scopes {
@@ -90,11 +93,18 @@ pub enum ScopeKind {
     Function,
     Closure,
     Module,
+    Crate,
     TypeTraitOrImpl,
     Associated,
     Constant,
     TypeParameters,
     ValueParameters,
+}
+
+impl ScopeKind {
+    pub fn is_barrier(self, definition: &Definition) -> bool {
+        todo!()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -110,6 +120,6 @@ impl ScopeId {
 }
 
 pub struct ScopeFrame {
-    pub scope_id: ScopeId,
-    pub type_entries_start: u32,
+    pub parent_scope_id: ScopeId,
+    pub type_entries_start: usize,
 }

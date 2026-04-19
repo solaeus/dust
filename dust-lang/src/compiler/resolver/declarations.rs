@@ -67,7 +67,6 @@ impl Declarations {
         &self,
         symbol_id: SymbolId,
         scope_id: ScopeId,
-        _visibility: Visibility,
     ) -> Option<(DeclarationId, &Declaration)> {
         for (index, declaration) in self.declarations.iter().enumerate().rev() {
             if declaration.symbol_id == symbol_id && declaration.scope_id == scope_id {
@@ -331,40 +330,6 @@ pub enum Definition {
 
     /// Used when reserving a declaration ID.
     Placeholder,
-}
-
-impl Definition {
-    pub fn visibility(&self) -> Visibility {
-        match self {
-            Definition::Local { .. } => Visibility::Block,
-            Definition::Module { .. }
-            | Definition::Function { .. }
-            | Definition::NativeFunction { .. }
-            | Definition::StructType { .. }
-            | Definition::EnumType { .. }
-            | Definition::Use { .. }
-            | Definition::TypeAlias { .. }
-            | Definition::Constant { .. }
-            | Definition::Trait { .. }
-            | Definition::InherentImplementation { .. }
-            | Definition::TraitImplementation { .. } => Visibility::Module,
-            Definition::Field { .. }
-            | Definition::Variant { .. }
-            | Definition::TypeParameter
-            | Definition::InherentAssociatedConstant { .. }
-            | Definition::InherentAssociatedType { .. }
-            | Definition::TraitAssociatedConstant { .. }
-            | Definition::TraitAssociatedType { .. }
-            | Definition::Placeholder => Visibility::Type,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Visibility {
-    Module,
-    Block,
-    Type,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

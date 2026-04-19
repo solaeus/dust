@@ -51,7 +51,7 @@ impl<'src> Source<'src> {
             .ok_or(SourceError::MissingSourceFile(file_id))
     }
 
-    pub fn get_content(&self, position: &Position) -> Result<&str, SourceError> {
+    pub fn get_content(&self, position: Position) -> Result<&str, SourceError> {
         self.get_code(position.file_id)?.get_str(position.span)
     }
 
@@ -334,7 +334,7 @@ impl Position {
         Self { file_id, span }
     }
 
-    pub fn shrink(&self, offset: u32) -> Position {
+    pub fn shrink(self, offset: u32) -> Position {
         Position {
             file_id: self.file_id,
             span: self.span.shrink(offset),
@@ -376,14 +376,14 @@ impl Span {
         self.1 - self.0
     }
 
-    pub fn join(&self, other: &Span) -> Span {
+    pub fn join(self, other: &Span) -> Span {
         let new_start = self.0.min(other.0);
         let new_end = self.1.max(other.1).max(new_start);
 
         Span(new_start, new_end)
     }
 
-    pub fn shrink(&self, offset: u32) -> Span {
+    pub fn shrink(self, offset: u32) -> Span {
         let new_start = self.0.saturating_add(offset);
         let new_end = self.1.saturating_sub(offset).max(new_start);
 

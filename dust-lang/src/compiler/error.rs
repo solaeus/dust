@@ -214,7 +214,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::ExpectedIntegerIndex { found, position } => {
                 let found_type = resolver
-                    .get_external_type(*found, source)
+                    .get_external_type(*found)
                     .map(|r#type| r#type.to_string())
                     .unwrap_or("<invalid type>".to_string());
                 let title = format!("Expected an integer index, found {found_type}");
@@ -247,7 +247,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         return;
                     }
                 };
-                let found_type = match resolver.get_external_type(*found_type_id, source) {
+                let found_type = match resolver.get_external_type(*found_type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
                         error.add_report((source, syntax, resolver), groups);
@@ -416,7 +416,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 found_position,
             } => {
                 let title = "Type conflict";
-                let expected_type_string = match resolver.get_external_type(*expected_type, source)
+                let expected_type_string = match resolver.get_external_type(*expected_type)
                 {
                     Ok(r#type) => match r#type {
                         DustType::Struct(struct_type) => struct_type.name,
@@ -428,7 +428,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         return;
                     }
                 };
-                let found_type_string = match resolver.get_external_type(*found_type, source) {
+                let found_type_string = match resolver.get_external_type(*found_type) {
                     Ok(r#type) => r#type,
                     Err(error) => {
                         error.add_report((source, syntax, resolver), groups);
@@ -508,7 +508,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         return;
                     }
                 };
-                let r#type = match resolver.get_external_type(*type_id, source) {
+                let r#type = match resolver.get_external_type(*type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
                         error.add_report((source, syntax, resolver), groups);
@@ -544,7 +544,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         return;
                     }
                 };
-                let left_type = match resolver.get_external_type(*left_type_id, source) {
+                let left_type = match resolver.get_external_type(*left_type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
                         error.add_report((source, syntax, resolver), groups);
@@ -552,7 +552,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         return;
                     }
                 };
-                let right_type = match resolver.get_external_type(*right_type_id, source) {
+                let right_type = match resolver.get_external_type(*right_type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
                         error.add_report((source, syntax, resolver), groups);
@@ -589,7 +589,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                 groups.extend(error_groups);
             }
             CompileError::CannotIndex { type_id, position } => {
-                let r#type = match resolver.get_external_type(*type_id, source) {
+                let r#type = match resolver.get_external_type(*type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
                         error.add_report((source, syntax, resolver), groups);
@@ -685,7 +685,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                     }
                 };
 
-                let found_type = match resolver.get_external_type(*found, source) {
+                let found_type = match resolver.get_external_type(*found) {
                     Ok(r#type) => r#type,
                     Err(error) => {
                         error.add_report((source, syntax, resolver), groups);
@@ -718,7 +718,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         return error.add_report((), groups);
                     }
                 };
-                let function_type = match resolver.get_external_type(*function_type, source) {
+                let function_type = match resolver.get_external_type(*function_type) {
                     Ok(r#type) => r#type,
                     Err(error) => {
                         error.add_report((source, syntax, resolver), groups);
@@ -825,7 +825,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::CannotInstantiateType { type_id, position } => {
                 let title = "Cannot instantiate type";
-                let r#type = match resolver.get_external_type(*type_id, source) {
+                let r#type = match resolver.get_external_type(*type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
                         error.add_report((source, syntax, resolver), groups);
@@ -904,7 +904,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
                         return error.add_report((), groups);
                     }
                 };
-                let element_type = match resolver.get_external_type(*type_id, source) {
+                let element_type = match resolver.get_external_type(*type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
                         error.add_report((source, syntax, resolver), groups);
@@ -997,7 +997,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::CannotAccessField { type_id, position } => {
                 let title = "Cannot access field";
-                let r#type = match resolver.get_external_type(*type_id, source) {
+                let r#type = match resolver.get_external_type(*type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
                         error.add_report((source, syntax, resolver), groups);
@@ -1095,7 +1095,7 @@ impl<'a> AnnotatedError<'a> for CompileError {
             }
             CompileError::ExpectedIndexableType { type_id } => {
                 let title = "Expected an indexable type";
-                let r#type = match resolver.get_external_type(*type_id, source) {
+                let r#type = match resolver.get_external_type(*type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
                         error.add_report((source, syntax, resolver), groups);

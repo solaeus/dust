@@ -16,7 +16,7 @@ use crate::{
         error::CompileError,
         resolver::{
             declarations::{Declaration, DeclarationId, Declarations, Definition},
-            scopes::{ScopeFrame, ScopeId, ScopeKind, Scopes},
+            scopes::{ScopeId, ScopeKind, Scopes},
             symbols::{SymbolId, Symbols},
             types::{
                 FloatType, InferredTypeConstraint, SignedIntegerType, Type, TypeId, TypeMembers,
@@ -39,10 +39,9 @@ pub struct Resolver {
     pub types: Types,
     pub type_parameter_map: HashMap<DeclarationId, TypeId>,
 
-    prototypes: Vec<Prototype>,
     declaration_bindings: HashMap<SyntaxId, DeclarationId, FxBuildHasher>,
-    scope_bindings: HashMap<SyntaxId, ScopeId, FxBuildHasher>,
     type_bindings: HashMap<SyntaxId, TypeId, FxBuildHasher>,
+    prototypes: Vec<Prototype>,
     monomorphization_cache: HashMap<(DeclarationId, SmallVec<[TypeId; 4]>), PrototypeId>,
     constant_item_values: HashMap<DeclarationId, ConstantValue, FxBuildHasher>,
 }
@@ -56,7 +55,6 @@ impl Resolver {
             types: Types::new(),
             prototypes: Vec::new(),
             declaration_bindings: HashMap::default(),
-            scope_bindings: HashMap::default(),
             type_bindings: HashMap::default(),
             type_parameter_map: HashMap::new(),
             monomorphization_cache: HashMap::new(),
@@ -83,16 +81,6 @@ impl Resolver {
         self.declaration_bindings
             .get(syntax_id)
             .ok_or(CompileError::MissingDeclarationBinding(*syntax_id))
-    }
-
-    pub fn add_scope_binding(&mut self, syntax_id: SyntaxId, scope_id: ScopeId) {
-        self.scope_bindings.insert(syntax_id, scope_id);
-    }
-
-    pub fn get_scope_binding(&self, syntax_id: &SyntaxId) -> Result<&ScopeId, CompileError> {
-        self.scope_bindings
-            .get(syntax_id)
-            .ok_or(CompileError::MissingScopeBinding(*syntax_id))
     }
 
     pub fn add_type_binding(&mut self, syntax_id: SyntaxId, type_id: TypeId) {
@@ -1117,6 +1105,17 @@ impl Resolver {
             } => Err(CompileError::ExpectedConcreteType),
         }
     }
+
+    fn get_type_members_as_full_types<'a>(
+        &'a self,
+        type_members: TypeMembers,
+    ) -> impl Iterator<Item = Result<DustType, CompileError>> + 'a {
+        type_members.as_range().map(move |index| {
+            let type_id = *self.types.get_type_member(index)?;
+
+            self.get_external_type(type_id)
+        })
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -1146,9 +1145,9 @@ fn add_built_in_type(
     namespace_entries: &mut Vec<(SymbolId, DeclarationId)>,
     parent_scope_id: ScopeId,
 ) -> DeclarationId {
-    let enter_scope = |kind, parent, namespace_entries: &Vec<_>, scopes: &mut Scopes| ScopeFrame {
-        scope_id: scopes.enter_scope(kind, parent),
-        type_entries_start: namespace_entries.len() as u32,
+    let enter_scope = |kind, parent, namespace_entries: &Vec<_>, scopes: &mut Scopes| -> (ScopeId, usize) {
+        let scope_id = scopes.enter_scope(kind, parent);
+        (scope_id, namespace_entries.len())
     };
 
     let (name, type_parameter_names) = match built_in_type {
@@ -1201,7 +1200,7 @@ fn add_built_in_type(
         .scopes
         .exit_scope(type_parameters_scope_id, type_parameter_entries);
 
-    let scope_frame = enter_scope(
+    let (scope_id, scope_entries_start) = enter_scope(
         ScopeKind::TypeTraitOrImpl,
         type_parameters_scope_id,
         namespace_entries,
@@ -1262,7 +1261,7 @@ fn add_built_in_type(
             add_fields(
                 fields,
                 declaration_id,
-                scope_frame.scope_id,
+                scope_id,
                 resolver,
                 namespace_entries,
             );
@@ -1272,7 +1271,7 @@ fn add_built_in_type(
                 Definition::StructType {
                     public: true,
                     type_parameters: type_parameters_scope_id,
-                    fields: scope_frame.scope_id,
+                    fields: scope_id,
                 },
             );
         }
@@ -1289,7 +1288,7 @@ fn add_built_in_type(
                                 enum_declaration_id: declaration_id,
                                 fields: ScopeId::NONE,
                             },
-                            scope_id: scope_frame.scope_id,
+                            scope_id,
                             syntax: None,
                         });
 
@@ -1297,15 +1296,15 @@ fn add_built_in_type(
                 } else {
                     let variant_declaration_id = resolver.declarations.reserve_declaration_id(
                         variant_symbol_id,
-                        scope_frame.scope_id,
+                        scope_id,
                         None,
                     );
 
                     namespace_entries.push((variant_symbol_id, variant_declaration_id));
 
-                    let variant_scope_frame = enter_scope(
+                    let (variant_scope_id, variant_entries_start) = enter_scope(
                         ScopeKind::TypeTraitOrImpl,
-                        scope_frame.scope_id,
+                        scope_id,
                         namespace_entries,
                         &mut resolver.scopes,
                     );
@@ -1313,21 +1312,21 @@ fn add_built_in_type(
                     add_fields(
                         *variant_fields,
                         variant_declaration_id,
-                        variant_scope_frame.scope_id,
+                        variant_scope_id,
                         resolver,
                         namespace_entries,
                     );
 
                     resolver.scopes.exit_scope(
-                        variant_scope_frame.scope_id,
-                        namespace_entries.drain(variant_scope_frame.type_entries_start as usize..),
+                        variant_scope_id,
+                        namespace_entries.drain(variant_entries_start..),
                     );
                     resolver.declarations.set_reserved_declaration(
                         variant_declaration_id,
                         Definition::Variant {
                             discriminant: discriminant as u16,
                             enum_declaration_id: declaration_id,
-                            fields: variant_scope_frame.scope_id,
+                            fields: variant_scope_id,
                         },
                     );
                 };
@@ -1338,7 +1337,7 @@ fn add_built_in_type(
                 Definition::EnumType {
                     public: true,
                     type_parameters: type_parameters_scope_id,
-                    variants: scope_frame.scope_id,
+                    variants: scope_id,
                 },
             );
         }
@@ -1346,8 +1345,8 @@ fn add_built_in_type(
     }
 
     resolver.scopes.exit_scope(
-        scope_frame.scope_id,
-        namespace_entries.drain(scope_frame.type_entries_start as usize..),
+        scope_id,
+        namespace_entries.drain(scope_entries_start..),
     );
 
     declaration_id

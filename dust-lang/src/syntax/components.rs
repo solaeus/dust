@@ -305,6 +305,20 @@ impl<'a> SyntaxComponent<'a> for ExpressionStatement<'a> {
     }
 }
 
+pub struct BlockExpression<'a> {
+    pub children: SyntaxIterator<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for BlockExpression<'a> {
+    const SYNTAX_KIND: SyntaxKind = SyntaxKind::BlockExpression;
+
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        Ok(Self {
+            children: reader.children(),
+        })
+    }
+}
+
 pub struct AssignmentExpression<'a> {
     pub target: SyntaxReader<'a>,
     pub source: SyntaxReader<'a>,

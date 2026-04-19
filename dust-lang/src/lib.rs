@@ -72,12 +72,40 @@ const fn optimal_small_vec_inline_capacity<T>() -> usize {
     find_capacity::<T>(find_capacity::<T>(size_of::<Vec<T>>()))
 }
 
+const fn optimal_small_vec_inline_capacity_with_minimum<T, const MINIMUM: usize>() -> usize {
+    use smallvec::SmallVec;
+
+    macro_rules! try_capacities {
+            ([$($capacity:literal),*], $target_size: expr) => {{
+                $(
+                    if $capacity < MINIMUM {
+                        return MINIMUM;
+                    }
+
+                    let small_vec_size = size_of::<SmallVec<[T; $capacity]>>();
+
+                    if small_vec_size <= $target_size {
+                        return $capacity;
+                    }
+                )*
+
+                MINIMUM
+            }};
+        }
+
+    const fn find_capacity<T, const MINIMUM: usize>(target_size: usize) -> usize {
+        try_capacities!([16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5], target_size)
+    }
+
+    find_capacity::<T, MINIMUM>(find_capacity::<T, MINIMUM>(size_of::<Vec<T>>()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_optimal_small_vec_inline_capacity() {
+    fn optimal_small_vec_inline_capacities() {
         #[cfg(target_pointer_width = "64")]
         {
             assert_eq!(optimal_small_vec_inline_capacity::<u8>(), 8);
@@ -88,6 +116,30 @@ mod tests {
         {
             assert_eq!(optimal_small_vec_inline_capacity::<u8>(), 16);
             assert_eq!(optimal_small_vec_inline_capacity::<u32>(), 8);
+        }
+    }
+
+    #[test]
+    fn optimal_small_vec_inline_capacities_with_minimum() {
+        #[cfg(target_pointer_width = "64")]
+        {
+            assert_eq!(optimal_small_vec_inline_capacity_with_minimum::<u8, 6>(), 8);
+            assert_eq!(
+                optimal_small_vec_inline_capacity_with_minimum::<u32, 6>(),
+                6
+            );
+        }
+
+        #[cfg(target_pointer_width = "32")]
+        {
+            assert_eq!(
+                optimal_small_vec_inline_capacity_with_minimum::<u8, 15>(),
+                16
+            );
+            assert_eq!(
+                optimal_small_vec_inline_capacity_with_minimum::<u32, 9>(),
+                9
+            );
         }
     }
 }
