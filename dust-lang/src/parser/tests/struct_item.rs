@@ -4,7 +4,7 @@ use crate::{
     source::{SourceCodeId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxChildren, SyntaxKind::*},
+        node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
     },
 };
 
@@ -103,9 +103,10 @@ fn type_parameters() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 22), SyntaxId(10)),
-            StructItem.with_children(Span::new(0, 22), SyntaxChildren::new(3, 6)),
+            StructItem
+                .with_children(Span::new(0, 22), SyntaxChildren::new(3, 6))
+                .with_flags(SyntaxFlags::TYPE_PARAMETERS),
             SimplePath.empty(Span::new(7, 10)),
-            NamedFields.empty(Span::new(20, 22)),
             TypeParameters.with_children(Span::new(10, 19), SyntaxChildren::new(0, 3)),
             TypeParameter.with_single_child(Span::new(11, 12), SyntaxId(2)),
             SimplePath.empty(Span::new(11, 12)),
@@ -113,6 +114,7 @@ fn type_parameters() {
             SimplePath.empty(Span::new(14, 15)),
             TypeParameter.with_single_child(Span::new(17, 18), SyntaxId(6)),
             SimplePath.empty(Span::new(17, 18)),
+            NamedFields.empty(Span::new(20, 22)),
         ]
     );
 }

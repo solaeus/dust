@@ -2214,56 +2214,37 @@ impl<'src> Parser<'src> {
     }
 
     fn allow_struct_expression_fields(&mut self) -> Result<Option<SyntaxNode>, ParseError> {
-        if self.current_token.kind == TokenKind::LeftCurlyBrace {
-            let start = self.current_token.span.start();
-
-            self.advance();
-
-            let mut fields = Self::new_child_buffer();
-
-            while !self.allow(TokenKind::RightCurlyBrace) {
-                let field_path_node = self.expect_simple_path()?;
-                let field_path_id = self.tree.add_node(field_path_node);
-
-                self.expect(TokenKind::Colon)?;
-
-                let expression_statement_node = self.pratt(Precedence::None)?;
-
-                if expression_statement_node.kind != SyntaxKind::ExpressionStatement {
-                    return Err(ParseError::ExpectedToken {
-                        expected: TokenKind::Semicolon,
-                        found: self.current_token.kind,
-                        position: self.current_position(),
-                    });
-                }
-
-                let field_expression_id = expression_statement_node.children.left_id();
-
-                fields.push(field_path_id);
-                fields.push(field_expression_id);
-
-                match self.current_token.kind {
-                    TokenKind::Comma => self.advance(),
-                    TokenKind::RightCurlyBrace => {}
-                    _ => {
-                        return Err(ParseError::ExpectedMultipleTokens {
-                            expected: &[TokenKind::Comma, TokenKind::RightCurlyBrace],
-                            found: self.current_token.kind,
-                            position: self.current_position(),
-                        });
-                    }
-                }
-            }
-
-            return Ok(Some(self.create_node(
-                SyntaxKind::StructExpressionStructFields,
-                fields,
-                SyntaxFlags::default(),
-                Span::new(start, self.previous_token.span.end()),
-            )));
+        if !self.allow(TokenKind::LeftCurlyBrace) {
+            return Ok(None);
         }
 
-        Ok(None)
+        let start = self.previous_token.span.start();
+
+        let mut fields = Self::new_child_buffer();
+
+        while !self.allow(TokenKind::RightCurlyBrace) {
+            if !fields.is_empty() {
+                self.expect(TokenKind::Comma)?;
+            }
+
+            let field_path_node = self.expect_simple_path()?;
+            let field_path_id = self.tree.add_node(field_path_node);
+
+            self.expect(TokenKind::Colon)?;
+
+            let field_expression_node = self.parse_expression()?;
+            let field_expression_id = self.tree.add_node(field_expression_node);
+
+            fields.push(field_path_id);
+            fields.push(field_expression_id);
+        }
+
+        Ok(Some(self.create_node(
+            SyntaxKind::StructExpressionNamedFields,
+            fields,
+            SyntaxFlags::default(),
+            Span::new(start, self.previous_token.span.end()),
+        )))
     }
 
     fn parse_trait_const_item(&mut self) -> Result<SyntaxNode, ParseError> {
@@ -2280,11 +2261,17 @@ impl<'src> Parser<'src> {
         let type_id = self.tree.add_node(type_node);
 
         if self.allow(TokenKind::Equal) {
-            let expression_node = self.parse_expression()?;
-            let expression_id = self.tree.add_node(expression_node);
+            let expression_statement_node = self.pratt(Precedence::None)?;
 
-            self.expect(TokenKind::Semicolon)?;
+            if expression_statement_node.kind != SyntaxKind::ExpressionStatement {
+                return Err(ParseError::ExpectedToken {
+                    expected: TokenKind::Semicolon,
+                    found: self.current_token.kind,
+                    position: self.current_position(),
+                });
+            }
 
+            let expression_id = expression_statement_node.children.left_id();
             let children = self.tree.add_children([name_id, type_id, expression_id]);
 
             Ok(SyntaxKind::ConstItem

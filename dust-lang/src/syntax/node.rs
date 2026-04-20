@@ -135,7 +135,7 @@ pub enum SyntaxKind {
     TupleFields,
     NamedFields,
 
-    StructExpressionStructFields,
+    StructExpressionNamedFields,
 
     // Types
     TypePath,
@@ -384,9 +384,9 @@ impl SyntaxKind {
             SyntaxKind::SliceType => "slice type",
             SyntaxKind::StringExpression => "string expression",
             SyntaxKind::StringType => "string type",
-            SyntaxKind::NamedFields => "names fields",
+            SyntaxKind::NamedFields => "named fields",
             SyntaxKind::StructExpression => "struct expression",
-            SyntaxKind::StructExpressionStructFields => "struct expression struct fields",
+            SyntaxKind::StructExpressionNamedFields => "struct expression named fields",
             SyntaxKind::StructItem => "struct item",
             SyntaxKind::SubtractionAssignmentExpression => "subtraction assignment expression",
             SyntaxKind::SubtractionExpression => "subtraction expression",
@@ -436,10 +436,7 @@ impl SyntaxChildren {
     }
 
     pub fn empty() -> Self {
-        Self {
-            left: 0,
-            right: 0,
-        }
+        Self { left: 0, right: 0 }
     }
 
     pub fn left_id(&self) -> SyntaxId {

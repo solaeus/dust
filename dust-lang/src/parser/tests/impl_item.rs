@@ -51,7 +51,9 @@ fn with_function() {
             Path.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
             ImplBody.with_single_child(Span::new(9, 28), SyntaxId(6)),
-            FnItem.with_children(Span::new(11, 26), SyntaxChildren::new(0, 3)),
+            FnItem
+                .with_children(Span::new(11, 26), SyntaxChildren::new(0, 3))
+                .with_flags(SyntaxFlags::VALUE_PARAMETERS),
             SimplePath.empty(Span::new(14, 17)),
             ValueParameters
                 .empty(Span::new(17, 23))
@@ -84,7 +86,7 @@ fn with_pub_function() {
             ImplBody.with_single_child(Span::new(9, 32), SyntaxId(6)),
             FnItem
                 .with_children(Span::new(15, 30), SyntaxChildren::new(0, 3))
-                .with_flags(SyntaxFlags::PUBLIC),
+                .with_flags(SyntaxFlags::PUBLIC.and(SyntaxFlags::VALUE_PARAMETERS)),
             SimplePath.empty(Span::new(18, 21)),
             ValueParameters
                 .empty(Span::new(21, 27))
@@ -111,7 +113,9 @@ fn trait_impl() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 19), SyntaxId(6)),
-            ImplItem.with_children(Span::new(0, 19), SyntaxChildren::new(0, 3)),
+            ImplItem
+                .with_children(Span::new(0, 19), SyntaxChildren::new(0, 3))
+                .with_flags(SyntaxFlags::TYPE_NAME),
             Path.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
             TypePath.with_single_child(Span::new(13, 16), SyntaxId(3)),

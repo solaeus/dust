@@ -583,7 +583,7 @@ impl<'a> SyntaxComponent<'a> for StructExpressionStructFields<'a> {
     const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
 
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
-        debug_assert!(reader.node.kind == SyntaxKind::StructExpressionStructFields);
+        debug_assert!(reader.node.kind == SyntaxKind::StructExpressionNamedFields);
 
         Ok(Self {
             name_expression_pairs: reader.child_pairs(),

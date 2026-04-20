@@ -59,8 +59,7 @@ fn fields() {
             StructExpression.with_binary_children(Span::new(16, 37), SyntaxId(7), SyntaxId(8)),
             Path.with_single_child(Span::new(16, 19), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 19)),
-            StructExpressionStructFields
-                .with_children(Span::new(20, 37), SyntaxChildren::new(0, 4)),
+            StructExpressionNamedFields.with_children(Span::new(20, 37), SyntaxChildren::new(0, 4)),
             SimplePath.empty(Span::new(22, 23)),
             IntegerExpression.empty(Span::new(25, 27)),
             SimplePath.empty(Span::new(29, 30)),

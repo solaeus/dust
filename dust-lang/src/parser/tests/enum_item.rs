@@ -4,7 +4,7 @@ use crate::{
     source::{SourceCodeId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxChildren, SyntaxKind::*},
+        node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
     },
 };
 
@@ -156,7 +156,9 @@ fn type_parameters() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 25), SyntaxId(10)),
-            EnumItem.with_children(Span::new(0, 25), SyntaxChildren::new(3, 6)),
+            EnumItem
+                .with_children(Span::new(0, 25), SyntaxChildren::new(3, 6))
+                .with_flags(SyntaxFlags::TYPE_PARAMETERS),
             SimplePath.empty(Span::new(5, 8)),
             TypeParameters.with_children(Span::new(8, 17), SyntaxChildren::new(0, 3)),
             TypeParameter.with_single_child(Span::new(9, 10), SyntaxId(2)),
