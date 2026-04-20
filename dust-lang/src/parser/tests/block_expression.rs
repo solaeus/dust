@@ -2,7 +2,7 @@ use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Span},
+    source::{SourceCodeId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxChildren, SyntaxKind::*},
@@ -12,7 +12,7 @@ use crate::{
 #[test]
 fn empty() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("{}")),
     );
     let ParseResult {
@@ -25,13 +25,10 @@ fn empty() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 20), SyntaxId(7)),
-            FnItem.with_children(Span::new(0, 20), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 20), SyntaxId(4)),
+            FnItem.with_binary_children(Span::new(0, 20), SyntaxId(1), SyntaxId(3)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 20), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 20), SyntaxId(2)),
             BlockExpression.empty(Span::new(16, 18)),
         ]
     );
@@ -40,7 +37,7 @@ fn empty() {
 #[test]
 fn item() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("{ fn foo() {} }")),
     );
     let ParseResult {
@@ -53,19 +50,13 @@ fn item() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 33), SyntaxId(13)),
-            FnItem.with_children(Span::new(0, 33), SyntaxChildren::new(5, 8)),
+            Root.with_single_child(Span::new(0, 33), SyntaxId(7)),
+            FnItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 33), SyntaxId(11)),
-            BlockExpression.with_single_child(Span::new(16, 31), SyntaxId(10)),
-            FnItem.with_children(Span::new(18, 29), SyntaxChildren::new(2, 5)),
+            BlockExpression.with_single_child(Span::new(10, 33), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(16, 31), SyntaxId(4)),
+            FnItem.with_binary_children(Span::new(18, 29), SyntaxId(2), SyntaxId(3)),
             SimplePath.empty(Span::new(21, 24)),
-            FunctionSignature.with_children(Span::new(18, 26), SyntaxChildren::new(1, 2)),
-            FunctionParameters.with_single_child(Span::new(18, 26), SyntaxId(6)),
-            ValueParameters.empty(Span::new(18, 26)),
             BlockExpression.empty(Span::new(27, 29)),
         ]
     );
@@ -74,7 +65,7 @@ fn item() {
 #[test]
 fn statement() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("{ let x = 42; }")),
     );
     let ParseResult {
@@ -87,15 +78,12 @@ fn statement() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 33), SyntaxId(10)),
-            FnItem.with_children(Span::new(0, 33), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 33), SyntaxId(7)),
+            FnItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 33), SyntaxId(8)),
-            BlockExpression.with_single_child(Span::new(16, 31), SyntaxId(7)),
-            LetStatement.with_binary_children(Span::new(18, 29), SyntaxId(5), SyntaxId(6)),
+            BlockExpression.with_single_child(Span::new(10, 33), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(16, 31), SyntaxId(4)),
+            LetStatement.with_binary_children(Span::new(18, 29), SyntaxId(2), SyntaxId(3)),
             SimplePath.empty(Span::new(22, 23)),
             IntegerExpression.empty(Span::new(26, 28)),
         ]
@@ -105,7 +93,7 @@ fn statement() {
 #[test]
 fn expression() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("{ x + y }")),
     );
     let ParseResult {
@@ -118,18 +106,15 @@ fn expression() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 27), SyntaxId(12)),
-            FnItem.with_children(Span::new(0, 27), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 27), SyntaxId(9)),
+            FnItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(8)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 27), SyntaxId(10)),
-            BlockExpression.with_single_child(Span::new(16, 25), SyntaxId(9)),
-            AdditionExpression.with_binary_children(Span::new(18, 23), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_single_child(Span::new(18, 19), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 27), SyntaxId(7)),
+            BlockExpression.with_single_child(Span::new(16, 25), SyntaxId(6)),
+            AdditionExpression.with_binary_children(Span::new(18, 23), SyntaxId(3), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(18, 19), SyntaxId(2)),
             PathSegment.empty(Span::new(18, 19)),
-            PathExpression.with_single_child(Span::new(22, 23), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(22, 23), SyntaxId(4)),
             PathSegment.empty(Span::new(22, 23)),
         ]
     );
@@ -138,7 +123,7 @@ fn expression() {
 #[test]
 fn mixed() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("{ fn foo() {} let x = 42; x + y }")),
     );
     let ParseResult {
@@ -151,27 +136,21 @@ fn mixed() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 51), SyntaxId(21)),
-            FnItem.with_children(Span::new(0, 51), SyntaxChildren::new(8, 11)),
+            Root.with_single_child(Span::new(0, 51), SyntaxId(15)),
+            FnItem.with_binary_children(Span::new(0, 51), SyntaxId(1), SyntaxId(14)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 51), SyntaxId(19)),
-            BlockExpression.with_children(Span::new(16, 49), SyntaxChildren::new(5, 8)),
-            FnItem.with_children(Span::new(18, 29), SyntaxChildren::new(2, 5)),
+            BlockExpression.with_single_child(Span::new(10, 51), SyntaxId(13)),
+            BlockExpression.with_children(Span::new(16, 49), SyntaxChildren::new(0, 3)),
+            FnItem.with_binary_children(Span::new(18, 29), SyntaxId(2), SyntaxId(3)),
             SimplePath.empty(Span::new(21, 24)),
-            FunctionSignature.with_children(Span::new(18, 26), SyntaxChildren::new(1, 2)),
-            FunctionParameters.with_single_child(Span::new(18, 26), SyntaxId(6)),
-            ValueParameters.empty(Span::new(18, 26)),
             BlockExpression.empty(Span::new(27, 29)),
-            LetStatement.with_binary_children(Span::new(30, 41), SyntaxId(11), SyntaxId(12)),
+            LetStatement.with_binary_children(Span::new(30, 41), SyntaxId(5), SyntaxId(6)),
             SimplePath.empty(Span::new(34, 35)),
             IntegerExpression.empty(Span::new(38, 40)),
-            AdditionExpression.with_binary_children(Span::new(42, 47), SyntaxId(15), SyntaxId(17)),
-            PathExpression.with_single_child(Span::new(42, 43), SyntaxId(14)),
+            AdditionExpression.with_binary_children(Span::new(42, 47), SyntaxId(9), SyntaxId(11)),
+            PathExpression.with_single_child(Span::new(42, 43), SyntaxId(8)),
             PathSegment.empty(Span::new(42, 43)),
-            PathExpression.with_single_child(Span::new(46, 47), SyntaxId(16)),
+            PathExpression.with_single_child(Span::new(46, 47), SyntaxId(10)),
             PathSegment.empty(Span::new(46, 47)),
         ]
     );

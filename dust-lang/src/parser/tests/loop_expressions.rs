@@ -1,18 +1,16 @@
 use crate::function_wrapper;
+use crate::syntax::node::SyntaxFlags;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Span},
-    syntax::{
-        SyntaxId,
-        node::{SyntaxChildren, SyntaxKind::*},
-    },
+    source::{SourceCodeId, Span},
+    syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn while_expression() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("while x { y }")),
     );
     let ParseResult {
@@ -25,18 +23,15 @@ fn while_expression() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 31), SyntaxId(12)),
-            FnItem.with_children(Span::new(0, 31), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 31), SyntaxId(9)),
+            FnItem.with_binary_children(Span::new(0, 31), SyntaxId(1), SyntaxId(8)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 31), SyntaxId(10)),
-            WhileExpression.with_binary_children(Span::new(16, 29), SyntaxId(6), SyntaxId(9)),
-            PathExpression.with_single_child(Span::new(22, 23), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 31), SyntaxId(7)),
+            WhileExpression.with_binary_children(Span::new(16, 29), SyntaxId(3), SyntaxId(6)),
+            PathExpression.with_single_child(Span::new(22, 23), SyntaxId(2)),
             PathSegment.empty(Span::new(22, 23)),
-            BlockExpression.with_single_child(Span::new(24, 29), SyntaxId(8)),
-            PathExpression.with_single_child(Span::new(26, 27), SyntaxId(7)),
+            BlockExpression.with_single_child(Span::new(24, 29), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(26, 27), SyntaxId(4)),
             PathSegment.empty(Span::new(26, 27)),
         ]
     );
@@ -45,7 +40,7 @@ fn while_expression() {
 #[test]
 fn break_empty() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("while true { break; }")),
     );
     let ParseResult {
@@ -58,16 +53,15 @@ fn break_empty() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 39), SyntaxId(10)),
-            FnItem.with_children(Span::new(0, 39), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 39), SyntaxId(7)),
+            FnItem.with_binary_children(Span::new(0, 39), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 39), SyntaxId(8)),
-            WhileExpression.with_binary_children(Span::new(16, 37), SyntaxId(5), SyntaxId(7)),
-            BooleanExpression.empty(Span::new(22, 26)),
-            BlockExpression.with_single_child(Span::new(27, 37), SyntaxId(6)),
+            BlockExpression.with_single_child(Span::new(10, 39), SyntaxId(5)),
+            WhileExpression.with_binary_children(Span::new(16, 37), SyntaxId(2), SyntaxId(4)),
+            BooleanExpression
+                .empty(Span::new(22, 26))
+                .with_flags(SyntaxFlags::BOOLEAN_TRUE),
+            BlockExpression.with_single_child(Span::new(27, 37), SyntaxId(3)),
             BreakExpression.empty(Span::new(29, 35)),
         ]
     );
@@ -76,7 +70,7 @@ fn break_empty() {
 #[test]
 fn break_with_value() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("while true { break 42 }")),
     );
     let ParseResult {
@@ -89,17 +83,16 @@ fn break_with_value() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 41), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 41), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 41), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 41), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 41), SyntaxId(9)),
-            WhileExpression.with_binary_children(Span::new(16, 39), SyntaxId(5), SyntaxId(8)),
-            BooleanExpression.empty(Span::new(22, 26)),
-            BlockExpression.with_single_child(Span::new(27, 39), SyntaxId(7)),
-            BreakExpression.with_single_child(Span::new(29, 37), SyntaxId(6)),
+            BlockExpression.with_single_child(Span::new(10, 41), SyntaxId(6)),
+            WhileExpression.with_binary_children(Span::new(16, 39), SyntaxId(2), SyntaxId(5)),
+            BooleanExpression
+                .empty(Span::new(22, 26))
+                .with_flags(SyntaxFlags::BOOLEAN_TRUE),
+            BlockExpression.with_single_child(Span::new(27, 39), SyntaxId(4)),
+            BreakExpression.with_single_child(Span::new(29, 37), SyntaxId(3)),
             IntegerExpression.empty(Span::new(35, 37)),
         ]
     );

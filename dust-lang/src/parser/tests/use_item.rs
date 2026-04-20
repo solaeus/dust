@@ -1,13 +1,13 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Span},
+    source::{SourceCodeId, Span},
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn use_item() {
-    let parser = Parser::new(FileId::MAIN, Lexer::with_unvalidated_source(b"use foo;"));
+    let parser = Parser::new(SourceCodeId::MAIN, Lexer::with_unvalidated_source(b"use foo;"));
     let ParseResult {
         syntax_tree,
         errors,

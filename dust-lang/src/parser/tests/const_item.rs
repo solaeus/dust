@@ -1,7 +1,7 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Span},
+    source::{SourceCodeId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
@@ -11,7 +11,7 @@ use crate::{
 #[test]
 fn simple() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(b"const X: i64 = 42;"),
     );
     let ParseResult {
@@ -36,7 +36,7 @@ fn simple() {
 #[test]
 fn pub_const() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(b"pub const X: i64 = 42;"),
     );
     let ParseResult {
@@ -52,7 +52,7 @@ fn pub_const() {
             Root.with_single_child(Span::new(0, 22), SyntaxId(4)),
             ConstItem
                 .with_children(Span::new(4, 22), SyntaxChildren::new(0, 3))
-                .with_flag(SyntaxFlags::PUBLIC),
+                .with_flags(SyntaxFlags::PUBLIC),
             SimplePath.empty(Span::new(10, 11)),
             I64Type.empty(Span::new(13, 16)),
             IntegerExpression.empty(Span::new(19, 21)),

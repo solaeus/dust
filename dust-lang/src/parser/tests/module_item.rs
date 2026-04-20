@@ -1,13 +1,13 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Span},
+    source::{SourceCodeId, Span},
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn file() {
-    let parser = Parser::new(FileId::MAIN, Lexer::with_unvalidated_source(b"mod foo;"));
+    let parser = Parser::new(SourceCodeId::MAIN, Lexer::with_unvalidated_source(b"mod foo;"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -27,7 +27,7 @@ fn file() {
 
 #[test]
 fn empty() {
-    let parser = Parser::new(FileId::MAIN, Lexer::with_unvalidated_source(b"mod foo {}"));
+    let parser = Parser::new(SourceCodeId::MAIN, Lexer::with_unvalidated_source(b"mod foo {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -49,7 +49,7 @@ fn empty() {
 #[test]
 fn nested() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(b"mod foo { mod bar {} }"),
     );
     let ParseResult {

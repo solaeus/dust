@@ -2,17 +2,17 @@ use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Span},
+    source::{SourceCodeId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxChildren, SyntaxKind::*},
+        node::SyntaxKind::*,
     },
 };
 
 #[test]
 fn call_with_two_arguments() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("foo(1, 2)")),
     );
     let ParseResult {
@@ -25,17 +25,14 @@ fn call_with_two_arguments() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 27), SyntaxId(12)),
-            FnItem.with_children(Span::new(0, 27), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 27), SyntaxId(9)),
+            FnItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(8)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 27), SyntaxId(10)),
-            CallExpression.with_binary_children(Span::new(16, 25), SyntaxId(6), SyntaxId(9)),
-            PathExpression.with_single_child(Span::new(16, 19), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 27), SyntaxId(7)),
+            CallExpression.with_binary_children(Span::new(16, 25), SyntaxId(3), SyntaxId(6)),
+            PathExpression.with_single_child(Span::new(16, 19), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 19)),
-            ValueArguments.with_binary_children(Span::new(16, 25), SyntaxId(7), SyntaxId(8)),
+            ValueArguments.with_binary_children(Span::new(16, 25), SyntaxId(4), SyntaxId(5)),
             IntegerExpression.empty(Span::new(20, 21)),
             IntegerExpression.empty(Span::new(23, 24)),
         ]

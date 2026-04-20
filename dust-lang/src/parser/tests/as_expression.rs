@@ -2,17 +2,17 @@ use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Span},
+    source::{SourceCodeId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxChildren, SyntaxKind::*},
+        node::SyntaxKind::*,
     },
 };
 
 #[test]
 fn as_expression() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x as i32")),
     );
     let ParseResult {
@@ -25,15 +25,12 @@ fn as_expression() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 26), SyntaxId(10)),
-            FnItem.with_children(Span::new(0, 26), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 26), SyntaxId(7)),
+            FnItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 26), SyntaxId(8)),
-            AsExpression.with_binary_children(Span::new(16, 24), SyntaxId(6), SyntaxId(7)),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 26), SyntaxId(5)),
+            AsExpression.with_binary_children(Span::new(16, 24), SyntaxId(3), SyntaxId(4)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
             I32Type.empty(Span::new(21, 24)),
         ]

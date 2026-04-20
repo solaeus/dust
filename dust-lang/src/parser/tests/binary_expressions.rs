@@ -2,17 +2,14 @@ use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Span},
-    syntax::{
-        SyntaxId,
-        node::{SyntaxChildren, SyntaxKind::*},
-    },
+    source::{SourceCodeId, Span},
+    syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn addition() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x + y")),
     );
     let ParseResult {
@@ -25,17 +22,14 @@ fn addition() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
-            AdditionExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
+            AdditionExpression.with_binary_children(Span::new(16, 21), SyntaxId(3), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(4)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -44,7 +38,7 @@ fn addition() {
 #[test]
 fn subtraction() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x - y")),
     );
     let ParseResult {
@@ -57,17 +51,14 @@ fn subtraction() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
-            SubtractionExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
+            SubtractionExpression.with_binary_children(Span::new(16, 21), SyntaxId(3), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(4)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -76,7 +67,7 @@ fn subtraction() {
 #[test]
 fn multiplication() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x * y")),
     );
     let ParseResult {
@@ -89,21 +80,18 @@ fn multiplication() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
             MultiplicationExpression.with_binary_children(
                 Span::new(16, 21),
-                SyntaxId(6),
-                SyntaxId(8)
+                SyntaxId(3),
+                SyntaxId(5),
             ),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(4)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -112,7 +100,7 @@ fn multiplication() {
 #[test]
 fn division() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x / y")),
     );
     let ParseResult {
@@ -125,17 +113,14 @@ fn division() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
-            DivisionExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
+            DivisionExpression.with_binary_children(Span::new(16, 21), SyntaxId(3), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(4)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -144,7 +129,7 @@ fn division() {
 #[test]
 fn modulo() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x % y")),
     );
     let ParseResult {
@@ -157,17 +142,14 @@ fn modulo() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
-            ModuloExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
+            ModuloExpression.with_binary_children(Span::new(16, 21), SyntaxId(3), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(4)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -176,7 +158,7 @@ fn modulo() {
 #[test]
 fn power() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x ^ y")),
     );
     let ParseResult {
@@ -189,17 +171,14 @@ fn power() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
-            ExponentExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
+            ExponentExpression.with_binary_children(Span::new(16, 21), SyntaxId(3), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(4)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -208,7 +187,7 @@ fn power() {
 #[test]
 fn equal() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x == y")),
     );
     let ParseResult {
@@ -221,17 +200,14 @@ fn equal() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(9)),
-            EqualExpression.with_binary_children(Span::new(16, 22), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(6)),
+            EqualExpression.with_binary_children(Span::new(16, 22), SyntaxId(3), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(4)),
             PathSegment.empty(Span::new(21, 22)),
         ]
     );
@@ -240,7 +216,7 @@ fn equal() {
 #[test]
 fn not_equal() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x != y")),
     );
     let ParseResult {
@@ -253,17 +229,14 @@ fn not_equal() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(9)),
-            NotEqualExpression.with_binary_children(Span::new(16, 22), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(6)),
+            NotEqualExpression.with_binary_children(Span::new(16, 22), SyntaxId(3), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(4)),
             PathSegment.empty(Span::new(21, 22)),
         ]
     );
@@ -272,7 +245,7 @@ fn not_equal() {
 #[test]
 fn less_than() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x < y")),
     );
     let ParseResult {
@@ -285,17 +258,14 @@ fn less_than() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
-            LessThanExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
+            LessThanExpression.with_binary_children(Span::new(16, 21), SyntaxId(3), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(4)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -304,7 +274,7 @@ fn less_than() {
 #[test]
 fn less_than_or_equal() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x <= y")),
     );
     let ParseResult {
@@ -317,21 +287,18 @@ fn less_than_or_equal() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(6)),
             LessThanOrEqualExpression.with_binary_children(
                 Span::new(16, 22),
-                SyntaxId(6),
-                SyntaxId(8)
+                SyntaxId(3),
+                SyntaxId(5),
             ),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(4)),
             PathSegment.empty(Span::new(21, 22)),
         ]
     );
@@ -340,7 +307,7 @@ fn less_than_or_equal() {
 #[test]
 fn greater_than() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x > y")),
     );
     let ParseResult {
@@ -353,17 +320,14 @@ fn greater_than() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 23), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 23), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(9)),
-            GreaterThanExpression.with_binary_children(Span::new(16, 21), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
+            GreaterThanExpression.with_binary_children(Span::new(16, 21), SyntaxId(3), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(4)),
             PathSegment.empty(Span::new(20, 21)),
         ]
     );
@@ -372,7 +336,7 @@ fn greater_than() {
 #[test]
 fn greater_than_or_equal() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x >= y")),
     );
     let ParseResult {
@@ -385,21 +349,18 @@ fn greater_than_or_equal() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(9)),
+            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(6)),
             GreaterThanOrEqualExpression.with_binary_children(
                 Span::new(16, 22),
-                SyntaxId(6),
-                SyntaxId(8)
+                SyntaxId(3),
+                SyntaxId(5),
             ),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(4)),
             PathSegment.empty(Span::new(21, 22)),
         ]
     );
@@ -408,7 +369,7 @@ fn greater_than_or_equal() {
 #[test]
 fn logical_and() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x && y")),
     );
     let ParseResult {
@@ -421,17 +382,14 @@ fn logical_and() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(9)),
-            AndExpression.with_binary_children(Span::new(16, 22), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(6)),
+            AndExpression.with_binary_children(Span::new(16, 22), SyntaxId(3), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(4)),
             PathSegment.empty(Span::new(21, 22)),
         ]
     );
@@ -440,7 +398,7 @@ fn logical_and() {
 #[test]
 fn logical_or() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x || y")),
     );
     let ParseResult {
@@ -453,17 +411,14 @@ fn logical_or() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 24), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 24), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(9)),
-            OrExpression.with_binary_children(Span::new(16, 22), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(6)),
+            OrExpression.with_binary_children(Span::new(16, 22), SyntaxId(3), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(4)),
             PathSegment.empty(Span::new(21, 22)),
         ]
     );

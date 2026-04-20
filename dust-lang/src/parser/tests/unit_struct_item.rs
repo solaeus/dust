@@ -1,13 +1,13 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Span},
+    source::{SourceCodeId, Span},
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn unit_struct() {
-    let parser = Parser::new(FileId::MAIN, Lexer::with_unvalidated_source(b"struct Foo;"));
+    let parser = Parser::new(SourceCodeId::MAIN, Lexer::with_unvalidated_source(b"struct Foo;"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -18,10 +18,9 @@ fn unit_struct() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 11), SyntaxId(3)),
-            StructItem.with_binary_children(Span::new(0, 11), SyntaxId(1), SyntaxId(2)),
+            Root.with_single_child(Span::new(0, 11), SyntaxId(2)),
+            StructItem.with_single_child(Span::new(0, 11), SyntaxId(1)),
             SimplePath.empty(Span::new(7, 10)),
-            StructItemUnit.empty(Span::new(10, 11)),
         ]
     );
 }

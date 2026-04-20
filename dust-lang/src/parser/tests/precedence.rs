@@ -2,17 +2,14 @@ use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Span},
-    syntax::{
-        SyntaxId,
-        node::{SyntaxChildren, SyntaxKind::*},
-    },
+    source::{SourceCodeId, Span},
+    syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn addition_and_multiplication() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("a + b * c")),
     );
     let ParseResult {
@@ -25,24 +22,21 @@ fn addition_and_multiplication() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 27), SyntaxId(14)),
-            FnItem.with_children(Span::new(0, 27), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 27), SyntaxId(11)),
+            FnItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 27), SyntaxId(12)),
-            AdditionExpression.with_binary_children(Span::new(16, 25), SyntaxId(6), SyntaxId(11)),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 27), SyntaxId(9)),
+            AdditionExpression.with_binary_children(Span::new(16, 25), SyntaxId(3), SyntaxId(8)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
             MultiplicationExpression.with_binary_children(
                 Span::new(20, 25),
-                SyntaxId(8),
-                SyntaxId(10)
+                SyntaxId(5),
+                SyntaxId(7),
             ),
-            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(4)),
             PathSegment.empty(Span::new(20, 21)),
-            PathExpression.with_single_child(Span::new(24, 25), SyntaxId(9)),
+            PathExpression.with_single_child(Span::new(24, 25), SyntaxId(6)),
             PathSegment.empty(Span::new(24, 25)),
         ]
     );
@@ -51,7 +45,7 @@ fn addition_and_multiplication() {
 #[test]
 fn right_associative_exponentiation() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("a ^ b ^ c")),
     );
     let ParseResult {
@@ -64,20 +58,17 @@ fn right_associative_exponentiation() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 27), SyntaxId(14)),
-            FnItem.with_children(Span::new(0, 27), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 27), SyntaxId(11)),
+            FnItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 27), SyntaxId(12)),
-            ExponentExpression.with_binary_children(Span::new(16, 25), SyntaxId(6), SyntaxId(11)),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 27), SyntaxId(9)),
+            ExponentExpression.with_binary_children(Span::new(16, 25), SyntaxId(3), SyntaxId(8)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            ExponentExpression.with_binary_children(Span::new(20, 25), SyntaxId(8), SyntaxId(10)),
-            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(7)),
+            ExponentExpression.with_binary_children(Span::new(20, 25), SyntaxId(5), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(20, 21), SyntaxId(4)),
             PathSegment.empty(Span::new(20, 21)),
-            PathExpression.with_single_child(Span::new(24, 25), SyntaxId(9)),
+            PathExpression.with_single_child(Span::new(24, 25), SyntaxId(6)),
             PathSegment.empty(Span::new(24, 25)),
         ]
     );

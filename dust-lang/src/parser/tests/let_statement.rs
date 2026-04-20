@@ -3,7 +3,7 @@ use crate::syntax::node::SyntaxFlags;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Span},
+    source::{SourceCodeId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxChildren, SyntaxKind::*},
@@ -13,7 +13,7 @@ use crate::{
 #[test]
 fn let_statement() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("let x = 42;")),
     );
     let ParseResult {
@@ -26,14 +26,11 @@ fn let_statement() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 29), SyntaxId(9)),
-            FnItem.with_children(Span::new(0, 29), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 29), SyntaxId(6)),
+            FnItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(5)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 29), SyntaxId(7)),
-            LetStatement.with_binary_children(Span::new(16, 27), SyntaxId(5), SyntaxId(6)),
+            BlockExpression.with_single_child(Span::new(10, 29), SyntaxId(4)),
+            LetStatement.with_binary_children(Span::new(16, 27), SyntaxId(2), SyntaxId(3)),
             SimplePath.empty(Span::new(20, 21)),
             IntegerExpression.empty(Span::new(24, 26)),
         ]
@@ -43,7 +40,7 @@ fn let_statement() {
 #[test]
 fn let_statement_with_type() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("let x: i64 = 42;")),
     );
     let ParseResult {
@@ -56,14 +53,11 @@ fn let_statement_with_type() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 34), SyntaxId(10)),
-            FnItem.with_children(Span::new(0, 34), SyntaxChildren::new(4, 7)),
+            Root.with_single_child(Span::new(0, 34), SyntaxId(7)),
+            FnItem.with_binary_children(Span::new(0, 34), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 34), SyntaxId(8)),
-            LetStatement.with_children(Span::new(16, 32), SyntaxChildren::new(1, 4)),
+            BlockExpression.with_single_child(Span::new(10, 34), SyntaxId(5)),
+            LetStatement.with_children(Span::new(16, 32), SyntaxChildren::new(0, 3)),
             SimplePath.empty(Span::new(20, 21)),
             IntegerExpression.empty(Span::new(29, 31)),
             I64Type.empty(Span::new(23, 26)),
@@ -74,7 +68,7 @@ fn let_statement_with_type() {
 #[test]
 fn let_mut_statement() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("let mut x = 42;")),
     );
     let ParseResult {
@@ -87,16 +81,13 @@ fn let_mut_statement() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 33), SyntaxId(9)),
-            FnItem.with_children(Span::new(0, 33), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 33), SyntaxId(6)),
+            FnItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(5)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 33), SyntaxId(7)),
+            BlockExpression.with_single_child(Span::new(10, 33), SyntaxId(4)),
             LetStatement
-                .with_binary_children(Span::new(16, 31), SyntaxId(5), SyntaxId(6))
-                .with_flag(SyntaxFlags::MUTABLE),
+                .with_binary_children(Span::new(16, 31), SyntaxId(2), SyntaxId(3))
+                .with_flags(SyntaxFlags::MUTABLE),
             SimplePath.empty(Span::new(24, 25)),
             IntegerExpression.empty(Span::new(28, 30)),
         ]
@@ -106,7 +97,7 @@ fn let_mut_statement() {
 #[test]
 fn let_mut_statement_with_type() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("let mut x: i64 = 42;")),
     );
     let ParseResult {
@@ -119,16 +110,13 @@ fn let_mut_statement_with_type() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 38), SyntaxId(10)),
-            FnItem.with_children(Span::new(0, 38), SyntaxChildren::new(4, 7)),
+            Root.with_single_child(Span::new(0, 38), SyntaxId(7)),
+            FnItem.with_binary_children(Span::new(0, 38), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 38), SyntaxId(8)),
+            BlockExpression.with_single_child(Span::new(10, 38), SyntaxId(5)),
             LetStatement
-                .with_children(Span::new(16, 36), SyntaxChildren::new(1, 4))
-                .with_flag(SyntaxFlags::MUTABLE),
+                .with_children(Span::new(16, 36), SyntaxChildren::new(0, 3))
+                .with_flags(SyntaxFlags::MUTABLE),
             SimplePath.empty(Span::new(24, 25)),
             IntegerExpression.empty(Span::new(33, 35)),
             I64Type.empty(Span::new(27, 30)),

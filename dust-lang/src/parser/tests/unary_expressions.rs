@@ -2,17 +2,14 @@ use crate::function_wrapper;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Span},
-    syntax::{
-        SyntaxId,
-        node::{SyntaxChildren, SyntaxKind::*},
-    },
+    source::{SourceCodeId, Span},
+    syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn negation() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("-x")),
     );
     let ParseResult {
@@ -25,15 +22,12 @@ fn negation() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 20), SyntaxId(9)),
-            FnItem.with_children(Span::new(0, 20), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 20), SyntaxId(6)),
+            FnItem.with_binary_children(Span::new(0, 20), SyntaxId(1), SyntaxId(5)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 20), SyntaxId(7)),
-            NegationExpression.with_single_child(Span::new(16, 18), SyntaxId(6)),
-            PathExpression.with_single_child(Span::new(17, 18), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 20), SyntaxId(4)),
+            NegationExpression.with_single_child(Span::new(16, 18), SyntaxId(3)),
+            PathExpression.with_single_child(Span::new(17, 18), SyntaxId(2)),
             PathSegment.empty(Span::new(17, 18)),
         ]
     );
@@ -42,7 +36,7 @@ fn negation() {
 #[test]
 fn logical_not() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("!x")),
     );
     let ParseResult {
@@ -55,15 +49,12 @@ fn logical_not() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 20), SyntaxId(9)),
-            FnItem.with_children(Span::new(0, 20), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 20), SyntaxId(6)),
+            FnItem.with_binary_children(Span::new(0, 20), SyntaxId(1), SyntaxId(5)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 20), SyntaxId(7)),
-            NotExpression.with_single_child(Span::new(16, 18), SyntaxId(6)),
-            PathExpression.with_single_child(Span::new(17, 18), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 20), SyntaxId(4)),
+            NotExpression.with_single_child(Span::new(16, 18), SyntaxId(3)),
+            PathExpression.with_single_child(Span::new(17, 18), SyntaxId(2)),
             PathSegment.empty(Span::new(17, 18)),
         ]
     );

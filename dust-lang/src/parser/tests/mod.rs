@@ -29,10 +29,10 @@ mod value_expressions;
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Span},
+    source::{SourceCodeId, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxChildren, SyntaxKind::*},
+        node::SyntaxKind::*,
     },
 };
 
@@ -46,7 +46,7 @@ macro_rules! function_wrapper {
 #[test]
 fn assignment_expression() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("x = 42;")),
     );
     let ParseResult {
@@ -59,16 +59,13 @@ fn assignment_expression() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 25), SyntaxId(11)),
-            FnItem.with_children(Span::new(0, 25), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 25), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 25), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 25), SyntaxId(9)),
-            ExpressionStatement.with_single_child(Span::new(16, 23), SyntaxId(8)),
-            AssignmentExpression.with_binary_children(Span::new(16, 22), SyntaxId(6), SyntaxId(7)),
-            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 25), SyntaxId(6)),
+            ExpressionStatement.with_single_child(Span::new(16, 23), SyntaxId(5)),
+            AssignmentExpression.with_binary_children(Span::new(16, 22), SyntaxId(3), SyntaxId(4)),
+            PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
             IntegerExpression.empty(Span::new(20, 22)),
         ]
@@ -78,7 +75,7 @@ fn assignment_expression() {
 #[test]
 fn grouped_expression() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("(x + y)")),
     );
     let ParseResult {
@@ -91,18 +88,15 @@ fn grouped_expression() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 25), SyntaxId(12)),
-            FnItem.with_children(Span::new(0, 25), SyntaxChildren::new(1, 4)),
+            Root.with_single_child(Span::new(0, 25), SyntaxId(9)),
+            FnItem.with_binary_children(Span::new(0, 25), SyntaxId(1), SyntaxId(8)),
             SimplePath.empty(Span::new(3, 7)),
-            FunctionSignature.with_children(Span::new(0, 9), SyntaxChildren::new(0, 1)),
-            FunctionParameters.with_single_child(Span::new(0, 9), SyntaxId(2)),
-            ValueParameters.empty(Span::new(0, 9)),
-            BlockExpression.with_single_child(Span::new(10, 25), SyntaxId(10)),
-            GroupedExpression.with_single_child(Span::new(16, 23), SyntaxId(9)),
-            AdditionExpression.with_binary_children(Span::new(17, 22), SyntaxId(6), SyntaxId(8)),
-            PathExpression.with_single_child(Span::new(17, 18), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 25), SyntaxId(7)),
+            GroupedExpression.with_single_child(Span::new(16, 23), SyntaxId(6)),
+            AdditionExpression.with_binary_children(Span::new(17, 22), SyntaxId(3), SyntaxId(5)),
+            PathExpression.with_single_child(Span::new(17, 18), SyntaxId(2)),
             PathSegment.empty(Span::new(17, 18)),
-            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(7)),
+            PathExpression.with_single_child(Span::new(21, 22), SyntaxId(4)),
             PathSegment.empty(Span::new(21, 22)),
         ]
     );

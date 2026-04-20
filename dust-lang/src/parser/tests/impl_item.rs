@@ -1,7 +1,7 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Span},
+    source::{SourceCodeId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
@@ -10,7 +10,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new(FileId::MAIN, Lexer::with_unvalidated_source(b"impl Foo {}"));
+    let parser = Parser::new(SourceCodeId::MAIN, Lexer::with_unvalidated_source(b"impl Foo {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -23,7 +23,7 @@ fn empty() {
         [
             Root.with_single_child(Span::new(0, 11), SyntaxId(4)),
             ImplItem.with_binary_children(Span::new(0, 11), SyntaxId(2), SyntaxId(3)),
-            TypePath.with_single_child(Span::new(5, 8), SyntaxId(1)),
+            Path.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
             ImplBody.empty(Span::new(9, 11)),
         ]
@@ -33,7 +33,7 @@ fn empty() {
 #[test]
 fn with_function() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(b"impl Foo { fn bar(self) {} }"),
     );
     let ParseResult {
@@ -46,18 +46,16 @@ fn with_function() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 28), SyntaxId(12)),
-            ImplItem.with_binary_children(Span::new(0, 28), SyntaxId(2), SyntaxId(11)),
-            TypePath.with_single_child(Span::new(5, 8), SyntaxId(1)),
+            Root.with_single_child(Span::new(0, 28), SyntaxId(8)),
+            ImplItem.with_binary_children(Span::new(0, 28), SyntaxId(2), SyntaxId(7)),
+            Path.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
-            ImplBody.with_single_child(Span::new(9, 28), SyntaxId(10)),
-            FnItem.with_children(Span::new(11, 26), SyntaxChildren::new(1, 4),),
+            ImplBody.with_single_child(Span::new(9, 28), SyntaxId(6)),
+            FnItem.with_children(Span::new(11, 26), SyntaxChildren::new(0, 3)),
             SimplePath.empty(Span::new(14, 17)),
-            FunctionSignature.with_children(Span::new(11, 23), SyntaxChildren::new(0, 1),),
-            FunctionParameters.with_single_child(Span::new(11, 23), SyntaxId(6)),
-            ValueParameters.with_binary_children(Span::new(11, 23), SyntaxId(4), SyntaxId(5)),
-            SimplePath.empty(Span::new(18, 22)),
-            SelfType.empty(Span::new(18, 22)),
+            ValueParameters
+                .empty(Span::new(17, 23))
+                .with_flags(SyntaxFlags::SELF_VALUE),
             BlockExpression.empty(Span::new(24, 26)),
         ]
     );
@@ -66,7 +64,7 @@ fn with_function() {
 #[test]
 fn with_pub_function() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(b"impl Foo { pub fn bar(self) {} }"),
     );
     let ParseResult {
@@ -79,20 +77,18 @@ fn with_pub_function() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 32), SyntaxId(12)),
-            ImplItem.with_binary_children(Span::new(0, 32), SyntaxId(2), SyntaxId(11)),
-            TypePath.with_single_child(Span::new(5, 8), SyntaxId(1)),
+            Root.with_single_child(Span::new(0, 32), SyntaxId(8)),
+            ImplItem.with_binary_children(Span::new(0, 32), SyntaxId(2), SyntaxId(7)),
+            Path.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
-            ImplBody.with_single_child(Span::new(9, 32), SyntaxId(10)),
+            ImplBody.with_single_child(Span::new(9, 32), SyntaxId(6)),
             FnItem
-                .with_children(Span::new(15, 30), SyntaxChildren::new(1, 4))
-                .with_flag(SyntaxFlags::PUBLIC),
+                .with_children(Span::new(15, 30), SyntaxChildren::new(0, 3))
+                .with_flags(SyntaxFlags::PUBLIC),
             SimplePath.empty(Span::new(18, 21)),
-            FunctionSignature.with_children(Span::new(15, 27), SyntaxChildren::new(0, 1),),
-            FunctionParameters.with_single_child(Span::new(15, 27), SyntaxId(6)),
-            ValueParameters.with_binary_children(Span::new(15, 27), SyntaxId(4), SyntaxId(5)),
-            SimplePath.empty(Span::new(22, 26)),
-            SelfType.empty(Span::new(22, 26)),
+            ValueParameters
+                .empty(Span::new(21, 27))
+                .with_flags(SyntaxFlags::SELF_VALUE),
             BlockExpression.empty(Span::new(28, 30)),
         ]
     );
@@ -101,7 +97,7 @@ fn with_pub_function() {
 #[test]
 fn trait_impl() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(b"impl Bar for Foo {}"),
     );
     let ParseResult {
@@ -115,12 +111,12 @@ fn trait_impl() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 19), SyntaxId(6)),
-            ImplTraitItem.with_children(Span::new(0, 19), SyntaxChildren::new(0, 3)),
-            TypePath.with_single_child(Span::new(13, 16), SyntaxId(2)),
-            PathSegment.empty(Span::new(13, 16)),
-            ImplBody.empty(Span::new(17, 19)),
+            ImplItem.with_children(Span::new(0, 19), SyntaxChildren::new(0, 3)),
             Path.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
+            TypePath.with_single_child(Span::new(13, 16), SyntaxId(3)),
+            PathSegment.empty(Span::new(13, 16)),
+            ImplBody.empty(Span::new(17, 19)),
         ]
     );
 }
@@ -128,7 +124,7 @@ fn trait_impl() {
 #[test]
 fn with_where_clause() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(b"impl Foo where Foo: Bar {}"),
     );
     let ParseResult {
@@ -144,10 +140,9 @@ fn with_where_clause() {
             Root.with_single_child(Span::new(0, 26), SyntaxId(11)),
             ImplItem
                 .with_children(Span::new(0, 26), SyntaxChildren::new(0, 3))
-                .with_flag(SyntaxFlags::WHERE_CLAUSE),
-            TypePath.with_single_child(Span::new(5, 8), SyntaxId(1)),
+                .with_flags(SyntaxFlags::WHERE_CLAUSE),
+            Path.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
-            ImplBody.empty(Span::new(24, 26)),
             WhereClause.with_single_child(Span::new(9, 23), SyntaxId(8)),
             WherePredicate.with_binary_children(Span::new(15, 23), SyntaxId(4), SyntaxId(7)),
             TypePath.with_single_child(Span::new(15, 18), SyntaxId(3)),
@@ -155,6 +150,7 @@ fn with_where_clause() {
             TraitBounds.with_single_child(Span::new(20, 23), SyntaxId(6)),
             Path.with_single_child(Span::new(20, 23), SyntaxId(5)),
             PathSegment.empty(Span::new(20, 23)),
+            ImplBody.empty(Span::new(24, 26)),
         ]
     );
 }

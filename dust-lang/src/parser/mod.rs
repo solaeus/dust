@@ -113,11 +113,23 @@ impl<'src> Parser<'src> {
                 flags,
                 span,
             },
-            2 => kind.with_binary_children(span, children[0], children[1]),
+            2 => SyntaxNode {
+                kind,
+                children: SyntaxChildren::new(children[0].inner(), children[1].inner()),
+                children_kind: SyntaxChildrenKind::Binary,
+                flags,
+                span,
+            },
             _ => {
                 let children = self.tree.add_children(children);
 
-                kind.with_children(span, children)
+                SyntaxNode {
+                    kind,
+                    children,
+                    children_kind: SyntaxChildrenKind::ThreeOrMore,
+                    flags,
+                    span,
+                }
             }
         }
     }
@@ -132,7 +144,6 @@ impl<'src> Parser<'src> {
 
     fn pratt(&mut self, minimum_precedence: Precedence) -> Result<SyntaxNode, ParseError> {
         let prefix_rule = ParseRule::from(self.current_token.kind);
-
         let mut node = (prefix_rule.prefix)(self)?;
         let mut infix_rule = ParseRule::from(self.current_token.kind);
 
@@ -200,9 +211,9 @@ impl<'src> Parser<'src> {
         self.current_token.kind == TokenKind::Eof
     }
 
-    fn allow(&mut self, allowed: TokenKind) -> Result<bool, ParseError> {
+    fn allow(&mut self, allowed: TokenKind) -> bool {
         if self.is_eof() {
-            return Ok(true);
+            return true;
         }
 
         let allowed = self.current_token.kind == allowed;
@@ -211,7 +222,7 @@ impl<'src> Parser<'src> {
             self.advance();
         }
 
-        Ok(allowed)
+        allowed
     }
 
     fn expect(&mut self, expected: TokenKind) -> Result<(), ParseError> {
@@ -415,7 +426,7 @@ impl<'src> Parser<'src> {
 
                 let mut children = Self::new_child_buffer();
 
-                while !self.allow(TokenKind::RightCurlyBrace)? {
+                while !self.allow(TokenKind::RightCurlyBrace) {
                     match self.parse_item() {
                         Ok(child) => {
                             let child_id = self.tree.add_node(child);
@@ -537,8 +548,8 @@ impl<'src> Parser<'src> {
 
         let mut field_ids = Self::new_child_buffer();
 
-        while !self.allow(TokenKind::RightCurlyBrace)? {
-            let is_public = self.allow(TokenKind::Pub)?;
+        while !self.allow(TokenKind::RightCurlyBrace) {
+            let is_public = self.allow(TokenKind::Pub);
 
             let mut field_name_node = self.expect_simple_path()?;
             if is_public {
@@ -582,8 +593,8 @@ impl<'src> Parser<'src> {
 
         let mut field_ids = Self::new_child_buffer();
 
-        while !self.allow(TokenKind::RightParenthesis)? {
-            let is_public = self.allow(TokenKind::Pub)?;
+        while !self.allow(TokenKind::RightParenthesis) {
+            let is_public = self.allow(TokenKind::Pub);
             let mut field_type_node = self.expect_type()?;
             if is_public {
                 field_type_node.flags.set_flag(SyntaxFlags::PUBLIC);
@@ -635,25 +646,29 @@ impl<'src> Parser<'src> {
 
         self.expect(TokenKind::LeftCurlyBrace)?;
 
-        let start_child_count = enum_children.len();
-
-        while !self.allow(TokenKind::RightCurlyBrace)? {
-            if enum_children.len() > start_child_count {
-                self.expect(TokenKind::Comma)?;
-            }
-
+        while !self.allow(TokenKind::RightCurlyBrace) {
             let start = self.current_token.span.start();
 
             let path_node = self.expect_simple_path()?;
 
             match self.current_token.kind {
-                TokenKind::Comma | TokenKind::RightCurlyBrace => {
+                TokenKind::Comma => {
                     self.advance();
 
                     let variant_node = SyntaxKind::EnumUnitVariant.empty(path_node.span);
                     let variant_id = self.tree.add_node(variant_node);
 
                     enum_children.push(variant_id);
+                }
+                TokenKind::RightCurlyBrace => {
+                    self.advance();
+
+                    let variant_node = SyntaxKind::EnumUnitVariant.empty(path_node.span);
+                    let variant_id = self.tree.add_node(variant_node);
+
+                    enum_children.push(variant_id);
+
+                    break;
                 }
                 TokenKind::LeftParenthesis => {
                     let path_id = self.tree.add_node(path_node);
@@ -669,6 +684,8 @@ impl<'src> Parser<'src> {
                     let variant_id = self.tree.add_node(variant_node);
 
                     enum_children.push(variant_id);
+
+                    self.allow(TokenKind::Comma);
                 }
                 TokenKind::LeftCurlyBrace => {
                     let path_id = self.tree.add_node(path_node);
@@ -684,6 +701,8 @@ impl<'src> Parser<'src> {
                     let variant_id = self.tree.add_node(variant_node);
 
                     enum_children.push(variant_id);
+
+                    self.allow(TokenKind::Comma);
                 }
                 _ => {
                     return Err(ParseError::ExpectedMultipleTokens {
@@ -755,7 +774,7 @@ impl<'src> Parser<'src> {
             flags.set_flag(SyntaxFlags::VALUE_PARAMETERS);
         }
 
-        if self.allow(TokenKind::ArrowThin)? {
+        if self.allow(TokenKind::ArrowThin) {
             let return_type_node = self.expect_type()?;
             let return_type_id = self.tree.add_node(return_type_node);
 
@@ -786,7 +805,7 @@ impl<'src> Parser<'src> {
         let mut value_parameters_children = Self::new_child_buffer();
         let mut value_parameters_flags = SyntaxFlags::default();
 
-        if self.allow(TokenKind::SelfValue)? {
+        if self.allow(TokenKind::SelfValue) {
             if self.current_token.kind != TokenKind::RightParenthesis {
                 self.expect(TokenKind::Comma)?;
             }
@@ -794,7 +813,7 @@ impl<'src> Parser<'src> {
             value_parameters_flags.set_flag(SyntaxFlags::SELF_VALUE);
         }
 
-        while !self.allow(TokenKind::RightParenthesis)? {
+        while !self.allow(TokenKind::RightParenthesis) {
             let parameter_path_node = self.expect_simple_path()?;
             let parameter_path_id = self.tree.add_node(parameter_path_node);
 
@@ -860,7 +879,7 @@ impl<'src> Parser<'src> {
             impl_flags.set_flag(SyntaxFlags::TYPE_ARGUMENTS);
         }
 
-        if self.allow(TokenKind::For)? {
+        if self.allow(TokenKind::For) {
             let type_name_node = {
                 let mut node = self.expect_path()?;
                 node.kind = SyntaxKind::TypePath;
@@ -885,7 +904,7 @@ impl<'src> Parser<'src> {
         let body_start = self.previous_token.span.start();
         let mut body_children = Self::new_child_buffer();
 
-        while !self.allow(TokenKind::RightCurlyBrace)? {
+        while !self.allow(TokenKind::RightCurlyBrace) {
             match self.expect_impl_item() {
                 Ok(item) => {
                     let item_id = self.tree.add_node(item);
@@ -934,7 +953,7 @@ impl<'src> Parser<'src> {
             trait_flags.set_flag(SyntaxFlags::TYPE_PARAMETERS);
         }
 
-        if self.allow(TokenKind::Colon)? {
+        if self.allow(TokenKind::Colon) {
             let supertraits_node = self.parse_trait_bounds()?;
             let supertraits_id = self.tree.add_node(supertraits_node);
 
@@ -954,7 +973,7 @@ impl<'src> Parser<'src> {
         let body_start = self.previous_token.span.start();
         let mut body_children = Self::new_child_buffer();
 
-        while !self.allow(TokenKind::RightCurlyBrace)? {
+        while !self.allow(TokenKind::RightCurlyBrace) {
             match self.current_token.kind {
                 TokenKind::Fn => {
                     let method_node = self.parse_trait_function_item()?;
@@ -1184,7 +1203,7 @@ impl<'src> Parser<'src> {
                 let mut last_segment_span = self.previous_token.span;
 
                 loop {
-                    if !self.allow(TokenKind::DoubleColon)? {
+                    if !self.allow(TokenKind::DoubleColon) {
                         if let Some(type_arguments) = self.allow_type_arguments()? {
                             let type_arguments_id = self.tree.add_node(type_arguments);
                             let segment = SyntaxKind::PathSegment
@@ -1202,7 +1221,7 @@ impl<'src> Parser<'src> {
                         break;
                     }
 
-                    if !self.allow(TokenKind::Less)? {
+                    if !self.allow(TokenKind::Less) {
                         let segment = SyntaxKind::PathSegment.empty(last_segment_span);
 
                         children.push(self.tree.add_node(segment));
@@ -1227,7 +1246,7 @@ impl<'src> Parser<'src> {
 
                     children.push(self.tree.add_node(segment));
 
-                    if !self.allow(TokenKind::DoubleColon)? {
+                    if !self.allow(TokenKind::DoubleColon) {
                         break;
                     }
 
@@ -1254,13 +1273,13 @@ impl<'src> Parser<'src> {
 
                 let mut children = Self::new_child_buffer();
 
-                while !self.allow(TokenKind::RightParenthesis)? {
+                while !self.allow(TokenKind::RightParenthesis) {
                     let type_node = self.expect_type()?;
                     let type_id = self.tree.add_node(type_node);
 
                     children.push(type_id);
 
-                    self.allow(TokenKind::Comma)?;
+                    self.allow(TokenKind::Comma);
                 }
 
                 Ok(self.create_node(
@@ -1318,13 +1337,13 @@ impl<'src> Parser<'src> {
 
                 let mut children = Self::new_child_buffer();
 
-                while !self.allow(TokenKind::RightParenthesis)? {
+                while !self.allow(TokenKind::RightParenthesis) {
                     let parameter_type_node = self.expect_type()?;
                     let parameter_type_id = self.tree.add_node(parameter_type_node);
 
                     children.push(parameter_type_id);
 
-                    self.allow(TokenKind::Comma)?;
+                    self.allow(TokenKind::Comma);
                 }
 
                 let value_parameter_types_node = self.create_node(
@@ -1335,7 +1354,7 @@ impl<'src> Parser<'src> {
                 );
                 let value_parameter_types_node_id = self.tree.add_node(value_parameter_types_node);
 
-                if self.allow(TokenKind::ArrowThin)? {
+                if self.allow(TokenKind::ArrowThin) {
                     let return_type_node = self.expect_type()?;
                     let return_type_id = self.tree.add_node(return_type_node);
 
@@ -1387,10 +1406,10 @@ impl<'src> Parser<'src> {
 
         self.advance();
 
-        let is_mutable = self.allow(TokenKind::Mut)?;
+        let is_mutable = self.allow(TokenKind::Mut);
         let path_node = self.expect_simple_path()?;
         let path_id = self.tree.add_node(path_node);
-        let type_notation_id = if self.allow(TokenKind::Colon)? {
+        let type_notation_id = if self.allow(TokenKind::Colon) {
             let type_node = self.expect_type()?;
             let type_id = self.tree.add_node(type_node);
 
@@ -1617,7 +1636,7 @@ impl<'src> Parser<'src> {
 
         self.advance();
 
-        if self.allow(TokenKind::RightParenthesis)? {
+        if self.allow(TokenKind::RightParenthesis) {
             return Ok(SyntaxKind::GroupedExpression
                 .empty(Span::new(start, self.previous_token.span.end())));
         }
@@ -1639,7 +1658,7 @@ impl<'src> Parser<'src> {
 
         let mut children = Self::new_child_buffer();
 
-        while !self.allow(TokenKind::RightCurlyBrace)? {
+        while !self.allow(TokenKind::RightCurlyBrace) {
             match self.pratt(Precedence::None) {
                 Ok(node) => {
                     let child_id = self.tree.add_node(node);
@@ -1723,7 +1742,7 @@ impl<'src> Parser<'src> {
 
         self.advance();
 
-        if self.allow(TokenKind::Semicolon)? {
+        if self.allow(TokenKind::Semicolon) {
             let end = self.previous_token.span.end();
 
             Ok(SyntaxKind::BreakExpression.empty(Span::new(start, end)))
@@ -1780,7 +1799,7 @@ impl<'src> Parser<'src> {
         let first_expression_node = self.parse_sub_expression(Precedence::Assignment)?;
         let first_expression_id = self.tree.add_node(first_expression_node);
 
-        if self.allow(TokenKind::Semicolon)? {
+        if self.allow(TokenKind::Semicolon) {
             self.expect(TokenKind::IntegerLiteral)?;
 
             let integer_expression_node =
@@ -1804,7 +1823,7 @@ impl<'src> Parser<'src> {
             self.expect(TokenKind::Comma)?;
         }
 
-        while !self.allow(TokenKind::RightSquareBracket)? {
+        while !self.allow(TokenKind::RightSquareBracket) {
             let child_node = self.parse_expression()?;
             let child_id = self.tree.add_node(child_node);
 
@@ -1877,7 +1896,7 @@ impl<'src> Parser<'src> {
 
         let mut value_arguments = Self::new_child_buffer();
 
-        while !self.allow(TokenKind::RightParenthesis)? {
+        while !self.allow(TokenKind::RightParenthesis) {
             let argument_node = self.parse_expression()?;
             let argument_id = self.tree.add_node(argument_node);
 
@@ -1921,7 +1940,7 @@ impl<'src> Parser<'src> {
         let mut last_segment_span = self.previous_token.span;
 
         loop {
-            if !self.allow(TokenKind::DoubleColon)? {
+            if !self.allow(TokenKind::DoubleColon) {
                 let segment = SyntaxKind::PathSegment.empty(last_segment_span);
 
                 children.push(self.tree.add_node(segment));
@@ -1943,7 +1962,7 @@ impl<'src> Parser<'src> {
 
                 children.push(self.tree.add_node(segment));
 
-                if !self.allow(TokenKind::DoubleColon)? {
+                if !self.allow(TokenKind::DoubleColon) {
                     break;
                 }
 
@@ -1989,7 +2008,7 @@ impl<'src> Parser<'src> {
     }
 
     fn allow_type_parameters(&mut self) -> Result<Option<SyntaxNode>, ParseError> {
-        if !self.allow(TokenKind::Less)? {
+        if !self.allow(TokenKind::Less) {
             return Ok(None);
         }
 
@@ -1997,12 +2016,12 @@ impl<'src> Parser<'src> {
 
         let mut type_parameter_nodes = Self::new_child_buffer();
 
-        while !self.allow(TokenKind::Greater)? {
+        while !self.allow(TokenKind::Greater) {
             let param_start = self.current_token.span.start();
             let type_parameter_path_node = self.expect_simple_path()?;
             let type_parameter_path_id = self.tree.add_node(type_parameter_path_node);
 
-            let type_parameter_node = if self.allow(TokenKind::Colon)? {
+            let type_parameter_node = if self.allow(TokenKind::Colon) {
                 let bounds_node = self.parse_trait_bounds()?;
                 let bounds_id = self.tree.add_node(bounds_node);
 
@@ -2051,7 +2070,7 @@ impl<'src> Parser<'src> {
 
         bound_ids.push(first_bound_id);
 
-        while self.allow(TokenKind::Plus)? {
+        while self.allow(TokenKind::Plus) {
             let bound = self.expect_path()?;
             let bound_id = self.tree.add_node(bound);
 
@@ -2067,7 +2086,7 @@ impl<'src> Parser<'src> {
     }
 
     fn allow_where_clause(&mut self) -> Result<Option<SyntaxNode>, ParseError> {
-        if !self.allow(TokenKind::Where)? {
+        if !self.allow(TokenKind::Where) {
             return Ok(None);
         }
 
@@ -2101,7 +2120,7 @@ impl<'src> Parser<'src> {
             let predicate_id = self.tree.add_node(predicate_node);
             predicate_ids.push(predicate_id);
 
-            if !self.allow(TokenKind::Comma)? {
+            if !self.allow(TokenKind::Comma) {
                 break;
             }
         }
@@ -2159,7 +2178,7 @@ impl<'src> Parser<'src> {
     }
 
     fn allow_type_arguments(&mut self) -> Result<Option<SyntaxNode>, ParseError> {
-        if !self.allow(TokenKind::Less)? {
+        if !self.allow(TokenKind::Less) {
             return Ok(None);
         }
 
@@ -2167,7 +2186,7 @@ impl<'src> Parser<'src> {
 
         let mut type_argument_nodes = Self::new_child_buffer();
 
-        while !self.allow(TokenKind::Greater)? {
+        while !self.allow(TokenKind::Greater) {
             let type_argument_node = self.expect_type()?;
             let type_argument_id = self.tree.add_node(type_argument_node);
 
@@ -2202,14 +2221,23 @@ impl<'src> Parser<'src> {
 
             let mut fields = Self::new_child_buffer();
 
-            while !self.allow(TokenKind::RightCurlyBrace)? {
+            while !self.allow(TokenKind::RightCurlyBrace) {
                 let field_path_node = self.expect_simple_path()?;
                 let field_path_id = self.tree.add_node(field_path_node);
 
                 self.expect(TokenKind::Colon)?;
 
-                let field_expression_node = self.parse_expression()?;
-                let field_expression_id = self.tree.add_node(field_expression_node);
+                let expression_statement_node = self.pratt(Precedence::None)?;
+
+                if expression_statement_node.kind != SyntaxKind::ExpressionStatement {
+                    return Err(ParseError::ExpectedToken {
+                        expected: TokenKind::Semicolon,
+                        found: self.current_token.kind,
+                        position: self.current_position(),
+                    });
+                }
+
+                let field_expression_id = expression_statement_node.children.left_id();
 
                 fields.push(field_path_id);
                 fields.push(field_expression_id);
@@ -2251,7 +2279,7 @@ impl<'src> Parser<'src> {
         let type_node = self.expect_type()?;
         let type_id = self.tree.add_node(type_node);
 
-        if self.allow(TokenKind::Equal)? {
+        if self.allow(TokenKind::Equal) {
             let expression_node = self.parse_expression()?;
             let expression_id = self.tree.add_node(expression_node);
 
@@ -2280,7 +2308,7 @@ impl<'src> Parser<'src> {
         let name_node = self.expect_simple_path()?;
         let name_id = self.tree.add_node(name_node);
 
-        if self.allow(TokenKind::Equal)? {
+        if self.allow(TokenKind::Equal) {
             let aliased_type_node = self.expect_type()?;
             let aliased_type_id = self.tree.add_node(aliased_type_node);
 

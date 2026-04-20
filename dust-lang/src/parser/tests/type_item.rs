@@ -1,7 +1,7 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{FileId, Span},
+    source::{SourceCodeId, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxChildren, SyntaxKind::*},
@@ -11,7 +11,7 @@ use crate::{
 #[test]
 fn simple() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(b"type Foo = i64;"),
     );
     let ParseResult {
@@ -35,7 +35,7 @@ fn simple() {
 #[test]
 fn with_type_parameters() {
     let parser = Parser::new(
-        FileId::MAIN,
+        SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(b"type Foo<T> = T;"),
     );
     let ParseResult {

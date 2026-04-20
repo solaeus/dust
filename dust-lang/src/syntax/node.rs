@@ -488,7 +488,7 @@ impl SyntaxFlags {
     }
 
     pub fn and(self, other: Self) -> Self {
-        Self(self.0 & other.0)
+        Self(self.0 | other.0)
     }
 
     pub fn set_flag(&mut self, flag: SyntaxFlags) {
