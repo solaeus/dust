@@ -1,9 +1,10 @@
 use crate::{
-    compiler::resolver::{declarations::Definition, scopes::ScopeId, types::TypeId},
+    compiler::{
+        resolver::{declarations::Definition, scopes::ScopeId, types::TypeId},
+        tests::bind_declarations,
+    },
     source::{Source, SourceCode},
 };
-
-use super::{bind_declarations, bind_declarations_with_errors};
 
 #[test]
 fn with_method() {
@@ -76,9 +77,7 @@ fn impl_method_path_resolves() {
         "struct Foo {} impl Foo { fn value() -> i32 { 42 } } fn main() { Foo::value(); }",
     ));
 
-    let (_syntax, _resolver, _crate_scope_id, errors) = bind_declarations_with_errors(&source);
-
-    assert!(errors.is_empty(), "{errors:#?}");
+    let (_syntax, _resolver, _crate_scope_id) = bind_declarations(&source);
 }
 
 #[test]
@@ -90,7 +89,5 @@ fn impl_method_with_arguments_resolves() {
         "struct Foo {} impl Foo { fn add(a: i32, b: i32) -> i32 { a + b } } fn main() { Foo::add(1, 2); }",
     ));
 
-    let (_syntax, _resolver, _crate_scope_id, errors) = bind_declarations_with_errors(&source);
-
-    assert!(errors.is_empty(), "{errors:#?}");
+    let (_syntax, _resolver, _crate_scope_id) = bind_declarations(&source);
 }

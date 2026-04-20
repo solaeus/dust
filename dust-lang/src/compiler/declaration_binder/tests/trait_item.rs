@@ -1,9 +1,10 @@
 use crate::{
-    compiler::resolver::{declarations::Definition, scopes::ScopeKind, types::TypeId},
+    compiler::{
+        resolver::{declarations::Definition, scopes::ScopeKind, types::TypeId},
+        tests::bind_declarations,
+    },
     source::{Source, SourceCode},
 };
-
-use super::bind_declarations;
 
 #[test]
 fn with_method_and_const() {

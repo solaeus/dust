@@ -33,7 +33,7 @@ use crate::{
         Address, Drop, Instruction, Jump, MemoryKind, Move, OperandType, Operation, Test,
     },
     native_function::NativeFunction,
-    optimal_small_vec_inline_capacity, optimal_small_vec_inline_capacity_with_minimum,
+    optimal_small_vec_inline_capacity,
     prototype::Prototype,
     source::Source,
     syntax::{
@@ -1126,9 +1126,7 @@ impl<'a> Emitter<'a> {
 
         Ok(())
     }
-}
 
-impl<'a> Emitter<'a> {
     fn emit_statement(
         &mut self,
         reader: SyntaxReader,
@@ -3423,7 +3421,7 @@ impl<'a> Emitter<'a> {
             }
         }
 
-        let field_register = struct_registers.claims.iter().nth(register_offset);
+        let field_register = struct_registers.claims.get(register_offset);
 
         match field_register {
             Some(register) => Ok(Emission::Place(Place::Register(RegisterClaims {
@@ -3435,22 +3433,6 @@ impl<'a> Emitter<'a> {
                 syntax_id: field_name.id,
             }),
         }
-    }
-
-    fn emit_type(&mut self, _: SyntaxReader) -> Result<(), CompileError> {
-        Ok(())
-    }
-
-    fn emit_path(&mut self, _: SyntaxReader, _: ExpressionTarget) -> Result<(), CompileError> {
-        Ok(())
-    }
-
-    fn emit_simple_path(
-        &mut self,
-        _: SyntaxReader,
-        _: ExpressionTarget,
-    ) -> Result<(), CompileError> {
-        Ok(())
     }
 }
 
@@ -3564,10 +3546,6 @@ pub struct RegisterClaims {
 }
 
 impl RegisterClaims {
-    fn is_temporary(&self) -> bool {
-        self.kind == RegisterKind::Temporary
-    }
-
     fn expect_base_index(&self) -> Result<u16, CompileError> {
         self.claims
             .first()
@@ -3636,8 +3614,7 @@ enum JumpAnchor {
 }
 
 impl JumpAnchor {
-    type SmallVec =
-        SmallVec<[JumpAnchor; optimal_small_vec_inline_capacity_with_minimum::<JumpAnchor, 4>()]>;
+    type SmallVec = SmallVec<[JumpAnchor; optimal_small_vec_inline_capacity::<JumpAnchor>()]>;
 }
 
 #[derive(Clone, Copy, Debug)]

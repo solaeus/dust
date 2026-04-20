@@ -1,11 +1,10 @@
 use smallvec::smallvec;
 
 use crate::{
+    compiler::emitter::tests::emit_function,
     instruction::{Instruction, MemoryKind, OperandType},
     prototype::Prototype,
 };
-
-use super::emit_function;
 
 #[test]
 fn equal() {

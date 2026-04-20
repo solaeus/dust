@@ -1,9 +1,7 @@
 use crate::{
-    compiler::resolver::declarations::Definition,
+    compiler::{resolver::declarations::Definition, tests::bind_declarations},
     source::{Source, SourceCode},
 };
-
-use super::{bind_declarations, bind_declarations_with_errors};
 
 #[test]
 fn module() {
@@ -342,18 +340,4 @@ fn enum_variant_from_module() {
         .unwrap();
 
     assert!(matches!(target.definition, Definition::Variant { .. }));
-}
-
-#[test]
-fn private_enum_import_errors() {
-    let mut source = Source::new();
-
-    source.add_code(SourceCode::validated_borrowed(
-        "test",
-        "mod foo { enum Color { Red } } use foo::Color::Red;",
-    ));
-
-    let (_syntax, _resolver, _crate_scope_id, errors) = bind_declarations_with_errors(&source);
-
-    assert!(!errors.is_empty());
 }

@@ -14,8 +14,10 @@ pub struct SyntaxNode {
 }
 
 impl SyntaxNode {
+    #[cfg(test)]
     pub fn with_flags(mut self, flags: SyntaxFlags) -> Self {
         self.flags.set_flag(flags);
+
         self
     }
 }
@@ -190,7 +192,7 @@ impl SyntaxKind {
     pub fn with_single_child(self, span: Span, child_id: SyntaxId) -> SyntaxNode {
         SyntaxNode {
             kind: self,
-            children: SyntaxChildren::new(child_id.0, SyntaxId::NONE.0),
+            children: SyntaxChildren::new(child_id.0, 0),
             children_kind: SyntaxChildrenKind::Single,
             flags: SyntaxFlags::default(),
             span,
@@ -435,8 +437,8 @@ impl SyntaxChildren {
 
     pub fn empty() -> Self {
         Self {
-            left: SyntaxId::NONE.0,
-            right: SyntaxId::NONE.0,
+            left: 0,
+            right: 0,
         }
     }
 
@@ -535,12 +537,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn flags_sanity_check() {
+    fn flags() {
         let mut flag_values: [SyntaxFlags; 8] =
             array::from_fn(|index| SyntaxFlags((1 << index) as u8));
-        let mut flags = SyntaxFlags::default();
 
         for _ in 0..2 {
+            let mut flags = SyntaxFlags::default();
+
             for (index, flag) in flag_values.iter().enumerate() {
                 flags.set_flag(*flag);
 

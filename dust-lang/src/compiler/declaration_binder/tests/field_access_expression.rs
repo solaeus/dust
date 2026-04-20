@@ -1,5 +1,8 @@
 use crate::{
-    compiler::resolver::{declarations::Definition, types::TypeId},
+    compiler::{
+        resolver::{declarations::Definition, types::TypeId},
+        tests::bind_declarations,
+    },
     source::{Source, SourceCode, SourceCodeId},
     syntax::{
         components::{FieldAccessExpression, SyntaxComponent},
@@ -7,10 +10,8 @@ use crate::{
     },
 };
 
-use super::bind_declarations;
-
 #[test]
-fn field_access_binds_field_declaration() {
+fn binds_field_declaration() {
     let mut source = Source::new();
 
     source.add_code(SourceCode::validated_borrowed(

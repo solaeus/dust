@@ -78,6 +78,13 @@ impl Scopes {
 
         (scope.namespace_range.1 - scope.namespace_range.0) as usize
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (ScopeId, &Scope)> + '_ {
+        self.scopes
+            .iter()
+            .enumerate()
+            .map(|(index, scope)| (ScopeId(index as u32), scope))
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]

@@ -149,7 +149,7 @@ impl<'a> SyntaxReader<'a> {
         if let Some(info) = self.node.flags.info_display(self.node.kind) {
             buffer.push_str(" (");
             buffer.push_str(info);
-            buffer.push_str(")");
+            buffer.push(')');
         }
 
         buffer.push('\n');
@@ -327,6 +327,7 @@ impl<'a> Iterator for SyntaxPairIterator<'a> {
 impl ExactSizeIterator for SyntaxPairIterator<'_> {}
 
 #[cfg(test)]
+#[expect(clippy::disallowed_macros, clippy::disallowed_methods)]
 mod tests {
     use crate::parser::parse;
 

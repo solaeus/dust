@@ -1,13 +1,14 @@
 use crate::{
-    compiler::resolver::{
-        declarations::Definition,
-        scopes::ScopeId,
-        types::{Type, TypeId},
+    compiler::{
+        resolver::{
+            declarations::Definition,
+            scopes::ScopeId,
+            types::{Type, TypeId},
+        },
+        tests::bind_declarations,
     },
     source::{Source, SourceCode},
 };
-
-use super::bind_declarations;
 
 #[test]
 fn empty() {

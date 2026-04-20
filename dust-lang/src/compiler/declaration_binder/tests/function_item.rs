@@ -1,13 +1,15 @@
 use crate::{
-    compiler::resolver::{
-        declarations::Definition,
-        scopes::{ScopeId, ScopeKind},
-        types::TypeId,
+    compiler::{
+        declaration_binder::tests::find_function_body_scope,
+        resolver::{
+            declarations::Definition,
+            scopes::{ScopeId, ScopeKind},
+            types::TypeId,
+        },
+        tests::bind_declarations,
     },
     source::{Source, SourceCode},
 };
-
-use super::{bind_declarations, find_function_body_scope};
 
 #[test]
 fn empty() {
@@ -254,8 +256,8 @@ fn value_parameter_declarations() {
         "fn foo(x: i64, y: bool) {}",
     ));
 
-    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
-    let fn_body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let fn_body_scope = find_function_body_scope(&resolver, crate_scope_id);
 
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
@@ -298,8 +300,8 @@ fn function_body_creates_function_scope() {
 
     source.add_code(SourceCode::validated_borrowed("test", "fn foo() {}"));
 
-    let (syntax, resolver, crate_scope_id) = bind_declarations(&source);
-    let fn_body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
+    let (_syntax, resolver, crate_scope_id) = bind_declarations(&source);
+    let fn_body_scope = find_function_body_scope(&resolver, crate_scope_id);
 
     let scope = resolver.scopes.get_scope(fn_body_scope);
 
@@ -316,7 +318,7 @@ fn nested_function() {
         "fn outer() { fn inner() {} }",
     ));
 
-    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let outer_symbol = resolver.symbols.add_symbol("outer");
     let (_, outer_declaration) = resolver
         .declarations
@@ -328,7 +330,7 @@ fn nested_function() {
         Definition::Function { .. }
     ));
 
-    let outer_body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
+    let outer_body_scope = find_function_body_scope(&resolver, crate_scope_id);
     let inner_symbol = resolver.symbols.add_symbol("inner");
     let (_, inner_declaration) = resolver
         .declarations

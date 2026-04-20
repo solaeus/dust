@@ -1,12 +1,14 @@
 use crate::{
-    compiler::resolver::{
-        declarations::Definition,
-        types::{Type, TypeId},
+    compiler::{
+        declaration_binder::tests::find_function_body_scope,
+        resolver::{
+            declarations::Definition,
+            types::{Type, TypeId},
+        },
+        tests::bind_declarations,
     },
     source::{Source, SourceCode},
 };
-
-use super::{bind_declarations, find_function_body_scope};
 
 #[test]
 fn immutable() {
@@ -17,8 +19,8 @@ fn immutable() {
         "main() { let x = 1; }",
     ));
 
-    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
-    let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let body_scope = find_function_body_scope(&resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
         .declarations
@@ -51,8 +53,8 @@ fn mutable() {
         "fn main() { let mut x = 1; }",
     ));
 
-    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
-    let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let body_scope = find_function_body_scope(&resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
         .declarations
@@ -81,8 +83,8 @@ fn with_type_notation() {
         "fn main() { let x: i64 = 1; }",
     ));
 
-    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
-    let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let body_scope = find_function_body_scope(&resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
         .declarations
@@ -108,8 +110,8 @@ fn mutable_with_type_notation() {
         "fn main() { let mut x: bool = true; }",
     ));
 
-    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
-    let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let body_scope = find_function_body_scope(&resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
         .declarations
@@ -135,8 +137,8 @@ fn shadowing() {
         "fn main() { let x = 1; let x = 2; }",
     ));
 
-    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
-    let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let body_scope = find_function_body_scope(&resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
 
     let (second_x_id, second_x_declaration) = resolver
@@ -173,8 +175,8 @@ fn multiple() {
         "fn main() { let x = 1; let y = 2; }",
     ));
 
-    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
-    let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let body_scope = find_function_body_scope(&resolver, crate_scope_id);
 
     let x_symbol = resolver.symbols.add_symbol("x");
     let (x_id, x_declaration) = resolver
@@ -201,8 +203,8 @@ fn block_visibility() {
         "fn main() { { let x = 1; } }",
     ));
 
-    let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
-    let body_scope = find_function_body_scope(&syntax, &resolver, crate_scope_id);
+    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
+    let body_scope = find_function_body_scope(&resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
     let result = resolver.declarations.find_declaration(x_symbol, body_scope);
 

@@ -32,15 +32,15 @@ mod struct_expression;
 mod while_expression;
 
 use crate::{
-    compiler::resolver::declarations::Definition,
     compiler::{
-        emitter::{Emitter, get_register_size},
+        emitter::Emitter,
+        resolver::declarations::Definition,
         tests::type_bind_function,
     },
     constants::ConstantsBuilder,
     prototype::Prototype,
     source::{Source, SourceCode},
-    syntax::components::{FnItem, FunctionSignature},
+    syntax::components::FnItem,
 };
 
 fn emit_function(source_code: &str) -> Prototype {
@@ -54,9 +54,7 @@ fn emit_function(source_code: &str) -> Prototype {
     let foo_declaration = *foo_declaration;
 
     let Definition::Function {
-        return_type_id,
-        value_parameters,
-        ..
+        return_type_id, ..
     } = foo_declaration.definition
     else {
         panic!();
@@ -69,32 +67,12 @@ fn emit_function(source_code: &str) -> Prototype {
         .and_then(|tree| tree.read_node(syntax_id))
         .unwrap();
     let FnItem {
-        signature, body, ..
+        value_parameters,
+        body,
+        ..
     } = function_item.as_component().unwrap();
-    let FunctionSignature { parameters, .. } = signature.as_component().unwrap();
-
-    let scope_id = *resolver.get_scope_binding(&body.id).unwrap();
 
     let concrete_return_type_id = resolver.resolve_type(return_type_id).unwrap();
-
-    let mut argument_count = 0u16;
-    let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
-    for &(_, parameter_declaration_id) in parameter_entries {
-        let parameter_declaration = resolver
-            .declarations
-            .get_declaration(parameter_declaration_id)
-            .unwrap();
-        let Definition::Local {
-            type_id: parameter_type_id,
-            ..
-        } = parameter_declaration.definition
-        else {
-            panic!();
-        };
-        let concrete_parameter_type_id = resolver.resolve_type(parameter_type_id).unwrap();
-        let register_size = get_register_size(concrete_parameter_type_id, None, &resolver).unwrap();
-        argument_count += register_size.unwrap_or(0) as u16;
-    }
 
     let mut source = Source::new();
     source.add_code(SourceCode::validated_borrowed("test", source_code));
@@ -106,19 +84,17 @@ fn emit_function(source_code: &str) -> Prototype {
     let mut emitter = Emitter::new(
         Some(declaration_id),
         prototype_id,
-        argument_count,
         concrete_return_type_id,
-        scope_id,
         (
             &source,
             &mut constants,
             &mut resolver,
             &mut compilation_stack,
         ),
+        value_parameters,
     )
     .unwrap();
 
-    emitter.handle_parameters(parameters).unwrap();
-    emitter.emit_function_body(body).unwrap();
+    emitter.emit_function_body(body.unwrap()).unwrap();
     emitter.finish().unwrap()
 }

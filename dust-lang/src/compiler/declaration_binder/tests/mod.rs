@@ -3,13 +3,14 @@
 
 mod const_item;
 mod enum_item;
-mod expression_scoping;
 mod field_access_expression;
 mod function_item;
 mod impl_item;
 mod impl_trait_item;
 mod let_statement;
 mod module_item;
+mod path_expression;
+mod struct_expression;
 mod struct_item;
 mod trait_item;
 mod type_item;
@@ -18,20 +19,9 @@ mod use_item;
 
 use std::path::{Path, PathBuf};
 
-use crate::{
-    compiler::{
-        declaration_binder::DeclarationBinder,
-        resolver::{
-            Resolver,
-            scopes::{ScopeId, ScopeKind},
-        },
-        tests::bind_declarations,
-    },
-    error::ErrorKind,
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
-    source::{Source, SourceCodeId},
-    syntax::{Syntax, node::SyntaxKind},
+use crate::compiler::resolver::{
+    Resolver,
+    scopes::{ScopeId, ScopeKind},
 };
 
 fn create_module_file(name: &str, content: &str) -> PathBuf {
@@ -55,71 +45,31 @@ fn cleanup_module_file(path: &Path) {
     }
 }
 
-fn bind_declarations_with_errors(source: &Source) -> (Syntax, Resolver, ScopeId, Vec<ErrorKind>) {
-    let mut syntax = Syntax::with_capacity(source.file_count());
+fn find_function_body_scope(resolver: &Resolver, parent_scope_id: ScopeId) -> ScopeId {
+    for (scope_id, scope) in resolver.scopes.iter() {
+        if scope.kind != ScopeKind::Function {
+            continue;
+        }
 
-    for (source_id, file) in source.iter() {
-        let lexer = Lexer::with_validated_source(file.content_as_str());
-        let parser = Parser::new(source_id, lexer);
-        let ParseResult {
-            syntax_tree,
-            errors,
-            ..
-        } = parser.parse();
-        assert!(errors.is_empty(), "{errors:#?}");
-        syntax.add_tree(syntax_tree);
-    }
+        let mut ancestor_id = scope.parent;
 
-    let mut resolver = Resolver::new();
-    let crate_scope_id = resolver
-        .scopes
-        .enter_scope(ScopeKind::Module, ScopeId::NONE);
+        loop {
+            if ancestor_id == parent_scope_id {
+                return scope_id;
+            }
 
-    let main_root = syntax.get_tree(SourceCodeId::MAIN).unwrap().root().unwrap();
+            if ancestor_id == ScopeId::NONE {
+                break;
+            }
 
-    let mut errors = Vec::new();
-    let mut declaration_binder =
-        DeclarationBinder::new(source, &syntax, &mut resolver, &mut errors, crate_scope_id);
+            let ancestor = resolver.scopes.get_scope(ancestor_id);
 
-    match declaration_binder.bind_root(main_root) {
-        Ok(()) => {}
-        Err(error) => errors.push(ErrorKind::Compile(error)),
-    }
-
-    (syntax, resolver, crate_scope_id, errors)
-}
-
-fn find_function_body_scope(
-    syntax: &Syntax,
-    resolver: &Resolver,
-    parent_scope_id: ScopeId,
-) -> ScopeId {
-    let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();
-
-    for reader in tree.iter() {
-        if reader.node.kind == SyntaxKind::BlockExpression
-            && let Ok(&scope_id) = resolver.get_scope_binding(&reader.id)
-        {
-            let scope = resolver.scopes.get_scope(scope_id);
-
-            if scope.kind == ScopeKind::Function {
-                let mut ancestor_id = scope.parent;
-
-                loop {
-                    if ancestor_id == parent_scope_id {
-                        return scope_id;
-                    }
-
-                    let ancestor = resolver.scopes.get_scope(ancestor_id);
-
-                    if ancestor.kind == ScopeKind::TypeParameters
-                        || ancestor.kind == ScopeKind::ValueParameters
-                    {
-                        ancestor_id = ancestor.parent;
-                    } else {
-                        break;
-                    }
-                }
+            if ancestor.kind == ScopeKind::TypeParameters
+                || ancestor.kind == ScopeKind::ValueParameters
+            {
+                ancestor_id = ancestor.parent;
+            } else {
+                break;
             }
         }
     }

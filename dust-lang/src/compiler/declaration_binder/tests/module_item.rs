@@ -1,12 +1,14 @@
 use crate::{
-    compiler::resolver::{
-        declarations::{Definition, ModuleKind},
-        scopes::ScopeKind,
+    compiler::{
+        declaration_binder::tests::{cleanup_module_file, create_module_file},
+        resolver::{
+            declarations::{Definition, ModuleKind},
+            scopes::ScopeKind,
+        },
+        tests::bind_declarations,
     },
     source::{Source, SourceCode},
 };
-
-use super::{bind_declarations, cleanup_module_file, create_module_file};
 
 #[test]
 fn inline() {

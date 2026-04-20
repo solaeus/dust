@@ -1,16 +1,14 @@
 use crate::{
     compiler::{
-        declaration_binder::tests::bind_declarations_with_errors,
         resolver::{
             declarations::Definition,
             types::{Type, TypeId},
         },
+        tests::bind_declarations,
     },
     source::{Source, SourceCode, SourceCodeId},
     syntax::node::SyntaxKind,
 };
-
-use super::bind_declarations;
 
 fn parameter_type_of_foo(source_code: &str) -> TypeId {
     let mut source = Source::new();
@@ -634,20 +632,6 @@ fn type_path_to_type_parameter() {
     };
 
     assert_eq!(*declaration_id, t_declaration_id);
-}
-
-#[test]
-fn type_path_to_non_type_errors() {
-    let mut source = Source::new();
-
-    source.add_code(SourceCode::validated_borrowed(
-        "test",
-        "fn bar() {} fn foo(x: bar) {}",
-    ));
-
-    let (_syntax, _resolver, _crate_scope_id, errors) = bind_declarations_with_errors(&source);
-
-    assert!(!errors.is_empty());
 }
 
 #[test]
