@@ -1775,15 +1775,19 @@ impl<'src> Parser<'src> {
 
         let mut path_node = self.expect_path()?;
 
-        if may_be_struct && let Some(struct_fields_node) = self.allow_struct_expression_fields()? {
-            let path_id = self.tree.add_node(path_node);
-            let struct_fields_id = self.tree.add_node(struct_fields_node);
+        if may_be_struct {
+            if let Some(struct_fields_node) = self.allow_struct_expression_fields()? {
+                let path_id = self.tree.add_node(path_node);
+                let struct_fields_id = self.tree.add_node(struct_fields_node);
 
-            return Ok(SyntaxKind::StructExpression.with_binary_children(
-                Span::new(start, self.previous_token.span.end()),
-                path_id,
-                struct_fields_id,
-            ));
+                return Ok(SyntaxNode {
+                    kind: SyntaxKind::StructExpression,
+                    children: SyntaxChildren::new(path_id.inner(), struct_fields_id.inner()),
+                    children_kind: SyntaxChildrenKind::Binary,
+                    flags: SyntaxFlags::NAMED_FIELDS,
+                    span: Span::new(start, self.previous_token.span.end()),
+                });
+            }
         }
 
         path_node.kind = SyntaxKind::PathExpression;

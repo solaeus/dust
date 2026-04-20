@@ -442,7 +442,7 @@ fn function_type_multiple_params() {
 fn function_type_no_return() {
     let mut source = Source::new();
 
-    source.add_code(SourceCode::validated_borrowed("test", "foo(x: fn(i64)) {}"));
+    source.add_code(SourceCode::validated_borrowed("test", "fn foo(x: fn(i64)) {}"));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");

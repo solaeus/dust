@@ -16,7 +16,7 @@ fn immutable() {
 
     source.add_code(SourceCode::validated_borrowed(
         "test",
-        "main() { let x = 1; }",
+        "fn main() { let x = 1; }",
     ));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);

@@ -97,13 +97,20 @@ pub fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
 
     resolver.type_parameter_map.clear();
 
-    let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
+    if type_parameters != ScopeId::NONE {
+        let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
 
-    for &(_, type_parameter_declaration_id) in type_parameter_entries {
-        let inferred_type_id = resolver.types.create_inferred_type(None);
-        resolver
-            .type_parameter_map
-            .insert(type_parameter_declaration_id, inferred_type_id);
+        let type_parameter_ids: Vec<_> = type_parameter_entries
+            .iter()
+            .map(|&(_, declaration_id)| declaration_id)
+            .collect();
+
+        for type_parameter_declaration_id in type_parameter_ids {
+            let inferred_type_id = resolver.types.create_inferred_type(None);
+            resolver
+                .type_parameter_map
+                .insert(type_parameter_declaration_id, inferred_type_id);
+        }
     }
 
     let mut errors = Vec::new();

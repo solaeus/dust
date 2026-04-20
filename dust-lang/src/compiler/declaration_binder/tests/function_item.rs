@@ -257,12 +257,23 @@ fn value_parameter_declarations() {
     ));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
-    let fn_body_scope = find_function_body_scope(&resolver, crate_scope_id);
+    let foo_symbol = resolver.symbols.add_symbol("foo");
+    let (_, foo_declaration) = resolver
+        .declarations
+        .find_declaration(foo_symbol, crate_scope_id)
+        .unwrap();
+    let Definition::Function {
+        value_parameters,
+        ..
+    } = foo_declaration.definition
+    else {
+        panic!();
+    };
 
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, fn_body_scope)
+        .find_declaration(x_symbol, value_parameters)
         .unwrap();
     let Definition::Local {
         mutable: x_mutable,
@@ -279,7 +290,7 @@ fn value_parameter_declarations() {
     let y_symbol = resolver.symbols.add_symbol("y");
     let (_, y_declaration) = resolver
         .declarations
-        .find_declaration(y_symbol, fn_body_scope)
+        .find_declaration(y_symbol, value_parameters)
         .unwrap();
     let Definition::Local {
         mutable: y_mutable,
