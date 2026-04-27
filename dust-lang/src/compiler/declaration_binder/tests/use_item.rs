@@ -14,9 +14,13 @@ fn module() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, use_declaration) = resolver
+    let use_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let use_declaration = resolver
+        .declarations
+        .get_declaration(use_declaration_id)
         .unwrap();
 
     assert!(matches!(
@@ -36,9 +40,13 @@ fn public_module() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, use_declaration) = resolver
+    let use_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let use_declaration = resolver
+        .declarations
+        .get_declaration(use_declaration_id)
         .unwrap();
 
     assert!(matches!(
@@ -58,9 +66,13 @@ fn resolves_to_module() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, use_declaration) = resolver
+    let use_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let use_declaration = resolver
+        .declarations
+        .get_declaration(use_declaration_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -88,9 +100,13 @@ fn function_from_module() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let bar_symbol = resolver.symbols.add_symbol("bar");
-    let (_, use_declaration) = resolver
+    let use_declaration_id = *resolver
         .declarations
         .find_declaration_id(bar_symbol, crate_scope_id)
+        .unwrap();
+    let use_declaration = resolver
+        .declarations
+        .get_declaration(use_declaration_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -118,9 +134,13 @@ fn struct_from_module() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let bar_symbol = resolver.symbols.add_symbol("Bar");
-    let (_, use_declaration) = resolver
+    let use_declaration_id = *resolver
         .declarations
         .find_declaration_id(bar_symbol, crate_scope_id)
+        .unwrap();
+    let use_declaration = resolver
+        .declarations
+        .get_declaration(use_declaration_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -148,9 +168,13 @@ fn from_nested_module() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let baz_symbol = resolver.symbols.add_symbol("baz");
-    let (_, use_declaration) = resolver
+    let use_declaration_id = *resolver
         .declarations
         .find_declaration_id(baz_symbol, crate_scope_id)
+        .unwrap();
+    let use_declaration = resolver
+        .declarations
+        .get_declaration(use_declaration_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -178,9 +202,13 @@ fn nested_module() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let bar_symbol = resolver.symbols.add_symbol("bar");
-    let (_, use_declaration) = resolver
+    let use_declaration_id = *resolver
         .declarations
         .find_declaration_id(bar_symbol, crate_scope_id)
+        .unwrap();
+    let use_declaration = resolver
+        .declarations
+        .get_declaration(use_declaration_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -208,17 +236,25 @@ fn inside_module() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let baz_symbol = resolver.symbols.add_symbol("baz");
-    let (_, baz_declaration) = resolver
+    let baz_declaration_id = *resolver
         .declarations
         .find_declaration_id(baz_symbol, crate_scope_id)
+        .unwrap();
+    let baz_declaration = resolver
+        .declarations
+        .get_declaration(baz_declaration_id)
         .unwrap();
     let Definition::Module { inner_scope_id, .. } = baz_declaration.definition else {
         panic!();
     };
     let bar_symbol = resolver.symbols.add_symbol("bar");
-    let (_, use_declaration) = resolver
+    let use_declaration_id = *resolver
         .declarations
         .find_declaration_id(bar_symbol, inner_scope_id.unwrap())
+        .unwrap();
+    let use_declaration = resolver
+        .declarations
+        .get_declaration(use_declaration_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -246,9 +282,13 @@ fn public_function() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let bar_symbol = resolver.symbols.add_symbol("bar");
-    let (_, use_declaration) = resolver
+    let use_declaration_id = *resolver
         .declarations
         .find_declaration_id(bar_symbol, crate_scope_id)
+        .unwrap();
+    let use_declaration = resolver
+        .declarations
+        .get_declaration(use_declaration_id)
         .unwrap();
 
     assert!(matches!(
@@ -293,9 +333,13 @@ fn enum_from_module() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let color_symbol = resolver.symbols.add_symbol("Color");
-    let (_, use_declaration) = resolver
+    let use_declaration_id = *resolver
         .declarations
         .find_declaration_id(color_symbol, crate_scope_id)
+        .unwrap();
+    let use_declaration = resolver
+        .declarations
+        .get_declaration(use_declaration_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -323,9 +367,13 @@ fn enum_variant_from_module() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let red_symbol = resolver.symbols.add_symbol("Red");
-    let (_, use_declaration) = resolver
+    let use_declaration_id = *resolver
         .declarations
         .find_declaration_id(red_symbol, crate_scope_id)
+        .unwrap();
+    let use_declaration = resolver
+        .declarations
+        .get_declaration(use_declaration_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,

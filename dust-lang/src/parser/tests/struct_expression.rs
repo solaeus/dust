@@ -37,7 +37,7 @@ fn empty() {
 }
 
 #[test]
-fn fields() {
+fn named_fields() {
     let parser = Parser::new(
         SourceCodeId::MAIN,
         Lexer::with_unvalidated_source(function_wrapper!("Foo { x: 42, y: 666 }")),

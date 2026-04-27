@@ -15,9 +15,13 @@ fn empty() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::Function {
         public,
@@ -46,9 +50,13 @@ fn with_generics_parameters_and_return_type() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::Function {
         public,
@@ -150,9 +158,13 @@ fn same_name_in_different_modules() {
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 
     let a_symbol = resolver.symbols.add_symbol("a");
-    let (_, a_declaration) = resolver
+    let a_declaration_id = *resolver
         .declarations
         .find_declaration_id(a_symbol, crate_scope_id)
+        .unwrap();
+    let a_declaration = resolver
+        .declarations
+        .get_declaration(a_declaration_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: a_scope,
@@ -163,9 +175,13 @@ fn same_name_in_different_modules() {
     };
 
     let b_symbol = resolver.symbols.add_symbol("b");
-    let (_, b_declaration) = resolver
+    let b_declaration_id = *resolver
         .declarations
         .find_declaration_id(b_symbol, crate_scope_id)
+        .unwrap();
+    let b_declaration = resolver
+        .declarations
+        .get_declaration(b_declaration_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: b_scope,
@@ -176,10 +192,11 @@ fn same_name_in_different_modules() {
     };
 
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (a_foo_id, a_foo) = resolver
+    let a_foo_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, a_scope.unwrap())
         .unwrap();
+    let a_foo = resolver.declarations.get_declaration(a_foo_id).unwrap();
     let Definition::Function {
         return_type_id: a_return,
         ..
@@ -190,10 +207,11 @@ fn same_name_in_different_modules() {
 
     assert_eq!(a_return, TypeId::I_64);
 
-    let (b_foo_id, b_foo) = resolver
+    let b_foo_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, b_scope.unwrap())
         .unwrap();
+    let b_foo = resolver.declarations.get_declaration(b_foo_id).unwrap();
     let Definition::Function {
         return_type_id: b_return,
         ..
@@ -214,9 +232,13 @@ fn type_parameters_have_correct_identity() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::Function {
         type_parameters, ..
@@ -260,9 +282,13 @@ fn value_parameter_declarations() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -272,9 +298,13 @@ fn value_parameter_declarations() {
     };
 
     let x_symbol = resolver.symbols.add_symbol("x");
-    let (_, x_declaration) = resolver
+    let x_declaration_id = *resolver
         .declarations
         .find_declaration_id(x_symbol, value_parameters.unwrap())
+        .unwrap();
+    let x_declaration = resolver
+        .declarations
+        .get_declaration(x_declaration_id)
         .unwrap();
     let Definition::Local {
         mutable: x_mutable,
@@ -289,9 +319,13 @@ fn value_parameter_declarations() {
     assert_eq!(x_type, TypeId::I_64);
 
     let y_symbol = resolver.symbols.add_symbol("y");
-    let (_, y_declaration) = resolver
+    let y_declaration_id = *resolver
         .declarations
         .find_declaration_id(y_symbol, value_parameters.unwrap())
+        .unwrap();
+    let y_declaration = resolver
+        .declarations
+        .get_declaration(y_declaration_id)
         .unwrap();
     let Definition::Local {
         mutable: y_mutable,
@@ -332,9 +366,13 @@ fn nested_function() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let outer_symbol = resolver.symbols.add_symbol("outer");
-    let (_, outer_declaration) = resolver
+    let outer_declaration_id = *resolver
         .declarations
         .find_declaration_id(outer_symbol, crate_scope_id)
+        .unwrap();
+    let outer_declaration = resolver
+        .declarations
+        .get_declaration(outer_declaration_id)
         .unwrap();
 
     assert!(matches!(
@@ -344,9 +382,13 @@ fn nested_function() {
 
     let outer_body_scope = find_function_body_scope(&resolver, crate_scope_id);
     let inner_symbol = resolver.symbols.add_symbol("inner");
-    let (_, inner_declaration) = resolver
+    let inner_declaration_id = *resolver
         .declarations
         .find_declaration_id(inner_symbol, outer_body_scope)
+        .unwrap();
+    let inner_declaration = resolver
+        .declarations
+        .get_declaration(inner_declaration_id)
         .unwrap();
     let Definition::Function {
         value_parameters,

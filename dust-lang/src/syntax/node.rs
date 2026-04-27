@@ -127,6 +127,7 @@ pub enum SyntaxKind {
     TypeParameter,
     WhereClause,
     WherePredicate,
+    SelfValue,
 
     EnumUnitVariant,
     EnumTupleFieldsVariant,
@@ -380,6 +381,7 @@ impl SyntaxKind {
             SyntaxKind::ReturnExpression => "return expression",
             SyntaxKind::Root => "root",
             SyntaxKind::SelfType => "self type",
+            SyntaxKind::SelfValue => "self value",
             SyntaxKind::SimplePath => "simple path",
             SyntaxKind::SliceType => "slice type",
             SyntaxKind::StringExpression => "string expression",

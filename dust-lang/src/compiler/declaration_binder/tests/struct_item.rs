@@ -17,9 +17,13 @@ fn empty() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::StructType {
         public,
@@ -47,9 +51,13 @@ fn with_named_fields() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
-    let (foo_id, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::StructType { fields, .. } = foo_declaration.definition else {
         panic!();
@@ -75,7 +83,7 @@ fn with_named_fields() {
     };
     assert_eq!(first_field.symbol_id, x_symbol);
     assert_eq!(first_type, TypeId::I_64);
-    assert_eq!(first_parent, foo_id);
+    assert_eq!(first_parent, foo_declaration_id);
 
     let second_field = resolver
         .declarations
@@ -91,7 +99,7 @@ fn with_named_fields() {
     };
     assert_eq!(second_field.symbol_id, y_symbol);
     assert_eq!(second_type, TypeId::BOOLEAN);
-    assert_eq!(second_parent, foo_id);
+    assert_eq!(second_parent, foo_declaration_id);
 }
 
 #[test]
@@ -105,9 +113,13 @@ fn tuple() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let bar_symbol = resolver.symbols.add_symbol("Bar");
-    let (bar_id, bar_declaration) = resolver
+    let bar_declaration_id = *resolver
         .declarations
         .find_declaration_id(bar_symbol, crate_scope_id)
+        .unwrap();
+    let bar_declaration = resolver
+        .declarations
+        .get_declaration(bar_declaration_id)
         .unwrap();
     let Definition::StructType { fields, .. } = bar_declaration.definition else {
         panic!();
@@ -129,7 +141,7 @@ fn tuple() {
         panic!();
     };
     assert_eq!(first_type, TypeId::I_64);
-    assert_eq!(first_parent, bar_id);
+    assert_eq!(first_parent, bar_declaration_id);
 
     let second_field = resolver
         .declarations
@@ -144,7 +156,7 @@ fn tuple() {
         panic!();
     };
     assert_eq!(second_type, TypeId::BOOLEAN);
-    assert_eq!(second_parent, bar_id);
+    assert_eq!(second_parent, bar_declaration_id);
 }
 
 #[test]
@@ -158,9 +170,13 @@ fn public_generic() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let pair_symbol = resolver.symbols.add_symbol("Pair");
-    let (_, pair_declaration) = resolver
+    let pair_declaration_id = *resolver
         .declarations
         .find_declaration_id(pair_symbol, crate_scope_id)
+        .unwrap();
+    let pair_declaration = resolver
+        .declarations
+        .get_declaration(pair_declaration_id)
         .unwrap();
     let Definition::StructType {
         public,
@@ -240,9 +256,13 @@ fn same_name_in_different_modules() {
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 
     let a_symbol = resolver.symbols.add_symbol("a");
-    let (_, a_declaration) = resolver
+    let a_declaration_id = *resolver
         .declarations
         .find_declaration_id(a_symbol, crate_scope_id)
+        .unwrap();
+    let a_declaration = resolver
+        .declarations
+        .get_declaration(a_declaration_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: a_scope,
@@ -253,9 +273,13 @@ fn same_name_in_different_modules() {
     };
 
     let b_symbol = resolver.symbols.add_symbol("b");
-    let (_, b_declaration) = resolver
+    let b_declaration_id = *resolver
         .declarations
         .find_declaration_id(b_symbol, crate_scope_id)
+        .unwrap();
+    let b_declaration = resolver
+        .declarations
+        .get_declaration(b_declaration_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: b_scope,
@@ -267,9 +291,13 @@ fn same_name_in_different_modules() {
 
     let foo_symbol = resolver.symbols.add_symbol("Foo");
 
-    let (a_foo_id, a_foo) = resolver
+    let a_foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, a_scope.unwrap())
+        .unwrap();
+    let a_foo = resolver
+        .declarations
+        .get_declaration(a_foo_declaration_id)
         .unwrap();
     let Definition::StructType {
         fields: a_fields, ..
@@ -291,9 +319,13 @@ fn same_name_in_different_modules() {
     };
     assert_eq!(a_field_type, TypeId::I_64);
 
-    let (b_foo_id, b_foo) = resolver
+    let b_foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, b_scope.unwrap())
+        .unwrap();
+    let b_foo = resolver
+        .declarations
+        .get_declaration(b_foo_declaration_id)
         .unwrap();
     let Definition::StructType {
         fields: b_fields, ..
@@ -315,7 +347,7 @@ fn same_name_in_different_modules() {
     };
     assert_eq!(b_field_type, TypeId::BOOLEAN);
 
-    assert_ne!(a_foo_id, b_foo_id);
+    assert_ne!(a_foo_declaration_id, b_foo_declaration_id);
 }
 
 #[test]
@@ -326,9 +358,13 @@ fn unit() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::StructType {
         public,
@@ -355,9 +391,13 @@ fn field_publicity() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::StructType { fields, .. } = foo_declaration.definition else {
         panic!();
@@ -404,9 +444,13 @@ fn generic_field_uses_type_parameter() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::StructType {
         type_parameters,

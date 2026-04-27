@@ -3,7 +3,8 @@ use crate::{
         resolver::{declarations::Definition, types::TypeId},
         tests::bind_declarations,
     },
-    source::{Source, SourceCode},
+    source::{Source, SourceCode, SourceCodeId},
+    syntax::node::SyntaxKind,
 };
 
 #[test]
@@ -15,11 +16,16 @@ fn with_method() {
         "struct Foo {} impl Foo { fn bar() {} }",
     ));
 
-    let (_syntax, mut resolver, _crate_scope_id) = bind_declarations(&source);
-    let (_, impl_declaration) = resolver
-        .declarations
+    let (syntax, mut resolver, _crate_scope_id) = bind_declarations(&source);
+    let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();
+    let impl_item = tree
         .iter()
-        .find(|(_, d)| matches!(d.definition, Definition::InherentImplementation { .. }))
+        .find(|node| node.node.kind == SyntaxKind::ImplItem)
+        .unwrap();
+    let impl_declaration_id = *resolver.get_declaration_binding(&impl_item.id).unwrap();
+    let impl_declaration = resolver
+        .declarations
+        .get_declaration(impl_declaration_id)
         .unwrap();
     let Definition::InherentImplementation { declarations, .. } = impl_declaration.definition
     else {

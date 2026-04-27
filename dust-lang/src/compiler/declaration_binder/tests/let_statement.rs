@@ -22,9 +22,13 @@ fn immutable() {
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let body_scope = find_function_body_scope(&resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
-    let (_, x_declaration) = resolver
+    let x_declaration_id = *resolver
         .declarations
         .find_declaration_id(x_symbol, body_scope)
+        .unwrap();
+    let x_declaration = resolver
+        .declarations
+        .get_declaration(x_declaration_id)
         .unwrap();
     let Definition::Local {
         mutable,
@@ -56,9 +60,13 @@ fn mutable() {
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let body_scope = find_function_body_scope(&resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
-    let (_, x_declaration) = resolver
+    let x_declaration_id = *resolver
         .declarations
         .find_declaration_id(x_symbol, body_scope)
+        .unwrap();
+    let x_declaration = resolver
+        .declarations
+        .get_declaration(x_declaration_id)
         .unwrap();
     let Definition::Local {
         mutable, type_id, ..
@@ -86,9 +94,13 @@ fn with_type_notation() {
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let body_scope = find_function_body_scope(&resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
-    let (_, x_declaration) = resolver
+    let x_declaration_id = *resolver
         .declarations
         .find_declaration_id(x_symbol, body_scope)
+        .unwrap();
+    let x_declaration = resolver
+        .declarations
+        .get_declaration(x_declaration_id)
         .unwrap();
     let Definition::Local {
         mutable, type_id, ..
@@ -113,9 +125,13 @@ fn mutable_with_type_notation() {
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let body_scope = find_function_body_scope(&resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
-    let (_, x_declaration) = resolver
+    let x_declaration_id = *resolver
         .declarations
         .find_declaration_id(x_symbol, body_scope)
+        .unwrap();
+    let x_declaration = resolver
+        .declarations
+        .get_declaration(x_declaration_id)
         .unwrap();
     let Definition::Local {
         mutable, type_id, ..
@@ -141,9 +157,13 @@ fn shadowing() {
     let body_scope = find_function_body_scope(&resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
 
-    let (second_x_id, second_x_declaration) = resolver
+    let second_x_declaration_id = *resolver
         .declarations
         .find_declaration_id(x_symbol, body_scope)
+        .unwrap();
+    let second_x_declaration = resolver
+        .declarations
+        .get_declaration(second_x_declaration_id)
         .unwrap();
     let Definition::Local {
         shadowed: second_shadowed,
@@ -152,8 +172,11 @@ fn shadowing() {
     else {
         panic!();
     };
-    let first_x_id = second_shadowed.unwrap();
-    let first_x_declaration = resolver.declarations.get_declaration(first_x_id).unwrap();
+    let first_x_declaration_id = second_shadowed.unwrap();
+    let first_x_declaration = resolver
+        .declarations
+        .get_declaration(first_x_declaration_id)
+        .unwrap();
     let Definition::Local {
         shadowed: first_shadowed,
         ..
@@ -162,7 +185,7 @@ fn shadowing() {
         panic!();
     };
 
-    assert_ne!(first_x_id, second_x_id);
+    assert_ne!(first_x_declaration_id, second_x_declaration_id);
     assert!(first_shadowed.is_none());
 }
 
@@ -179,19 +202,27 @@ fn multiple() {
     let body_scope = find_function_body_scope(&resolver, crate_scope_id);
 
     let x_symbol = resolver.symbols.add_symbol("x");
-    let (x_id, x_declaration) = resolver
+    let x_declaration_id = *resolver
         .declarations
         .find_declaration_id(x_symbol, body_scope)
         .unwrap();
+    let x_declaration = resolver
+        .declarations
+        .get_declaration(x_declaration_id)
+        .unwrap();
     let y_symbol = resolver.symbols.add_symbol("y");
-    let (y_id, y_declaration) = resolver
+    let y_declaration_id = *resolver
         .declarations
         .find_declaration_id(y_symbol, body_scope)
+        .unwrap();
+    let y_declaration = resolver
+        .declarations
+        .get_declaration(y_declaration_id)
         .unwrap();
 
     assert!(matches!(x_declaration.definition, Definition::Local { .. }));
     assert!(matches!(y_declaration.definition, Definition::Local { .. }));
-    assert_ne!(x_id, y_id);
+    assert_ne!(x_declaration_id, y_declaration_id);
 }
 
 #[test]

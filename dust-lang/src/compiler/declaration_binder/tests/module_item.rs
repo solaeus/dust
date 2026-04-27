@@ -18,9 +18,13 @@ fn inline() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
 
     assert!(matches!(
@@ -41,9 +45,13 @@ fn public_inline() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
 
     assert!(matches!(
@@ -64,9 +72,13 @@ fn inline_creates_module_scope() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::Module { inner_scope_id, .. } = foo_declaration.definition else {
         panic!();
@@ -89,18 +101,26 @@ fn inline_with_function() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::Module { inner_scope_id, .. } = foo_declaration.definition else {
         panic!();
     };
 
     let bar_symbol = resolver.symbols.add_symbol("bar");
-    let (_, bar_declaration) = resolver
+    let bar_declaration_id = *resolver
         .declarations
         .find_declaration_id(bar_symbol, inner_scope_id.unwrap())
+        .unwrap();
+    let bar_declaration = resolver
+        .declarations
+        .get_declaration(bar_declaration_id)
         .unwrap();
 
     assert!(matches!(
@@ -120,9 +140,13 @@ fn nested_inline() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: foo_scope_id,
@@ -133,9 +157,13 @@ fn nested_inline() {
     };
 
     let bar_symbol = resolver.symbols.add_symbol("bar");
-    let (_, bar_declaration) = resolver
+    let bar_declaration_id = *resolver
         .declarations
         .find_declaration_id(bar_symbol, foo_scope_id.unwrap())
+        .unwrap();
+    let bar_declaration = resolver
+        .declarations
+        .get_declaration(bar_declaration_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: bar_scope_id,
@@ -187,9 +215,13 @@ fn file() {
     cleanup_module_file(&path);
 
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
 
     assert!(matches!(
@@ -215,9 +247,13 @@ fn public_file() {
     cleanup_module_file(&path);
 
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
 
     assert!(matches!(
@@ -243,18 +279,26 @@ fn file_binds_contents() {
     cleanup_module_file(&path);
 
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::Module { inner_scope_id, .. } = foo_declaration.definition else {
         panic!();
     };
 
     let bar_symbol = resolver.symbols.add_symbol("bar");
-    let (_, bar_declaration) = resolver
+    let bar_declaration_id = *resolver
         .declarations
         .find_declaration_id(bar_symbol, inner_scope_id.unwrap())
+        .unwrap();
+    let bar_declaration = resolver
+        .declarations
+        .get_declaration(bar_declaration_id)
         .unwrap();
 
     assert!(matches!(

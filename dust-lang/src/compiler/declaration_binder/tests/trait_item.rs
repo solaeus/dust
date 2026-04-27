@@ -17,9 +17,13 @@ fn with_method_and_const() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
-    let (foo_id, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::Trait { declarations, .. } = foo_declaration.definition else {
         panic!();
@@ -63,7 +67,7 @@ fn with_method_and_const() {
 
     assert_eq!(n_decl.symbol_id, n_symbol);
     assert_eq!(type_id, TypeId::I_64);
-    assert_eq!(parent, foo_id);
+    assert_eq!(parent, foo_declaration_id);
     assert_eq!(n_decl.scope_id, declarations.unwrap());
 }
 
@@ -78,15 +82,19 @@ fn supertraits_resolved() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let bar_symbol = resolver.symbols.add_symbol("Bar");
-    let (bar_id, _) = resolver
+    let bar_declaration_id = *resolver
         .declarations
         .find_declaration_id(bar_symbol, crate_scope_id)
         .unwrap();
 
     let foo_symbol = resolver.symbols.add_symbol("Foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::Trait { supertraits, .. } = foo_declaration.definition else {
         panic!();
@@ -96,7 +104,7 @@ fn supertraits_resolved() {
 
     let supertrait_entries = resolver.scopes.get_namespace_entries(supertraits.unwrap());
 
-    assert_eq!(supertrait_entries[0].1, bar_id);
+    assert_eq!(supertrait_entries[0].1, bar_declaration_id);
 }
 
 #[test]
@@ -107,9 +115,13 @@ fn trait_creates_trait_scope() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::Trait { declarations, .. } = foo_declaration.definition else {
         panic!();

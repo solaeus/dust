@@ -38,7 +38,7 @@ fn binds_field_declaration() {
         .unwrap();
 
     let foo_symbol = resolver.symbols.add_symbol("Foo");
-    let (foo_id, _) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
@@ -55,6 +55,6 @@ fn binds_field_declaration() {
     let x_symbol = resolver.symbols.add_symbol("x");
 
     assert_eq!(field_declaration.symbol_id, x_symbol);
-    assert_eq!(parent_struct, foo_id);
+    assert_eq!(parent_struct, foo_declaration_id);
     assert_eq!(type_id, TypeId::I_64);
 }

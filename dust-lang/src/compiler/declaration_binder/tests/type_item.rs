@@ -17,9 +17,13 @@ fn simple() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("Foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
         .find_declaration_id(foo_symbol, crate_scope_id)
+        .unwrap();
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
         .unwrap();
     let Definition::TypeAlias {
         public,
@@ -44,9 +48,13 @@ fn generic_alias_resolves_type_parameter() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let pair_symbol = resolver.symbols.add_symbol("Pair");
-    let (_, pair_declaration) = resolver
+    let pair_declaration_id = *resolver
         .declarations
         .find_declaration_id(pair_symbol, crate_scope_id)
+        .unwrap();
+    let pair_declaration = resolver
+        .declarations
+        .get_declaration(pair_declaration_id)
         .unwrap();
     let Definition::TypeAlias {
         type_parameters,
