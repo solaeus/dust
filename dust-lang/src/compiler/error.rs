@@ -194,6 +194,7 @@ pub enum CompileError {
     ExpectedLocalDefinition(DeclarationId),
     ExpectedVariantDefinition(DeclarationId),
     ExpectedStructDefinition(DeclarationId),
+    ExpectedTraitAssociatedConstantDefinition(DeclarationId),
 }
 
 impl From<SyntaxError> for CompileError {
@@ -1212,7 +1213,8 @@ impl<'a> DustError<'a> for CompileError {
             | CompileError::InvalidEmission
             | CompileError::ExpectedLocalDefinition(_)
             | CompileError::ExpectedVariantDefinition(_)
-            | CompileError::ExpectedStructDefinition(_) => {
+            | CompileError::ExpectedStructDefinition(_)
+            | CompileError::ExpectedTraitAssociatedConstantDefinition(_) => {
                 self.add_internal_report(groups);
             }
         }

@@ -19,7 +19,7 @@ fn parameter_type_of_foo(source_code: &str) -> TypeId {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -28,7 +28,9 @@ fn parameter_type_of_foo(source_code: &str) -> TypeId {
         panic!();
     };
 
-    let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
+    let parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(value_parameters.unwrap());
 
     assert_eq!(parameter_entries.len(), 1);
 
@@ -165,7 +167,7 @@ fn tuple_type_empty() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -174,7 +176,9 @@ fn tuple_type_empty() {
         panic!();
     };
 
-    let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
+    let parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -207,7 +211,7 @@ fn tuple_type_multiple() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -216,7 +220,9 @@ fn tuple_type_multiple() {
         panic!();
     };
 
-    let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
+    let parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -251,7 +257,7 @@ fn slice_type() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -260,7 +266,9 @@ fn slice_type() {
         panic!();
     };
 
-    let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
+    let parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -297,7 +305,7 @@ fn function_type_basic() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -306,7 +314,9 @@ fn function_type_basic() {
         panic!();
     };
 
-    let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
+    let parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(value_parameters.unwrap());
 
     assert_eq!(parameter_entries.len(), 1);
 
@@ -351,7 +361,7 @@ fn function_type_no_params() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -360,7 +370,9 @@ fn function_type_no_params() {
         panic!();
     };
 
-    let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
+    let parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -399,7 +411,7 @@ fn function_type_multiple_params() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -408,7 +420,9 @@ fn function_type_multiple_params() {
         panic!();
     };
 
-    let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
+    let parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -442,13 +456,16 @@ fn function_type_multiple_params() {
 fn function_type_no_return() {
     let mut source = Source::new();
 
-    source.add_code(SourceCode::validated_borrowed("test", "fn foo(x: fn(i64)) {}"));
+    source.add_code(SourceCode::validated_borrowed(
+        "test",
+        "fn foo(x: fn(i64)) {}",
+    ));
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -457,7 +474,9 @@ fn function_type_no_return() {
         panic!();
     };
 
-    let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
+    let parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -500,13 +519,13 @@ fn type_path_to_struct() {
     let bar_symbol = resolver.symbols.add_symbol("Bar");
     let (bar_declaration_id, _) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id)
+        .find_declaration_id(bar_symbol, crate_scope_id)
         .unwrap();
 
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -515,7 +534,9 @@ fn type_path_to_struct() {
         panic!();
     };
 
-    let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
+    let parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -553,13 +574,13 @@ fn type_path_to_enum() {
     let color_symbol = resolver.symbols.add_symbol("Color");
     let (color_declaration_id, _) = resolver
         .declarations
-        .find_declaration(color_symbol, crate_scope_id)
+        .find_declaration_id(color_symbol, crate_scope_id)
         .unwrap();
 
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         value_parameters, ..
@@ -568,7 +589,9 @@ fn type_path_to_enum() {
         panic!();
     };
 
-    let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
+    let parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -598,7 +621,7 @@ fn type_path_to_type_parameter() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         type_parameters,
@@ -609,12 +632,16 @@ fn type_path_to_type_parameter() {
         panic!();
     };
 
-    let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
+    let type_parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(type_parameters.unwrap());
 
     assert_eq!(type_parameter_entries.len(), 1);
 
     let t_declaration_id = type_parameter_entries[0].1;
-    let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
+    let parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -648,7 +675,7 @@ fn type_path_in_turbofish_binds_declaration() {
     let bar_symbol = resolver.symbols.add_symbol("Bar");
     let (bar_declaration_id, _) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id)
+        .find_declaration_id(bar_symbol, crate_scope_id)
         .unwrap();
 
     let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();

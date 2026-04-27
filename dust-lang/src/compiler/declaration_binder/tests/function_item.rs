@@ -1,11 +1,7 @@
 use crate::{
     compiler::{
         declaration_binder::tests::find_function_body_scope,
-        resolver::{
-            declarations::Definition,
-            scopes::{ScopeId, ScopeKind},
-            types::TypeId,
-        },
+        resolver::{declarations::Definition, scopes::ScopeKind, types::TypeId},
         tests::bind_declarations,
     },
     source::{Source, SourceCode},
@@ -21,7 +17,7 @@ fn empty() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         public,
@@ -34,8 +30,8 @@ fn empty() {
     };
 
     assert!(!public);
-    assert_eq!(type_parameters, ScopeId::NONE);
-    assert_eq!(value_parameters, ScopeId::NONE);
+    assert_eq!(type_parameters, None);
+    assert_eq!(value_parameters, None);
     assert_eq!(return_type_id, TypeId::UNIT);
 }
 
@@ -52,7 +48,7 @@ fn with_generics_parameters_and_return_type() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         public,
@@ -63,7 +59,9 @@ fn with_generics_parameters_and_return_type() {
     else {
         panic!();
     };
-    let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
+    let type_parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(type_parameters.unwrap());
 
     assert!(public);
     assert_eq!(return_type_id, TypeId::I_64);
@@ -89,7 +87,9 @@ fn with_generics_parameters_and_return_type() {
     assert_eq!(first.symbol_id, a_symbol);
     assert_eq!(second.symbol_id, b_symbol);
 
-    let parameter_entries = resolver.scopes.get_namespace_entries(value_parameters);
+    let parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(value_parameters.unwrap());
 
     assert_eq!(parameter_entries.len(), 2);
 
@@ -130,7 +130,7 @@ fn parameters_not_visible_in_declaring_scope() {
     let x_symbol = resolver.symbols.add_symbol("x");
     let result = resolver
         .declarations
-        .find_declaration(x_symbol, crate_scope_id);
+        .find_declaration_id(x_symbol, crate_scope_id);
 
     assert!(
         result.is_none(),
@@ -152,7 +152,7 @@ fn same_name_in_different_modules() {
     let a_symbol = resolver.symbols.add_symbol("a");
     let (_, a_declaration) = resolver
         .declarations
-        .find_declaration(a_symbol, crate_scope_id)
+        .find_declaration_id(a_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: a_scope,
@@ -165,7 +165,7 @@ fn same_name_in_different_modules() {
     let b_symbol = resolver.symbols.add_symbol("b");
     let (_, b_declaration) = resolver
         .declarations
-        .find_declaration(b_symbol, crate_scope_id)
+        .find_declaration_id(b_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: b_scope,
@@ -178,7 +178,7 @@ fn same_name_in_different_modules() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (a_foo_id, a_foo) = resolver
         .declarations
-        .find_declaration(foo_symbol, a_scope)
+        .find_declaration_id(foo_symbol, a_scope.unwrap())
         .unwrap();
     let Definition::Function {
         return_type_id: a_return,
@@ -192,7 +192,7 @@ fn same_name_in_different_modules() {
 
     let (b_foo_id, b_foo) = resolver
         .declarations
-        .find_declaration(foo_symbol, b_scope)
+        .find_declaration_id(foo_symbol, b_scope.unwrap())
         .unwrap();
     let Definition::Function {
         return_type_id: b_return,
@@ -216,7 +216,7 @@ fn type_parameters_have_correct_identity() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
         type_parameters, ..
@@ -225,7 +225,9 @@ fn type_parameters_have_correct_identity() {
         panic!();
     };
 
-    let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
+    let type_parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(type_parameters.unwrap());
 
     assert_eq!(type_parameter_entries.len(), 2);
 
@@ -260,11 +262,10 @@ fn value_parameter_declarations() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Function {
-        value_parameters,
-        ..
+        value_parameters, ..
     } = foo_declaration.definition
     else {
         panic!();
@@ -273,7 +274,7 @@ fn value_parameter_declarations() {
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, value_parameters)
+        .find_declaration_id(x_symbol, value_parameters.unwrap())
         .unwrap();
     let Definition::Local {
         mutable: x_mutable,
@@ -290,7 +291,7 @@ fn value_parameter_declarations() {
     let y_symbol = resolver.symbols.add_symbol("y");
     let (_, y_declaration) = resolver
         .declarations
-        .find_declaration(y_symbol, value_parameters)
+        .find_declaration_id(y_symbol, value_parameters.unwrap())
         .unwrap();
     let Definition::Local {
         mutable: y_mutable,
@@ -316,8 +317,8 @@ fn function_body_creates_function_scope() {
 
     let scope = resolver.scopes.get_scope(fn_body_scope);
 
-    assert_eq!(scope.kind, ScopeKind::Function);
-    assert_eq!(scope.parent, crate_scope_id);
+    assert_eq!(scope.kind, ScopeKind::Block);
+    assert_eq!(scope.parent, Some(crate_scope_id));
 }
 
 #[test]
@@ -333,7 +334,7 @@ fn nested_function() {
     let outer_symbol = resolver.symbols.add_symbol("outer");
     let (_, outer_declaration) = resolver
         .declarations
-        .find_declaration(outer_symbol, crate_scope_id)
+        .find_declaration_id(outer_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -345,7 +346,7 @@ fn nested_function() {
     let inner_symbol = resolver.symbols.add_symbol("inner");
     let (_, inner_declaration) = resolver
         .declarations
-        .find_declaration(inner_symbol, outer_body_scope)
+        .find_declaration_id(inner_symbol, outer_body_scope)
         .unwrap();
     let Definition::Function {
         value_parameters,
@@ -356,7 +357,7 @@ fn nested_function() {
         panic!();
     };
 
-    assert_eq!(value_parameters, ScopeId::NONE);
+    assert_eq!(value_parameters, None);
     assert_eq!(return_type_id, TypeId::UNIT);
     assert_eq!(inner_declaration.scope_id, outer_body_scope);
 }

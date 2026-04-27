@@ -24,7 +24,7 @@ fn immutable() {
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, body_scope)
+        .find_declaration_id(x_symbol, body_scope)
         .unwrap();
     let Definition::Local {
         mutable,
@@ -58,7 +58,7 @@ fn mutable() {
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, body_scope)
+        .find_declaration_id(x_symbol, body_scope)
         .unwrap();
     let Definition::Local {
         mutable, type_id, ..
@@ -88,7 +88,7 @@ fn with_type_notation() {
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, body_scope)
+        .find_declaration_id(x_symbol, body_scope)
         .unwrap();
     let Definition::Local {
         mutable, type_id, ..
@@ -115,7 +115,7 @@ fn mutable_with_type_notation() {
     let x_symbol = resolver.symbols.add_symbol("x");
     let (_, x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, body_scope)
+        .find_declaration_id(x_symbol, body_scope)
         .unwrap();
     let Definition::Local {
         mutable, type_id, ..
@@ -143,7 +143,7 @@ fn shadowing() {
 
     let (second_x_id, second_x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, body_scope)
+        .find_declaration_id(x_symbol, body_scope)
         .unwrap();
     let Definition::Local {
         shadowed: second_shadowed,
@@ -181,12 +181,12 @@ fn multiple() {
     let x_symbol = resolver.symbols.add_symbol("x");
     let (x_id, x_declaration) = resolver
         .declarations
-        .find_declaration(x_symbol, body_scope)
+        .find_declaration_id(x_symbol, body_scope)
         .unwrap();
     let y_symbol = resolver.symbols.add_symbol("y");
     let (y_id, y_declaration) = resolver
         .declarations
-        .find_declaration(y_symbol, body_scope)
+        .find_declaration_id(y_symbol, body_scope)
         .unwrap();
 
     assert!(matches!(x_declaration.definition, Definition::Local { .. }));
@@ -206,7 +206,7 @@ fn block_visibility() {
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let body_scope = find_function_body_scope(&resolver, crate_scope_id);
     let x_symbol = resolver.symbols.add_symbol("x");
-    let result = resolver.declarations.find_declaration(x_symbol, body_scope);
+    let result = resolver.declarations.find_declaration_id(x_symbol, body_scope);
 
     assert!(
         result.is_none(),

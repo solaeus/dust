@@ -14,9 +14,9 @@ use crate::{
         resolver::{
             PrototypeId, Resolver,
             declarations::{DeclarationId, Definition},
-            scopes::{ScopeId, ScopeKind},
+            scopes::ScopeKind,
             types::{
-                FloatType, InferredTypeConstraint, SignedIntegerType, Type, TypeId, TypeMembers,
+                FloatType, InferredTypeConstraint, SignedIntegerType, Type, TypeId,
                 UnsignedIntegerType,
             },
         },
@@ -84,8 +84,6 @@ pub struct Emitter<'a> {
 
     jump_over_branch_ids: Vec<JumpId>,
 
-    current_scope_id: ScopeId,
-
     next_jump_id: JumpId,
 }
 
@@ -148,7 +146,6 @@ impl<'a> Emitter<'a> {
             return_operand_types,
             jump_placements: HashMap::default(),
             jump_over_branch_ids: Vec::new(),
-            current_scope_id: ScopeId::NONE,
             next_jump_id: JumpId(0),
         };
 
@@ -1984,56 +1981,22 @@ impl<'a> Emitter<'a> {
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         let declaration_id = *self.resolver.get_declaration_binding(&reader.id)?;
-        let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
-
-        if let Definition::Variant {
-            discriminant,
-            fields,
-            ..
-        } = declaration.definition
-            && fields == ScopeId::NONE
-        {
-            let type_id = *self.resolver.get_type_binding(&reader.id)?;
-            let target_registers = match target {
-                ExpressionTarget::Claimed(registers) => registers,
-                ExpressionTarget::Unclaimed(allocation_kind) => {
-                    self.allocate_registers(type_id, allocation_kind)?
-                }
-                ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
-            };
-            let destination = target_registers.expect_base_index()?;
-            let move_instruction = Instruction::r#move(
-                destination,
-                OperandType::U_16,
-                MemoryKind::ENCODED,
-                discriminant,
-            );
-
-            let mut instructions = InstructionsEmission::new();
-
-            instructions.push(move_instruction);
-            instructions.set_target(Some(target_registers));
-
-            return Ok(Emission::Instructions(instructions));
-        }
 
         if let Some(local) = self.locals.get(&declaration_id) {
-            return match local {
-                Local::Place(place) => Ok(Emission::Place(place.clone())),
-                Local::Constant(value) => Ok(Emission::Value(*value)),
-            };
+            match local {
+                Local::Place(place) => return Ok(Emission::Place(place.clone())),
+                Local::Constant(value) => return Ok(Emission::Value(*value)),
+            }
         }
 
         let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
 
-        let place = match declaration.definition {
-            Definition::Function {
-                type_parameters, ..
-            } => {
-                let concrete_type_arguments = if type_parameters != ScopeId::NONE {
-                    let type_id = *self.resolver.get_type_binding(&reader.id)?;
-                    let callee_type = *self.resolver.types.get_type(type_id)?;
+        match declaration.definition {
+            Definition::Function { .. } => {
+                let type_id = *self.resolver.get_type_binding(&reader.id)?;
+                let callee_type = *self.resolver.types.get_type(type_id)?;
 
+                let type_arguments =
                     if let Type::FunctionDefinition { type_arguments, .. } = callee_type {
                         type_arguments
                             .as_range()
@@ -2045,12 +2008,9 @@ impl<'a> Emitter<'a> {
                             .try_collect::<SmallVec<[TypeId; 4]>>()?
                     } else {
                         SmallVec::new()
-                    }
-                } else {
-                    SmallVec::new()
-                };
+                    };
 
-                let cache_key = (declaration_id, concrete_type_arguments);
+                let cache_key = (declaration_id, type_arguments);
                 let prototype_id =
                     if let Some(existing) = self.resolver.get_cached_prototype(&cache_key) {
                         existing
@@ -2066,10 +2026,10 @@ impl<'a> Emitter<'a> {
                         reserved
                     };
 
-                Place::Constant {
+                Ok(Emission::Place(Place::Constant {
                     operand_type: OperandType::FUNCTION,
                     index: prototype_id.inner(),
-                }
+                }))
             }
             Definition::Constant { .. } => {
                 let value = self
@@ -2080,17 +2040,13 @@ impl<'a> Emitter<'a> {
                         syntax_id: reader.id,
                     })?;
 
-                return Ok(Emission::Value(value));
+                Ok(Emission::Value(value))
             }
-            _ => {
-                return Err(CompileError::ExpectedValue {
-                    source_id: reader.source_id(),
-                    syntax_id: reader.id,
-                });
-            }
-        };
-
-        Ok(Emission::Place(place))
+            _ => Err(CompileError::ExpectedValue {
+                source_id: reader.source_id(),
+                syntax_id: reader.id,
+            }),
+        }
     }
 
     fn emit_struct_expression(
@@ -2980,363 +2936,7 @@ impl<'a> Emitter<'a> {
     ) -> Result<Emission, CompileError> {
         let CallExpression { callee, arguments } = reader.as_component()?;
 
-        let mut declaration_id = *self.resolver.get_declaration_binding(&callee.id)?;
-        let definition = self
-            .resolver
-            .declarations
-            .get_declaration(declaration_id)?
-            .definition;
-
-        if let Definition::Variant {
-            discriminant,
-            fields,
-            ..
-        } = definition
-            && fields != ScopeId::NONE
-        {
-            let return_type_id = *self.resolver.get_type_binding(&reader.id)?;
-            let target_registers = match target {
-                ExpressionTarget::Claimed(registers) => registers,
-                ExpressionTarget::Unclaimed(allocation_kind) => {
-                    self.allocate_registers(return_type_id, allocation_kind)?
-                }
-                ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
-            };
-
-            let destination = target_registers.expect_base_index()?;
-            let move_instruction = Instruction::r#move(
-                destination,
-                OperandType::U_16,
-                MemoryKind::ENCODED,
-                discriminant,
-            );
-
-            let mut variant_instructions = InstructionsEmission::new();
-
-            variant_instructions.push(move_instruction);
-
-            let field_registers = target_registers.claims.iter().skip(1);
-
-            for (argument, field_register) in arguments.children().zip(field_registers) {
-                let argument_emission = self.emit_expression(
-                    argument,
-                    ExpressionTarget::Unclaimed(RegisterKind::Temporary),
-                )?;
-
-                if let Emission::Value(constant) = &argument_emission
-                    && let Some(encoded) = constant.encoded_u16()
-                {
-                    let move_instruction = Instruction::r#move(
-                        field_register.index,
-                        constant.operand_type(),
-                        MemoryKind::ENCODED,
-                        encoded,
-                    );
-
-                    variant_instructions.push(move_instruction);
-                    continue;
-                }
-
-                let argument_place =
-                    self.place_emission(argument_emission, &mut variant_instructions, &argument)?;
-
-                match argument_place {
-                    Place::Constant {
-                        operand_type,
-                        index,
-                    } => {
-                        let move_instruction = Instruction::r#move(
-                            field_register.index,
-                            operand_type,
-                            MemoryKind::CONSTANT,
-                            index,
-                        );
-
-                        variant_instructions.push(move_instruction);
-                    }
-                    Place::Register(ref field_allocation) => {
-                        for register in &field_allocation.claims {
-                            let move_instruction = Instruction::r#move(
-                                field_register.index,
-                                register.operand_type,
-                                MemoryKind::REGISTER,
-                                register.index,
-                            );
-
-                            variant_instructions.push(move_instruction);
-                        }
-                    }
-                }
-            }
-
-            variant_instructions.set_target(Some(target_registers));
-
-            return Ok(Emission::Instructions(variant_instructions));
-        }
-
-        let return_type_id = *self.resolver.get_type_binding(&reader.id)?;
-        let target_registers = match target {
-            ExpressionTarget::Claimed(registers) => registers,
-            ExpressionTarget::Unclaimed(allocation_kind) => {
-                self.allocate_registers(return_type_id, allocation_kind)?
-            }
-            ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
-        };
-        let destination = target_registers.expect_base_index()?;
-
-        let mut call_instructions = InstructionsEmission::new();
-
-        let monomorphized_prototype_id = if let Definition::Function {
-            value_parameters, ..
-        } = definition
-        {
-            let callee_type_id = *self.resolver.get_type_binding(&callee.id)?;
-            let callee_type = *self.resolver.types.get_type(callee_type_id)?;
-
-            let concrete_type_arguments = if let Type::FunctionDefinition { type_arguments, .. } =
-                callee_type
-                && !type_arguments.is_empty()
-            {
-                type_arguments
-                    .as_range()
-                    .map(|index| {
-                        let type_id = *self.resolver.types.get_type_member(index)?;
-
-                        self.resolver.resolve_type(type_id)
-                    })
-                    .try_collect::<SmallVec<[TypeId; 4]>>()?
-            } else {
-                let mut types = SmallVec::<[TypeId; 4]>::new();
-
-                let parameter_entries =
-                    self.resolver.scopes.get_namespace_entries(value_parameters);
-                for (argument, &(_, parameter_declaration_id)) in
-                    arguments.children().zip(parameter_entries.iter())
-                {
-                    let parameter_declaration = self
-                        .resolver
-                        .declarations
-                        .get_declaration(parameter_declaration_id)?;
-                    let parameter_type_id = match parameter_declaration.definition {
-                        Definition::Local { type_id, .. } => type_id,
-                        _ => continue,
-                    };
-                    let parameter_type = *self.resolver.types.get_type(parameter_type_id)?;
-
-                    if matches!(parameter_type, Type::Slice { .. }) {
-                        let argument_type_id = *self.resolver.get_type_binding(&argument.id)?;
-
-                        types.push(argument_type_id);
-                    }
-                }
-
-                let callee_scope = self.resolver.scopes.get_scope(
-                    self.resolver
-                        .declarations
-                        .get_declaration(declaration_id)?
-                        .scope_id,
-                );
-
-                if callee_scope.kind == ScopeKind::TypeTraitOrImpl
-                    && callee.node.kind == SyntaxKind::FieldAccessExpression
-                {
-                    let FieldAccessExpression {
-                        struct_expression, ..
-                    } = callee.as_component()?;
-                    let operand_type_id = *self.resolver.get_type_binding(&struct_expression.id)?;
-                    let concrete_self_type_id = self.resolver.resolve_type(operand_type_id)?;
-
-                    types.push(concrete_self_type_id);
-
-                    // Resolve the trait method's declaration_id to the impl's
-                    // concrete version. The trait may declare an abstract method
-                    // (TraitFunctionItem) that has no body — we need the impl's
-                    // FunctionItem instead.
-                    let trait_method_symbol_id = self
-                        .resolver
-                        .declarations
-                        .get_declaration(declaration_id)?
-                        .symbol_id;
-
-                    let concrete_self_type =
-                        *self.resolver.types.get_type(concrete_self_type_id)?;
-
-                    if let Type::Algebraic {
-                        declaration_id: type_decl_id,
-                        ..
-                    } = concrete_self_type
-                    {
-                        let type_scope_id = self
-                            .resolver
-                            .declarations
-                            .get_declaration(type_decl_id)?
-                            .scope_id;
-
-                        'impl_search: for (_, decl) in self.resolver.declarations.iter() {
-                            if decl.scope_id != type_scope_id {
-                                continue;
-                            }
-
-                            if let Definition::TraitImplementation { declarations, .. }
-                            | Definition::InherentImplementation { declarations, .. } =
-                                decl.definition
-                            {
-                                let member_entries =
-                                    self.resolver.scopes.get_namespace_entries(declarations);
-
-                                for &(_, member_id) in member_entries {
-                                    let member =
-                                        self.resolver.declarations.get_declaration(member_id)?;
-
-                                    if member.symbol_id == trait_method_symbol_id {
-                                        declaration_id = member_id;
-                                        break 'impl_search;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                types
-            };
-
-            let cache_key = (declaration_id, concrete_type_arguments);
-            let prototype_id =
-                if let Some(existing) = self.resolver.get_cached_prototype(&cache_key) {
-                    existing
-                } else {
-                    let reserved = self.resolver.reserve_prototype_id();
-
-                    self.resolver.cache_prototype(cache_key, reserved);
-                    self.compilation_stack.push(CompilationRequest {
-                        declaration_id,
-                        prototype_id: reserved,
-                    });
-
-                    reserved
-                };
-
-            Some(prototype_id)
-        } else {
-            None
-        };
-
-        let arguments_start_index = self.register_tracker.next_temporary;
-
-        for argument in arguments.children() {
-            let argument_type_id = *self.resolver.get_type_binding(&argument.id)?;
-            let argument_target =
-                self.allocate_registers(argument_type_id, RegisterKind::Reserved)?;
-
-            let argument_emission =
-                self.emit_expression(argument, ExpressionTarget::Claimed(argument_target))?;
-
-            if let Emission::Value(constant) = &argument_emission
-                && let Some(encoded) = constant.encoded_u16()
-            {
-                let operand_type = constant.operand_type();
-                let destination = self.register_tracker.allocate_next_temporary(operand_type);
-                let move_instruction =
-                    Instruction::r#move(destination, operand_type, MemoryKind::ENCODED, encoded);
-
-                call_instructions.push(move_instruction);
-                continue;
-            }
-
-            if let Emission::Instructions(instructions) = argument_emission {
-                call_instructions.merge(instructions);
-                continue;
-            }
-
-            let argument_place =
-                self.place_emission(argument_emission, &mut call_instructions, &argument)?;
-
-            match argument_place {
-                Place::Constant {
-                    operand_type,
-                    index,
-                } => {
-                    let destination = self.register_tracker.allocate_next_temporary(operand_type);
-                    let move_instruction =
-                        Instruction::r#move(destination, operand_type, MemoryKind::CONSTANT, index);
-
-                    call_instructions.push(move_instruction);
-                }
-                Place::Register(ref allocation) => {
-                    for register in &allocation.claims {
-                        let destination = self
-                            .register_tracker
-                            .allocate_next_temporary(register.operand_type);
-                        let move_instruction = Instruction::r#move(
-                            destination,
-                            register.operand_type,
-                            MemoryKind::REGISTER,
-                            register.index,
-                        );
-
-                        call_instructions.push(move_instruction);
-                    }
-                }
-            }
-        }
-
-        self.register_tracker.free_reserved();
-
-        let arguments_start = if arguments.has_children() {
-            arguments_start_index
-        } else {
-            u16::MAX
-        };
-
-        let (callee_memory, callee_index) = if let Some(prototype_id) = monomorphized_prototype_id {
-            (MemoryKind::ENCODED, prototype_id.inner())
-        } else {
-            let callee_emission =
-                self.emit_expression(callee, ExpressionTarget::Unclaimed(RegisterKind::Temporary))?;
-
-            let callee_place = match callee_emission {
-                Emission::Place(place) => place,
-                Emission::Instructions(instructions) => {
-                    let Some(registers) = instructions.target_registers else {
-                        return Err(CompileError::ExpectedFunction {
-                            node_kind: callee.node.kind,
-                            position: callee.position(),
-                        });
-                    };
-
-                    Place::Register(registers)
-                }
-                Emission::NativeFunction(_) => todo!(),
-                _ => {
-                    return Err(CompileError::ExpectedFunction {
-                        node_kind: callee.node.kind,
-                        position: callee.position(),
-                    });
-                }
-            };
-
-            match callee_place {
-                Place::Constant { index, .. } => (MemoryKind::CONSTANT, index),
-                Place::Register(ref allocation) if allocation.len() == 1 => {
-                    (MemoryKind::REGISTER, allocation.claims[0].index)
-                }
-                Place::Register(_) => {
-                    return Err(CompileError::ExpectedFunction {
-                        node_kind: callee.node.kind,
-                        position: callee.position(),
-                    });
-                }
-            }
-        };
-
-        let call_instruction =
-            Instruction::call(destination, callee_memory, callee_index, arguments_start);
-
-        call_instructions.push(call_instruction);
-        call_instructions.set_target(Some(target_registers));
-
-        Ok(Emission::Instructions(call_instructions))
+        todo!()
     }
 
     fn emit_field_access_expression(
@@ -3395,7 +2995,10 @@ impl<'a> Emitter<'a> {
         let struct_declaration = self.resolver.declarations.get_declaration(parent_struct)?;
 
         let fields = match struct_declaration.definition {
-            Definition::StructType { fields, .. } => fields,
+            Definition::StructType {
+                fields: Some(fields),
+                ..
+            } => fields,
             _ => {
                 return Err(CompileError::ExpectedValue {
                     source_id: field_name.source_id(),
@@ -3714,265 +3317,4 @@ impl RegisterWidth {
             RegisterWidth::Quad => 4,
         }
     }
-}
-
-pub fn get_byte_size(
-    type_id: TypeId,
-    type_arguments: Option<&TypeMembers>,
-    resolver: &Resolver,
-) -> Result<Option<usize>, CompileError> {
-    const DISCRIMINANT_BYTE_SIZE: usize = 2;
-
-    fn get_definition_type_size(
-        declaration_id: DeclarationId,
-        type_arguments: Option<&TypeMembers>,
-        resolver: &Resolver,
-    ) -> Result<Option<usize>, CompileError> {
-        let declaration = resolver.declarations.get_declaration(declaration_id)?;
-
-        match &declaration.definition {
-            Definition::StructType {
-                type_parameters,
-                fields,
-                ..
-            } => {
-                let field_entries = resolver.scopes.get_namespace_entries(*fields);
-                let mut total_size = 0;
-
-                for &(_, field_declaration_id) in field_entries {
-                    let field_declaration = resolver
-                        .declarations
-                        .get_declaration(field_declaration_id)?;
-                    let Definition::Field {
-                        type_id: field_type_id,
-                        ..
-                    } = field_declaration.definition
-                    else {
-                        return Err(CompileError::ExpectedFieldDefinition(field_declaration_id));
-                    };
-
-                    let resolved_field_type_id = if let Some(type_arguments) = type_arguments {
-                        let field_type = resolver.types.get_type(field_type_id)?;
-
-                        if let Type::Generic {
-                            declaration_id: parameter_declaration_id,
-                        } = field_type
-                        {
-                            let type_param_entries =
-                                resolver.scopes.get_namespace_entries(*type_parameters);
-                            type_param_entries
-                                .iter()
-                                .zip(type_arguments.as_range())
-                                .find_map(|(&(_, param_decl_id), argument_member_index)| {
-                                    if &param_decl_id == parameter_declaration_id {
-                                        let argument_type_id = resolver
-                                            .types
-                                            .get_type_member(argument_member_index)
-                                            .ok()?;
-
-                                        Some(*argument_type_id)
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .unwrap_or(field_type_id)
-                        } else {
-                            field_type_id
-                        }
-                    } else {
-                        field_type_id
-                    };
-
-                    let byte_size = if let Some(size) =
-                        get_byte_size(resolved_field_type_id, type_arguments, resolver)?
-                    {
-                        size
-                    } else {
-                        return Ok(None);
-                    };
-
-                    total_size += byte_size;
-                }
-
-                Ok(Some(total_size))
-            }
-            Definition::EnumType {
-                type_parameters,
-                variants,
-                ..
-            } => {
-                let variant_entries = resolver.scopes.get_namespace_entries(*variants);
-                let mut max_variant_size = 0;
-
-                for &(_, variant_declaration_id) in variant_entries {
-                    let variant_declaration = resolver
-                        .declarations
-                        .get_declaration(variant_declaration_id)?;
-                    let Definition::Variant { fields, .. } = &variant_declaration.definition else {
-                        continue;
-                    };
-
-                    let field_entries = resolver.scopes.get_namespace_entries(*fields);
-                    let mut variant_size = 0;
-
-                    for &(_, field_declaration_id) in field_entries {
-                        let field_declaration = resolver
-                            .declarations
-                            .get_declaration(field_declaration_id)?;
-                        let Definition::Field {
-                            type_id: field_type_id,
-                            ..
-                        } = field_declaration.definition
-                        else {
-                            continue;
-                        };
-
-                        let resolved_field_type_id = if let Some(type_arguments) = type_arguments {
-                            let field_type = resolver.types.get_type(field_type_id)?;
-
-                            if let Type::Generic {
-                                declaration_id: parameter_declaration_id,
-                            } = field_type
-                            {
-                                let type_param_entries =
-                                    resolver.scopes.get_namespace_entries(*type_parameters);
-                                type_param_entries
-                                    .iter()
-                                    .zip(type_arguments.as_range())
-                                    .find_map(|(&(_, param_decl_id), argument_index)| {
-                                        if &param_decl_id == parameter_declaration_id {
-                                            let argument_type_id = resolver
-                                                .types
-                                                .get_type_member(argument_index)
-                                                .ok()?;
-
-                                            Some(*argument_type_id)
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .unwrap_or(field_type_id)
-                            } else {
-                                field_type_id
-                            }
-                        } else {
-                            field_type_id
-                        };
-
-                        let byte_size =
-                            get_byte_size(resolved_field_type_id, type_arguments, resolver)?
-                                .unwrap_or(0);
-
-                        variant_size += byte_size;
-                    }
-
-                    max_variant_size = max_variant_size.max(variant_size);
-                }
-
-                Ok(Some(max_variant_size + DISCRIMINANT_BYTE_SIZE))
-            }
-            Definition::TypeParameter => {
-                if let Some(&concrete_type_id) = resolver.type_parameter_map.get(&declaration_id) {
-                    get_byte_size(concrete_type_id, type_arguments, resolver)
-                } else {
-                    Ok(None)
-                }
-            }
-            Definition::TypeAlias {
-                aliased_type_id, ..
-            }
-            | Definition::InherentAssociatedType {
-                aliased_type_id, ..
-            } => get_byte_size(*aliased_type_id, type_arguments, resolver),
-            Definition::Constant { type_id, .. }
-            | Definition::InherentAssociatedConstant { type_id, .. }
-            | Definition::Local { type_id, .. }
-            | Definition::Field { type_id, .. } => {
-                get_byte_size(*type_id, type_arguments, resolver)
-            }
-            Definition::Use {
-                source_declaration_id,
-                ..
-            } => get_definition_type_size(*source_declaration_id, type_arguments, resolver),
-            Definition::Function { .. } | Definition::NativeFunction { .. } => Ok(Some(2)),
-            _ => Ok(None),
-        }
-    }
-
-    let r#type = resolver.types.get_type(type_id)?;
-
-    match r#type {
-        Type::Never => Ok(Some(0)),
-        Type::Boolean
-        | Type::SignedInteger(SignedIntegerType::I8)
-        | Type::UnsignedInteger(UnsignedIntegerType::U8) => Ok(Some(1)),
-        Type::SignedInteger(SignedIntegerType::I16)
-        | Type::UnsignedInteger(UnsignedIntegerType::U16)
-        | Type::FunctionDefinition { .. }
-        | Type::Closure { .. }
-        | Type::Function { .. } => Ok(Some(2)),
-        Type::Character
-        | Type::SignedInteger(SignedIntegerType::I32)
-        | Type::UnsignedInteger(UnsignedIntegerType::U32)
-        | Type::Float(FloatType::F32) => Ok(Some(4)),
-        Type::Slice { .. } | Type::Pointer { .. } => Ok(Some(8)),
-        Type::SignedInteger(SignedIntegerType::I64 | SignedIntegerType::ISize)
-        | Type::UnsignedInteger(UnsignedIntegerType::U64 | UnsignedIntegerType::USize)
-        | Type::Float(FloatType::F64) => Ok(Some(8)),
-        Type::SignedInteger(SignedIntegerType::I128)
-        | Type::UnsignedInteger(UnsignedIntegerType::U128) => Ok(Some(16)),
-        Type::Tuple {
-            element_types: element_type_ids,
-        } => {
-            let type_ids = resolver.types.get_type_members(*element_type_ids)?;
-            let mut total_size = 0;
-
-            for type_id in type_ids {
-                let byte_size =
-                    if let Some(size) = get_byte_size(*type_id, type_arguments, resolver)? {
-                        size
-                    } else {
-                        return Ok(None);
-                    };
-
-                total_size += byte_size;
-            }
-
-            Ok(Some(total_size))
-        }
-        Type::Array {
-            element_type_id,
-            length,
-        } => {
-            let element_size =
-                if let Some(size) = get_byte_size(*element_type_id, type_arguments, resolver)? {
-                    size
-                } else {
-                    return Ok(None);
-                };
-
-            Ok(Some(element_size * (*length)))
-        }
-        Type::Algebraic {
-            declaration_id,
-            type_arguments,
-        } => get_definition_type_size(*declaration_id, Some(type_arguments), resolver),
-        Type::Generic { declaration_id } => {
-            get_definition_type_size(*declaration_id, None, resolver)
-        }
-        Type::Inferred {
-            resolved: Some(resolved),
-            ..
-        } => get_byte_size(*resolved, type_arguments, resolver),
-        Type::Inferred { resolved: None, .. } => Ok(None),
-    }
-}
-
-pub fn get_register_size(
-    type_id: TypeId,
-    type_arguments: Option<&TypeMembers>,
-    resolver: &Resolver,
-) -> Result<Option<usize>, CompileError> {
-    get_byte_size(type_id, type_arguments, resolver)
-        .map(|byte_size| byte_size.map(|size| size.div_ceil(4)))
 }

@@ -93,11 +93,14 @@ fn generic_return_type_resolves_through_type_parameter_map() {
     let (_syntax, mut resolver, crate_scope_id) = type_bind_function("fn foo<T>() -> T { 1 }");
 
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
-    let foo_declaration = *foo_declaration;
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
+        .unwrap();
 
     let Definition::Function {
         type_parameters, ..
@@ -106,7 +109,9 @@ fn generic_return_type_resolves_through_type_parameter_map() {
         panic!();
     };
 
-    let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
+    let type_parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(type_parameters.unwrap());
     let type_parameter_declaration_id = type_parameter_entries[0].1;
 
     let inferred_type_id = *resolver

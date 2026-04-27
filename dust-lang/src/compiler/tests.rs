@@ -45,9 +45,7 @@ pub fn bind_declarations(source: &Source) -> (Syntax, Resolver, ScopeId) {
     }
 
     let mut resolver = Resolver::new();
-    let crate_scope_id = resolver
-        .scopes
-        .enter_scope(ScopeKind::Module, ScopeId::NONE);
+    let crate_scope_id = resolver.scopes.enter_scope(ScopeKind::Module, None);
 
     let main_root = syntax.get_tree(SourceCodeId::MAIN).unwrap().root().unwrap();
 
@@ -72,11 +70,14 @@ pub fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
     let (syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (_, foo_declaration) = resolver
+    let foo_declaration_id = *resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
-    let foo_declaration = *foo_declaration;
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(foo_declaration_id)
+        .unwrap();
 
     let Definition::Function {
         type_parameters,
@@ -97,7 +98,7 @@ pub fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
 
     resolver.type_parameter_map.clear();
 
-    if type_parameters != ScopeId::NONE {
+    if let Some(type_parameters) = type_parameters {
         let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
 
         let type_parameter_ids: Vec<_> = type_parameter_entries
@@ -114,12 +115,9 @@ pub fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
     }
 
     let mut errors = Vec::new();
-    let mut type_binder = TypeBinder::new(&mut resolver, &source);
+    let mut type_binder = TypeBinder::new(&mut resolver, &source, &mut errors);
 
-    match type_binder.bind_function_body(body.unwrap(), return_type_id) {
-        Ok(()) => {}
-        Err(error) => errors.push(ErrorKind::Compile(error)),
-    }
+    type_binder.bind_function_body(body.unwrap(), return_type_id);
 
     assert!(errors.is_empty(), "{source_code}: {errors:#?}");
 

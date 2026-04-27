@@ -2,7 +2,6 @@ use crate::{
     compiler::{
         resolver::{
             declarations::Definition,
-            scopes::ScopeId,
             types::{Type, TypeId},
         },
         tests::bind_declarations,
@@ -21,10 +20,11 @@ fn with_unit_variants() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let color_symbol = resolver.symbols.add_symbol("Color");
-    let (color_id, color_declaration) = resolver
+    let color_id = *resolver
         .declarations
-        .find_declaration(color_symbol, crate_scope_id)
+        .find_declaration_id(color_symbol, crate_scope_id)
         .unwrap();
+    let color_declaration = resolver.declarations.get_declaration(color_id).unwrap();
     let Definition::EnumType {
         public,
         type_parameters,
@@ -35,10 +35,10 @@ fn with_unit_variants() {
     };
 
     assert!(!public);
-    assert!(type_parameters == ScopeId::NONE);
+    assert!(type_parameters.is_none());
     assert_eq!(color_declaration.scope_id, crate_scope_id);
 
-    let variant_entries = resolver.scopes.get_namespace_entries(variants);
+    let variant_entries = resolver.scopes.get_namespace_entries(variants.unwrap());
     assert_eq!(variant_entries.len(), 3);
 
     let red_symbol = resolver.symbols.add_symbol("Red");
@@ -108,10 +108,11 @@ fn public_generic() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let opt_symbol = resolver.symbols.add_symbol("Opt");
-    let (_, opt_declaration) = resolver
+    let opt_id = *resolver
         .declarations
-        .find_declaration(opt_symbol, crate_scope_id)
+        .find_declaration_id(opt_symbol, crate_scope_id)
         .unwrap();
+    let opt_declaration = resolver.declarations.get_declaration(opt_id).unwrap();
     let Definition::EnumType {
         public,
         type_parameters,
@@ -123,7 +124,9 @@ fn public_generic() {
 
     assert!(public);
 
-    let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
+    let type_parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(type_parameters.unwrap());
 
     assert_eq!(type_parameter_entries.len(), 2);
 
@@ -142,7 +145,7 @@ fn public_generic() {
     assert!(matches!(first_tp.definition, Definition::TypeParameter));
     assert_eq!(second_tp.symbol_id, b_symbol);
     assert!(matches!(second_tp.definition, Definition::TypeParameter));
-    assert_eq!(resolver.scopes.namespace_len(variants), 2);
+    assert_eq!(resolver.scopes.namespace_len(variants.unwrap()), 2);
 }
 
 #[test]
@@ -155,15 +158,16 @@ fn with_mixed_variants() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let shape_symbol = resolver.symbols.add_symbol("Shape");
-    let (shape_id, shape_declaration) = resolver
+    let shape_id = *resolver
         .declarations
-        .find_declaration(shape_symbol, crate_scope_id)
+        .find_declaration_id(shape_symbol, crate_scope_id)
         .unwrap();
+    let shape_declaration = resolver.declarations.get_declaration(shape_id).unwrap();
     let Definition::EnumType { variants, .. } = shape_declaration.definition else {
         panic!();
     };
 
-    let variant_entries = resolver.scopes.get_namespace_entries(variants);
+    let variant_entries = resolver.scopes.get_namespace_entries(variants.unwrap());
 
     assert_eq!(variant_entries.len(), 3);
 
@@ -188,7 +192,7 @@ fn with_mixed_variants() {
     assert_eq!(point.symbol_id, point_symbol);
     assert_eq!(point_discriminant, 0);
     assert_eq!(point_parent_id, shape_id);
-    assert!(point_fields == ScopeId::NONE);
+    assert!(point_fields.is_none());
 
     let line = resolver
         .declarations
@@ -208,7 +212,7 @@ fn with_mixed_variants() {
     assert_eq!(line_discriminant, 1);
     assert_eq!(line_parent_id, shape_id);
 
-    let line_field_entries = resolver.scopes.get_namespace_entries(line_fields);
+    let line_field_entries = resolver.scopes.get_namespace_entries(line_fields.unwrap());
 
     assert_eq!(line_field_entries.len(), 1);
 
@@ -244,7 +248,9 @@ fn with_mixed_variants() {
     assert_eq!(rectangle_discriminant, 2);
     assert_eq!(rectangle_parent_id, shape_id);
 
-    let rect_field_entries = resolver.scopes.get_namespace_entries(rectangle_fields);
+    let rect_field_entries = resolver
+        .scopes
+        .get_namespace_entries(rectangle_fields.unwrap());
 
     assert_eq!(rect_field_entries.len(), 2);
 
@@ -273,7 +279,7 @@ fn variants_not_visible_at_module_scope() {
     let bar_symbol = resolver.symbols.add_symbol("Bar");
     let result = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id);
+        .find_declaration_id(bar_symbol, crate_scope_id);
 
     assert!(
         result.is_none(),
@@ -293,10 +299,11 @@ fn same_name_in_different_modules() {
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
 
     let a_symbol = resolver.symbols.add_symbol("a");
-    let (_, a_declaration) = resolver
+    let a_id = *resolver
         .declarations
-        .find_declaration(a_symbol, crate_scope_id)
+        .find_declaration_id(a_symbol, crate_scope_id)
         .unwrap();
+    let a_declaration = resolver.declarations.get_declaration(a_id).unwrap();
     let Definition::Module {
         inner_scope_id: a_scope,
         ..
@@ -306,10 +313,11 @@ fn same_name_in_different_modules() {
     };
 
     let b_symbol = resolver.symbols.add_symbol("b");
-    let (_, b_declaration) = resolver
+    let b_id = *resolver
         .declarations
-        .find_declaration(b_symbol, crate_scope_id)
+        .find_declaration_id(b_symbol, crate_scope_id)
         .unwrap();
+    let b_declaration = resolver.declarations.get_declaration(b_id).unwrap();
     let Definition::Module {
         inner_scope_id: b_scope,
         ..
@@ -319,11 +327,12 @@ fn same_name_in_different_modules() {
     };
 
     let foo_symbol = resolver.symbols.add_symbol("Foo");
-
-    let (a_foo_id, a_foo) = resolver
+    let a_foo_id = *resolver
         .declarations
-        .find_declaration(foo_symbol, a_scope)
+        .find_declaration_id(foo_symbol, a_scope.unwrap())
         .unwrap();
+    let a_foo = resolver.declarations.get_declaration(a_foo_id).unwrap();
+
     let Definition::EnumType {
         variants: a_variants,
         ..
@@ -331,7 +340,7 @@ fn same_name_in_different_modules() {
     else {
         panic!();
     };
-    let a_variant_entries = resolver.scopes.get_namespace_entries(a_variants);
+    let a_variant_entries = resolver.scopes.get_namespace_entries(a_variants.unwrap());
     let a_variant = resolver
         .declarations
         .get_declaration(a_variant_entries[0].1)
@@ -340,10 +349,12 @@ fn same_name_in_different_modules() {
 
     assert_eq!(a_variant.symbol_id, x_symbol);
 
-    let (b_foo_id, b_foo) = resolver
+    let b_foo_id = *resolver
         .declarations
-        .find_declaration(foo_symbol, b_scope)
+        .find_declaration_id(foo_symbol, b_scope.unwrap())
         .unwrap();
+    let b_foo = resolver.declarations.get_declaration(b_foo_id).unwrap();
+
     let Definition::EnumType {
         variants: b_variants,
         ..
@@ -351,7 +362,7 @@ fn same_name_in_different_modules() {
     else {
         panic!();
     };
-    let b_variant_entries = resolver.scopes.get_namespace_entries(b_variants);
+    let b_variant_entries = resolver.scopes.get_namespace_entries(b_variants.unwrap());
     let b_variant = resolver
         .declarations
         .get_declaration(b_variant_entries[0].1)
@@ -373,10 +384,11 @@ fn generic_variant_field() {
 
     let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
     let opt_symbol = resolver.symbols.add_symbol("Opt");
-    let (_, opt_declaration) = resolver
+    let opt_id = *resolver
         .declarations
-        .find_declaration(opt_symbol, crate_scope_id)
+        .find_declaration_id(opt_symbol, crate_scope_id)
         .unwrap();
+    let opt_declaration = resolver.declarations.get_declaration(opt_id).unwrap();
     let Definition::EnumType {
         type_parameters,
         variants,
@@ -386,12 +398,14 @@ fn generic_variant_field() {
         panic!();
     };
 
-    let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
+    let type_parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(type_parameters.unwrap());
 
     assert_eq!(type_parameter_entries.len(), 1);
 
     let t_declaration_id = type_parameter_entries[0].1;
-    let variant_entries = resolver.scopes.get_namespace_entries(variants);
+    let variant_entries = resolver.scopes.get_namespace_entries(variants.unwrap());
 
     assert_eq!(variant_entries.len(), 2);
 
@@ -406,7 +420,7 @@ fn generic_variant_field() {
     else {
         panic!();
     };
-    let some_field_entries = resolver.scopes.get_namespace_entries(some_fields);
+    let some_field_entries = resolver.scopes.get_namespace_entries(some_fields.unwrap());
 
     assert_eq!(some_field_entries.len(), 1);
 
@@ -436,5 +450,5 @@ fn generic_variant_field() {
         panic!();
     };
 
-    assert!(none_fields == ScopeId::NONE);
+    assert!(none_fields.is_none());
 }

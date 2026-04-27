@@ -16,7 +16,7 @@ fn module() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -38,7 +38,7 @@ fn public_module() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -60,7 +60,7 @@ fn resolves_to_module() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -90,7 +90,7 @@ fn function_from_module() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id)
+        .find_declaration_id(bar_symbol, crate_scope_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -120,7 +120,7 @@ fn struct_from_module() {
     let bar_symbol = resolver.symbols.add_symbol("Bar");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id)
+        .find_declaration_id(bar_symbol, crate_scope_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -150,7 +150,7 @@ fn from_nested_module() {
     let baz_symbol = resolver.symbols.add_symbol("baz");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(baz_symbol, crate_scope_id)
+        .find_declaration_id(baz_symbol, crate_scope_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -180,7 +180,7 @@ fn nested_module() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id)
+        .find_declaration_id(bar_symbol, crate_scope_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -210,7 +210,7 @@ fn inside_module() {
     let baz_symbol = resolver.symbols.add_symbol("baz");
     let (_, baz_declaration) = resolver
         .declarations
-        .find_declaration(baz_symbol, crate_scope_id)
+        .find_declaration_id(baz_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module { inner_scope_id, .. } = baz_declaration.definition else {
         panic!();
@@ -218,7 +218,7 @@ fn inside_module() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, inner_scope_id)
+        .find_declaration_id(bar_symbol, inner_scope_id.unwrap())
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -248,7 +248,7 @@ fn public_function() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id)
+        .find_declaration_id(bar_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -270,14 +270,14 @@ fn multiple() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let bar_result = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id);
+        .find_declaration_id(bar_symbol, crate_scope_id);
 
     assert!(bar_result.is_some());
 
     let baz_symbol = resolver.symbols.add_symbol("baz");
     let baz_result = resolver
         .declarations
-        .find_declaration(baz_symbol, crate_scope_id);
+        .find_declaration_id(baz_symbol, crate_scope_id);
 
     assert!(baz_result.is_some());
 }
@@ -295,7 +295,7 @@ fn enum_from_module() {
     let color_symbol = resolver.symbols.add_symbol("Color");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(color_symbol, crate_scope_id)
+        .find_declaration_id(color_symbol, crate_scope_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,
@@ -325,7 +325,7 @@ fn enum_variant_from_module() {
     let red_symbol = resolver.symbols.add_symbol("Red");
     let (_, use_declaration) = resolver
         .declarations
-        .find_declaration(red_symbol, crate_scope_id)
+        .find_declaration_id(red_symbol, crate_scope_id)
         .unwrap();
     let Definition::Use {
         source_declaration_id,

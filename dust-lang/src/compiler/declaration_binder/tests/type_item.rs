@@ -2,7 +2,6 @@ use crate::{
     compiler::{
         resolver::{
             declarations::Definition,
-            scopes::ScopeId,
             types::{Type, TypeId},
         },
         tests::bind_declarations,
@@ -20,7 +19,7 @@ fn simple() {
     let foo_symbol = resolver.symbols.add_symbol("Foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::TypeAlias {
         public,
@@ -32,7 +31,7 @@ fn simple() {
     };
 
     assert!(!public);
-    assert_eq!(type_parameters, ScopeId::NONE);
+    assert_eq!(type_parameters, None);
     assert_eq!(aliased_type_id, TypeId::I_64);
     assert_eq!(foo_declaration.scope_id, crate_scope_id);
 }
@@ -47,7 +46,7 @@ fn generic_alias_resolves_type_parameter() {
     let pair_symbol = resolver.symbols.add_symbol("Pair");
     let (_, pair_declaration) = resolver
         .declarations
-        .find_declaration(pair_symbol, crate_scope_id)
+        .find_declaration_id(pair_symbol, crate_scope_id)
         .unwrap();
     let Definition::TypeAlias {
         type_parameters,
@@ -58,9 +57,11 @@ fn generic_alias_resolves_type_parameter() {
         panic!();
     };
 
-    assert_eq!(resolver.scopes.namespace_len(type_parameters), 1);
+    assert_eq!(resolver.scopes.namespace_len(type_parameters.unwrap()), 1);
 
-    let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
+    let type_parameter_entries = resolver
+        .scopes
+        .get_namespace_entries(type_parameters.unwrap());
 
     let t_declaration_id = type_parameter_entries[0].1;
     let t_symbol = resolver.symbols.add_symbol("T");

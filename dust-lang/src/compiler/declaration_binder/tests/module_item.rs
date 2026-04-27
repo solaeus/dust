@@ -20,7 +20,7 @@ fn inline() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -43,7 +43,7 @@ fn public_inline() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -66,16 +66,16 @@ fn inline_creates_module_scope() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module { inner_scope_id, .. } = foo_declaration.definition else {
         panic!();
     };
 
-    let scope = resolver.scopes.get_scope(inner_scope_id);
+    let scope = resolver.scopes.get_scope(inner_scope_id.unwrap());
 
     assert_eq!(scope.kind, ScopeKind::Module);
-    assert_eq!(scope.parent, crate_scope_id);
+    assert_eq!(scope.parent, Some(crate_scope_id));
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn inline_with_function() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module { inner_scope_id, .. } = foo_declaration.definition else {
         panic!();
@@ -100,7 +100,7 @@ fn inline_with_function() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let (_, bar_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, inner_scope_id)
+        .find_declaration_id(bar_symbol, inner_scope_id.unwrap())
         .unwrap();
 
     assert!(matches!(
@@ -122,7 +122,7 @@ fn nested_inline() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module {
         inner_scope_id: foo_scope_id,
@@ -135,7 +135,7 @@ fn nested_inline() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let (_, bar_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, foo_scope_id)
+        .find_declaration_id(bar_symbol, foo_scope_id.unwrap())
         .unwrap();
     let Definition::Module {
         inner_scope_id: bar_scope_id,
@@ -145,7 +145,7 @@ fn nested_inline() {
         panic!();
     };
 
-    let bar_scope = resolver.scopes.get_scope(bar_scope_id);
+    let bar_scope = resolver.scopes.get_scope(bar_scope_id.unwrap());
 
     assert_eq!(bar_scope.kind, ScopeKind::Module);
     assert_eq!(bar_scope.parent, foo_scope_id);
@@ -164,13 +164,13 @@ fn multiple_inline() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let foo_result = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id);
+        .find_declaration_id(foo_symbol, crate_scope_id);
     assert!(foo_result.is_some());
 
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let bar_result = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id);
+        .find_declaration_id(bar_symbol, crate_scope_id);
     assert!(bar_result.is_some());
 }
 
@@ -189,7 +189,7 @@ fn file() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -217,7 +217,7 @@ fn public_file() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
 
     assert!(matches!(
@@ -245,7 +245,7 @@ fn file_binds_contents() {
     let foo_symbol = resolver.symbols.add_symbol("foo");
     let (_, foo_declaration) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
     let Definition::Module { inner_scope_id, .. } = foo_declaration.definition else {
         panic!();
@@ -254,7 +254,7 @@ fn file_binds_contents() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let (_, bar_declaration) = resolver
         .declarations
-        .find_declaration(bar_symbol, inner_scope_id)
+        .find_declaration_id(bar_symbol, inner_scope_id.unwrap())
         .unwrap();
 
     assert!(matches!(

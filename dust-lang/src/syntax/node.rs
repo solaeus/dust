@@ -34,7 +34,6 @@ pub enum SyntaxKind {
 
     // Items
     ModItem,
-    ModuleBody,
     UseItem,
     FnItem,
     ConstItem,
@@ -116,6 +115,7 @@ pub enum SyntaxKind {
     PathExpression,
 
     // Sub-Syntax
+    ModuleBody,
     ImplBody,
     TraitBody,
     ValueArguments,

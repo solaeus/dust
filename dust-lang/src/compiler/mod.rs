@@ -10,18 +10,18 @@ pub(crate) mod tests;
 
 pub use emitter::RegisterWidth;
 
-use smallvec::SmallVec;
 use tracing::{Level, span};
 
 use crate::{
     compiler::{
         declaration_binder::DeclarationBinder,
-        emitter::{Emitter, get_register_size},
+        emitter::Emitter,
         error::CompileError,
         resolver::{
             PrototypeId, Resolver,
             declarations::{DeclarationId, Definition},
-            scopes::{ScopeId, ScopeKind},
+            scopes::ScopeKind,
+            symbols::SymbolId,
             types::Type,
         },
         type_binder::TypeBinder,
@@ -154,10 +154,7 @@ impl<'src> Compiler<'src> {
             }
         }
 
-        let crate_scope_id = self
-            .resolver
-            .scopes
-            .enter_scope(ScopeKind::Crate, ScopeId::NONE);
+        let crate_scope_id = self.resolver.scopes.enter_scope(ScopeKind::Module, None);
         let main_file_root = unwrap_or_return!(
             self.syntax
                 .get_tree(SourceCodeId::MAIN)
@@ -190,18 +187,23 @@ impl<'src> Compiler<'src> {
         // Emission phase
 
         let main_symbol_id = self.resolver.symbols.add_symbol("main");
-        let (main_declaration_id, main_declaration) = match self
+        let main_declaration_id = match self
             .resolver
             .declarations
-            .find_declaration(main_symbol_id, crate_scope_id)
+            .find_declaration_id(main_symbol_id, crate_scope_id)
         {
-            Some(declaration) => declaration,
+            Some(declaration) => *declaration,
             None => {
                 errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
 
                 return Err(errors);
             }
         };
+        let main_declaration = unwrap_or_return!(
+            self.resolver
+                .declarations
+                .get_declaration(main_declaration_id)
+        );
         let Definition::Function { .. } = main_declaration.definition else {
             errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
 
@@ -224,152 +226,7 @@ impl<'src> Compiler<'src> {
             prototype_id,
         }) = self.compilation_stack.pop()
         {
-            let declaration =
-                *unwrap_or_return!(self.resolver.declarations.get_declaration(declaration_id));
-            let Definition::Function {
-                type_parameters,
-                return_type_id,
-                ..
-            } = declaration.definition
-            else {
-                continue;
-            };
-            let (position, syntax_id) = match declaration.syntax {
-                Some(syntax) => syntax,
-                None => {
-                    errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
-
-                    return Err(errors);
-                }
-            };
-            let function_syntax = unwrap_or_return!(
-                self.syntax
-                    .get_tree(position.source_id)
-                    .and_then(|tree| tree.read_node(syntax_id))
-            );
-
-            let FnItem {
-                value_parameters,
-                body: Some(body),
-                ..
-            } = unwrap_or_return!(function_syntax.as_component())
-            else {
-                panic!();
-            };
-
-            self.resolver.type_parameter_map.clear();
-
-            let type_param_entries = self.resolver.scopes.get_namespace_entries(type_parameters);
-
-            for &(_, type_parameter_declaration_id) in type_param_entries {
-                let inferred_type_id = self.resolver.types.create_inferred_type(None);
-
-                self.resolver
-                    .type_parameter_map
-                    .insert(type_parameter_declaration_id, inferred_type_id);
-            }
-
-            if let Some(concrete_type_arguments) = self
-                .resolver
-                .get_concrete_type_arguments(prototype_id)
-                .cloned()
-            {
-                for (&(_, type_parameter_declaration_id), concrete_type_id) in type_param_entries
-                    .iter()
-                    .zip(concrete_type_arguments.iter())
-                {
-                    let inferred_type_id =
-                        self.resolver.type_parameter_map[&type_parameter_declaration_id];
-                    let inferred_type =
-                        unwrap_or_return!(self.resolver.types.get_type_mut(inferred_type_id));
-
-                    if let Type::Inferred { resolved, .. } = inferred_type {
-                        *resolved = Some(*concrete_type_id);
-                    }
-                }
-
-                let trait_scope_id = declaration.scope_id;
-                let scope = self.resolver.scopes.get_scope(trait_scope_id);
-
-                if scope.kind == ScopeKind::TypeTraitOrImpl {
-                    let mut type_argument_index = type_param_entries.len();
-
-                    for (declaration_id, declaration) in self.resolver.declarations.iter() {
-                        if matches!(declaration.definition, Definition::TypeParameter)
-                            && declaration.scope_id == trait_scope_id
-                            && !self
-                                .resolver
-                                .type_parameter_map
-                                .contains_key(&declaration_id)
-                        {
-                            let type_argument_id = unwrap_or_return!(
-                                concrete_type_arguments
-                                    .get(type_argument_index)
-                                    .copied()
-                                    .ok_or(CompileError::MissingTypeArgument(declaration_id))
-                            );
-
-                            self.resolver
-                                .type_parameter_map
-                                .insert(declaration_id, type_argument_id);
-
-                            type_argument_index += 1;
-                        }
-                    }
-                }
-            }
-
-            let concrete_return_type_id = {
-                let span = span!(Level::INFO, "type");
-                let _enter = span.enter();
-
-                let mut type_binder = TypeBinder::new(&mut self.resolver, &self.source);
-
-                match type_binder.bind_function_body(body, return_type_id) {
-                    Ok(()) => {}
-                    Err(error) => errors.push(ErrorKind::Compile(error)),
-                }
-
-                let concrete_return_type_id =
-                    unwrap_or_return!(self.resolver.resolve_type(return_type_id));
-
-                concrete_return_type_id
-            };
-
-            {
-                let span = span!(Level::INFO, "emit");
-                let _enter = span.enter();
-
-                let mut emitter = match Emitter::new(
-                    Some(declaration_id),
-                    prototype_id,
-                    concrete_return_type_id,
-                    (
-                        &self.source,
-                        &mut self.constants,
-                        &mut self.resolver,
-                        &mut self.compilation_stack,
-                    ),
-                    value_parameters,
-                ) {
-                    Ok(emitter) => emitter,
-                    Err(error) => {
-                        errors.push(ErrorKind::Compile(error));
-
-                        return Err(errors);
-                    }
-                };
-
-                unwrap_or_return!(emitter.emit_function_body(body));
-
-                let prototype = unwrap_or_return!(emitter.finish());
-
-                self.resolver.set_prototype(prototype_id, prototype);
-
-                if prototype_id == PrototypeId::MAIN {
-                    concrete_main_return_type_id = Some(concrete_return_type_id);
-                }
-            }
+            todo!()
         }
 
         let concrete_main_return_type_id = match concrete_main_return_type_id {

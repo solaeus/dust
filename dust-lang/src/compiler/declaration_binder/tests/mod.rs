@@ -47,25 +47,25 @@ fn cleanup_module_file(path: &Path) {
 
 fn find_function_body_scope(resolver: &Resolver, parent_scope_id: ScopeId) -> ScopeId {
     for (scope_id, scope) in resolver.scopes.iter() {
-        if scope.kind != ScopeKind::Function {
+        if scope.kind != ScopeKind::Block {
             continue;
         }
 
         let mut ancestor_id = scope.parent;
 
         loop {
-            if ancestor_id == parent_scope_id {
+            if ancestor_id == Some(parent_scope_id) {
                 return scope_id;
             }
 
-            if ancestor_id == ScopeId::NONE {
+            if ancestor_id.is_none() {
                 break;
             }
 
-            let ancestor = resolver.scopes.get_scope(ancestor_id);
+            let ancestor = resolver.scopes.get_scope(ancestor_id.unwrap());
 
-            if ancestor.kind == ScopeKind::TypeParameters
-                || ancestor.kind == ScopeKind::ValueParameters
+            if ancestor.kind == ScopeKind::Item
+                || ancestor.kind == ScopeKind::Members
             {
                 ancestor_id = ancestor.parent;
             } else {

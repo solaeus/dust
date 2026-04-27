@@ -32,11 +32,7 @@ mod struct_expression;
 mod while_expression;
 
 use crate::{
-    compiler::{
-        emitter::Emitter,
-        resolver::declarations::Definition,
-        tests::type_bind_function,
-    },
+    compiler::{emitter::Emitter, resolver::declarations::Definition, tests::type_bind_function},
     constants::ConstantsBuilder,
     prototype::Prototype,
     source::{Source, SourceCode},
@@ -47,16 +43,16 @@ fn emit_function(source_code: &str) -> Prototype {
     let (syntax, mut resolver, crate_scope_id) = type_bind_function(source_code);
 
     let foo_symbol = resolver.symbols.add_symbol("foo");
-    let (declaration_id, foo_declaration) = resolver
+    let declaration_id = *resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
-    let foo_declaration = *foo_declaration;
+    let foo_declaration = resolver
+        .declarations
+        .get_declaration(declaration_id)
+        .unwrap();
 
-    let Definition::Function {
-        return_type_id, ..
-    } = foo_declaration.definition
-    else {
+    let Definition::Function { return_type_id, .. } = foo_declaration.definition else {
         panic!();
     };
 

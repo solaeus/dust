@@ -1,3 +1,6 @@
+use std::{collections::HashMap, ops::Range};
+
+use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
 
 use crate::{
@@ -7,26 +10,33 @@ use crate::{
     },
     native_function::NativeFunction,
     optimal_small_vec_inline_capacity,
-    source::{Position, SourceCodeId, Span},
+    source::{Position, SourceCodeId},
     syntax::SyntaxId,
 };
 
 #[derive(Debug)]
 pub struct Declarations {
     declarations: Vec<Declaration>,
+    declaration_lookup: HashMap<(SymbolId, ScopeId), DeclarationId, FxBuildHasher>,
 }
 
 impl Declarations {
     pub fn new() -> Self {
         Self {
             declarations: Vec::new(),
+            declaration_lookup: HashMap::default(),
         }
     }
 
     pub fn add_declaration(&mut self, declaration: Declaration) -> DeclarationId {
-        let declaration_id = DeclarationId(self.declarations.len() as u32);
+        let declaration_id =
+            DeclarationId(DeclarationId::RESERVED.end + self.declarations.len() as u32);
 
         self.declarations.push(declaration);
+        self.declaration_lookup.insert(
+            (declaration.symbol_id, declaration.scope_id),
+            declaration_id,
+        );
 
         declaration_id
     }
@@ -61,20 +71,17 @@ impl Declarations {
         debug_assert_eq!(declaration.definition, Definition::Placeholder);
 
         declaration.definition = definition;
+
+        self.declaration_lookup
+            .insert((declaration.symbol_id, declaration.scope_id), id);
     }
 
-    pub fn find_declaration(
+    pub fn find_declaration_id(
         &self,
         symbol_id: SymbolId,
         scope_id: ScopeId,
-    ) -> Option<(DeclarationId, &Declaration)> {
-        for (index, declaration) in self.declarations.iter().enumerate().rev() {
-            if declaration.symbol_id == symbol_id && declaration.scope_id == scope_id {
-                return Some((DeclarationId(index as u32), declaration));
-            }
-        }
-
-        None
+    ) -> Option<&DeclarationId> {
+        self.declaration_lookup.get(&(symbol_id, scope_id))
     }
 
     /// Finds the declaration with the given type ID, if it exists. This is O(n) and should only be
@@ -116,17 +123,6 @@ impl Declarations {
         }
         Ok(None)
     }
-
-    pub fn next_declaration_id(&self) -> DeclarationId {
-        DeclarationId(self.declarations.len() as u32)
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (DeclarationId, &Declaration)> + '_ {
-        self.declarations
-            .iter()
-            .enumerate()
-            .map(|(index, declaration)| (DeclarationId(index as u32), declaration))
-    }
 }
 
 impl Default for Declarations {
@@ -140,6 +136,13 @@ pub struct DeclarationId(#[cfg(test)] pub(crate) u32, #[cfg(not(test))] u32);
 
 impl DeclarationId {
     pub type SmallVec = SmallVec<[Self; optimal_small_vec_inline_capacity::<Self>()]>;
+
+    pub const RESERVED: Range<u32> = 0..100;
+
+    pub const OPTION: Self = Self(0);
+    pub const RESULT: Self = Self(1);
+    pub const RANGE: Self = Self(2);
+    pub const RANGE_INCLUSIVE: Self = Self(3);
 
     pub fn inner(self) -> u32 {
         self.0
@@ -174,7 +177,7 @@ pub enum Definition {
     Module {
         public: bool,
         kind: ModuleKind,
-        inner_scope_id: ScopeId,
+        inner_scope_id: Option<ScopeId>,
     },
 
     /// A `use` item, which imports an item or enum variant to its scope. When public, it also
@@ -193,8 +196,8 @@ pub enum Definition {
     /// - `fn foo<T>(x: T) -> T { ... }`
     Function {
         public: bool,
-        type_parameters: ScopeId,
-        value_parameters: ScopeId,
+        type_parameters: Option<ScopeId>,
+        value_parameters: Option<ScopeId>,
         return_type_id: TypeId,
     },
 
@@ -208,7 +211,7 @@ pub enum Definition {
     /// - `core::string::String::join`
     NativeFunction {
         function: NativeFunction,
-        type_parameters: ScopeId,
+        type_parameters: Option<ScopeId>,
         value_parameters: TypeMembers,
         return_type_id: TypeId,
     },
@@ -220,8 +223,8 @@ pub enum Definition {
     /// - `struct Foo { x: f32 }`
     StructType {
         public: bool,
-        type_parameters: ScopeId,
-        fields: ScopeId,
+        type_parameters: Option<ScopeId>,
+        fields: Option<ScopeId>,
     },
 
     /// Fields are the members of a struct type.
@@ -245,8 +248,8 @@ pub enum Definition {
     /// ```
     EnumType {
         public: bool,
-        type_parameters: ScopeId,
-        variants: ScopeId,
+        type_parameters: Option<ScopeId>,
+        variants: Option<ScopeId>,
     },
 
     /// Variants are the members of an enum type. This is essentially a struct type with a
@@ -264,7 +267,7 @@ pub enum Definition {
     Variant {
         discriminant: u16,
         enum_declaration_id: DeclarationId,
-        fields: ScopeId,
+        fields: Option<ScopeId>,
     },
 
     /// Type parameters have a unique `Type::Generic` type. When a type is instantiated, the type
@@ -275,7 +278,7 @@ pub enum Definition {
 
     TypeAlias {
         public: bool,
-        type_parameters: ScopeId,
+        type_parameters: Option<ScopeId>,
         aliased_type_id: TypeId,
     },
 
@@ -285,8 +288,8 @@ pub enum Definition {
     },
 
     InherentImplementation {
-        type_parameters: ScopeId,
-        declarations: ScopeId,
+        type_parameters: Option<ScopeId>,
+        declarations: Option<ScopeId>,
     },
 
     InherentAssociatedConstant {
@@ -298,22 +301,22 @@ pub enum Definition {
     InherentAssociatedType {
         public: bool,
         parent: DeclarationId,
-        type_parameters: ScopeId,
+        type_parameters: Option<ScopeId>,
         aliased_type_id: TypeId,
     },
 
     Trait {
         public: bool,
-        type_parameters: ScopeId,
-        supertraits: ScopeId,
-        declarations: ScopeId,
+        type_parameters: Option<ScopeId>,
+        supertraits: Option<ScopeId>,
+        declarations: Option<ScopeId>,
     },
 
     TraitImplementation {
-        type_parameters: ScopeId,
+        type_parameters: Option<ScopeId>,
         trait_declaration_id: DeclarationId,
         trait_type_arguments: TypeMembers,
-        declarations: ScopeId,
+        declarations: Option<ScopeId>,
     },
 
     TraitAssociatedConstant {
@@ -324,7 +327,7 @@ pub enum Definition {
 
     TraitAssociatedType {
         parent: DeclarationId,
-        type_parameters: ScopeId,
+        type_parameters: Option<ScopeId>,
         default_aliased_type_id: Option<TypeId>,
     },
 
@@ -336,14 +339,4 @@ pub enum Definition {
 pub enum ModuleKind {
     File { source_id: SourceCodeId },
     Inline,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-enum DeclarationDebugInfo {
-    Embedded {},
-    Source {
-        source_id: SourceCodeId,
-        span: Span,
-        syntax_id: SyntaxId,
-    },
 }

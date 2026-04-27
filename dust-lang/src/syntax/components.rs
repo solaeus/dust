@@ -884,11 +884,15 @@ impl<'a> SyntaxComponent<'a> for PathSegment<'a> {
     const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
 
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
-        let mut children = reader.children();
-
-        Ok(Self {
-            type_arguments: children.next(),
-        })
+        if reader.has_children() {
+            Ok(Self {
+                type_arguments: Some(reader.single_child()?),
+            })
+        } else {
+            Ok(Self {
+                type_arguments: None,
+            })
+        }
     }
 }
 
@@ -906,6 +910,34 @@ impl<'a> SyntaxComponent<'a> for ArrayType<'a> {
         Ok(Self {
             element_type,
             length,
+        })
+    }
+}
+
+pub struct SliceType<'a> {
+    pub element_type: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for SliceType<'a> {
+    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
+
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        Ok(Self {
+            element_type: reader.single_child()?,
+        })
+    }
+}
+
+pub struct TupleType<'a> {
+    pub element_types: SyntaxIterator<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for TupleType<'a> {
+    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
+
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        Ok(Self {
+            element_types: reader.children(),
         })
     }
 }

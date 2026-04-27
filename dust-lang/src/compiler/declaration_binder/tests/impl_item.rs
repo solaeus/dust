@@ -1,6 +1,6 @@
 use crate::{
     compiler::{
-        resolver::{declarations::Definition, scopes::ScopeId, types::TypeId},
+        resolver::{declarations::Definition, types::TypeId},
         tests::bind_declarations,
     },
     source::{Source, SourceCode},
@@ -26,9 +26,9 @@ fn with_method() {
         panic!();
     };
 
-    assert_eq!(resolver.scopes.namespace_len(declarations), 1);
+    assert_eq!(resolver.scopes.namespace_len(declarations.unwrap()), 1);
 
-    let method_entries = resolver.scopes.get_namespace_entries(declarations);
+    let method_entries = resolver.scopes.get_namespace_entries(declarations.unwrap());
     let method = resolver
         .declarations
         .get_declaration(method_entries[0].1)
@@ -46,7 +46,7 @@ fn with_method() {
         panic!();
     };
 
-    assert_eq!(value_parameters, ScopeId::NONE);
+    assert_eq!(value_parameters, None);
     assert_eq!(return_type_id, TypeId::UNIT);
 }
 
@@ -63,7 +63,7 @@ fn methods_not_visible_at_module_scope() {
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let result = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id);
+        .find_declaration_id(bar_symbol, crate_scope_id);
 
     assert!(result.is_none());
 }

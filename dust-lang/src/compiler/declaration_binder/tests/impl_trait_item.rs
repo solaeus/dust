@@ -19,7 +19,7 @@ fn with_method() {
     let bar_symbol = resolver.symbols.add_symbol("Bar");
     let (bar_id, _) = resolver
         .declarations
-        .find_declaration(bar_symbol, crate_scope_id)
+        .find_declaration_id(bar_symbol, crate_scope_id)
         .unwrap();
 
     let (_, impl_declaration) = resolver
@@ -37,9 +37,9 @@ fn with_method() {
     };
 
     assert_eq!(trait_declaration_id, bar_id);
-    assert_eq!(resolver.scopes.namespace_len(declarations), 1);
+    assert_eq!(resolver.scopes.namespace_len(declarations.unwrap()), 1);
 
-    let member_entries = resolver.scopes.get_namespace_entries(declarations);
+    let member_entries = resolver.scopes.get_namespace_entries(declarations.unwrap());
     let baz_decl = resolver
         .declarations
         .get_declaration(member_entries[0].1)
@@ -69,9 +69,9 @@ fn with_associated_type() {
         panic!();
     };
 
-    assert_eq!(resolver.scopes.namespace_len(declarations), 1);
+    assert_eq!(resolver.scopes.namespace_len(declarations.unwrap()), 1);
 
-    let member_entries = resolver.scopes.get_namespace_entries(declarations);
+    let member_entries = resolver.scopes.get_namespace_entries(declarations.unwrap());
     let item_decl = resolver
         .declarations
         .get_declaration(member_entries[0].1)

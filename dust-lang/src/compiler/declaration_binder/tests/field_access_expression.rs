@@ -40,7 +40,7 @@ fn binds_field_declaration() {
     let foo_symbol = resolver.symbols.add_symbol("Foo");
     let (foo_id, _) = resolver
         .declarations
-        .find_declaration(foo_symbol, crate_scope_id)
+        .find_declaration_id(foo_symbol, crate_scope_id)
         .unwrap();
 
     let Definition::Field {
