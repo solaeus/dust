@@ -29,8 +29,7 @@ impl Declarations {
     }
 
     pub fn add_declaration(&mut self, declaration: Declaration) -> DeclarationId {
-        let declaration_id =
-            DeclarationId(DeclarationId::RESERVED.end + self.declarations.len() as u32);
+        let declaration_id = DeclarationId(self.declarations.len() as u32);
 
         self.declarations.push(declaration);
         self.declaration_lookup.insert(
@@ -63,6 +62,17 @@ impl Declarations {
         });
 
         id
+    }
+
+    pub fn finish_reserved_range(&mut self) {
+        while self.declarations.len() < DeclarationId::RESERVED.end as usize {
+            self.declarations.push(Declaration {
+                symbol_id: SymbolId::PLACEHOLDER,
+                definition: Definition::Placeholder,
+                scope_id: ScopeId::CORE,
+                syntax: None,
+            });
+        }
     }
 
     pub fn set_reserved_declaration(&mut self, id: DeclarationId, definition: Definition) {

@@ -10,7 +10,10 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new(SourceCodeId::MAIN, Lexer::with_unvalidated_source(b"fn foo() {}"));
+    let parser = Parser::new(
+        SourceCodeId::MAIN,
+        Lexer::with_unvalidated_source(b"fn foo() {}"),
+    );
     let ParseResult {
         syntax_tree,
         errors,

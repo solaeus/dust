@@ -29,9 +29,9 @@ fn with_method_and_const() {
         panic!();
     };
 
-    assert_eq!(resolver.scopes.namespace_len(declarations.unwrap()), 2);
+    assert_eq!(resolver.scopes.members_len(declarations.unwrap()), 2);
 
-    let member_entries = resolver.scopes.get_namespace_entries(declarations.unwrap());
+    let member_entries = resolver.scopes.get_members(declarations.unwrap());
 
     let bar_symbol = resolver.symbols.add_symbol("bar");
     let n_symbol = resolver.symbols.add_symbol("N");
@@ -50,7 +50,7 @@ fn with_method_and_const() {
     };
 
     assert_eq!(bar_decl.symbol_id, bar_symbol);
-    assert_eq!(resolver.scopes.namespace_len(value_parameters.unwrap()), 1);
+    assert_eq!(resolver.scopes.members_len(value_parameters.unwrap()), 1);
     assert_eq!(return_type_id, TypeId::UNIT);
     assert_eq!(bar_decl.scope_id, declarations.unwrap());
 
@@ -100,9 +100,9 @@ fn supertraits_resolved() {
         panic!();
     };
 
-    assert_eq!(resolver.scopes.namespace_len(supertraits.unwrap()), 1);
+    assert_eq!(resolver.scopes.members_len(supertraits.unwrap()), 1);
 
-    let supertrait_entries = resolver.scopes.get_namespace_entries(supertraits.unwrap());
+    let supertrait_entries = resolver.scopes.get_members(supertraits.unwrap());
 
     assert_eq!(supertrait_entries[0].1, bar_declaration_id);
 }

@@ -64,9 +64,7 @@ fn find_function_body_scope(resolver: &Resolver, parent_scope_id: ScopeId) -> Sc
 
             let ancestor = resolver.scopes.get_scope(ancestor_id.unwrap());
 
-            if ancestor.kind == ScopeKind::Item
-                || ancestor.kind == ScopeKind::Members
-            {
+            if ancestor.kind == ScopeKind::Item || ancestor.kind == ScopeKind::Members {
                 ancestor_id = ancestor.parent;
             } else {
                 break;

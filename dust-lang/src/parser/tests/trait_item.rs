@@ -53,12 +53,12 @@ fn with_supertraits() {
                 .with_children(Span::new(0, 23), SyntaxChildren::new(0, 3))
                 .with_flags(SyntaxFlags::SUPERTRAITS),
             SimplePath.empty(Span::new(6, 9)),
+            TraitBody.empty(Span::new(21, 23)),
             TraitBounds.with_binary_children(Span::new(11, 20), SyntaxId(3), SyntaxId(5)),
             Path.with_single_child(Span::new(11, 14), SyntaxId(2)),
             PathSegment.empty(Span::new(11, 14)),
             Path.with_single_child(Span::new(17, 20), SyntaxId(4)),
             PathSegment.empty(Span::new(17, 20)),
-            TraitBody.empty(Span::new(21, 23)),
         ]
     );
 }
@@ -84,6 +84,7 @@ fn with_type_parameters_and_supertraits() {
                 .with_children(Span::new(0, 26), SyntaxChildren::new(0, 4))
                 .with_flags(SyntaxFlags::TYPE_PARAMETERS.and(SyntaxFlags::SUPERTRAITS)),
             SimplePath.empty(Span::new(6, 9)),
+            TraitBody.empty(Span::new(24, 26)),
             TypeParameters.with_single_child(Span::new(9, 12), SyntaxId(3)),
             TypeParameter.with_single_child(Span::new(10, 11), SyntaxId(2)),
             SimplePath.empty(Span::new(10, 11)),
@@ -92,7 +93,6 @@ fn with_type_parameters_and_supertraits() {
             PathSegment.empty(Span::new(14, 17)),
             Path.with_single_child(Span::new(20, 23), SyntaxId(7)),
             PathSegment.empty(Span::new(20, 23)),
-            TraitBody.empty(Span::new(24, 26)),
         ]
     );
 }
@@ -118,6 +118,7 @@ fn with_where_clause() {
                 .with_children(Span::new(0, 28), SyntaxChildren::new(0, 4))
                 .with_flags(SyntaxFlags::TYPE_PARAMETERS.and(SyntaxFlags::WHERE_CLAUSE)),
             SimplePath.empty(Span::new(6, 9)),
+            TraitBody.empty(Span::new(26, 28)),
             TypeParameters.with_single_child(Span::new(9, 12), SyntaxId(3)),
             TypeParameter.with_single_child(Span::new(10, 11), SyntaxId(2)),
             SimplePath.empty(Span::new(10, 11)),
@@ -128,7 +129,6 @@ fn with_where_clause() {
             TraitBounds.with_single_child(Span::new(22, 25), SyntaxId(8)),
             Path.with_single_child(Span::new(22, 25), SyntaxId(7)),
             PathSegment.empty(Span::new(22, 25)),
-            TraitBody.empty(Span::new(26, 28)),
         ]
     );
 }

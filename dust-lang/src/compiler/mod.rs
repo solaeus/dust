@@ -154,17 +154,17 @@ impl<'src> Compiler<'src> {
             }
         }
 
-        let crate_scope_id = self.resolver.scopes.enter_scope(ScopeKind::Module, None);
-        let main_file_root = unwrap_or_return!(
-            self.syntax
-                .get_tree(SourceCodeId::MAIN)
-                .and_then(|tree| tree.root())
-        );
-
         // Declaration binding phase
         {
             let span = span!(Level::INFO, "declare");
             let _enter = span.enter();
+
+            let crate_scope_id = self.resolver.scopes.enter_scope(ScopeKind::Module, None);
+            let main_file_root = unwrap_or_return!(
+                self.syntax
+                    .get_tree(SourceCodeId::MAIN)
+                    .and_then(|tree| tree.root())
+            );
 
             let mut declaration_binder = DeclarationBinder::new(
                 &self.source,
@@ -178,6 +178,8 @@ impl<'src> Compiler<'src> {
                 Ok(()) => {}
                 Err(error) => errors.push(ErrorKind::Compile(error)),
             }
+
+            self.resolver.scopes.exit_scope(crate_scope_id, []);
         }
 
         if !errors.is_empty() {

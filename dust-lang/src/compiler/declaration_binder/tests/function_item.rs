@@ -69,7 +69,7 @@ fn with_generics_parameters_and_return_type() {
     };
     let type_parameter_entries = resolver
         .scopes
-        .get_namespace_entries(type_parameters.unwrap());
+        .get_members(type_parameters.unwrap());
 
     assert!(public);
     assert_eq!(return_type_id, TypeId::I_64);
@@ -97,7 +97,7 @@ fn with_generics_parameters_and_return_type() {
 
     let parameter_entries = resolver
         .scopes
-        .get_namespace_entries(value_parameters.unwrap());
+        .get_members(value_parameters.unwrap());
 
     assert_eq!(parameter_entries.len(), 2);
 
@@ -249,7 +249,7 @@ fn type_parameters_have_correct_identity() {
 
     let type_parameter_entries = resolver
         .scopes
-        .get_namespace_entries(type_parameters.unwrap());
+        .get_members(type_parameters.unwrap());
 
     assert_eq!(type_parameter_entries.len(), 2);
 

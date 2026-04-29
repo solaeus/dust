@@ -45,9 +45,9 @@ fn with_method() {
     };
 
     assert_eq!(trait_declaration_id, bar_declaration_id);
-    assert_eq!(resolver.scopes.namespace_len(declarations.unwrap()), 1);
+    assert_eq!(resolver.scopes.members_len(declarations.unwrap()), 1);
 
-    let member_entries = resolver.scopes.get_namespace_entries(declarations.unwrap());
+    let member_entries = resolver.scopes.get_members(declarations.unwrap());
     let baz_declaration = resolver
         .declarations
         .get_declaration(member_entries[0].1)
@@ -83,14 +83,15 @@ fn with_associated_type() {
         .declarations
         .get_declaration(implementation_declaration_id)
         .unwrap();
-    let Definition::TraitImplementation { declarations, .. } = implementation_declaration.definition
+    let Definition::TraitImplementation { declarations, .. } =
+        implementation_declaration.definition
     else {
         panic!();
     };
 
-    assert_eq!(resolver.scopes.namespace_len(declarations.unwrap()), 1);
+    assert_eq!(resolver.scopes.members_len(declarations.unwrap()), 1);
 
-    let member_entries = resolver.scopes.get_namespace_entries(declarations.unwrap());
+    let member_entries = resolver.scopes.get_members(declarations.unwrap());
     let item_declaration = resolver
         .declarations
         .get_declaration(member_entries[0].1)

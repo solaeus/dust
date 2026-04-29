@@ -34,7 +34,7 @@ fn parameter_type_of_foo(source_code: &str) -> TypeId {
 
     let parameter_entries = resolver
         .scopes
-        .get_namespace_entries(value_parameters.unwrap());
+        .get_members(value_parameters.unwrap());
 
     assert_eq!(parameter_entries.len(), 1);
 
@@ -186,7 +186,7 @@ fn tuple_type_empty() {
 
     let parameter_entries = resolver
         .scopes
-        .get_namespace_entries(value_parameters.unwrap());
+        .get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -234,7 +234,7 @@ fn tuple_type_multiple() {
 
     let parameter_entries = resolver
         .scopes
-        .get_namespace_entries(value_parameters.unwrap());
+        .get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -284,7 +284,7 @@ fn slice_type() {
 
     let parameter_entries = resolver
         .scopes
-        .get_namespace_entries(value_parameters.unwrap());
+        .get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -336,7 +336,7 @@ fn function_type_basic() {
 
     let parameter_entries = resolver
         .scopes
-        .get_namespace_entries(value_parameters.unwrap());
+        .get_members(value_parameters.unwrap());
 
     assert_eq!(parameter_entries.len(), 1);
 
@@ -396,7 +396,7 @@ fn function_type_no_params() {
 
     let parameter_entries = resolver
         .scopes
-        .get_namespace_entries(value_parameters.unwrap());
+        .get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -450,7 +450,7 @@ fn function_type_multiple_params() {
 
     let parameter_entries = resolver
         .scopes
-        .get_namespace_entries(value_parameters.unwrap());
+        .get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -508,7 +508,7 @@ fn function_type_no_return() {
 
     let parameter_entries = resolver
         .scopes
-        .get_namespace_entries(value_parameters.unwrap());
+        .get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -572,7 +572,7 @@ fn type_path_to_struct() {
 
     let parameter_entries = resolver
         .scopes
-        .get_namespace_entries(value_parameters.unwrap());
+        .get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -631,7 +631,7 @@ fn type_path_to_enum() {
 
     let parameter_entries = resolver
         .scopes
-        .get_namespace_entries(value_parameters.unwrap());
+        .get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)
@@ -678,14 +678,14 @@ fn type_path_to_type_parameter() {
 
     let type_parameter_entries = resolver
         .scopes
-        .get_namespace_entries(type_parameters.unwrap());
+        .get_members(type_parameters.unwrap());
 
     assert_eq!(type_parameter_entries.len(), 1);
 
     let t_declaration_id = type_parameter_entries[0].1;
     let parameter_entries = resolver
         .scopes
-        .get_namespace_entries(value_parameters.unwrap());
+        .get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
         .get_declaration(parameter_entries[0].1)

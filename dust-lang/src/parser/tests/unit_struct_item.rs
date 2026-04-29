@@ -7,7 +7,10 @@ use crate::{
 
 #[test]
 fn unit_struct() {
-    let parser = Parser::new(SourceCodeId::MAIN, Lexer::with_unvalidated_source(b"struct Foo;"));
+    let parser = Parser::new(
+        SourceCodeId::MAIN,
+        Lexer::with_unvalidated_source(b"struct Foo;"),
+    );
     let ParseResult {
         syntax_tree,
         errors,

@@ -63,7 +63,7 @@ fn with_named_fields() {
         panic!();
     };
 
-    let field_entries = resolver.scopes.get_namespace_entries(fields.unwrap());
+    let field_entries = resolver.scopes.get_members(fields.unwrap());
     assert_eq!(field_entries.len(), 2);
 
     let x_symbol = resolver.symbols.add_symbol("x");
@@ -125,7 +125,7 @@ fn tuple() {
         panic!();
     };
 
-    let field_entries = resolver.scopes.get_namespace_entries(fields.unwrap());
+    let field_entries = resolver.scopes.get_members(fields.unwrap());
     assert_eq!(field_entries.len(), 2);
 
     let first_field = resolver
@@ -191,7 +191,7 @@ fn public_generic() {
 
     let type_parameter_entries = resolver
         .scopes
-        .get_namespace_entries(type_parameters.unwrap());
+        .get_members(type_parameters.unwrap());
 
     assert_eq!(type_parameter_entries.len(), 2);
 
@@ -211,7 +211,7 @@ fn public_generic() {
     assert_eq!(second_tp.symbol_id, b_symbol);
     assert!(matches!(second_tp.definition, Definition::TypeParameter));
 
-    let field_entries = resolver.scopes.get_namespace_entries(fields.unwrap());
+    let field_entries = resolver.scopes.get_members(fields.unwrap());
     assert_eq!(field_entries.len(), 1);
 
     let field = resolver
@@ -305,7 +305,7 @@ fn same_name_in_different_modules() {
     else {
         panic!();
     };
-    let a_field_entries = resolver.scopes.get_namespace_entries(a_fields.unwrap());
+    let a_field_entries = resolver.scopes.get_members(a_fields.unwrap());
     let a_field = resolver
         .declarations
         .get_declaration(a_field_entries[0].1)
@@ -333,7 +333,7 @@ fn same_name_in_different_modules() {
     else {
         panic!();
     };
-    let b_field_entries = resolver.scopes.get_namespace_entries(b_fields.unwrap());
+    let b_field_entries = resolver.scopes.get_members(b_fields.unwrap());
     let b_field = resolver
         .declarations
         .get_declaration(b_field_entries[0].1)
@@ -403,7 +403,7 @@ fn field_publicity() {
         panic!();
     };
 
-    let field_entries = resolver.scopes.get_namespace_entries(fields.unwrap());
+    let field_entries = resolver.scopes.get_members(fields.unwrap());
     assert_eq!(field_entries.len(), 2);
 
     let first_field = resolver
@@ -463,12 +463,12 @@ fn generic_field_uses_type_parameter() {
 
     let type_parameter_entries = resolver
         .scopes
-        .get_namespace_entries(type_parameters.unwrap());
+        .get_members(type_parameters.unwrap());
 
     assert_eq!(type_parameter_entries.len(), 1);
 
     let t_declaration_id = type_parameter_entries[0].1;
-    let field_entries = resolver.scopes.get_namespace_entries(fields.unwrap());
+    let field_entries = resolver.scopes.get_members(fields.unwrap());
 
     assert_eq!(field_entries.len(), 1);
 

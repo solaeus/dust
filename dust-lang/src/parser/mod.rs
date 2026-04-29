@@ -508,12 +508,14 @@ impl<'src> Parser<'src> {
                 let fields_id = self.tree.add_node(fields_node);
 
                 struct_children.push(fields_id);
+                struct_flags.set_flag(SyntaxFlags::NAMED_FIELDS);
             }
             TokenKind::LeftParenthesis => {
                 let fields_node = self.parse_tuple_fields()?;
                 let fields_id = self.tree.add_node(fields_node);
 
                 struct_children.push(fields_id);
+                struct_flags.set_flag(SyntaxFlags::NAMED_FIELDS);
 
                 self.expect(TokenKind::Semicolon)?;
             }
@@ -646,6 +648,9 @@ impl<'src> Parser<'src> {
 
         self.expect(TokenKind::LeftCurlyBrace)?;
 
+        let variants_start = self.previous_token.span.start();
+        let mut variant_children = Self::new_child_buffer();
+
         while !self.allow(TokenKind::RightCurlyBrace) {
             let start = self.current_token.span.start();
 
@@ -658,7 +663,7 @@ impl<'src> Parser<'src> {
                     let variant_node = SyntaxKind::EnumUnitVariant.empty(path_node.span);
                     let variant_id = self.tree.add_node(variant_node);
 
-                    enum_children.push(variant_id);
+                    variant_children.push(variant_id);
                 }
                 TokenKind::RightCurlyBrace => {
                     self.advance();
@@ -666,7 +671,7 @@ impl<'src> Parser<'src> {
                     let variant_node = SyntaxKind::EnumUnitVariant.empty(path_node.span);
                     let variant_id = self.tree.add_node(variant_node);
 
-                    enum_children.push(variant_id);
+                    variant_children.push(variant_id);
 
                     break;
                 }
@@ -683,7 +688,7 @@ impl<'src> Parser<'src> {
                     );
                     let variant_id = self.tree.add_node(variant_node);
 
-                    enum_children.push(variant_id);
+                    variant_children.push(variant_id);
 
                     self.allow(TokenKind::Comma);
                 }
@@ -700,7 +705,7 @@ impl<'src> Parser<'src> {
                     );
                     let variant_id = self.tree.add_node(variant_node);
 
-                    enum_children.push(variant_id);
+                    variant_children.push(variant_id);
 
                     self.allow(TokenKind::Comma);
                 }
@@ -718,6 +723,16 @@ impl<'src> Parser<'src> {
                 }
             };
         }
+
+        let variants_node = self.create_node(
+            SyntaxKind::EnumVariants,
+            variant_children,
+            SyntaxFlags::default(),
+            Span::new(variants_start, self.previous_token.span.end()),
+        );
+        let variants_id = self.tree.add_node(variants_node);
+
+        enum_children.push(variants_id);
 
         Ok(self.create_node(
             SyntaxKind::EnumItem,
@@ -867,29 +882,29 @@ impl<'src> Parser<'src> {
             impl_flags.set_flag(SyntaxFlags::TYPE_PARAMETERS);
         }
 
-        let first_path_node = self.expect_path()?;
-        let first_path_id = self.tree.add_node(first_path_node);
+        let mut first_path_node = self.expect_path()?;
 
-        impl_children.push(first_path_id);
+        if self.allow(TokenKind::For) {
+            let trait_path_id = self.tree.add_node(first_path_node);
+            let mut self_type_node = self.expect_path()?;
+            self_type_node.kind = SyntaxKind::TypePath;
+            let self_type_id = self.tree.add_node(self_type_node);
+
+            impl_children.push(trait_path_id);
+            impl_children.push(self_type_id);
+            impl_flags.set_flag(SyntaxFlags::TYPE_NAME);
+        } else {
+            first_path_node.kind = SyntaxKind::TypePath;
+            let self_type_id = self.tree.add_node(first_path_node);
+
+            impl_children.push(self_type_id);
+        }
 
         if let Some(type_arguments_node) = self.allow_type_arguments()? {
             let type_arguments_id = self.tree.add_node(type_arguments_node);
 
             impl_children.push(type_arguments_id);
             impl_flags.set_flag(SyntaxFlags::TYPE_ARGUMENTS);
-        }
-
-        if self.allow(TokenKind::For) {
-            let type_name_node = {
-                let mut node = self.expect_path()?;
-                node.kind = SyntaxKind::TypePath;
-
-                node
-            };
-            let type_name_id = self.tree.add_node(type_name_node);
-
-            impl_children.push(type_name_id);
-            impl_flags.set_flag(SyntaxFlags::TYPE_NAME);
         }
 
         if let Some(where_clause_node) = self.allow_where_clause()? {
@@ -938,35 +953,35 @@ impl<'src> Parser<'src> {
 
         self.advance();
 
-        let mut trait_children = Self::new_child_buffer();
         let mut trait_flags = SyntaxFlags::default();
 
         let name_node = self.expect_simple_path()?;
         let name_id = self.tree.add_node(name_node);
 
-        trait_children.push(name_id);
-
-        if let Some(type_parameters_node) = self.allow_type_parameters()? {
-            let type_parameters_id = self.tree.add_node(type_parameters_node);
-
-            trait_children.push(type_parameters_id);
+        let type_parameters_id = if let Some(type_parameters_node) = self.allow_type_parameters()? {
             trait_flags.set_flag(SyntaxFlags::TYPE_PARAMETERS);
-        }
 
-        if self.allow(TokenKind::Colon) {
+            Some(self.tree.add_node(type_parameters_node))
+        } else {
+            None
+        };
+
+        let supertraits_id = if self.allow(TokenKind::Colon) {
             let supertraits_node = self.parse_trait_bounds()?;
-            let supertraits_id = self.tree.add_node(supertraits_node);
-
-            trait_children.push(supertraits_id);
             trait_flags.set_flag(SyntaxFlags::SUPERTRAITS);
-        }
 
-        if let Some(where_clause_node) = self.allow_where_clause()? {
-            let where_clause_id = self.tree.add_node(where_clause_node);
+            Some(self.tree.add_node(supertraits_node))
+        } else {
+            None
+        };
 
-            trait_children.push(where_clause_id);
+        let where_clause_id = if let Some(where_clause_node) = self.allow_where_clause()? {
             trait_flags.set_flag(SyntaxFlags::WHERE_CLAUSE);
-        }
+
+            Some(self.tree.add_node(where_clause_node))
+        } else {
+            None
+        };
 
         self.expect(TokenKind::LeftCurlyBrace)?;
 
@@ -1011,7 +1026,18 @@ impl<'src> Parser<'src> {
         );
         let body_id = self.tree.add_node(body_node);
 
+        let mut trait_children = Self::new_child_buffer();
+        trait_children.push(name_id);
         trait_children.push(body_id);
+        if let Some(type_parameters_id) = type_parameters_id {
+            trait_children.push(type_parameters_id);
+        }
+        if let Some(supertraits_id) = supertraits_id {
+            trait_children.push(supertraits_id);
+        }
+        if let Some(where_clause_id) = where_clause_id {
+            trait_children.push(where_clause_id);
+        }
 
         Ok(self.create_node(
             SyntaxKind::TraitItem,
@@ -1027,15 +1053,19 @@ impl<'src> Parser<'src> {
         self.advance();
 
         let mut children = Self::new_child_buffer();
+        let mut flags = SyntaxFlags::default();
 
         let name_node = self.expect_simple_path()?;
         let name_id = self.tree.add_node(name_node);
 
         children.push(name_id);
 
-        let type_parameters_id = self
-            .allow_type_parameters()?
-            .map(|node| self.tree.add_node(node));
+        if let Some(type_parameters_node) = self.allow_type_parameters()? {
+            let type_parameters_id = self.tree.add_node(type_parameters_node);
+
+            children.push(type_parameters_id);
+            flags.set_flag(SyntaxFlags::TYPE_PARAMETERS);
+        }
 
         self.expect(TokenKind::Equal)?;
 
@@ -1044,22 +1074,12 @@ impl<'src> Parser<'src> {
 
         children.push(type_id);
 
-        if let Some(type_parameters_id) = type_parameters_id {
-            children.push(type_parameters_id);
-        }
-
-        if let Some(type_arguments_node) = self.allow_type_arguments()? {
-            let type_arguments_id = self.tree.add_node(type_arguments_node);
-
-            children.push(type_arguments_id);
-        }
-
         self.expect(TokenKind::Semicolon)?;
 
         Ok(self.create_node(
             SyntaxKind::TypeItem,
             children,
-            SyntaxFlags::default(),
+            flags,
             Span::new(start, self.previous_token.span.end()),
         ))
     }
@@ -2240,7 +2260,11 @@ impl<'src> Parser<'src> {
                         break;
                     };
                 }
-                TokenKind::RightCurlyBrace => self.advance(),
+                TokenKind::RightCurlyBrace => {
+                    self.advance();
+
+                    break;
+                }
                 TokenKind::Eof => break,
                 _ => {
                     return Err(ParseError::ExpectedMultipleTokens {

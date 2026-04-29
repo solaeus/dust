@@ -38,7 +38,7 @@ fn with_unit_variants() {
     assert!(type_parameters.is_none());
     assert_eq!(color_declaration.scope_id, crate_scope_id);
 
-    let variant_entries = resolver.scopes.get_namespace_entries(variants.unwrap());
+    let variant_entries = resolver.scopes.get_members(variants.unwrap());
     assert_eq!(variant_entries.len(), 3);
 
     let red_symbol = resolver.symbols.add_symbol("Red");
@@ -124,9 +124,7 @@ fn public_generic() {
 
     assert!(public);
 
-    let type_parameter_entries = resolver
-        .scopes
-        .get_namespace_entries(type_parameters.unwrap());
+    let type_parameter_entries = resolver.scopes.get_members(type_parameters.unwrap());
 
     assert_eq!(type_parameter_entries.len(), 2);
 
@@ -145,7 +143,7 @@ fn public_generic() {
     assert!(matches!(first_tp.definition, Definition::TypeParameter));
     assert_eq!(second_tp.symbol_id, b_symbol);
     assert!(matches!(second_tp.definition, Definition::TypeParameter));
-    assert_eq!(resolver.scopes.namespace_len(variants.unwrap()), 2);
+    assert_eq!(resolver.scopes.members_len(variants.unwrap()), 2);
 }
 
 #[test]
@@ -167,7 +165,7 @@ fn with_mixed_variants() {
         panic!();
     };
 
-    let variant_entries = resolver.scopes.get_namespace_entries(variants.unwrap());
+    let variant_entries = resolver.scopes.get_members(variants.unwrap());
 
     assert_eq!(variant_entries.len(), 3);
 
@@ -212,7 +210,7 @@ fn with_mixed_variants() {
     assert_eq!(line_discriminant, 1);
     assert_eq!(line_parent_id, shape_id);
 
-    let line_field_entries = resolver.scopes.get_namespace_entries(line_fields.unwrap());
+    let line_field_entries = resolver.scopes.get_members(line_fields.unwrap());
 
     assert_eq!(line_field_entries.len(), 1);
 
@@ -248,9 +246,7 @@ fn with_mixed_variants() {
     assert_eq!(rectangle_discriminant, 2);
     assert_eq!(rectangle_parent_id, shape_id);
 
-    let rect_field_entries = resolver
-        .scopes
-        .get_namespace_entries(rectangle_fields.unwrap());
+    let rect_field_entries = resolver.scopes.get_members(rectangle_fields.unwrap());
 
     assert_eq!(rect_field_entries.len(), 2);
 
@@ -340,7 +336,7 @@ fn same_name_in_different_modules() {
     else {
         panic!();
     };
-    let a_variant_entries = resolver.scopes.get_namespace_entries(a_variants.unwrap());
+    let a_variant_entries = resolver.scopes.get_members(a_variants.unwrap());
     let a_variant = resolver
         .declarations
         .get_declaration(a_variant_entries[0].1)
@@ -362,7 +358,7 @@ fn same_name_in_different_modules() {
     else {
         panic!();
     };
-    let b_variant_entries = resolver.scopes.get_namespace_entries(b_variants.unwrap());
+    let b_variant_entries = resolver.scopes.get_members(b_variants.unwrap());
     let b_variant = resolver
         .declarations
         .get_declaration(b_variant_entries[0].1)
@@ -398,14 +394,12 @@ fn generic_variant_field() {
         panic!();
     };
 
-    let type_parameter_entries = resolver
-        .scopes
-        .get_namespace_entries(type_parameters.unwrap());
+    let type_parameter_entries = resolver.scopes.get_members(type_parameters.unwrap());
 
     assert_eq!(type_parameter_entries.len(), 1);
 
     let t_declaration_id = type_parameter_entries[0].1;
-    let variant_entries = resolver.scopes.get_namespace_entries(variants.unwrap());
+    let variant_entries = resolver.scopes.get_members(variants.unwrap());
 
     assert_eq!(variant_entries.len(), 2);
 
@@ -420,7 +414,7 @@ fn generic_variant_field() {
     else {
         panic!();
     };
-    let some_field_entries = resolver.scopes.get_namespace_entries(some_fields.unwrap());
+    let some_field_entries = resolver.scopes.get_members(some_fields.unwrap());
 
     assert_eq!(some_field_entries.len(), 1);
 

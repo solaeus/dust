@@ -30,10 +30,7 @@ use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceCodeId, Span},
-    syntax::{
-        SyntaxId,
-        node::SyntaxKind::*,
-    },
+    syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[macro_export]

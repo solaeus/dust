@@ -195,6 +195,10 @@ pub enum CompileError {
     ExpectedVariantDefinition(DeclarationId),
     ExpectedStructDefinition(DeclarationId),
     ExpectedTraitAssociatedConstantDefinition(DeclarationId),
+    ScopeStackUnderflow,
+    ExpectedSyntax {
+        expected: &'static [SyntaxKind],
+    },
 }
 
 impl From<SyntaxError> for CompileError {

@@ -16,7 +16,7 @@ use crate::{
     dust_value::{DustEnumVariant, DustStruct, DustStructValue, DustValue},
     error::{Error, ErrorContext, ErrorKind},
     program::Program,
-    source::{SourceCode, Source},
+    source::{Source, SourceCode},
     vm::{
         error::VmError,
         register::Register,

@@ -3007,7 +3007,7 @@ impl<'a> Emitter<'a> {
             }
         };
 
-        let field_entries = self.resolver.scopes.get_namespace_entries(fields);
+        let field_entries = self.resolver.scopes.get_members(fields);
 
         let mut register_offset = 0usize;
 

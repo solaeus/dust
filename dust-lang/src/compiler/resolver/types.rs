@@ -29,7 +29,7 @@ impl Types {
             next_inferred_type_id: InferredTypeId(0),
         };
 
-        let _unit_type_id = types.add_type(Type::unit_type());
+        let _unit_type_id = types.add_type(Type::UNIT);
         let _boolean_type_id = types.add_type(Type::Boolean);
         let _i8_type_id = types.add_type(Type::SignedInteger(SignedIntegerType::I8));
         let _i16_type_id = types.add_type(Type::SignedInteger(SignedIntegerType::I16));
@@ -101,7 +101,9 @@ impl Types {
 
         let end = self.members.len() as u32;
 
-        debug_assert!(end > start, "");
+        if end == start {
+            return TypeMembers::default();
+        }
 
         TypeMembers { start, end }
     }
@@ -348,11 +350,9 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn unit_type() -> Self {
-        Type::Tuple {
-            element_types: TypeMembers::default(),
-        }
-    }
+    pub const UNIT: Self = Type::Tuple {
+        element_types: TypeMembers { start: 0, end: 0 },
+    };
 }
 
 /// See the [`Type`][] documentation for details on equality, ordering and hashing.

@@ -99,7 +99,7 @@ pub fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
     resolver.type_parameter_map.clear();
 
     if let Some(type_parameters) = type_parameters {
-        let type_parameter_entries = resolver.scopes.get_namespace_entries(type_parameters);
+        let type_parameter_entries = resolver.scopes.get_members(type_parameters);
 
         let type_parameter_ids: Vec<_> = type_parameter_entries
             .iter()

@@ -10,7 +10,10 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new(SourceCodeId::MAIN, Lexer::with_unvalidated_source(b"impl Foo {}"));
+    let parser = Parser::new(
+        SourceCodeId::MAIN,
+        Lexer::with_unvalidated_source(b"impl Foo {}"),
+    );
     let ParseResult {
         syntax_tree,
         errors,
@@ -23,7 +26,7 @@ fn empty() {
         [
             Root.with_single_child(Span::new(0, 11), SyntaxId(4)),
             ImplItem.with_binary_children(Span::new(0, 11), SyntaxId(2), SyntaxId(3)),
-            Path.with_single_child(Span::new(5, 8), SyntaxId(1)),
+            TypePath.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
             ImplBody.empty(Span::new(9, 11)),
         ]
@@ -48,7 +51,7 @@ fn with_function() {
         [
             Root.with_single_child(Span::new(0, 28), SyntaxId(8)),
             ImplItem.with_binary_children(Span::new(0, 28), SyntaxId(2), SyntaxId(7)),
-            Path.with_single_child(Span::new(5, 8), SyntaxId(1)),
+            TypePath.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
             ImplBody.with_single_child(Span::new(9, 28), SyntaxId(6)),
             FnItem
@@ -81,7 +84,7 @@ fn with_pub_function() {
         [
             Root.with_single_child(Span::new(0, 32), SyntaxId(8)),
             ImplItem.with_binary_children(Span::new(0, 32), SyntaxId(2), SyntaxId(7)),
-            Path.with_single_child(Span::new(5, 8), SyntaxId(1)),
+            TypePath.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
             ImplBody.with_single_child(Span::new(9, 32), SyntaxId(6)),
             FnItem
@@ -145,7 +148,7 @@ fn with_where_clause() {
             ImplItem
                 .with_children(Span::new(0, 26), SyntaxChildren::new(0, 3))
                 .with_flags(SyntaxFlags::WHERE_CLAUSE),
-            Path.with_single_child(Span::new(5, 8), SyntaxId(1)),
+            TypePath.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
             WhereClause.with_single_child(Span::new(9, 23), SyntaxId(8)),
             WherePredicate.with_binary_children(Span::new(15, 23), SyntaxId(4), SyntaxId(7)),

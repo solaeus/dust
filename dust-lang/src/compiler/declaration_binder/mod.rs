@@ -1,13 +1,15 @@
 #[cfg(test)]
 mod tests;
 
+use smallvec::SmallVec;
+
 use crate::{
     compiler::{
         error::CompileError,
         resolver::{
             Resolver,
             declarations::{Declaration, DeclarationId, Declarations, Definition, ModuleKind},
-            scopes::{ScopeFrame, ScopeId, ScopeKind},
+            scopes::{ScopeId, ScopeKind},
             symbols::{SymbolId, Symbols},
             types::{Type, TypeId, TypeMembers},
         },
@@ -23,9 +25,9 @@ use crate::{
             EnumItemTupleVariant, EnumNamedFieldsVariant, EnumUnitVariant, ExpressionStatement,
             FieldAccessExpression, FnItem, FunctionType, GroupedExpression, IfExpression, ImplItem,
             IndexExpression, LetStatement, LogicExpression, MathExpression, ModItem, NamedFields,
-            NegationExpression, NotExpression, RangeExpression, Root, SliceType, StructExpression,
-            StructExpressionStructFields, StructItem, SyntaxComponent, TraitItem, TupleFields,
-            TupleType, TypeItem, UseItem, ValueParameters, WhileExpression,
+            NegationExpression, NotExpression, PathSegment, RangeExpression, Root, SliceType,
+            StructExpression, StructExpressionStructFields, StructItem, SyntaxComponent, TraitItem,
+            TupleFields, TupleType, TypeItem, UseItem, ValueParameters, WhileExpression,
         },
         node::{SyntaxFlags, SyntaxKind},
         reader::SyntaxReader,
@@ -41,13 +43,9 @@ pub struct DeclarationBinder<'a> {
 
     errors: &'a mut Vec<ErrorKind>,
 
-    current_self_type_id: Option<TypeId>,
-
     current_scope_id: ScopeId,
 
-    scope_stack: Vec<ScopeFrame>,
-
-    current_namespace: Vec<(SymbolId, DeclarationId)>,
+    current_self_type_id: Option<TypeId>,
 }
 
 impl<'a> DeclarationBinder<'a> {
@@ -65,8 +63,6 @@ impl<'a> DeclarationBinder<'a> {
             errors,
             current_self_type_id: None,
             current_scope_id: starting_scope_id,
-            scope_stack: Vec::new(),
-            current_namespace: Vec::new(),
         }
     }
 
@@ -84,29 +80,23 @@ impl<'a> DeclarationBinder<'a> {
     }
 
     fn enter_scope(&mut self, kind: ScopeKind) {
-        let parent_scope_id = self.current_scope_id;
-        let scope_id = self
+        self.current_scope_id = self
             .resolver
             .scopes
-            .enter_scope(kind, Some(parent_scope_id));
-
-        self.scope_stack.push(ScopeFrame {
-            parent_scope_id,
-            start_index: self.current_namespace.len(),
-        });
-
-        self.current_scope_id = scope_id;
+            .enter_scope(kind, Some(self.current_scope_id));
     }
 
     fn exit_scope(&mut self) {
-        if let Some(frame) = self.scope_stack.pop() {
-            self.resolver.scopes.exit_scope(
-                self.current_scope_id,
-                self.current_namespace.drain(frame.start_index..),
-            );
+        self.current_scope_id = self
+            .resolver
+            .scopes
+            .exit_scope(self.current_scope_id)
+            .unwrap_or_else(|| {
+                self.errors
+                    .push(ErrorKind::Compile(CompileError::ScopeStackUnderflow));
 
-            self.current_scope_id = frame.parent_scope_id;
-        }
+                self.current_scope_id
+            });
     }
 
     fn add_declaration(
@@ -122,7 +112,9 @@ impl<'a> DeclarationBinder<'a> {
             syntax,
         });
 
-        self.current_namespace.push((symbol_id, declaration_id));
+        self.resolver
+            .scopes
+            .add_to_current_namespace(declaration_id);
 
         declaration_id
     }
@@ -138,7 +130,9 @@ impl<'a> DeclarationBinder<'a> {
             syntax,
         );
 
-        self.current_namespace.push((symbol_id, declaration_id));
+        self.resolver
+            .scopes
+            .add_to_current_namespace(declaration_id);
 
         declaration_id
     }
@@ -147,7 +141,148 @@ impl<'a> DeclarationBinder<'a> {
         &mut self,
         path_expression: SyntaxReader,
     ) -> Result<Option<DeclarationId>, CompileError> {
-        todo!();
+        let source_code = self.source.get_code(path_expression.source_id())?;
+
+        let mut path_segments = path_expression.children();
+        let Some(first_segment) = path_segments.next() else {
+            return Ok(None);
+        };
+
+        self.bind_path_segment_type_arguments(first_segment)?;
+
+        let first_segment_str = source_code.get_str(first_segment.node.span)?;
+        let first_symbol_id = self.resolver.symbols.add_symbol(first_segment_str);
+        let Some(mut current_declaration_id) =
+            self.find_visible_declaration(first_symbol_id, first_segment)?
+        else {
+            return Ok(None);
+        };
+
+        for path_segment in path_segments {
+            self.bind_path_segment_type_arguments(path_segment)?;
+
+            let segment_str = source_code.get_str(path_segment.node.span)?;
+            let segment_symbol_id = self.resolver.symbols.add_symbol(segment_str);
+
+            current_declaration_id = self.find_member_declaration(
+                segment_symbol_id,
+                current_declaration_id,
+                path_segment,
+            )?;
+        }
+
+        Ok(Some(current_declaration_id))
+    }
+
+    fn bind_path_segment_type_arguments(
+        &mut self,
+        path_segment: SyntaxReader,
+    ) -> Result<(), CompileError> {
+        let PathSegment { type_arguments } = path_segment.as_component()?;
+
+        if let Some(type_arguments) = type_arguments {
+            for type_argument in type_arguments.children() {
+                self.handle_explicit_type(type_argument)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn find_visible_declaration(
+        &self,
+        symbol_id: SymbolId,
+        path_segment: SyntaxReader,
+    ) -> Result<Option<DeclarationId>, CompileError> {
+        let mut scope_id = Some(self.current_scope_id);
+        let mut crossed_scope_kinds = SmallVec::<[ScopeKind; 7]>::new();
+
+        while let Some(current_scope_id) = scope_id {
+            if let Some(declaration_id) = self
+                .resolver
+                .declarations
+                .find_declaration_id(symbol_id, current_scope_id)
+            {
+                let declaration = self
+                    .resolver
+                    .declarations
+                    .get_declaration(*declaration_id)?;
+
+                if crossed_scope_kinds
+                    .iter()
+                    .any(|scope_kind| scope_kind.is_barrier(&declaration.definition))
+                {
+                    return Err(CompileError::Undeclared {
+                        symbol_id,
+                        usage_position: path_segment.position(),
+                    });
+                }
+
+                return Ok(Some(*declaration_id));
+            }
+
+            let scope = self.resolver.scopes.get_scope(current_scope_id);
+            scope_id = scope.parent;
+
+            if !crossed_scope_kinds.contains(&scope.kind) {
+                crossed_scope_kinds.push(scope.kind);
+            }
+        }
+
+        Ok(None)
+    }
+
+    fn find_member_declaration(
+        &self,
+        symbol_id: SymbolId,
+        parent_declaration_id: DeclarationId,
+        path_segment: SyntaxReader,
+    ) -> Result<DeclarationId, CompileError> {
+        let parent_declaration = self
+            .resolver
+            .declarations
+            .get_declaration(parent_declaration_id)?;
+        let member_scope_id = match parent_declaration.definition {
+            Definition::Module {
+                inner_scope_id: Some(inner_scope_id),
+                ..
+            }
+            | Definition::StructType {
+                fields: Some(inner_scope_id),
+                ..
+            }
+            | Definition::EnumType {
+                variants: Some(inner_scope_id),
+                ..
+            }
+            | Definition::TraitImplementation {
+                declarations: Some(inner_scope_id),
+                ..
+            }
+            | Definition::InherentImplementation {
+                declarations: Some(inner_scope_id),
+                ..
+            } => inner_scope_id,
+            _ => {
+                return Err(CompileError::Undeclared {
+                    symbol_id,
+                    usage_position: path_segment.position(),
+                });
+            }
+        };
+
+        if let Some(declaration_id) = self
+            .resolver
+            .declarations
+            .find_declaration_id(symbol_id, member_scope_id)
+        {
+            Ok(*declaration_id)
+        } else {
+            Err(CompileError::Undeclared {
+                symbol_id,
+                usage_position: path_segment.position(),
+            })
+        }
     }
 
     fn bind_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
@@ -255,122 +390,51 @@ impl<'a> DeclarationBinder<'a> {
     }
 
     fn bind_use_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        fn search_enum_variants(
-            target_str: &str,
-            parent_enum_id: DeclarationId,
-            variant_entries: &[(SymbolId, DeclarationId)],
-            symbols: &Symbols,
-            declarations: &Declarations,
-        ) -> Result<Option<DeclarationId>, CompileError> {
-            for &(_, variant_id) in variant_entries {
-                let variant_declaration = declarations.get_declaration(variant_id)?;
-                let variant_symbol = symbols.get_symbol(&variant_declaration.symbol_id)?;
-                let variant_parent_id = if let Definition::Variant {
-                    enum_declaration_id,
-                    ..
-                } = variant_declaration.definition
-                {
-                    enum_declaration_id
-                } else {
-                    return Err(CompileError::ExpectedVariantDefinition(variant_id));
-                };
-
-                if variant_symbol == target_str && variant_parent_id == parent_enum_id {
-                    return Ok(Some(variant_id));
-                }
-            }
-
-            Ok(None)
-        }
-
         let UseItem { public, path } = reader.as_component()?;
 
-        let start = reader.node.span.start();
         let file = self.source.get_code(path.source_id())?;
-
-        let mut module_scope: Option<ScopeId> = None;
-        let mut current_declaration_id = None;
-        let mut current_end = start;
-        let mut symbol_id = SymbolId::PLACEHOLDER;
         let mut path_segments = path.children();
+
+        let first_segment = path_segments.next().ok_or(CompileError::ExpectedSyntax {
+            expected: &[SyntaxKind::PathSegment],
+        })?;
+        let first_segment_str = file.get_str(first_segment.node.span)?;
+        let first_symbol_id = self.resolver.symbols.add_symbol(first_segment_str);
+        let Some(first_declaration_id) =
+            self.find_visible_declaration(first_symbol_id, first_segment)?
+        else {
+            return Err(CompileError::Undeclared {
+                symbol_id: first_symbol_id,
+                usage_position: first_segment.position(),
+            });
+        };
+
+        let mut current_declaration_id = first_declaration_id;
+        let mut current_symbol_id = first_symbol_id;
+        let mut current_span = first_segment.node.span;
 
         while let Some(segment) = path_segments.next() {
             let segment_str = file.get_str(segment.node.span)?;
             let segment_symbol_id = self.resolver.symbols.add_symbol(segment_str);
-            let current_scope_id = module_scope.unwrap_or(self.current_scope_id);
-            let declaration_id = *self
-                .resolver
-                .declarations
-                .find_declaration_id(segment_symbol_id, current_scope_id)
-                .ok_or(CompileError::Undeclared {
-                    symbol_id,
-                    usage_position: segment.position(),
-                })?;
-            let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+            let segment_declaration_id =
+                self.find_member_declaration(segment_symbol_id, current_declaration_id, segment)?;
 
-            current_declaration_id = Some(declaration_id);
-            current_end = segment.node.span.end();
-            symbol_id = segment_symbol_id;
-
-            match declaration.definition {
-                Definition::Module {
-                    public: true,
-                    inner_scope_id,
-                    ..
-                } => {
-                    module_scope = inner_scope_id;
-                }
-                Definition::EnumType {
-                    public: true,
-                    variants: Some(variants_scope_id),
-                    ..
-                } => {
-                    let variant_entries = self
-                        .resolver
-                        .scopes
-                        .get_namespace_entries(variants_scope_id);
-
-                    if let Some(next_segment) = path_segments.next()
-                        && let Some(found_variant_id) = search_enum_variants(
-                            file.get_str(next_segment.node.span)?,
-                            declaration_id,
-                            variant_entries,
-                            &self.resolver.symbols,
-                            &self.resolver.declarations,
-                        )?
-                    {
-                        current_declaration_id = Some(found_variant_id);
-                        current_end = next_segment.node.span.end();
-                        symbol_id = segment_symbol_id;
-
-                        break;
-                    }
-                }
-                _ => {
-                    return Err(CompileError::CannotImport {
-                        declaration_id,
-                        position: segment.position(),
-                    });
-                }
-            }
+            current_declaration_id = segment_declaration_id;
+            current_symbol_id = segment_symbol_id;
+            current_span = segment.node.span;
         }
 
-        if let Some(current_declaration_id) = current_declaration_id {
-            let use_declaration_id = self.add_declaration(
-                symbol_id,
-                Definition::Use {
-                    public,
-                    source_declaration_id: current_declaration_id,
-                },
-                Some((
-                    Position::new(reader.source_id(), Span::new(start, current_end)),
-                    reader.id,
-                )),
-            );
+        let use_declaration_id = self.add_declaration(
+            current_symbol_id,
+            Definition::Use {
+                public,
+                source_declaration_id: current_declaration_id,
+            },
+            Some((Position::new(reader.source_id(), current_span), reader.id)),
+        );
 
-            self.resolver
-                .add_declaration_binding(reader.id, use_declaration_id);
-        }
+        self.resolver
+            .add_declaration_binding(reader.id, use_declaration_id);
 
         Ok(())
     }
@@ -406,7 +470,7 @@ impl<'a> DeclarationBinder<'a> {
             for (parameter_name, parameter_type) in name_type_pairs {
                 let parameter_name_str = self.source.get_content(parameter_name.position())?;
                 let parameter_symbol_id = self.resolver.symbols.add_symbol(parameter_name_str);
-                let parameter_type_id = self.get_explicit_type(parameter_type)?;
+                let parameter_type_id = self.handle_explicit_type(parameter_type)?;
                 let parameter_declaration_id = self.add_declaration(
                     parameter_symbol_id,
                     Definition::Local {
@@ -426,7 +490,7 @@ impl<'a> DeclarationBinder<'a> {
             None
         };
         let return_type_id = if let Some(return_type) = return_type {
-            self.get_explicit_type(return_type)?
+            self.handle_explicit_type(return_type)?
         } else {
             TypeId::UNIT
         };
@@ -489,7 +553,7 @@ impl<'a> DeclarationBinder<'a> {
         } else {
             None
         };
-        let fields = if let Some(fields) = fields {
+        let fields = if let Some(fields) = fields.filter(|fields| fields.child_count() > 0) {
             self.enter_scope(ScopeKind::Members);
 
             match fields.node.kind {
@@ -499,7 +563,8 @@ impl<'a> DeclarationBinder<'a> {
                     for (index, field_type) in types.enumerate() {
                         let public = field_type.node.flags.get_flag(SyntaxFlags::PUBLIC);
                         let field_symbol_id = self.resolver.symbols.add_index_symbol(index as u32);
-                        let field_type_id = self.get_explicit_type(field_type)?;
+                        let field_type_id = self.handle_explicit_type(field_type)?;
+
                         self.add_declaration(
                             field_symbol_id,
                             Definition::Field {
@@ -520,7 +585,7 @@ impl<'a> DeclarationBinder<'a> {
                         let public = field_name.node.flags.get_flag(SyntaxFlags::PUBLIC);
                         let field_name_str = file.get_str(field_name.node.span)?;
                         let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
-                        let field_type_id = self.get_explicit_type(field_type)?;
+                        let field_type_id = self.handle_explicit_type(field_type)?;
                         let field_declaration_id = self.add_declaration(
                             field_symbol_id,
                             Definition::Field {
@@ -679,7 +744,7 @@ impl<'a> DeclarationBinder<'a> {
 
                 for (index, field_type) in types.enumerate() {
                     let symbol_id = self.resolver.symbols.add_index_symbol(index as u32);
-                    let type_id = self.get_explicit_type(field_type)?;
+                    let type_id = self.handle_explicit_type(field_type)?;
                     self.add_declaration(
                         symbol_id,
                         Definition::Field {
@@ -721,7 +786,7 @@ impl<'a> DeclarationBinder<'a> {
                 for (field_name, field_type) in name_type_pairs {
                     let field_name_str = file.get_str(field_name.node.span)?;
                     let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
-                    let field_type_id = self.get_explicit_type(field_type)?;
+                    let field_type_id = self.handle_explicit_type(field_type)?;
                     self.add_declaration(
                         field_symbol_id,
                         Definition::Field {
@@ -776,7 +841,7 @@ impl<'a> DeclarationBinder<'a> {
 
         let const_name_str = self.source.get_content(name.position())?;
         let const_symbol_id = self.resolver.symbols.add_symbol(const_name_str);
-        let const_type_id = self.get_explicit_type(type_notation)?;
+        let const_type_id = self.handle_explicit_type(type_notation)?;
         let const_declaration_id = self.add_declaration(
             const_symbol_id,
             Definition::Constant {
@@ -815,7 +880,7 @@ impl<'a> DeclarationBinder<'a> {
             None
         };
 
-        let aliased_type_id = self.get_explicit_type(aliased_type)?;
+        let aliased_type_id = self.handle_explicit_type(aliased_type)?;
 
         self.exit_scope();
 
@@ -862,7 +927,11 @@ impl<'a> DeclarationBinder<'a> {
         } else {
             None
         };
-        let self_type_id = self.get_explicit_type(self_name)?;
+        let self_type_id = self.handle_explicit_type(self_name)?;
+        let self_declaration_id = match *self.resolver.types.get_type(self_type_id)? {
+            Type::Algebraic { declaration_id, .. } => declaration_id,
+            _ => return Err(CompileError::ExpectedConcreteType),
+        };
         let previous_self_type_id = self.current_self_type_id.replace(self_type_id);
 
         for child in body.children() {
@@ -874,11 +943,47 @@ impl<'a> DeclarationBinder<'a> {
                     self.bind_const_item(child)?;
                 }
                 SyntaxKind::TypeItem => {
-                    self.bind_type_item(child)?;
+                    let TypeItem {
+                        public,
+                        name,
+                        type_parameters,
+                        aliased_type,
+                    } = child.as_component()?;
+                    let Some(aliased_type) = aliased_type else {
+                        return Err(CompileError::ExpectedValue {
+                            source_id: child.source_id(),
+                            syntax_id: child.id,
+                        });
+                    };
+                    let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
+                        self.bind_type_parameters(type_parameters)?
+                    } else {
+                        None
+                    };
+                    let aliased_type_id = self.handle_explicit_type(aliased_type)?;
+                    let type_name_str = self.source.get_content(name.position())?;
+                    let type_symbol_id = self.resolver.symbols.add_symbol(type_name_str);
+                    let type_declaration_id = self.add_declaration(
+                        type_symbol_id,
+                        Definition::InherentAssociatedType {
+                            public,
+                            parent: self_declaration_id,
+                            type_parameters: type_parameters_scope_id,
+                            aliased_type_id,
+                        },
+                        Some((child.position(), child.id)),
+                    );
+
+                    self.resolver
+                        .add_declaration_binding(name.id, type_declaration_id);
                 }
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
-                        expected: &[SyntaxKind::FnItem, SyntaxKind::ConstItem],
+                        expected: &[
+                            SyntaxKind::FnItem,
+                            SyntaxKind::ConstItem,
+                            SyntaxKind::TypeItem,
+                        ],
                         found: child.node.kind,
                     });
                 }
@@ -890,7 +995,7 @@ impl<'a> DeclarationBinder<'a> {
                 TypeId::SmallVec::with_capacity(type_arguments.child_count());
 
             for type_argument in type_arguments.children() {
-                let type_argument_id = self.get_explicit_type(type_argument)?;
+                let type_argument_id = self.handle_explicit_type(type_argument)?;
 
                 type_argument_ids.push(type_argument_id);
             }
@@ -960,14 +1065,10 @@ impl<'a> DeclarationBinder<'a> {
 
             for supertrait in supertraits.children() {
                 let supertrait_declaration_id = self.bind_path(supertrait)?;
-                let supertrait_declaration = self
-                    .resolver
-                    .declarations
-                    .get_declaration(supertrait_declaration_id)?;
-                let supertrait_symbol_id = supertrait_declaration.symbol_id;
 
-                self.current_namespace
-                    .push((supertrait_symbol_id, supertrait_declaration_id));
+                self.resolver
+                    .scopes
+                    .add_to_current_namespace(supertrait_declaration_id);
             }
 
             Some(self.current_scope_id)
@@ -978,8 +1079,12 @@ impl<'a> DeclarationBinder<'a> {
         self.enter_scope(ScopeKind::Members);
 
         let self_symbol_id = self.resolver.symbols.add_self_symbol();
-        let self_type_declaration_id =
-            self.add_declaration(self_symbol_id, Definition::TypeParameter, None);
+        let self_type_declaration_id = self.resolver.declarations.add_declaration(Declaration {
+            symbol_id: self_symbol_id,
+            scope_id: self.current_scope_id,
+            definition: Definition::TypeParameter,
+            syntax: None,
+        });
         let self_type_id = self.resolver.types.add_type(Type::Generic {
             declaration_id: self_type_declaration_id,
         });
@@ -991,17 +1096,20 @@ impl<'a> DeclarationBinder<'a> {
                     self.bind_fn_item(child)?;
                 }
                 SyntaxKind::TypeItem => {
-                    self.bind_type_item(child)?;
-
                     let TypeItem {
-                        public: _,
+                        public,
                         name,
-                        type_parameters: _,
+                        type_parameters,
                         aliased_type,
                     } = child.as_component()?;
 
+                    let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
+                        self.bind_type_parameters(type_parameters)?
+                    } else {
+                        None
+                    };
                     let aliased_type_id = aliased_type
-                        .map(|aliased_type| self.get_explicit_type(aliased_type))
+                        .map(|aliased_type| self.handle_explicit_type(aliased_type))
                         .transpose()?;
                     let type_name_str = self.source.get_content(name.position())?;
                     let type_symbol_id = self.resolver.symbols.add_symbol(type_name_str);
@@ -1009,7 +1117,7 @@ impl<'a> DeclarationBinder<'a> {
                         type_symbol_id,
                         Definition::TraitAssociatedType {
                             parent: trait_declaration_id,
-                            type_parameters: None,
+                            type_parameters: type_parameters_scope_id,
                             default_aliased_type_id: aliased_type_id,
                         },
                         Some((child.position(), child.id)),
@@ -1032,7 +1140,7 @@ impl<'a> DeclarationBinder<'a> {
 
                     let const_name_str = self.source.get_content(name.position())?;
                     let const_symbol_id = self.resolver.symbols.add_symbol(const_name_str);
-                    let const_type_id = self.get_explicit_type(type_notation)?;
+                    let const_type_id = self.handle_explicit_type(type_notation)?;
                     let const_declaration_id = self.add_declaration(
                         const_symbol_id,
                         Definition::InherentAssociatedConstant {
@@ -1127,7 +1235,7 @@ impl<'a> DeclarationBinder<'a> {
         let local_name_str = self.source.get_content(name.position())?;
         let local_symbol_id = self.resolver.symbols.add_symbol(local_name_str);
         let local_type_id = if let Some(type_notation) = type_notation {
-            self.get_explicit_type(type_notation)?
+            self.handle_explicit_type(type_notation)?
         } else {
             self.resolver.types.create_inferred_type(None)
         };
@@ -1162,8 +1270,6 @@ impl<'a> DeclarationBinder<'a> {
 
     fn bind_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         match reader.node.kind {
-            SyntaxKind::AdditionAssignmentExpression => self.bind_math_expression(reader),
-            SyntaxKind::AssignmentExpression => self.bind_assignment_expression(reader),
             SyntaxKind::BooleanExpression => self.bind_boolean_expression(reader),
             SyntaxKind::HexadecimalExpression => self.bind_hexadecimal_expression(reader),
             SyntaxKind::CharacterExpression => self.bind_character_expression(reader),
@@ -1185,9 +1291,45 @@ impl<'a> DeclarationBinder<'a> {
             SyntaxKind::BreakExpression => self.bind_break_expression(reader),
             SyntaxKind::CallExpression => self.bind_call_expression(reader),
             SyntaxKind::FieldAccessExpression => self.bind_field_access_expression(reader),
+            SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
+                self.bind_logic_expression(reader)
+            }
+            SyntaxKind::AdditionExpression
+            | SyntaxKind::AdditionAssignmentExpression
+            | SyntaxKind::SubtractionExpression
+            | SyntaxKind::SubtractionAssignmentExpression
+            | SyntaxKind::MultiplicationExpression
+            | SyntaxKind::MultiplicationAssignmentExpression
+            | SyntaxKind::DivisionExpression
+            | SyntaxKind::DivisionAssignmentExpression
+            | SyntaxKind::ModuloExpression
+            | SyntaxKind::ModuloAssignmentExpression
+            | SyntaxKind::ExponentExpression
+            | SyntaxKind::ExponentAssignmentExpression => self.bind_math_expression(reader),
+            SyntaxKind::AssignmentExpression => self.bind_assignment_expression(reader),
+            SyntaxKind::GreaterThanExpression
+            | SyntaxKind::LessThanExpression
+            | SyntaxKind::GreaterThanOrEqualExpression
+            | SyntaxKind::LessThanOrEqualExpression
+            | SyntaxKind::EqualExpression
+            | SyntaxKind::NotEqualExpression => self.bind_comparison_expression(reader),
             _ => Err(CompileError::UnexpectedSyntax {
                 expected: &[
+                    SyntaxKind::AdditionExpression,
+                    SyntaxKind::SubtractionExpression,
+                    SyntaxKind::MultiplicationExpression,
+                    SyntaxKind::DivisionExpression,
+                    SyntaxKind::ModuloExpression,
+                    SyntaxKind::ExponentExpression,
                     SyntaxKind::AssignmentExpression,
+                    SyntaxKind::AndExpression,
+                    SyntaxKind::OrExpression,
+                    SyntaxKind::GreaterThanExpression,
+                    SyntaxKind::LessThanExpression,
+                    SyntaxKind::GreaterThanOrEqualExpression,
+                    SyntaxKind::LessThanOrEqualExpression,
+                    SyntaxKind::EqualExpression,
+                    SyntaxKind::NotEqualExpression,
                     SyntaxKind::BooleanExpression,
                     SyntaxKind::HexadecimalExpression,
                     SyntaxKind::CharacterExpression,
@@ -1469,10 +1611,61 @@ impl<'a> DeclarationBinder<'a> {
             field_name,
         } = reader.as_component()?;
 
-        todo!()
+        self.bind_expression(struct_expression)?;
+
+        let struct_expression_declaration_id = *self
+            .resolver
+            .get_declaration_binding(&struct_expression.id)?;
+        let struct_expression_declaration = self
+            .resolver
+            .declarations
+            .get_declaration(struct_expression_declaration_id)?;
+        let Definition::Local { type_id, .. } = struct_expression_declaration.definition else {
+            return Err(CompileError::ExpectedLocalDefinition(
+                struct_expression_declaration_id,
+            ));
+        };
+        let Type::Algebraic {
+            declaration_id: struct_declaration_id,
+            ..
+        } = self.resolver.types.get_type(type_id)?
+        else {
+            return Err(CompileError::ExpectedStructDefinition(
+                struct_expression_declaration_id,
+            ));
+        };
+        let struct_declaration = self
+            .resolver
+            .declarations
+            .get_declaration(*struct_declaration_id)?;
+        let Definition::StructType {
+            fields: Some(fields_scope_id),
+            ..
+        } = struct_declaration.definition
+        else {
+            return Err(CompileError::ExpectedStructDefinition(
+                *struct_declaration_id,
+            ));
+        };
+        let field_name_str = self.source.get_content(field_name.position())?;
+        let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
+        let field_declaration_id = self
+            .resolver
+            .declarations
+            .find_declaration_id(field_symbol_id, fields_scope_id)
+            .copied()
+            .ok_or(CompileError::Undeclared {
+                symbol_id: field_symbol_id,
+                usage_position: field_name.position(),
+            })?;
+
+        self.resolver
+            .add_declaration_binding(field_name.id, field_declaration_id);
+
+        Ok(())
     }
 
-    fn get_explicit_type(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn handle_explicit_type(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         match reader.node.kind {
             SyntaxKind::BooleanType => Ok(TypeId::BOOLEAN),
             SyntaxKind::I8Type => Ok(TypeId::I_8),
@@ -1496,7 +1689,7 @@ impl<'a> DeclarationBinder<'a> {
                     length,
                 } = reader.as_component()?;
 
-                let element_type_id = self.get_explicit_type(element_type)?;
+                let element_type_id = self.handle_explicit_type(element_type)?;
                 let length_str = self.source.get_content(length.position())?;
                 let length = create_usize_from_decimal(length_str)?;
 
@@ -1508,7 +1701,7 @@ impl<'a> DeclarationBinder<'a> {
             SyntaxKind::SliceType => {
                 let SliceType { element_type } = reader.as_component()?;
 
-                let element_type_id = self.get_explicit_type(element_type)?;
+                let element_type_id = self.handle_explicit_type(element_type)?;
                 let slice_symbol_id = self.resolver.symbols.add_slice_symbol();
                 let declaration_id = self.add_declaration(
                     slice_symbol_id,
@@ -1525,7 +1718,7 @@ impl<'a> DeclarationBinder<'a> {
                 let TupleType { element_types } = reader.as_component()?;
 
                 let element_type_ids = element_types
-                    .map(|element_type| self.get_explicit_type(element_type))
+                    .map(|element_type| self.handle_explicit_type(element_type))
                     .try_collect::<TypeId::SmallVec>()?;
                 let element_types = self.resolver.types.add_type_members(element_type_ids);
 
@@ -1539,11 +1732,11 @@ impl<'a> DeclarationBinder<'a> {
 
                 let value_parameter_ids = value_parameter_types
                     .children()
-                    .map(|parameter_type| self.get_explicit_type(parameter_type))
+                    .map(|parameter_type| self.handle_explicit_type(parameter_type))
                     .try_collect::<TypeId::SmallVec>()?;
                 let value_parameters = self.resolver.types.add_type_members(value_parameter_ids);
                 let return_type_id = if let Some(return_type) = return_type {
-                    self.get_explicit_type(return_type)?
+                    self.handle_explicit_type(return_type)?
                 } else {
                     TypeId::UNIT
                 };
@@ -1617,6 +1810,10 @@ impl<'a> DeclarationBinder<'a> {
     fn bind_path(&mut self, path: SyntaxReader) -> Result<DeclarationId, CompileError> {
         debug_assert_eq!(path.node.kind, SyntaxKind::Path);
 
-        todo!()
+        self.search_path_segments(path)?
+            .ok_or_else(|| CompileError::ExpectedValue {
+                source_id: path.source_id(),
+                syntax_id: path.id,
+            })
     }
 }
