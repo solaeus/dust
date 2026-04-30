@@ -336,6 +336,7 @@ pub enum Definition {
     },
 
     TraitAssociatedType {
+        public: bool,
         parent: DeclarationId,
         type_parameters: Option<ScopeId>,
         default_aliased_type_id: Option<TypeId>,

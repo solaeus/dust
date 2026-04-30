@@ -14,7 +14,6 @@ use crate::{
         resolver::{
             PrototypeId, Resolver,
             declarations::{DeclarationId, Definition},
-            scopes::ScopeKind,
             types::{
                 FloatType, InferredTypeConstraint, SignedIntegerType, Type, TypeId,
                 UnsignedIntegerType,
@@ -3011,7 +3010,7 @@ impl<'a> Emitter<'a> {
 
         let mut register_offset = 0usize;
 
-        for &(_, field_id) in field_entries {
+        for &field_id in field_entries {
             if field_id == field_declaration_id {
                 break;
             }

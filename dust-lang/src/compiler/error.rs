@@ -1218,7 +1218,9 @@ impl<'a> DustError<'a> for CompileError {
             | CompileError::ExpectedLocalDefinition(_)
             | CompileError::ExpectedVariantDefinition(_)
             | CompileError::ExpectedStructDefinition(_)
-            | CompileError::ExpectedTraitAssociatedConstantDefinition(_) => {
+            | CompileError::ExpectedTraitAssociatedConstantDefinition(_)
+            | CompileError::ExpectedSyntax { .. }
+            | CompileError::ScopeStackUnderflow => {
                 self.add_internal_report(groups);
             }
         }

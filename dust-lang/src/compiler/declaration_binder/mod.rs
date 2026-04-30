@@ -8,15 +8,15 @@ use crate::{
         error::CompileError,
         resolver::{
             Resolver,
-            declarations::{Declaration, DeclarationId, Declarations, Definition, ModuleKind},
+            declarations::{Declaration, DeclarationId, Definition, ModuleKind},
             scopes::{ScopeId, ScopeKind},
-            symbols::{SymbolId, Symbols},
+            symbols::SymbolId,
             types::{Type, TypeId, TypeMembers},
         },
         value_creation::create_usize_from_decimal,
     },
     error::ErrorKind,
-    source::{Position, Source, Span},
+    source::{Position, Source},
     syntax::{
         Syntax, SyntaxId,
         components::{
@@ -1116,6 +1116,7 @@ impl<'a> DeclarationBinder<'a> {
                     let type_declaration_id = self.add_declaration(
                         type_symbol_id,
                         Definition::TraitAssociatedType {
+                            public,
                             parent: trait_declaration_id,
                             type_parameters: type_parameters_scope_id,
                             default_aliased_type_id: aliased_type_id,
