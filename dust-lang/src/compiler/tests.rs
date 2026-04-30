@@ -101,10 +101,7 @@ pub fn type_bind_function(source_code: &str) -> (Syntax, Resolver, ScopeId) {
     if let Some(type_parameters) = type_parameters {
         let type_parameter_entries = resolver.scopes.get_members(type_parameters);
 
-        let type_parameter_ids: Vec<_> = type_parameter_entries
-            .iter()
-            .map(|&(_, declaration_id)| declaration_id)
-            .collect();
+        let type_parameter_ids: Vec<_> = type_parameter_entries.iter().copied().collect();
 
         for type_parameter_declaration_id in type_parameter_ids {
             let inferred_type_id = resolver.types.create_inferred_type(None);

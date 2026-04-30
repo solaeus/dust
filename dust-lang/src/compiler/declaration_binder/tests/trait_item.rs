@@ -29,7 +29,7 @@ fn with_method_and_const() {
         panic!();
     };
 
-    assert_eq!(resolver.scopes.members_len(declarations.unwrap()), 2);
+    assert_eq!(resolver.scopes.get_members(declarations.unwrap()).len(), 2);
 
     let member_entries = resolver.scopes.get_members(declarations.unwrap());
 
@@ -38,7 +38,7 @@ fn with_method_and_const() {
 
     let bar_decl = resolver
         .declarations
-        .get_declaration(member_entries[0].1)
+        .get_declaration(member_entries[0])
         .unwrap();
     let Definition::Function {
         value_parameters,
@@ -50,13 +50,16 @@ fn with_method_and_const() {
     };
 
     assert_eq!(bar_decl.symbol_id, bar_symbol);
-    assert_eq!(resolver.scopes.members_len(value_parameters.unwrap()), 1);
+    assert_eq!(
+        resolver.scopes.get_members(value_parameters.unwrap()).len(),
+        1
+    );
     assert_eq!(return_type_id, TypeId::UNIT);
     assert_eq!(bar_decl.scope_id, declarations.unwrap());
 
     let n_decl = resolver
         .declarations
-        .get_declaration(member_entries[1].1)
+        .get_declaration(member_entries[1])
         .unwrap();
     let Definition::InherentAssociatedConstant {
         parent, type_id, ..
@@ -100,11 +103,11 @@ fn supertraits_resolved() {
         panic!();
     };
 
-    assert_eq!(resolver.scopes.members_len(supertraits.unwrap()), 1);
+    assert_eq!(resolver.scopes.get_members(supertraits.unwrap()).len(), 1);
 
     let supertrait_entries = resolver.scopes.get_members(supertraits.unwrap());
 
-    assert_eq!(supertrait_entries[0].1, bar_declaration_id);
+    assert_eq!(supertrait_entries[0], bar_declaration_id);
 }
 
 #[test]

@@ -32,15 +32,13 @@ fn parameter_type_of_foo(source_code: &str) -> TypeId {
         panic!();
     };
 
-    let parameter_entries = resolver
-        .scopes
-        .get_members(value_parameters.unwrap());
+    let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
 
     assert_eq!(parameter_entries.len(), 1);
 
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0].1)
+        .get_declaration(parameter_entries[0])
         .unwrap();
     let Definition::Local { type_id, .. } = parameter_declaration.definition else {
         panic!();
@@ -184,12 +182,10 @@ fn tuple_type_empty() {
         panic!();
     };
 
-    let parameter_entries = resolver
-        .scopes
-        .get_members(value_parameters.unwrap());
+    let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0].1)
+        .get_declaration(parameter_entries[0])
         .unwrap();
     let Definition::Local {
         type_id: parameter_type_id,
@@ -232,12 +228,10 @@ fn tuple_type_multiple() {
         panic!();
     };
 
-    let parameter_entries = resolver
-        .scopes
-        .get_members(value_parameters.unwrap());
+    let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0].1)
+        .get_declaration(parameter_entries[0])
         .unwrap();
     let Definition::Local {
         type_id: parameter_type_id,
@@ -282,12 +276,10 @@ fn slice_type() {
         panic!();
     };
 
-    let parameter_entries = resolver
-        .scopes
-        .get_members(value_parameters.unwrap());
+    let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0].1)
+        .get_declaration(parameter_entries[0])
         .unwrap();
     let Definition::Local {
         type_id: parameter_type_id,
@@ -334,15 +326,13 @@ fn function_type_basic() {
         panic!();
     };
 
-    let parameter_entries = resolver
-        .scopes
-        .get_members(value_parameters.unwrap());
+    let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
 
     assert_eq!(parameter_entries.len(), 1);
 
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0].1)
+        .get_declaration(parameter_entries[0])
         .unwrap();
     let Definition::Local {
         type_id: parameter_type_id,
@@ -394,12 +384,10 @@ fn function_type_no_params() {
         panic!();
     };
 
-    let parameter_entries = resolver
-        .scopes
-        .get_members(value_parameters.unwrap());
+    let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0].1)
+        .get_declaration(parameter_entries[0])
         .unwrap();
     let Definition::Local {
         type_id: parameter_type_id,
@@ -448,12 +436,10 @@ fn function_type_multiple_params() {
         panic!();
     };
 
-    let parameter_entries = resolver
-        .scopes
-        .get_members(value_parameters.unwrap());
+    let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0].1)
+        .get_declaration(parameter_entries[0])
         .unwrap();
     let Definition::Local {
         type_id: parameter_type_id,
@@ -506,12 +492,10 @@ fn function_type_no_return() {
         panic!();
     };
 
-    let parameter_entries = resolver
-        .scopes
-        .get_members(value_parameters.unwrap());
+    let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0].1)
+        .get_declaration(parameter_entries[0])
         .unwrap();
     let Definition::Local {
         type_id: parameter_type_id,
@@ -570,12 +554,10 @@ fn type_path_to_struct() {
         panic!();
     };
 
-    let parameter_entries = resolver
-        .scopes
-        .get_members(value_parameters.unwrap());
+    let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0].1)
+        .get_declaration(parameter_entries[0])
         .unwrap();
     let Definition::Local {
         type_id: parameter_type_id,
@@ -629,12 +611,10 @@ fn type_path_to_enum() {
         panic!();
     };
 
-    let parameter_entries = resolver
-        .scopes
-        .get_members(value_parameters.unwrap());
+    let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0].1)
+        .get_declaration(parameter_entries[0])
         .unwrap();
     let Definition::Local {
         type_id: parameter_type_id,
@@ -676,19 +656,15 @@ fn type_path_to_type_parameter() {
         panic!();
     };
 
-    let type_parameter_entries = resolver
-        .scopes
-        .get_members(type_parameters.unwrap());
+    let type_parameter_entries = resolver.scopes.get_members(type_parameters.unwrap());
 
     assert_eq!(type_parameter_entries.len(), 1);
 
-    let t_declaration_id = type_parameter_entries[0].1;
-    let parameter_entries = resolver
-        .scopes
-        .get_members(value_parameters.unwrap());
+    let t_declaration_id = type_parameter_entries[0];
+    let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0].1)
+        .get_declaration(parameter_entries[0])
         .unwrap();
     let Definition::Local {
         type_id: parameter_type_id,

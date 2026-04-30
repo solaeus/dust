@@ -32,12 +32,12 @@ fn with_method() {
         panic!();
     };
 
-    assert_eq!(resolver.scopes.members_len(declarations.unwrap()), 1);
+    assert_eq!(resolver.scopes.get_members(declarations.unwrap()).len(), 1);
 
     let method_entries = resolver.scopes.get_members(declarations.unwrap());
     let method = resolver
         .declarations
-        .get_declaration(method_entries[0].1)
+        .get_declaration(method_entries[0])
         .unwrap();
     let bar_symbol = resolver.symbols.add_symbol("bar");
 

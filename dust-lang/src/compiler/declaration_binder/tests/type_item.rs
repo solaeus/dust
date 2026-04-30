@@ -65,11 +65,14 @@ fn generic_alias_resolves_type_parameter() {
         panic!();
     };
 
-    assert_eq!(resolver.scopes.members_len(type_parameters.unwrap()), 1);
+    assert_eq!(
+        resolver.scopes.get_members(type_parameters.unwrap()).len(),
+        1
+    );
 
     let type_parameter_entries = resolver.scopes.get_members(type_parameters.unwrap());
 
-    let t_declaration_id = type_parameter_entries[0].1;
+    let t_declaration_id = type_parameter_entries[0];
     let t_symbol = resolver.symbols.add_symbol("T");
     let t_declaration = resolver
         .declarations

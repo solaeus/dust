@@ -67,15 +67,13 @@ fn with_generics_parameters_and_return_type() {
     else {
         panic!();
     };
-    let type_parameter_entries = resolver
-        .scopes
-        .get_members(type_parameters.unwrap());
+    let type_parameter_entries = resolver.scopes.get_members(type_parameters.unwrap());
 
     assert!(public);
     assert_eq!(return_type_id, TypeId::I_64);
     assert_eq!(type_parameter_entries.len(), 2);
 
-    for &(_, id) in type_parameter_entries {
+    for &id in type_parameter_entries {
         let declaration = resolver.declarations.get_declaration(id).unwrap();
 
         assert!(matches!(declaration.definition, Definition::TypeParameter));
@@ -85,25 +83,23 @@ fn with_generics_parameters_and_return_type() {
     let b_symbol = resolver.symbols.add_symbol("B");
     let first = resolver
         .declarations
-        .get_declaration(type_parameter_entries[0].1)
+        .get_declaration(type_parameter_entries[0])
         .unwrap();
     let second = resolver
         .declarations
-        .get_declaration(type_parameter_entries[1].1)
+        .get_declaration(type_parameter_entries[1])
         .unwrap();
 
     assert_eq!(first.symbol_id, a_symbol);
     assert_eq!(second.symbol_id, b_symbol);
 
-    let parameter_entries = resolver
-        .scopes
-        .get_members(value_parameters.unwrap());
+    let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
 
     assert_eq!(parameter_entries.len(), 2);
 
     let first_parameter = resolver
         .declarations
-        .get_declaration(parameter_entries[0].1)
+        .get_declaration(parameter_entries[0])
         .unwrap();
     let Definition::Local {
         type_id: first_type,
@@ -114,7 +110,7 @@ fn with_generics_parameters_and_return_type() {
     };
     let second_parameter = resolver
         .declarations
-        .get_declaration(parameter_entries[1].1)
+        .get_declaration(parameter_entries[1])
         .unwrap();
     let Definition::Local {
         type_id: second_type,
@@ -247,9 +243,7 @@ fn type_parameters_have_correct_identity() {
         panic!();
     };
 
-    let type_parameter_entries = resolver
-        .scopes
-        .get_members(type_parameters.unwrap());
+    let type_parameter_entries = resolver.scopes.get_members(type_parameters.unwrap());
 
     assert_eq!(type_parameter_entries.len(), 2);
 
@@ -258,11 +252,11 @@ fn type_parameters_have_correct_identity() {
 
     let first = resolver
         .declarations
-        .get_declaration(type_parameter_entries[0].1)
+        .get_declaration(type_parameter_entries[0])
         .unwrap();
     let second = resolver
         .declarations
-        .get_declaration(type_parameter_entries[1].1)
+        .get_declaration(type_parameter_entries[1])
         .unwrap();
 
     assert_eq!(first.symbol_id, a_symbol);

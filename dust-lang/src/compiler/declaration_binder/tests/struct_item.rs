@@ -71,7 +71,7 @@ fn with_named_fields() {
 
     let first_field = resolver
         .declarations
-        .get_declaration(field_entries[0].1)
+        .get_declaration(field_entries[0])
         .unwrap();
     let Definition::Field {
         parent_struct: first_parent,
@@ -87,7 +87,7 @@ fn with_named_fields() {
 
     let second_field = resolver
         .declarations
-        .get_declaration(field_entries[1].1)
+        .get_declaration(field_entries[1])
         .unwrap();
     let Definition::Field {
         parent_struct: second_parent,
@@ -130,7 +130,7 @@ fn tuple() {
 
     let first_field = resolver
         .declarations
-        .get_declaration(field_entries[0].1)
+        .get_declaration(field_entries[0])
         .unwrap();
     let Definition::Field {
         parent_struct: first_parent,
@@ -145,7 +145,7 @@ fn tuple() {
 
     let second_field = resolver
         .declarations
-        .get_declaration(field_entries[1].1)
+        .get_declaration(field_entries[1])
         .unwrap();
     let Definition::Field {
         parent_struct: second_parent,
@@ -189,9 +189,7 @@ fn public_generic() {
 
     assert!(public);
 
-    let type_parameter_entries = resolver
-        .scopes
-        .get_members(type_parameters.unwrap());
+    let type_parameter_entries = resolver.scopes.get_members(type_parameters.unwrap());
 
     assert_eq!(type_parameter_entries.len(), 2);
 
@@ -199,11 +197,11 @@ fn public_generic() {
     let b_symbol = resolver.symbols.add_symbol("B");
     let first_tp = resolver
         .declarations
-        .get_declaration(type_parameter_entries[0].1)
+        .get_declaration(type_parameter_entries[0])
         .unwrap();
     let second_tp = resolver
         .declarations
-        .get_declaration(type_parameter_entries[1].1)
+        .get_declaration(type_parameter_entries[1])
         .unwrap();
 
     assert_eq!(first_tp.symbol_id, a_symbol);
@@ -216,7 +214,7 @@ fn public_generic() {
 
     let field = resolver
         .declarations
-        .get_declaration(field_entries[0].1)
+        .get_declaration(field_entries[0])
         .unwrap();
     let Definition::Field { type_id, .. } = field.definition else {
         panic!();
@@ -308,7 +306,7 @@ fn same_name_in_different_modules() {
     let a_field_entries = resolver.scopes.get_members(a_fields.unwrap());
     let a_field = resolver
         .declarations
-        .get_declaration(a_field_entries[0].1)
+        .get_declaration(a_field_entries[0])
         .unwrap();
     let Definition::Field {
         type_id: a_field_type,
@@ -336,7 +334,7 @@ fn same_name_in_different_modules() {
     let b_field_entries = resolver.scopes.get_members(b_fields.unwrap());
     let b_field = resolver
         .declarations
-        .get_declaration(b_field_entries[0].1)
+        .get_declaration(b_field_entries[0])
         .unwrap();
     let Definition::Field {
         type_id: b_field_type,
@@ -408,7 +406,7 @@ fn field_publicity() {
 
     let first_field = resolver
         .declarations
-        .get_declaration(field_entries[0].1)
+        .get_declaration(field_entries[0])
         .unwrap();
     let Definition::Field {
         public: first_public,
@@ -421,7 +419,7 @@ fn field_publicity() {
 
     let second_field = resolver
         .declarations
-        .get_declaration(field_entries[1].1)
+        .get_declaration(field_entries[1])
         .unwrap();
     let Definition::Field {
         public: second_public,
@@ -461,20 +459,18 @@ fn generic_field_uses_type_parameter() {
         panic!();
     };
 
-    let type_parameter_entries = resolver
-        .scopes
-        .get_members(type_parameters.unwrap());
+    let type_parameter_entries = resolver.scopes.get_members(type_parameters.unwrap());
 
     assert_eq!(type_parameter_entries.len(), 1);
 
-    let t_declaration_id = type_parameter_entries[0].1;
+    let t_declaration_id = type_parameter_entries[0];
     let field_entries = resolver.scopes.get_members(fields.unwrap());
 
     assert_eq!(field_entries.len(), 1);
 
     let field = resolver
         .declarations
-        .get_declaration(field_entries[0].1)
+        .get_declaration(field_entries[0])
         .unwrap();
     let Definition::Field { type_id, .. } = field.definition else {
         panic!();
