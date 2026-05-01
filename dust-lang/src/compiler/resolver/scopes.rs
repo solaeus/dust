@@ -91,14 +91,16 @@ pub enum ScopeKind {
 
 impl ScopeKind {
     pub fn is_barrier(self, definition: &Definition) -> bool {
-        match (self, definition) {
+        matches!(
+            (self, definition),
             (
                 ScopeKind::Item | ScopeKind::Associated | ScopeKind::Constant,
                 Definition::Local { .. } | Definition::Field { .. },
-            ) => true,
-            (ScopeKind::Item | ScopeKind::Constant, Definition::TypeParameter) => true,
-            _ => false,
-        }
+            ) | (
+                ScopeKind::Item | ScopeKind::Constant,
+                Definition::TypeParameter
+            )
+        )
     }
 }
 

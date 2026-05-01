@@ -9,7 +9,6 @@ use tracing::trace;
 
 use crate::{
     compiler::{
-        CompilationRequest,
         error::CompileError,
         resolver::{
             PrototypeId, Resolver,
@@ -56,8 +55,6 @@ pub struct Emitter<'a> {
 
     resolver: &'a mut Resolver,
 
-    compilation_stack: &'a mut Vec<CompilationRequest>,
-
     argument_count: u16,
 
     return_type_id: TypeId,
@@ -88,15 +85,10 @@ pub struct Emitter<'a> {
 
 impl<'a> Emitter<'a> {
     pub fn new(
-        declaration_id: Option<DeclarationId>,
+        declaration_id: DeclarationId,
         prototype_id: PrototypeId,
         return_type_id: TypeId,
-        (source, constants, resolver, compilation_stack): (
-            &'a Source,
-            &'a mut ConstantsBuilder,
-            &'a mut Resolver,
-            &'a mut Vec<CompilationRequest>,
-        ),
+        (source, constants, resolver): (&'a Source, &'a mut ConstantsBuilder, &'a mut Resolver),
         value_parameters: Option<SyntaxReader>,
     ) -> Result<Self, CompileError> {
         let argument_register_count = if let Some(value_parameters) = value_parameters {
@@ -134,7 +126,6 @@ impl<'a> Emitter<'a> {
             source,
             constants,
             resolver,
-            compilation_stack,
             instructions: Vec::new(),
             locals: HashMap::default(),
             pending_drops: Vec::new(),
@@ -148,15 +139,13 @@ impl<'a> Emitter<'a> {
             next_jump_id: JumpId(0),
         };
 
-        if let Some(declaration_id) = declaration_id {
-            emitter.locals.insert(
-                declaration_id,
-                Local::Place(Place::Constant {
-                    operand_type: OperandType::FUNCTION,
-                    index: prototype_id.inner(),
-                }),
-            );
-        }
+        emitter.locals.insert(
+            declaration_id,
+            Local::Place(Place::Constant {
+                operand_type: OperandType::FUNCTION,
+                index: prototype_id.inner(),
+            }),
+        );
 
         if let Some(value_parameters) = value_parameters {
             let ValueParameters { name_type_pairs } = value_parameters.as_component()?;
@@ -424,7 +413,7 @@ impl<'a> Emitter<'a> {
                 Type::FunctionDefinition { .. } | Type::Closure { .. } | Type::Function { .. } => {
                     OperandType::FUNCTION
                 }
-                Type::Slice { .. } | Type::Pointer { .. } => OperandType::POINTER,
+                Type::Pointer { .. } => OperandType::POINTER,
                 Type::Inferred {
                     resolved: Some(resolved),
                     ..
@@ -1026,10 +1015,11 @@ impl<'a> Emitter<'a> {
                     address.index,
                 );
 
-                Ok(InstructionsEmission::with_instruction_and_target(
-                    move_instruction,
-                    allocation,
-                ))
+                let mut instructions =
+                    InstructionsEmission::with_instruction_and_target(move_instruction, allocation);
+                instructions.push(Instruction::r#return());
+
+                Ok(instructions)
             }
             Emission::Place(Place::Constant {
                 operand_type,
@@ -1044,10 +1034,11 @@ impl<'a> Emitter<'a> {
                     index,
                 );
 
-                Ok(InstructionsEmission::with_instruction_and_target(
-                    move_instruction,
-                    allocation,
-                ))
+                let mut instructions =
+                    InstructionsEmission::with_instruction_and_target(move_instruction, allocation);
+                instructions.push(Instruction::r#return());
+
+                Ok(instructions)
             }
             Emission::Place(Place::Register(emission_allocation)) => {
                 let mut return_instructions = InstructionsEmission::new();
@@ -1069,9 +1060,14 @@ impl<'a> Emitter<'a> {
                     return_instructions.push(move_instruction);
                 }
 
+                return_instructions.push(Instruction::r#return());
+
                 Ok(return_instructions)
             }
-            Emission::Instructions(instructions) => Ok(instructions),
+            Emission::Instructions(mut instructions) => {
+                instructions.push(Instruction::r#return());
+                Ok(instructions)
+            }
             Emission::Never => {
                 let return_instruction = Instruction::r#return();
 
@@ -1111,9 +1107,7 @@ impl<'a> Emitter<'a> {
                     self.create_return_instructions(return_expression_emission, &child)?;
 
                 self.handle_function_body_instructions(return_instructions)?;
-            }
-
-            if let Emission::Instructions(instructions) =
+            } else if let Emission::Instructions(instructions) =
                 self.emit_expression(child, ExpressionTarget::Unclaimed(RegisterKind::Temporary))?
             {
                 self.handle_function_body_instructions(instructions)?;
@@ -1469,6 +1463,32 @@ impl<'a> Emitter<'a> {
         Ok(Emission::Instructions(assignment_instructions))
     }
 
+    fn resolve_literal_type_id(
+        &mut self,
+        binding_reader_id: crate::syntax::SyntaxId,
+        target: &ExpressionTarget,
+    ) -> Result<TypeId, CompileError> {
+        let bound_type_id = *self.resolver.get_type_binding(&binding_reader_id)?;
+        let bound_type = *self.resolver.types.get_type(bound_type_id)?;
+
+        let needs_context = matches!(bound_type, Type::Inferred { resolved: None, .. });
+
+        if !needs_context {
+            return self.resolver.resolve_type(bound_type_id);
+        }
+
+        match target {
+            ExpressionTarget::Unclaimed(RegisterKind::Reserved) => {
+                self.resolver.resolve_type(self.return_type_id)
+            }
+            ExpressionTarget::Claimed(claims) => {
+                let single_claim = claims.expect_single()?;
+                Ok(operand_type_to_type_id(single_claim.operand_type))
+            }
+            _ => self.resolver.resolve_type(bound_type_id),
+        }
+    }
+
     fn emit_boolean_expression(
         &mut self,
         reader: SyntaxReader,
@@ -1504,9 +1524,9 @@ impl<'a> Emitter<'a> {
     fn emit_float_expression(
         &mut self,
         reader: SyntaxReader,
-        _: ExpressionTarget,
+        target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
-        let type_id = *self.resolver.get_type_binding(&reader.id)?;
+        let type_id = self.resolve_literal_type_id(reader.id, &target)?;
         let text = self.source.get_content(reader.position())?;
 
         match type_id {
@@ -1527,9 +1547,9 @@ impl<'a> Emitter<'a> {
     fn emit_integer_expression(
         &mut self,
         reader: SyntaxReader,
-        _: ExpressionTarget,
+        target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
-        let type_id = *self.resolver.get_type_binding(&reader.id)?;
+        let type_id = self.resolve_literal_type_id(reader.id, &target)?;
         let text = self.source.get_content(reader.position())?;
 
         match type_id {
@@ -1994,7 +2014,6 @@ impl<'a> Emitter<'a> {
             Definition::Function { .. } => {
                 let type_id = *self.resolver.get_type_binding(&reader.id)?;
                 let callee_type = *self.resolver.types.get_type(type_id)?;
-
                 let type_arguments =
                     if let Type::FunctionDefinition { type_arguments, .. } = callee_type {
                         type_arguments
@@ -2008,22 +2027,9 @@ impl<'a> Emitter<'a> {
                     } else {
                         SmallVec::new()
                     };
-
-                let cache_key = (declaration_id, type_arguments);
-                let prototype_id =
-                    if let Some(existing) = self.resolver.get_cached_prototype(&cache_key) {
-                        existing
-                    } else {
-                        let reserved = self.resolver.reserve_prototype_id();
-
-                        self.resolver.cache_prototype(cache_key, reserved);
-                        self.compilation_stack.push(CompilationRequest {
-                            declaration_id,
-                            prototype_id: reserved,
-                        });
-
-                        reserved
-                    };
+                let prototype_id = self
+                    .resolver
+                    .add_monomorphized_function(declaration_id, type_arguments);
 
                 Ok(Emission::Place(Place::Constant {
                     operand_type: OperandType::FUNCTION,
@@ -3196,6 +3202,26 @@ enum ExpressionTarget {
     Claimed(RegisterClaims),
     Unclaimed(RegisterKind),
     None,
+}
+
+fn operand_type_to_type_id(operand_type: OperandType) -> TypeId {
+    match operand_type {
+        OperandType::BOOLEAN => TypeId::BOOLEAN,
+        OperandType::I_8 => TypeId::I_8,
+        OperandType::I_16 => TypeId::I_16,
+        OperandType::I_32 => TypeId::I_32,
+        OperandType::I_64 => TypeId::I_64,
+        OperandType::I_128 => TypeId::I_128,
+        OperandType::U_8 => TypeId::U_8,
+        OperandType::U_16 => TypeId::U_16,
+        OperandType::U_32 => TypeId::U_32,
+        OperandType::U_64 => TypeId::U_64,
+        OperandType::U_128 => TypeId::U_128,
+        OperandType::F_32 => TypeId::F_32,
+        OperandType::F_64 => TypeId::F_64,
+        OperandType::CHARACTER => TypeId::CHARACTER,
+        _ => TypeId::UNIT,
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]

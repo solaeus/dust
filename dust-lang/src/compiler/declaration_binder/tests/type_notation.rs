@@ -250,55 +250,6 @@ fn tuple_type_multiple() {
     assert_eq!(elements, &[TypeId::I_64, TypeId::BOOLEAN]);
 }
 
-#[test]
-fn slice_type() {
-    let mut source = Source::new();
-
-    source.add_code(SourceCode::validated_borrowed(
-        "test",
-        "fn foo(x: [i64]) {}",
-    ));
-
-    let (_syntax, mut resolver, crate_scope_id) = bind_declarations(&source);
-    let foo_symbol = resolver.symbols.add_symbol("foo");
-    let foo_declaration_id = *resolver
-        .declarations
-        .find_declaration_id(foo_symbol, crate_scope_id)
-        .unwrap();
-    let foo_declaration = resolver
-        .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
-    let Definition::Function {
-        value_parameters, ..
-    } = foo_declaration.definition
-    else {
-        panic!();
-    };
-
-    let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
-    let parameter_declaration = resolver
-        .declarations
-        .get_declaration(parameter_entries[0])
-        .unwrap();
-    let Definition::Local {
-        type_id: parameter_type_id,
-        ..
-    } = parameter_declaration.definition
-    else {
-        panic!();
-    };
-    let slice_type = resolver.types.get_type(parameter_type_id).unwrap();
-    let Type::Slice {
-        element_type_id, ..
-    } = slice_type
-    else {
-        panic!();
-    };
-
-    assert_eq!(parameter_entries.len(), 1);
-    assert_eq!(*element_type_id, TypeId::I_64);
-}
 
 #[test]
 fn function_type_basic() {

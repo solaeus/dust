@@ -10,6 +10,7 @@ pub(crate) mod tests;
 
 pub use emitter::RegisterWidth;
 
+use smallvec::SmallVec;
 use tracing::{Level, span};
 
 use crate::{
@@ -18,11 +19,7 @@ use crate::{
         emitter::Emitter,
         error::CompileError,
         resolver::{
-            PrototypeId, Resolver,
-            declarations::{DeclarationId, Definition},
-            scopes::ScopeKind,
-            symbols::SymbolId,
-            types::Type,
+            PrototypeId, Resolver, declarations::Definition, scopes::ScopeKind, types::TypeId,
         },
         type_binder::TypeBinder,
     },
@@ -34,7 +31,7 @@ use crate::{
     parser::{ParseResult, Parser},
     program::Program,
     source::{Source, SourceCodeId},
-    syntax::{Syntax, components::FnItem},
+    syntax::{Syntax, components::FnItem, node::SyntaxKind},
 };
 
 pub struct Compiler<'src> {
@@ -42,7 +39,6 @@ pub struct Compiler<'src> {
     source: Source<'src>,
     constants: ConstantsBuilder,
     resolver: Resolver,
-    compilation_stack: Vec<CompilationRequest>,
 }
 
 impl<'src> Compiler<'src> {
@@ -52,7 +48,6 @@ impl<'src> Compiler<'src> {
             source,
             constants: ConstantsBuilder::new(),
             resolver: Resolver::new(),
-            compilation_stack: Vec::new(),
         }
     }
 
@@ -213,26 +208,27 @@ impl<'src> Compiler<'src> {
             return Err(errors);
         };
 
-        let main_prototype_id = self.resolver.reserve_prototype_id();
+        let main_prototype_id = self
+            .resolver
+            .add_monomorphized_function(main_declaration_id, SmallVec::new());
 
         debug_assert_eq!(main_prototype_id, PrototypeId::MAIN);
 
-        self.compilation_stack.push(CompilationRequest {
-            declaration_id: main_declaration_id,
-            prototype_id: main_prototype_id,
-        });
+        let mut main_return_type_id = None;
 
-        let mut concrete_main_return_type_id = None;
-
-        while let Some(CompilationRequest {
-            declaration_id,
-            prototype_id,
-        }) = self.compilation_stack.pop()
-        {
-            todo!()
+        while let Some(prototype_id) = self.resolver.compilation_stack.pop() {
+            match self.compile_loop(prototype_id, &mut errors) {
+                Ok(type_id) => {
+                    if prototype_id == PrototypeId::MAIN {
+                        main_return_type_id =
+                            Some(unwrap_or_return!(self.resolver.resolve_type(type_id)));
+                    }
+                }
+                Err(()) => return Err(errors),
+            }
         }
 
-        let concrete_main_return_type_id = match concrete_main_return_type_id {
+        let concrete_main_return_type_id = match main_return_type_id {
             Some(type_id) => type_id,
             None => {
                 errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
@@ -241,21 +237,129 @@ impl<'src> Compiler<'src> {
             }
         };
 
-        let main_function_return_type_id = unwrap_or_return!(
+        let main_function_return_type = unwrap_or_return!(
             self.resolver
                 .get_external_type(concrete_main_return_type_id)
         );
 
         if errors.is_empty() {
-            Ok(main_function_return_type_id)
+            Ok(main_function_return_type)
         } else {
             Err(errors)
         }
     }
-}
 
-#[derive(Debug)]
-pub struct CompilationRequest {
-    pub declaration_id: DeclarationId,
-    pub prototype_id: PrototypeId,
+    fn compile_loop(
+        &mut self,
+        prototype_id: PrototypeId,
+        errors: &mut Vec<ErrorKind>,
+    ) -> Result<TypeId, ()> {
+        macro_rules! unwrap_or_return {
+            ($result: expr) => {
+                match $result {
+                    Ok(value) => value,
+                    Err(error) => {
+                        errors.push(error.into());
+
+                        return Err(());
+                    }
+                }
+            };
+        }
+
+        let (declaration_id, type_arguments) = self
+            .resolver
+            .get_monomorphized_function(prototype_id)
+            .clone();
+        let declaration =
+            unwrap_or_return!(self.resolver.declarations.get_declaration(declaration_id));
+        let Definition::Function {
+            type_parameters,
+            return_type_id,
+            ..
+        } = declaration.definition
+        else {
+            errors.push(ErrorKind::Compile(
+                CompileError::ExpectedFunctionDefinition(declaration_id),
+            ));
+
+            return Err(());
+        };
+        let (position, syntax_id) = unwrap_or_return!(declaration.syntax.ok_or(
+            ErrorKind::Compile(CompileError::ExpectedSyntax {
+                expected: &[SyntaxKind::BlockExpression],
+            })
+        ));
+        let function_syntax = unwrap_or_return!(
+            self.syntax
+                .get_tree(position.source_id)
+                .and_then(|tree| tree.read_node(syntax_id))
+        );
+        let Ok(FnItem {
+            body: Some(body),
+            value_parameters,
+            ..
+        }) = function_syntax.as_component()
+        else {
+            errors.push(ErrorKind::Compile(CompileError::ExpectedSyntax {
+                expected: &[SyntaxKind::BlockExpression],
+            }));
+
+            return Err(());
+        };
+
+        self.resolver.type_parameter_map.clear();
+
+        let type_parameter_ids = match type_parameters {
+            Some(type_parameter_scope_id) => {
+                self.resolver.scopes.get_members(type_parameter_scope_id)
+            }
+            None => &[],
+        };
+
+        if type_parameter_ids.len() != type_arguments.len() {
+            errors.push(ErrorKind::Compile(
+                CompileError::TypeArgumentCountMismatch {
+                    expected: type_parameter_ids.len(),
+                    actual: type_arguments.len(),
+                },
+            ));
+
+            return Err(());
+        }
+
+        self.resolver
+            .type_parameter_map
+            .extend(type_parameter_ids.iter().zip(type_arguments.iter()));
+
+        {
+            let span = span!(Level::INFO, "type_bind");
+            let _enter = span.enter();
+
+            let mut type_binder = TypeBinder::new(&mut self.resolver, &self.source, errors);
+
+            type_binder.bind_function_body(body, return_type_id);
+        }
+
+        {
+            let span = span!(Level::INFO, "emit");
+            let _enter = span.enter();
+
+            let mut emitter = unwrap_or_return!(Emitter::new(
+                declaration_id,
+                prototype_id,
+                return_type_id,
+                (&self.source, &mut self.constants, &mut self.resolver),
+                value_parameters,
+            ));
+
+            unwrap_or_return!(emitter.emit_function_body(body));
+
+            let prototype = unwrap_or_return!(emitter.finish());
+
+            self.resolver.set_prototype(prototype_id, prototype);
+        }
+
+        Ok(return_type_id)
+    }
 }

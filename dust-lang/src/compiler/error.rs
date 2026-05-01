@@ -199,6 +199,10 @@ pub enum CompileError {
     ExpectedSyntax {
         expected: &'static [SyntaxKind],
     },
+    TypeArgumentCountMismatch {
+        expected: usize,
+        actual: usize,
+    },
 }
 
 impl From<SyntaxError> for CompileError {
@@ -381,8 +385,7 @@ impl<'a> DustError<'a> for CompileError {
                 let declaration = match type_node {
                     Type::Algebraic { declaration_id, .. }
                     | Type::FunctionDefinition { declaration_id, .. }
-                    | Type::Generic { declaration_id }
-                    | Type::Slice { declaration_id, .. } => {
+                    | Type::Generic { declaration_id } => {
                         match resolver.declarations.get_declaration(*declaration_id) {
                             Ok(declaration) => Some(declaration),
                             Err(error) => {
@@ -1177,6 +1180,16 @@ impl<'a> DustError<'a> for CompileError {
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Level::ERROR.message(format!(
                         "Expected one of the following syntax kinds: {expected_string}, but found {found_string}."
+                    )),
+                );
+
+                groups.push(group);
+            }
+            CompileError::TypeArgumentCountMismatch { expected, actual } => {
+                let title = "Type argument count mismatch";
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Level::ERROR.message(format!(
+                        "Expected {expected} type arguments but found {actual}."
                     )),
                 );
 

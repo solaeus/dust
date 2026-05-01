@@ -61,9 +61,6 @@ pub enum DustType {
     /// `[T; N]`
     Array(Box<DustType>, usize),
 
-    /// `[T]`
-    Slice(Box<DustType>),
-
     /// `fn<T1, T2, ...>(P1, P2, ...) -> R`
     Function(Box<DustFunctionType>),
 
@@ -108,7 +105,6 @@ impl Display for DustType {
                 write!(f, ")")
             }
             DustType::Array(item_type, size) => write!(f, "[{item_type}; {size}]"),
-            DustType::Slice(item_type) => write!(f, "[{item_type}]"),
             DustType::Function(function_type) => write!(f, "{function_type}"),
             DustType::Struct(struct_type) => write!(f, "{struct_type}"),
             DustType::Enum(enum_type) => write!(f, "{enum_type}"),

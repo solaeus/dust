@@ -8,6 +8,7 @@ use std::{
     fmt::{self, Display, Formatter},
 };
 
+use indexmap::IndexSet;
 use rustc_hash::FxBuildHasher;
 use smallvec::{SmallVec, smallvec};
 
@@ -38,12 +39,15 @@ pub struct Resolver {
     pub scopes: Scopes,
     pub types: Types,
     pub type_parameter_map: HashMap<DeclarationId, TypeId, FxBuildHasher>,
+    pub implementations: HashMap<DeclarationId, DeclarationId::SmallVec, FxBuildHasher>,
+    pub compilation_stack: Vec<PrototypeId>,
 
     prototypes: Vec<Prototype>,
+    monomorphization_cache: IndexSet<(DeclarationId, TypeId::SmallVec), FxBuildHasher>,
+
     declaration_bindings: HashMap<SyntaxId, DeclarationId, FxBuildHasher>,
     type_bindings: HashMap<SyntaxId, TypeId, FxBuildHasher>,
-    monomorphization_cache:
-        HashMap<(DeclarationId, SmallVec<[TypeId; 4]>), PrototypeId, FxBuildHasher>,
+
     constant_item_values: HashMap<DeclarationId, ConstantValue, FxBuildHasher>,
 }
 
@@ -54,11 +58,13 @@ impl Resolver {
             declarations: Declarations::new(),
             scopes: Scopes::new(),
             types: Types::new(),
+            type_parameter_map: HashMap::default(),
+            implementations: HashMap::default(),
+            compilation_stack: Vec::new(),
             prototypes: Vec::new(),
+            monomorphization_cache: IndexSet::default(),
             declaration_bindings: HashMap::default(),
             type_bindings: HashMap::default(),
-            type_parameter_map: HashMap::default(),
-            monomorphization_cache: HashMap::default(),
             constant_item_values: HashMap::default(),
         };
 
@@ -94,34 +100,31 @@ impl Resolver {
             .ok_or(CompileError::MissingTypeBinding(*syntax_id))
     }
 
-    pub fn get_cached_prototype(
-        &self,
-        cache_key: &(DeclarationId, SmallVec<[TypeId; 4]>),
-    ) -> Option<PrototypeId> {
-        self.monomorphization_cache.get(cache_key).copied()
-    }
-
-    pub fn cache_prototype(
+    pub fn add_monomorphized_function(
         &mut self,
-        cache_key: (DeclarationId, SmallVec<[TypeId; 4]>),
-        prototype_id: PrototypeId,
-    ) {
-        self.monomorphization_cache.insert(cache_key, prototype_id);
+        declaration_id: DeclarationId,
+        type_arguments: TypeId::SmallVec,
+    ) -> PrototypeId {
+        let cache_key = (declaration_id, type_arguments);
+
+        if let Some(index) = self.monomorphization_cache.get_index_of(&cache_key) {
+            PrototypeId(index as u16)
+        } else {
+            let prototype_id = PrototypeId(self.prototypes.len() as u16);
+
+            self.prototypes.push(Prototype::placeholder());
+            self.monomorphization_cache.insert(cache_key);
+            self.compilation_stack.push(prototype_id);
+
+            prototype_id
+        }
     }
 
-    pub fn get_concrete_type_arguments(
+    pub fn get_monomorphized_function(
         &self,
         prototype_id: PrototypeId,
-    ) -> Option<&SmallVec<[TypeId; 4]>> {
-        self.monomorphization_cache
-            .iter()
-            .find_map(|((_, type_arguments), id)| {
-                if *id == prototype_id {
-                    Some(type_arguments)
-                } else {
-                    None
-                }
-            })
+    ) -> &(DeclarationId, TypeId::SmallVec) {
+        &self.monomorphization_cache[prototype_id.0 as usize]
     }
 
     pub fn add_constant_item_value(&mut self, declaration_id: DeclarationId, value: ConstantValue) {
@@ -132,14 +135,6 @@ impl Resolver {
         self.constant_item_values.get(declaration_id).copied()
     }
 
-    pub fn reserve_prototype_id(&mut self) -> PrototypeId {
-        let id = PrototypeId(self.prototypes.len() as u16);
-
-        self.prototypes.push(Prototype::placeholder());
-
-        id
-    }
-
     pub fn set_prototype(&mut self, prototype_id: PrototypeId, prototype: Prototype) {
         self.prototypes[prototype_id.0 as usize] = prototype;
     }
@@ -148,7 +143,7 @@ impl Resolver {
         let resolved_type = *self.types.get_type(type_id)?;
 
         let start_type_id = match resolved_type {
-            Type::Generic { declaration_id } | Type::Slice { declaration_id, .. } => {
+            Type::Generic { declaration_id } => {
                 let concrete_type_id = self
                     .type_parameter_map
                     .get(&declaration_id)
@@ -263,7 +258,7 @@ impl Resolver {
 
                 Ok(operand_types)
             }
-            Type::Slice { .. } | Type::Pointer { .. } => Ok(smallvec![OperandType::POINTER]),
+            Type::Pointer { .. } => Ok(smallvec![OperandType::POINTER]),
             Type::FunctionDefinition { .. } | Type::Closure { .. } | Type::Function { .. } => {
                 Ok(smallvec![OperandType::FUNCTION])
             }
@@ -569,20 +564,6 @@ impl Resolver {
                 self.types.add_type(Type::Array {
                     element_type_id,
                     length: *length,
-                })
-            }
-            DustType::Slice(element_type) => {
-                let element_type_id = self.add_external_type(element_type, scope_id);
-                let declaration_id = self.declarations.add_declaration(Declaration {
-                    symbol_id: self.symbols.add_slice_symbol(),
-                    definition: Definition::TypeParameter,
-                    scope_id,
-                    syntax: None,
-                });
-
-                self.types.add_type(Type::Slice {
-                    declaration_id,
-                    element_type_id,
                 })
             }
             DustType::Function(function_type) => {
@@ -1044,13 +1025,6 @@ impl Resolver {
                     value_parameters: value_parameter_types,
                     return_type: return_dust_type,
                 })))
-            }
-            Type::Slice {
-                element_type_id, ..
-            } => {
-                let element_dust_type = self.get_external_type(*element_type_id)?;
-
-                Ok(DustType::Slice(Box::new(element_dust_type)))
             }
             Type::FunctionDefinition {
                 declaration_id,

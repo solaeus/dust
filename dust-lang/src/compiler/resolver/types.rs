@@ -257,14 +257,6 @@ pub enum Type {
         length: usize,
     },
 
-    /// A view into a contiguous sequence of elements.
-    ///
-    /// `[T]`
-    Slice {
-        declaration_id: DeclarationId,
-        element_type_id: TypeId,
-    },
-
     /// An instance of a function definition type.
     ///
     /// ```dust
@@ -385,16 +377,6 @@ impl PartialEq for Type {
                 },
             ) => left_element_type_id == right_element_type_id && left_length == right_length,
             (
-                Type::Slice {
-                    element_type_id: left_element_type_id,
-                    ..
-                },
-                Type::Slice {
-                    element_type_id: right_element_type_id,
-                    ..
-                },
-            ) => left_element_type_id == right_element_type_id,
-            (
                 Type::FunctionDefinition {
                     declaration_id: left_declaration_id,
                     type_arguments: left_type_arguments,
@@ -514,17 +496,6 @@ impl Ord for Type {
                 .cmp(right_element_type_id)
                 .then_with(|| left_length.cmp(right_length)),
             (Type::Array { .. }, _) => Ordering::Less,
-            (
-                Type::Slice {
-                    element_type_id: left_element_type_id,
-                    ..
-                },
-                Type::Slice {
-                    element_type_id: right_element_type_id,
-                    ..
-                },
-            ) => left_element_type_id.cmp(right_element_type_id),
-            (Type::Slice { .. }, _) => Ordering::Less,
             (
                 Type::FunctionDefinition {
                     declaration_id: left_declaration_id,
@@ -685,17 +656,11 @@ impl Hash for Type {
                 element_type_id.hash(state);
                 length.hash(state);
             }
-            Type::Slice {
-                element_type_id, ..
-            } => {
-                state.write_u8(19);
-                element_type_id.hash(state);
-            }
             Type::FunctionDefinition {
                 declaration_id,
                 type_arguments,
             } => {
-                state.write_u8(20);
+                state.write_u8(19);
                 declaration_id.hash(state);
                 type_arguments.hash(state);
             }
@@ -703,7 +668,7 @@ impl Hash for Type {
                 value_parameters,
                 return_type_id,
             } => {
-                state.write_u8(21);
+                state.write_u8(20);
                 value_parameters.hash(state);
                 return_type_id.hash(state);
             }
@@ -711,7 +676,7 @@ impl Hash for Type {
                 value_parameters,
                 return_type_id: return_type,
             } => {
-                state.write_u8(22);
+                state.write_u8(21);
                 value_parameters.hash(state);
                 return_type.hash(state);
             }
@@ -719,12 +684,12 @@ impl Hash for Type {
                 declaration_id,
                 type_arguments,
             } => {
-                state.write_u8(23);
+                state.write_u8(22);
                 declaration_id.hash(state);
                 type_arguments.hash(state);
             }
             Type::Generic { declaration_id } => {
-                state.write_u8(24);
+                state.write_u8(23);
                 declaration_id.hash(state);
             }
             Type::Inferred {
@@ -732,14 +697,14 @@ impl Hash for Type {
                 constraint: _,
                 resolved: _,
             } => {
-                state.write_u8(25);
+                state.write_u8(24);
                 inferred_id.hash(state);
             }
             Type::Pointer {
                 declaration_id,
                 type_arguments,
             } => {
-                state.write_u8(26);
+                state.write_u8(25);
                 declaration_id.hash(state);
                 type_arguments.hash(state);
             }

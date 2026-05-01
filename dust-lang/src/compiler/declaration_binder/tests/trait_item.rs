@@ -133,5 +133,8 @@ fn trait_creates_trait_scope() {
     let scope = resolver.scopes.get_scope(declarations.unwrap());
 
     assert_eq!(scope.kind, ScopeKind::Members);
-    assert_eq!(scope.parent, Some(crate_scope_id));
+    let item_scope_id = scope.parent.expect("trait Members scope has a parent");
+    let item_scope = resolver.scopes.get_scope(item_scope_id);
+    assert_eq!(item_scope.kind, ScopeKind::Item);
+    assert_eq!(item_scope.parent, Some(crate_scope_id));
 }

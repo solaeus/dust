@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests;
 
+use smallvec::SmallVec;
+
 use crate::{
     compiler::{
         error::CompileError,
@@ -383,21 +385,6 @@ impl<'a> TypeBinder<'a> {
                     right_syntax,
                 )
             }
-            (
-                Type::Slice {
-                    element_type_id: slice_element_type_id,
-                    ..
-                },
-                Type::Array {
-                    element_type_id: array_element_type_id,
-                    ..
-                },
-            ) => self.unify_types(
-                slice_element_type_id,
-                left_syntax,
-                array_element_type_id,
-                right_syntax,
-            ),
             (left_type_node, right_type_node) => {
                 if left_type_node == right_type_node {
                     Ok(())
@@ -936,9 +923,37 @@ impl<'a> TypeBinder<'a> {
                 self.resolver.resolve_type(type_id)?
             }
             Definition::Function {
-                type_parameters, ..
+                value_parameters,
+                return_type_id,
+                ..
             } => {
-                todo!()
+                let parameter_type_ids: TypeId::SmallVec = if let Some(scope_id) = value_parameters
+                {
+                    self.resolver
+                        .scopes
+                        .get_members(scope_id)
+                        .iter()
+                        .map(|parameter_declaration_id| {
+                            let parameter_declaration =
+                                self.resolver.declarations.get_declaration(*parameter_declaration_id)?;
+                            match parameter_declaration.definition {
+                                Definition::Local { type_id, .. } => Ok(type_id),
+                                _ => Err(CompileError::ExpectedConcreteType),
+                            }
+                        })
+                        .collect::<Result<_, CompileError>>()?
+                } else {
+                    SmallVec::new()
+                };
+                let value_parameters_members =
+                    self.resolver.types.add_type_members(parameter_type_ids);
+
+                let function_type = Type::Function {
+                    value_parameters: value_parameters_members,
+                    return_type_id,
+                };
+
+                self.resolver.types.add_type(function_type)
             }
             Definition::StructType { .. } | Definition::EnumType { .. } => {
                 let algebraic_type = Type::Algebraic {
@@ -950,9 +965,42 @@ impl<'a> TypeBinder<'a> {
             }
             Definition::Variant {
                 enum_declaration_id,
+                fields,
                 ..
             } => {
-                todo!()
+                let parameter_type_ids: TypeId::SmallVec = if let Some(scope_id) = fields {
+                    self.resolver
+                        .scopes
+                        .get_members(scope_id)
+                        .iter()
+                        .map(|field_declaration_id| {
+                            let field_declaration =
+                                self.resolver.declarations.get_declaration(*field_declaration_id)?;
+                            match field_declaration.definition {
+                                Definition::Field { type_id, .. } => Ok(type_id),
+                                Definition::Local { type_id, .. } => Ok(type_id),
+                                _ => Err(CompileError::ExpectedConcreteType),
+                            }
+                        })
+                        .collect::<Result<_, CompileError>>()?
+                } else {
+                    SmallVec::new()
+                };
+                let value_parameters_members =
+                    self.resolver.types.add_type_members(parameter_type_ids);
+
+                let return_algebraic = Type::Algebraic {
+                    declaration_id: enum_declaration_id,
+                    type_arguments: TypeMembers::default(),
+                };
+                let return_type_id = self.resolver.types.add_type(return_algebraic);
+
+                let function_type = Type::Function {
+                    value_parameters: value_parameters_members,
+                    return_type_id,
+                };
+
+                self.resolver.types.add_type(function_type)
             }
             Definition::Use {
                 source_declaration_id,
@@ -1212,7 +1260,35 @@ impl<'a> TypeBinder<'a> {
         let resolved_callee_type_id = self.infer_type(callee_type_id)?;
         let callee_type = *self.resolver.types.get_type(resolved_callee_type_id)?;
 
-        todo!()
+        let (parameter_members, return_type_id) = match callee_type {
+            Type::Function {
+                value_parameters,
+                return_type_id,
+            } => (value_parameters, return_type_id),
+            _ => {
+                return Err(CompileError::ExpectedConcreteType);
+            }
+        };
+
+        let parameter_type_ids: Vec<TypeId> = self
+            .resolver
+            .types
+            .get_type_members(parameter_members)?
+            .to_vec();
+
+        let argument_readers: Vec<SyntaxReader> = arguments.children().collect();
+
+        for (index, argument) in argument_readers.iter().enumerate() {
+            let argument_type_id = self.bind_expression(*argument, ())?;
+            if let Some(parameter_type_id) = parameter_type_ids.get(index) {
+                self.unify_types(*parameter_type_id, None, argument_type_id, *argument)?;
+            }
+        }
+
+        let resolved_return_type_id = self.resolver.resolve_type(return_type_id)?;
+        self.resolver.add_type_binding(reader.id, resolved_return_type_id);
+
+        Ok(resolved_return_type_id)
     }
 
     fn bind_field_access_expression(
@@ -1261,23 +1337,6 @@ impl<'a> TypeBinder<'a> {
             SyntaxKind::F32Type => Ok(TypeId::F_32),
             SyntaxKind::F64Type => Ok(TypeId::F_64),
             SyntaxKind::CharacterType => Ok(TypeId::CHARACTER),
-            SyntaxKind::SliceType => {
-                let element_type = reader.single_child()?;
-
-                let slice_symbol_id = self.resolver.symbols.add_slice_symbol();
-                let element_type_id = self.bind_type(element_type)?;
-                let declaration_id = self.resolver.declarations.add_declaration(Declaration {
-                    symbol_id: slice_symbol_id,
-                    definition: Definition::TypeParameter,
-                    scope_id: ScopeId::CORE,
-                    syntax: None,
-                });
-
-                Ok(self.resolver.types.add_type(Type::Slice {
-                    declaration_id,
-                    element_type_id,
-                }))
-            }
             SyntaxKind::TupleType => {
                 let element_type_ids = reader
                     .children()
@@ -1386,7 +1445,6 @@ impl<'a> TypeBinder<'a> {
                     SyntaxKind::F32Type,
                     SyntaxKind::F64Type,
                     SyntaxKind::CharacterType,
-                    SyntaxKind::SliceType,
                     SyntaxKind::TupleType,
                     SyntaxKind::FunctionType,
                     SyntaxKind::TypePath,

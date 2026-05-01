@@ -25,7 +25,7 @@ use crate::{
             EnumItemTupleVariant, EnumNamedFieldsVariant, EnumUnitVariant, ExpressionStatement,
             FieldAccessExpression, FnItem, FunctionType, GroupedExpression, IfExpression, ImplItem,
             IndexExpression, LetStatement, LogicExpression, MathExpression, ModItem, NamedFields,
-            NegationExpression, NotExpression, PathSegment, RangeExpression, Root, SliceType,
+            NegationExpression, NotExpression, PathSegment, RangeExpression, Root,
             StructExpression, StructExpressionStructFields, StructItem, SyntaxComponent, TraitItem,
             TupleFields, TupleType, TypeItem, UseItem, ValueParameters, WhileExpression,
         },
@@ -137,7 +137,7 @@ impl<'a> DeclarationBinder<'a> {
         declaration_id
     }
 
-    fn search_path_segments(
+    fn bind_path_segments(
         &mut self,
         path_expression: SyntaxReader,
     ) -> Result<Option<DeclarationId>, CompileError> {
@@ -158,6 +158,9 @@ impl<'a> DeclarationBinder<'a> {
             return Ok(None);
         };
 
+        self.resolver
+            .add_declaration_binding(first_segment.id, current_declaration_id);
+
         for path_segment in path_segments {
             self.bind_path_segment_type_arguments(path_segment)?;
 
@@ -169,7 +172,13 @@ impl<'a> DeclarationBinder<'a> {
                 current_declaration_id,
                 path_segment,
             )?;
+
+            self.resolver
+                .add_declaration_binding(path_segment.id, current_declaration_id);
         }
+
+        self.resolver
+            .add_declaration_binding(path_expression.id, current_declaration_id);
 
         Ok(Some(current_declaration_id))
     }
@@ -242,7 +251,7 @@ impl<'a> DeclarationBinder<'a> {
             .resolver
             .declarations
             .get_declaration(parent_declaration_id)?;
-        let member_scope_id = match parent_declaration.definition {
+        let primary_member_scope_id = match parent_declaration.definition {
             Definition::Module {
                 inner_scope_id: Some(inner_scope_id),
                 ..
@@ -262,7 +271,9 @@ impl<'a> DeclarationBinder<'a> {
             | Definition::InherentImplementation {
                 declarations: Some(inner_scope_id),
                 ..
-            } => inner_scope_id,
+            } => Some(inner_scope_id),
+            Definition::StructType { fields: None, .. }
+            | Definition::EnumType { variants: None, .. } => None,
             _ => {
                 return Err(CompileError::Undeclared {
                     symbol_id,
@@ -271,18 +282,51 @@ impl<'a> DeclarationBinder<'a> {
             }
         };
 
-        if let Some(declaration_id) = self
-            .resolver
-            .declarations
-            .find_declaration_id(symbol_id, member_scope_id)
+        if let Some(scope_id) = primary_member_scope_id
+            && let Some(declaration_id) = self
+                .resolver
+                .declarations
+                .find_declaration_id(symbol_id, scope_id)
         {
-            Ok(*declaration_id)
-        } else {
-            Err(CompileError::Undeclared {
-                symbol_id,
-                usage_position: path_segment.position(),
-            })
+            return Ok(*declaration_id);
         }
+
+        if matches!(
+            parent_declaration.definition,
+            Definition::StructType { .. } | Definition::EnumType { .. }
+        ) && let Some(implementation_declaration_ids) =
+            self.resolver.implementations.get(&parent_declaration_id)
+        {
+            for implementation_declaration_id in implementation_declaration_ids {
+                let implementation_declaration = self
+                    .resolver
+                    .declarations
+                    .get_declaration(*implementation_declaration_id)?;
+                let implementation_scope_id = match implementation_declaration.definition {
+                    Definition::InherentImplementation {
+                        declarations: Some(scope_id),
+                        ..
+                    }
+                    | Definition::TraitImplementation {
+                        declarations: Some(scope_id),
+                        ..
+                    } => scope_id,
+                    _ => continue,
+                };
+                if let Some(declaration_id) = self
+                    .resolver
+                    .declarations
+                    .find_declaration_id(symbol_id, implementation_scope_id)
+                {
+                    return Ok(*declaration_id);
+                }
+            }
+        }
+
+        Err(CompileError::Undeclared {
+            symbol_id,
+            usage_position: path_segment.position(),
+        })
     }
 
     fn bind_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
@@ -413,7 +457,7 @@ impl<'a> DeclarationBinder<'a> {
         let mut current_symbol_id = first_symbol_id;
         let mut current_span = first_segment.node.span;
 
-        while let Some(segment) = path_segments.next() {
+        for segment in path_segments {
             let segment_str = file.get_str(segment.node.span)?;
             let segment_symbol_id = self.resolver.symbols.add_symbol(segment_str);
             let segment_declaration_id =
@@ -1034,6 +1078,12 @@ impl<'a> DeclarationBinder<'a> {
         self.resolver
             .add_declaration_binding(reader.id, impl_declaration_id);
 
+        self.resolver
+            .implementations
+            .entry(self_declaration_id)
+            .or_default()
+            .push(impl_declaration_id);
+
         Ok(())
     }
 
@@ -1428,7 +1478,7 @@ impl<'a> DeclarationBinder<'a> {
     }
 
     fn bind_path_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        if let Some(declaration_id) = self.search_path_segments(reader)? {
+        if let Some(declaration_id) = self.bind_path_segments(reader)? {
             self.resolver
                 .add_declaration_binding(reader.id, declaration_id);
         }
@@ -1699,22 +1749,6 @@ impl<'a> DeclarationBinder<'a> {
                     length,
                 }))
             }
-            SyntaxKind::SliceType => {
-                let SliceType { element_type } = reader.as_component()?;
-
-                let element_type_id = self.handle_explicit_type(element_type)?;
-                let slice_symbol_id = self.resolver.symbols.add_slice_symbol();
-                let declaration_id = self.add_declaration(
-                    slice_symbol_id,
-                    Definition::TypeParameter,
-                    Some((reader.position(), reader.id)),
-                );
-
-                Ok(self.resolver.types.add_type(Type::Slice {
-                    declaration_id,
-                    element_type_id,
-                }))
-            }
             SyntaxKind::TupleType => {
                 let TupleType { element_types } = reader.as_component()?;
 
@@ -1748,7 +1782,7 @@ impl<'a> DeclarationBinder<'a> {
                 }))
             }
             SyntaxKind::TypePath => {
-                if let Some(declaration_id) = self.search_path_segments(reader)? {
+                if let Some(declaration_id) = self.bind_path_segments(reader)? {
                     self.resolver
                         .add_declaration_binding(reader.id, declaration_id);
 
@@ -1797,7 +1831,6 @@ impl<'a> DeclarationBinder<'a> {
                     SyntaxKind::F32Type,
                     SyntaxKind::F64Type,
                     SyntaxKind::CharacterType,
-                    SyntaxKind::SliceType,
                     SyntaxKind::TupleType,
                     SyntaxKind::FunctionType,
                     SyntaxKind::TypePath,
@@ -1811,7 +1844,7 @@ impl<'a> DeclarationBinder<'a> {
     fn bind_path(&mut self, path: SyntaxReader) -> Result<DeclarationId, CompileError> {
         debug_assert_eq!(path.node.kind, SyntaxKind::Path);
 
-        self.search_path_segments(path)?
+        self.bind_path_segments(path)?
             .ok_or_else(|| CompileError::ExpectedValue {
                 source_id: path.source_id(),
                 syntax_id: path.id,

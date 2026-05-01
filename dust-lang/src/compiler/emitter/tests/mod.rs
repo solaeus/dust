@@ -31,6 +31,8 @@ mod range_expression;
 mod struct_expression;
 mod while_expression;
 
+use smallvec::SmallVec;
+
 use crate::{
     compiler::{emitter::Emitter, resolver::declarations::Definition, tests::type_bind_function},
     constants::ConstantsBuilder,
@@ -74,19 +76,13 @@ fn emit_function(source_code: &str) -> Prototype {
     source.add_code(SourceCode::validated_borrowed("test", source_code));
 
     let mut constants = ConstantsBuilder::new();
-    let prototype_id = resolver.reserve_prototype_id();
-    let mut compilation_stack = Vec::new();
+    let prototype_id = resolver.add_monomorphized_function(declaration_id, SmallVec::new());
 
     let mut emitter = Emitter::new(
-        Some(declaration_id),
+        declaration_id,
         prototype_id,
         concrete_return_type_id,
-        (
-            &source,
-            &mut constants,
-            &mut resolver,
-            &mut compilation_stack,
-        ),
+        (&source, &mut constants, &mut resolver),
         value_parameters,
     )
     .unwrap();

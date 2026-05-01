@@ -346,7 +346,10 @@ fn function_body_creates_function_scope() {
     let scope = resolver.scopes.get_scope(fn_body_scope);
 
     assert_eq!(scope.kind, ScopeKind::Block);
-    assert_eq!(scope.parent, Some(crate_scope_id));
+    let item_scope_id = scope.parent.expect("function body has a parent scope");
+    let item_scope = resolver.scopes.get_scope(item_scope_id);
+    assert_eq!(item_scope.kind, ScopeKind::Item);
+    assert_eq!(item_scope.parent, Some(crate_scope_id));
 }
 
 #[test]
