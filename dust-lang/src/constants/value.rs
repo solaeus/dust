@@ -1,7 +1,10 @@
 use std::fmt::{self, Display, Formatter};
 
 use crate::{
-    compiler::{error::CompileError, resolver::types::TypeId},
+    compiler::{
+        error::CompileError,
+        resolver::{PrototypeId, types::TypeId},
+    },
     instruction::OperandType,
     syntax::{
         components::{ComparisonExpression, LogicExpression, MathExpression},
@@ -26,6 +29,10 @@ pub enum ConstantValue {
     I128(i128),
     F32(f32),
     F64(f64),
+    Function {
+        prototype_id: PrototypeId,
+        type_id: TypeId,
+    },
 }
 
 impl ConstantValue {
@@ -45,6 +52,7 @@ impl ConstantValue {
             ConstantValue::I128(_) => TypeId::I_128,
             ConstantValue::F32(_) => TypeId::F_32,
             ConstantValue::F64(_) => TypeId::F_64,
+            ConstantValue::Function { type_id, .. } => type_id,
         }
     }
 
@@ -64,6 +72,7 @@ impl ConstantValue {
             ConstantValue::I128(_) => OperandType::I_128,
             ConstantValue::F32(_) => OperandType::F_32,
             ConstantValue::F64(_) => OperandType::F_64,
+            ConstantValue::Function { .. } => OperandType::FUNCTION,
         }
     }
 
@@ -85,6 +94,7 @@ impl ConstantValue {
             ConstantValue::U64(integer) => encode(integer),
             ConstantValue::U128(integer) => encode(integer),
             ConstantValue::Character(_) | ConstantValue::F32(_) | ConstantValue::F64(_) => None,
+            ConstantValue::Function { prototype_id, .. } => Some(prototype_id.inner()),
         }
     }
 
@@ -724,6 +734,7 @@ impl Display for ConstantValue {
             ConstantValue::I128(integer) => write!(f, "{integer}"),
             ConstantValue::F32(float) => write!(f, "{float}"),
             ConstantValue::F64(float) => write!(f, "{float}"),
+            ConstantValue::Function { prototype_id, .. } => write!(f, "proto_{prototype_id}"),
         }
     }
 }

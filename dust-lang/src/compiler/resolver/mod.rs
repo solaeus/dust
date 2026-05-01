@@ -127,16 +127,16 @@ impl Resolver {
         &self.monomorphization_cache[prototype_id.0 as usize]
     }
 
+    pub fn set_prototype(&mut self, prototype_id: PrototypeId, prototype: Prototype) {
+        self.prototypes[prototype_id.0 as usize] = prototype;
+    }
+
     pub fn add_constant_item_value(&mut self, declaration_id: DeclarationId, value: ConstantValue) {
         self.constant_item_values.insert(declaration_id, value);
     }
 
     pub fn get_constant_item_value(&self, declaration_id: &DeclarationId) -> Option<ConstantValue> {
         self.constant_item_values.get(declaration_id).copied()
-    }
-
-    pub fn set_prototype(&mut self, prototype_id: PrototypeId, prototype: Prototype) {
-        self.prototypes[prototype_id.0 as usize] = prototype;
     }
 
     pub fn resolve_type(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {

@@ -55,8 +55,7 @@ fn nested_call() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(1, OperandType::I_32, MemoryKind::REGISTER, 0),
-                Instruction::call(1, MemoryKind::ENCODED, 2, 1),
+                Instruction::call(1, MemoryKind::ENCODED, 2, 0),
                 Instruction::call(0, MemoryKind::ENCODED, 1, 1),
                 Instruction::r#return(),
             ],
