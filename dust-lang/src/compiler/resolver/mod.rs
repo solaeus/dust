@@ -1351,7 +1351,6 @@ fn add_built_in_fields(
             let fields_scope_id = resolver
                 .scopes
                 .enter_scope(ScopeKind::Members, Some(parent_scope_id));
-            let mut field_namespace_entries = Vec::with_capacity(field_types.len());
 
             for (field_index, field_type) in field_types.iter().enumerate() {
                 let field_symbol_id = resolver.symbols.add_index_symbol(field_index as u32);
@@ -1368,7 +1367,9 @@ fn add_built_in_fields(
                     syntax: None,
                 });
 
-                field_namespace_entries.push((field_symbol_id, field_declaration_id));
+                resolver
+                    .scopes
+                    .add_to_current_namespace(field_declaration_id);
             }
 
             resolver.scopes.exit_scope(fields_scope_id);
@@ -1379,7 +1380,6 @@ fn add_built_in_fields(
             let fields_scope_id = resolver
                 .scopes
                 .enter_scope(ScopeKind::Members, Some(parent_scope_id));
-            let mut field_namespace_entries = Vec::with_capacity(field_types.len());
 
             for (field_name, field_type) in field_types {
                 let field_symbol_id = resolver.symbols.add_symbol(field_name);
@@ -1396,7 +1396,9 @@ fn add_built_in_fields(
                     syntax: None,
                 });
 
-                field_namespace_entries.push((field_symbol_id, field_declaration_id));
+                resolver
+                    .scopes
+                    .add_to_current_namespace(field_declaration_id);
             }
 
             resolver.scopes.exit_scope(fields_scope_id);

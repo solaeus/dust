@@ -58,7 +58,7 @@ fn named_fields() {
             BlockExpression.with_single_child(Span::new(10, 39), SyntaxId(9)),
             StructExpression
                 .with_binary_children(Span::new(16, 37), SyntaxId(7), SyntaxId(8))
-                .with_flags(SyntaxFlags::NAMED_FIELDS),
+                .with_flags(SyntaxFlags::FIELDS),
             Path.with_single_child(Span::new(16, 19), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 19)),
             StructExpressionNamedFields.with_children(Span::new(20, 37), SyntaxChildren::new(0, 4)),

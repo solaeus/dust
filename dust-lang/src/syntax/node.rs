@@ -480,7 +480,7 @@ impl SyntaxFlags {
     pub const RETURN_TYPE: Self = Self(8);
     pub const SUPERTRAITS: Self = Self(8);
     pub const TYPE_NAME: Self = Self(8);
-    pub const NAMED_FIELDS: Self = Self(8);
+    pub const FIELDS: Self = Self(8);
 
     pub const WHERE_CLAUSE: Self = Self(16);
 

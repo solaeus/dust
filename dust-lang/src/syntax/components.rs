@@ -151,7 +151,7 @@ impl<'a> SyntaxComponent<'a> for StructItem<'a> {
         } else {
             None
         };
-        let fields = if reader.node.flags.get_flag(SyntaxFlags::NAMED_FIELDS) {
+        let fields = if reader.node.flags.get_flag(SyntaxFlags::FIELDS) {
             Some(children.expect_next()?)
         } else {
             None

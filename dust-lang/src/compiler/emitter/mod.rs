@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashMap;
+use std::{any::Any, collections::HashMap};
 
 use rustc_hash::FxBuildHasher;
 use smallvec::{SmallVec, smallvec};
@@ -163,7 +163,7 @@ impl<'a> Emitter<'a> {
                 };
                 let concrete_type_id = emitter.resolver.resolve_type(type_id)?;
                 let allocation =
-                    emitter.allocate_registers(concrete_type_id, RegisterKind::Reserved)?;
+                    emitter.claim_registers(concrete_type_id, RegisterKind::Reserved)?;
 
                 emitter
                     .locals
@@ -333,7 +333,7 @@ impl<'a> Emitter<'a> {
         next
     }
 
-    fn allocate_registers(
+    fn claim_registers(
         &mut self,
         type_id: TypeId,
         kind: RegisterKind,
@@ -486,10 +486,6 @@ impl<'a> Emitter<'a> {
     }
 
     fn materialize_value(&mut self, value: ConstantValue) -> Result<Address, CompileError> {
-        fn encode<I: TryInto<u16>>(integer: I) -> Option<u16> {
-            integer.try_into().ok()
-        }
-
         match value {
             ConstantValue::Boolean(boolean) => Ok(Address {
                 memory: MemoryKind::ENCODED,
@@ -504,10 +500,10 @@ impl<'a> Emitter<'a> {
                 index: integer as u16,
             }),
             ConstantValue::I32(integer) => {
-                if let Some(encoded) = encode(integer) {
+                if integer >= 0 && integer <= u16::MAX as i32 {
                     Ok(Address {
                         memory: MemoryKind::ENCODED,
-                        index: encoded,
+                        index: integer as u16,
                     })
                 } else {
                     Ok(Address {
@@ -517,10 +513,10 @@ impl<'a> Emitter<'a> {
                 }
             }
             ConstantValue::I64(integer) => {
-                if let Some(encoded) = encode(integer) {
+                if integer >= 0 && integer <= u16::MAX as i64 {
                     Ok(Address {
                         memory: MemoryKind::ENCODED,
-                        index: encoded,
+                        index: integer as u16,
                     })
                 } else {
                     Ok(Address {
@@ -530,10 +526,10 @@ impl<'a> Emitter<'a> {
                 }
             }
             ConstantValue::I128(integer) => {
-                if let Some(encoded) = encode(integer) {
+                if integer >= 0 && integer <= u16::MAX as i128 {
                     Ok(Address {
                         memory: MemoryKind::ENCODED,
-                        index: encoded,
+                        index: integer as u16,
                     })
                 } else {
                     Ok(Address {
@@ -551,10 +547,10 @@ impl<'a> Emitter<'a> {
                 index: integer,
             }),
             ConstantValue::U32(integer) => {
-                if let Some(encoded) = encode(integer) {
+                if integer <= u16::MAX as u32 {
                     Ok(Address {
                         memory: MemoryKind::ENCODED,
-                        index: encoded,
+                        index: integer as u16,
                     })
                 } else {
                     Ok(Address {
@@ -564,10 +560,10 @@ impl<'a> Emitter<'a> {
                 }
             }
             ConstantValue::U64(integer) => {
-                if let Some(encoded) = encode(integer) {
+                if integer <= u16::MAX as u64 {
                     Ok(Address {
                         memory: MemoryKind::ENCODED,
-                        index: encoded,
+                        index: integer as u16,
                     })
                 } else {
                     Ok(Address {
@@ -577,10 +573,10 @@ impl<'a> Emitter<'a> {
                 }
             }
             ConstantValue::U128(integer) => {
-                if let Some(encoded) = encode(integer) {
+                if integer <= u16::MAX as u128 {
                     Ok(Address {
                         memory: MemoryKind::ENCODED,
-                        index: encoded,
+                        index: integer as u16,
                     })
                 } else {
                     Ok(Address {
@@ -590,10 +586,12 @@ impl<'a> Emitter<'a> {
                 }
             }
             ConstantValue::F32(float) => {
-                if let Some(encoded) = encode(float.to_bits()) {
+                let bits = float.to_bits();
+
+                if bits <= u16::MAX as u32 {
                     Ok(Address {
                         memory: MemoryKind::ENCODED,
-                        index: encoded,
+                        index: bits as u16,
                     })
                 } else {
                     Ok(Address {
@@ -603,10 +601,12 @@ impl<'a> Emitter<'a> {
                 }
             }
             ConstantValue::F64(float) => {
-                if let Some(encoded) = encode(float.to_bits()) {
+                let bits = float.to_bits();
+
+                if bits <= u16::MAX as u64 {
                     Ok(Address {
                         memory: MemoryKind::ENCODED,
-                        index: encoded,
+                        index: bits as u16,
                     })
                 } else {
                     Ok(Address {
@@ -616,10 +616,12 @@ impl<'a> Emitter<'a> {
                 }
             }
             ConstantValue::Character(character) => {
-                if let Some(encoded) = encode(character) {
+                let bits = character as u32;
+
+                if bits <= u16::MAX as u32 {
                     Ok(Address {
                         memory: MemoryKind::ENCODED,
-                        index: encoded,
+                        index: bits as u16,
                     })
                 } else {
                     Ok(Address {
@@ -675,6 +677,94 @@ impl<'a> Emitter<'a> {
                 source_id: syntax.source_id(),
                 syntax_id: syntax.id,
             }),
+        }
+    }
+
+    fn create_emission_from_value(
+        &mut self,
+        value: ConstantValue,
+        target: ExpressionTarget,
+    ) -> Result<Emission, CompileError> {
+        match target {
+            ExpressionTarget::Claimed(register_claims) => {
+                let register = register_claims.expect_single()?;
+                let address = self.materialize_value(value)?;
+                let move_instruction = Instruction::r#move(
+                    register.index,
+                    register.operand_type,
+                    address.memory,
+                    address.index,
+                );
+
+                Ok(Emission::Instructions(
+                    InstructionsEmission::with_instruction_and_target(
+                        move_instruction,
+                        register_claims,
+                    ),
+                ))
+            }
+            ExpressionTarget::Unclaimed(register_kind) => {
+                let registers = self.claim_registers(value.type_id(), register_kind)?;
+                let register = registers.expect_single()?;
+                let address = self.materialize_value(value)?;
+                let move_instruction = Instruction::r#move(
+                    register.index,
+                    register.operand_type,
+                    address.memory,
+                    address.index,
+                );
+
+                Ok(Emission::Instructions(
+                    InstructionsEmission::with_instruction_and_target(move_instruction, registers),
+                ))
+            }
+            ExpressionTarget::None => Ok(Emission::Value(value)),
+        }
+    }
+
+    fn create_emission_from_registers(
+        &mut self,
+        registers: RegisterClaims,
+        target: ExpressionTarget,
+        syntax: SyntaxReader,
+    ) -> Result<Emission, CompileError> {
+        match target {
+            ExpressionTarget::Claimed(target_registers) => {
+                let mut instructions = InstructionsEmission::new();
+
+                for (destination, operand) in target_registers.claims.iter().zip(registers.claims) {
+                    let move_instruction = Instruction::r#move(
+                        destination.index,
+                        operand.operand_type,
+                        MemoryKind::REGISTER,
+                        operand.index,
+                    );
+
+                    instructions.push(move_instruction);
+                }
+
+                Ok(Emission::Instructions(instructions))
+            }
+            ExpressionTarget::Unclaimed(register_kind) => {
+                let type_id = *self.resolver.get_type_binding(&syntax.id)?;
+                let target_registers = self.claim_registers(type_id, register_kind)?;
+
+                let mut instructions = InstructionsEmission::new();
+
+                for (destination, operand) in target_registers.claims.iter().zip(registers.claims) {
+                    let move_instruction = Instruction::r#move(
+                        destination.index,
+                        operand.operand_type,
+                        MemoryKind::REGISTER,
+                        operand.index,
+                    );
+
+                    instructions.push(move_instruction);
+                }
+
+                Ok(Emission::Instructions(instructions))
+            }
+            ExpressionTarget::None => Ok(Emission::Place(Place::Register(registers))),
         }
     }
 
@@ -993,7 +1083,7 @@ impl<'a> Emitter<'a> {
         match expression_emission {
             Emission::Value(value) => {
                 let allocation =
-                    self.allocate_registers(self.return_type_id, RegisterKind::Reserved)?;
+                    self.claim_registers(self.return_type_id, RegisterKind::Reserved)?;
                 let address = self.materialize_value(value)?;
                 let move_instruction = Instruction::r#move(
                     allocation.expect_base_index()?,
@@ -1013,7 +1103,7 @@ impl<'a> Emitter<'a> {
                 index,
             }) => {
                 let allocation =
-                    self.allocate_registers(self.return_type_id, RegisterKind::Reserved)?;
+                    self.claim_registers(self.return_type_id, RegisterKind::Reserved)?;
                 let move_instruction = Instruction::r#move(
                     allocation.expect_base_index()?,
                     operand_type,
@@ -1030,7 +1120,7 @@ impl<'a> Emitter<'a> {
             Emission::Place(Place::Register(emission_allocation)) => {
                 let mut return_instructions = InstructionsEmission::new();
                 let allocation =
-                    self.allocate_registers(self.return_type_id, RegisterKind::Reserved)?;
+                    self.claim_registers(self.return_type_id, RegisterKind::Reserved)?;
 
                 for (emission_register, target_register) in emission_allocation
                     .claims
@@ -1411,62 +1501,36 @@ impl<'a> Emitter<'a> {
         Ok(Emission::Instructions(assignment_instructions))
     }
 
-    fn resolve_literal_type_id(
-        &mut self,
-        binding_reader_id: crate::syntax::SyntaxId,
-        target: &ExpressionTarget,
-    ) -> Result<TypeId, CompileError> {
-        let bound_type_id = *self.resolver.get_type_binding(&binding_reader_id)?;
-        let bound_type = *self.resolver.types.get_type(bound_type_id)?;
-
-        let needs_context = matches!(bound_type, Type::Inferred { resolved: None, .. });
-
-        if !needs_context {
-            return self.resolver.resolve_type(bound_type_id);
-        }
-
-        match target {
-            ExpressionTarget::Unclaimed(RegisterKind::Reserved) => {
-                self.resolver.resolve_type(self.return_type_id)
-            }
-            ExpressionTarget::Claimed(claims) => {
-                let single_claim = claims.expect_single()?;
-                Ok(operand_type_to_type_id(single_claim.operand_type))
-            }
-            _ => self.resolver.resolve_type(bound_type_id),
-        }
-    }
-
     fn emit_boolean_expression(
         &mut self,
         reader: SyntaxReader,
-        _: ExpressionTarget,
+        target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         let boolean = reader.node.flags.get_flag(SyntaxFlags::BOOLEAN_TRUE);
 
-        Ok(Emission::Value(ConstantValue::Boolean(boolean)))
+        self.create_emission_from_value(ConstantValue::Boolean(boolean), target)
     }
 
     fn emit_hexadecimal_expression(
         &mut self,
         reader: SyntaxReader,
-        _: ExpressionTarget,
+        target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         let text = &self.source.get_content(reader.position())?[2..];
         let byte = create_u8_from_hexadecimal(text)?;
 
-        Ok(Emission::Value(ConstantValue::U8(byte)))
+        self.create_emission_from_value(ConstantValue::U8(byte), target)
     }
 
     fn emit_character_expression(
         &mut self,
         reader: SyntaxReader,
-        _: ExpressionTarget,
+        target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         let text = self.source.get_content(reader.position().shrink(1))?;
         let character = create_char(text)?;
 
-        Ok(Emission::Value(ConstantValue::Character(character)))
+        self.create_emission_from_value(ConstantValue::Character(character), target)
     }
 
     fn emit_float_expression(
@@ -1474,22 +1538,40 @@ impl<'a> Emitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
-        let type_id = self.resolve_literal_type_id(reader.id, &target)?;
+        let type_id = *self.resolver.get_type_binding(&reader.id)?;
         let text = self.source.get_content(reader.position())?;
-
-        match type_id {
+        let value = match type_id {
             TypeId::F_32 => {
                 let float = create_f32_from_decimal(text)?;
 
-                Ok(Emission::Value(ConstantValue::F32(float)))
+                ConstantValue::F32(float)
             }
             TypeId::F_64 => {
                 let float = create_f64_from_decimal(text)?;
 
-                Ok(Emission::Value(ConstantValue::F64(float)))
+                ConstantValue::F64(float)
             }
-            _ => Err(CompileError::InvalidTypeBinding(type_id)),
-        }
+            _ => match &target {
+                ExpressionTarget::Claimed(register_claims) => {
+                    let register = register_claims.expect_single()?;
+
+                    match register.operand_type {
+                        OperandType::F_32 => ConstantValue::F32(create_f32_from_decimal(text)?),
+                        OperandType::F_64 => ConstantValue::F64(create_f64_from_decimal(text)?),
+                        _ => {
+                            return Err(CompileError::InvalidTypeBinding(type_id));
+                        }
+                    }
+                }
+                _ => {
+                    let float = create_f32_from_decimal(text)?;
+
+                    ConstantValue::F32(float)
+                }
+            },
+        };
+
+        self.create_emission_from_value(value, target)
     }
 
     fn emit_integer_expression(
@@ -1497,58 +1579,58 @@ impl<'a> Emitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
-        let type_id = self.resolve_literal_type_id(reader.id, &target)?;
+        let type_id = *self.resolver.get_type_binding(&reader.id)?;
         let text = self.source.get_content(reader.position())?;
+        let value = match type_id {
+            TypeId::I_8 => ConstantValue::I8(create_i8_from_decimal(text)?),
+            TypeId::I_16 => ConstantValue::I16(create_i16_from_decimal(text)?),
+            TypeId::I_32 => ConstantValue::I32(create_i32_from_decimal(text)?),
+            TypeId::I_64 => ConstantValue::I64(create_i64_from_decimal(text)?),
+            TypeId::I_128 => ConstantValue::I128(create_i128_from_decimal(text)?),
+            TypeId::I_SIZE => {
+                if cfg!(target_pointer_width = "64") {
+                    ConstantValue::I64(create_i64_from_decimal(text)?)
+                } else {
+                    ConstantValue::I32(create_i32_from_decimal(text)?)
+                }
+            }
+            TypeId::U_8 => ConstantValue::U8(create_u8_from_decimal(text)?),
+            TypeId::U_16 => ConstantValue::U16(create_u16_from_decimal(text)?),
+            TypeId::U_32 => ConstantValue::U32(create_u32_from_decimal(text)?),
+            TypeId::U_64 => ConstantValue::U64(create_u64_from_decimal(text)?),
+            TypeId::U_128 => ConstantValue::U128(create_u128_from_decimal(text)?),
+            TypeId::U_SIZE => {
+                if cfg!(target_pointer_width = "64") {
+                    ConstantValue::U64(create_u64_from_decimal(text)?)
+                } else {
+                    ConstantValue::U32(create_u32_from_decimal(text)?)
+                }
+            }
+            _ => match &target {
+                ExpressionTarget::Claimed(register_claims) => {
+                    let register = register_claims.expect_single()?;
 
-        match type_id {
-            TypeId::I_8 => Ok(Emission::Value(ConstantValue::I8(create_i8_from_decimal(
-                text,
-            )?))),
-            TypeId::I_16 => Ok(Emission::Value(ConstantValue::I16(
-                create_i16_from_decimal(text)?,
-            ))),
-            TypeId::I_32 => Ok(Emission::Value(ConstantValue::I32(
-                create_i32_from_decimal(text)?,
-            ))),
-            TypeId::I_64 => Ok(Emission::Value(ConstantValue::I64(
-                create_i64_from_decimal(text)?,
-            ))),
-            TypeId::I_128 => Ok(Emission::Value(ConstantValue::I128(
-                create_i128_from_decimal(text)?,
-            ))),
-            #[cfg(target_pointer_width = "32")]
-            TypeId::I_SIZE => Ok(Emission::Value(ConstantValue::I32(
-                create_i32_from_decimal(text)?,
-            ))),
-            #[cfg(target_pointer_width = "64")]
-            TypeId::I_SIZE => Ok(Emission::Value(ConstantValue::I64(
-                create_i64_from_decimal(text)?,
-            ))),
-            TypeId::U_8 => Ok(Emission::Value(ConstantValue::U8(create_u8_from_decimal(
-                text,
-            )?))),
-            TypeId::U_16 => Ok(Emission::Value(ConstantValue::U16(
-                create_u16_from_decimal(text)?,
-            ))),
-            TypeId::U_32 => Ok(Emission::Value(ConstantValue::U32(
-                create_u32_from_decimal(text)?,
-            ))),
-            TypeId::U_64 => Ok(Emission::Value(ConstantValue::U64(
-                create_u64_from_decimal(text)?,
-            ))),
-            TypeId::U_128 => Ok(Emission::Value(ConstantValue::U128(
-                create_u128_from_decimal(text)?,
-            ))),
-            #[cfg(target_pointer_width = "32")]
-            TypeId::U_SIZE => Ok(Emission::Value(ConstantValue::U32(
-                create_u32_from_decimal(text)?,
-            ))),
-            #[cfg(target_pointer_width = "64")]
-            TypeId::U_SIZE => Ok(Emission::Value(ConstantValue::U64(
-                create_u64_from_decimal(text)?,
-            ))),
-            _ => Err(CompileError::InvalidTypeBinding(type_id)),
-        }
+                    match register.operand_type {
+                        OperandType::I_8 => ConstantValue::I8(create_i8_from_decimal(text)?),
+                        OperandType::I_16 => ConstantValue::I16(create_i16_from_decimal(text)?),
+                        OperandType::I_32 => ConstantValue::I32(create_i32_from_decimal(text)?),
+                        OperandType::I_64 => ConstantValue::I64(create_i64_from_decimal(text)?),
+                        OperandType::I_128 => ConstantValue::I128(create_i128_from_decimal(text)?),
+                        OperandType::U_8 => ConstantValue::U8(create_u8_from_decimal(text)?),
+                        OperandType::U_16 => ConstantValue::U16(create_u16_from_decimal(text)?),
+                        OperandType::U_32 => ConstantValue::U32(create_u32_from_decimal(text)?),
+                        OperandType::U_64 => ConstantValue::U64(create_u64_from_decimal(text)?),
+                        OperandType::U_128 => ConstantValue::U128(create_u128_from_decimal(text)?),
+                        _ => {
+                            return Err(CompileError::InvalidTypeBinding(type_id));
+                        }
+                    }
+                }
+                _ => ConstantValue::I32(create_i32_from_decimal(text)?),
+            },
+        };
+
+        self.create_emission_from_value(value, target)
     }
 
     fn emit_string_expression(
@@ -1572,7 +1654,7 @@ impl<'a> Emitter<'a> {
         let array_registers = match target {
             ExpressionTarget::Claimed(registers) => registers,
             ExpressionTarget::Unclaimed(allocation_kind) => {
-                self.allocate_registers(type_id, allocation_kind)?
+                self.claim_registers(type_id, allocation_kind)?
             }
             ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
         };
@@ -1616,7 +1698,7 @@ impl<'a> Emitter<'a> {
         let array_registers = match target {
             ExpressionTarget::Claimed(allocation) => allocation,
             ExpressionTarget::Unclaimed(allocation_kind) => {
-                self.allocate_registers(array_type_id, allocation_kind)?
+                self.claim_registers(array_type_id, allocation_kind)?
             }
             ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
         };
@@ -1833,7 +1915,7 @@ impl<'a> Emitter<'a> {
         let destination = match target {
             ExpressionTarget::Claimed(registers) => registers,
             ExpressionTarget::Unclaimed(allocation_kind) => {
-                self.allocate_registers(element_type_id, allocation_kind)?
+                self.claim_registers(element_type_id, allocation_kind)?
             }
             ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
         };
@@ -1876,7 +1958,7 @@ impl<'a> Emitter<'a> {
         let target_registers = match target {
             ExpressionTarget::Claimed(registers) => registers,
             ExpressionTarget::Unclaimed(allocation_kind) => {
-                self.allocate_registers(type_id, allocation_kind)?
+                self.claim_registers(type_id, allocation_kind)?
             }
             ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
         };
@@ -1949,10 +2031,60 @@ impl<'a> Emitter<'a> {
     ) -> Result<Emission, CompileError> {
         let declaration_id = *self.resolver.get_declaration_binding(&reader.id)?;
 
-        if let Some(local) = self.locals.get(&declaration_id) {
+        if let Some(local) = self.locals.get(&declaration_id).cloned() {
             match local {
-                Local::Place(place) => return Ok(Emission::Place(place.clone())),
-                Local::Constant(value) => return Ok(Emission::Value(*value)),
+                Local::Place(Place::Register(registers)) => {
+                    return self.create_emission_from_registers(registers, target, reader);
+                }
+                Local::Place(Place::Constant {
+                    operand_type,
+                    index,
+                }) => match target {
+                    ExpressionTarget::Claimed(register_claims) => {
+                        let mut instructions = InstructionsEmission::new();
+
+                        for register in register_claims.claims {
+                            let move_instruction = Instruction::r#move(
+                                register.index,
+                                register.operand_type,
+                                MemoryKind::CONSTANT,
+                                index,
+                            );
+
+                            instructions.push(move_instruction);
+                        }
+
+                        return Ok(Emission::Instructions(instructions));
+                    }
+                    ExpressionTarget::Unclaimed(register_kind) => {
+                        let type_id = *self.resolver.get_type_binding(&reader.id)?;
+                        let target_registers = self.claim_registers(type_id, register_kind)?;
+
+                        let mut instructions = InstructionsEmission::new();
+
+                        for register in &target_registers.claims {
+                            let move_instruction = Instruction::r#move(
+                                register.index,
+                                register.operand_type,
+                                MemoryKind::CONSTANT,
+                                index,
+                            );
+
+                            instructions.push(move_instruction);
+                        }
+
+                        instructions.set_target(Some(target_registers));
+
+                        return Ok(Emission::Instructions(instructions));
+                    }
+                    ExpressionTarget::None => {
+                        return Ok(Emission::Place(Place::Constant {
+                            operand_type,
+                            index,
+                        }));
+                    }
+                },
+                Local::Constant(value) => return self.create_emission_from_value(value, target),
             }
         }
 
@@ -2019,7 +2151,7 @@ impl<'a> Emitter<'a> {
         let target_registers = match target {
             ExpressionTarget::Claimed(registers) => registers,
             ExpressionTarget::Unclaimed(allocation_kind) => {
-                self.allocate_registers(type_id, allocation_kind)?
+                self.claim_registers(type_id, allocation_kind)?
             }
             ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
         };
@@ -2117,7 +2249,7 @@ impl<'a> Emitter<'a> {
         let target_registers = match target {
             ExpressionTarget::Claimed(registers) => registers,
             ExpressionTarget::Unclaimed(allocation_kind) => {
-                self.allocate_registers(type_id, allocation_kind)?
+                self.claim_registers(type_id, allocation_kind)?
             }
             ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
         };
@@ -2236,7 +2368,7 @@ impl<'a> Emitter<'a> {
         let target_registers = match target {
             ExpressionTarget::Claimed(registers) => registers,
             ExpressionTarget::Unclaimed(allocation_kind) => {
-                self.allocate_registers(type_id, allocation_kind)?
+                self.claim_registers(type_id, allocation_kind)?
             }
             ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
         };
@@ -2387,7 +2519,7 @@ impl<'a> Emitter<'a> {
 
         let register = if is_assignment {
             let kind = place_target.unwrap_or(RegisterKind::Temporary);
-            let allocation = self.allocate_registers(type_id, kind)?;
+            let allocation = self.claim_registers(type_id, kind)?;
             let reg = allocation.expect_single()?;
             math_emission.set_target(Some(allocation));
             reg
@@ -2395,7 +2527,7 @@ impl<'a> Emitter<'a> {
             let target_registers = match target {
                 ExpressionTarget::Claimed(registers) => registers,
                 ExpressionTarget::Unclaimed(allocation_kind) => {
-                    self.allocate_registers(type_id, allocation_kind)?
+                    self.claim_registers(type_id, allocation_kind)?
                 }
                 ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
             };
@@ -2556,7 +2688,7 @@ impl<'a> Emitter<'a> {
         let target_registers = match target {
             ExpressionTarget::Claimed(registers) => registers,
             ExpressionTarget::Unclaimed(allocation_kind) => {
-                self.allocate_registers(type_id, allocation_kind)?
+                self.claim_registers(type_id, allocation_kind)?
             }
             ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
         };
@@ -2688,7 +2820,7 @@ impl<'a> Emitter<'a> {
         let target_registers = match target {
             ExpressionTarget::Claimed(registers) => registers,
             ExpressionTarget::Unclaimed(allocation_kind) => {
-                self.allocate_registers(type_id, allocation_kind)?
+                self.claim_registers(type_id, allocation_kind)?
             }
             ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
         };
@@ -2755,7 +2887,7 @@ impl<'a> Emitter<'a> {
         let target_registers = match target {
             ExpressionTarget::Claimed(registers) => registers,
             ExpressionTarget::Unclaimed(allocation_kind) => {
-                self.allocate_registers(type_id, allocation_kind)?
+                self.claim_registers(type_id, allocation_kind)?
             }
             ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
         };
@@ -2802,7 +2934,7 @@ impl<'a> Emitter<'a> {
         let target_registers = match target {
             ExpressionTarget::Claimed(registers) => registers,
             ExpressionTarget::Unclaimed(allocation_kind) => {
-                self.allocate_registers(type_id, allocation_kind)?
+                self.claim_registers(type_id, allocation_kind)?
             }
             ExpressionTarget::None => return Err(CompileError::ExpectedAllocation),
         };
@@ -2914,7 +3046,7 @@ impl<'a> Emitter<'a> {
             } else {
                 let argument_type_id = *self.resolver.get_type_binding(&argument.id)?;
                 let argument_allocation =
-                    self.allocate_registers(argument_type_id, RegisterKind::Temporary)?;
+                    self.claim_registers(argument_type_id, RegisterKind::Temporary)?;
 
                 for (offset, register) in argument_allocation.claims.iter().enumerate() {
                     let move_instruction = Instruction::r#move(
@@ -2945,7 +3077,7 @@ impl<'a> Emitter<'a> {
                 if return_type_id == TypeId::UNIT {
                     (u16::MAX, None)
                 } else {
-                    let target = self.allocate_registers(return_type_id, allocation_kind)?;
+                    let target = self.claim_registers(return_type_id, allocation_kind)?;
                     let base_register = target.expect_base_index()?;
 
                     (base_register, Some(target))
@@ -2965,7 +3097,7 @@ impl<'a> Emitter<'a> {
     fn emit_field_access_expression(
         &mut self,
         reader: SyntaxReader,
-        _: ExpressionTarget,
+        target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         let FieldAccessExpression {
             struct_expression,
@@ -3050,10 +3182,14 @@ impl<'a> Emitter<'a> {
         let field_register = struct_registers.claims.get(register_offset);
 
         match field_register {
-            Some(register) => Ok(Emission::Place(Place::Register(RegisterClaims {
-                claims: smallvec![*register],
-                kind: struct_registers.kind,
-            }))),
+            Some(register) => self.create_emission_from_registers(
+                RegisterClaims {
+                    claims: smallvec![*register],
+                    kind: struct_registers.kind,
+                },
+                target,
+                reader,
+            ),
             None => Err(CompileError::ExpectedValue {
                 source_id: field_name.source_id(),
                 syntax_id: field_name.id,
@@ -3172,6 +3308,7 @@ pub struct RegisterClaims {
 }
 
 impl RegisterClaims {
+    // TODO: Remove this or make infallible
     fn expect_base_index(&self) -> Result<u16, CompileError> {
         self.claims
             .first()
@@ -3183,7 +3320,7 @@ impl RegisterClaims {
         if self.claims.len() == 1 {
             Ok(self.claims[0])
         } else {
-            Err(CompileError::ExpectedAllocation)
+            Err(CompileError::InvalidRegisterAllocation)
         }
     }
 
@@ -3220,26 +3357,6 @@ enum ExpressionTarget {
     Claimed(RegisterClaims),
     Unclaimed(RegisterKind),
     None,
-}
-
-fn operand_type_to_type_id(operand_type: OperandType) -> TypeId {
-    match operand_type {
-        OperandType::BOOLEAN => TypeId::BOOLEAN,
-        OperandType::I_8 => TypeId::I_8,
-        OperandType::I_16 => TypeId::I_16,
-        OperandType::I_32 => TypeId::I_32,
-        OperandType::I_64 => TypeId::I_64,
-        OperandType::I_128 => TypeId::I_128,
-        OperandType::U_8 => TypeId::U_8,
-        OperandType::U_16 => TypeId::U_16,
-        OperandType::U_32 => TypeId::U_32,
-        OperandType::U_64 => TypeId::U_64,
-        OperandType::U_128 => TypeId::U_128,
-        OperandType::F_32 => TypeId::F_32,
-        OperandType::F_64 => TypeId::F_64,
-        OperandType::CHARACTER => TypeId::CHARACTER,
-        _ => TypeId::UNIT,
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
