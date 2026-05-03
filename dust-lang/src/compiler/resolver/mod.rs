@@ -1238,18 +1238,6 @@ impl<'a> BuiltInType<'a> {
             BuiltInType::Generic(_) => unreachable!("generic built-in types are not top-level"),
         }
     }
-
-    fn type_parameters(self) -> &'a [&'a str] {
-        match self {
-            BuiltInType::Struct {
-                type_parameters, ..
-            }
-            | BuiltInType::Enum {
-                type_parameters, ..
-            } => type_parameters,
-            BuiltInType::Generic(_) => &[],
-        }
-    }
 }
 
 fn add_built_in_type_definition(
@@ -1261,16 +1249,20 @@ fn add_built_in_type_definition(
     let item_scope_id = resolver
         .scopes
         .enter_scope(ScopeKind::Item, Some(core_scope_id));
-    let type_parameter_declarations =
-        add_built_in_type_parameters(resolver, item_scope_id, built_in_type.type_parameters());
-    let type_parameters = if type_parameter_declarations.is_empty() {
-        None
-    } else {
-        Some(item_scope_id)
-    };
 
     match built_in_type {
-        BuiltInType::Struct { fields, .. } => {
+        BuiltInType::Struct {
+            type_parameters,
+            fields,
+            ..
+        } => {
+            let type_parameter_declarations =
+                add_built_in_type_parameters(resolver, item_scope_id, type_parameters);
+            let type_parameters = if type_parameter_declarations.is_empty() {
+                None
+            } else {
+                Some(item_scope_id)
+            };
             let fields = add_built_in_fields(
                 resolver,
                 fields,
@@ -1289,7 +1281,18 @@ fn add_built_in_type_definition(
                 },
             );
         }
-        BuiltInType::Enum { variants, .. } => {
+        BuiltInType::Enum {
+            type_parameters,
+            variants,
+            ..
+        } => {
+            let type_parameter_declarations =
+                add_built_in_type_parameters(resolver, item_scope_id, type_parameters);
+            let type_parameters = if type_parameter_declarations.is_empty() {
+                None
+            } else {
+                Some(item_scope_id)
+            };
             let variants = add_built_in_variants(
                 resolver,
                 variants,
@@ -1333,6 +1336,9 @@ fn add_built_in_type_parameters<'a>(
             type_parameter_symbol_id,
             type_parameter_declaration_id,
         ));
+        resolver
+            .scopes
+            .add_to_current_namespace(type_parameter_declaration_id);
     }
 
     type_parameter_declarations
