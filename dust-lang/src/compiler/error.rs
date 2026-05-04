@@ -203,6 +203,12 @@ pub enum CompileError {
         expected: usize,
         actual: usize,
     },
+    ExpectedForwardReferenceDefinition(DeclarationId),
+    ExpectedAlgebraicType(TypeId),
+    ExpectedTraitDefinition(DeclarationId),
+    ExpectedEncodedValue {
+        found: ConstantValue,
+    },
 }
 
 impl From<SyntaxError> for CompileError {
@@ -1233,7 +1239,11 @@ impl<'a> DustError<'a> for CompileError {
             | CompileError::ExpectedStructDefinition(_)
             | CompileError::ExpectedTraitAssociatedConstantDefinition(_)
             | CompileError::ExpectedSyntax { .. }
-            | CompileError::ScopeStackUnderflow => {
+            | CompileError::ScopeStackUnderflow
+            | CompileError::ExpectedForwardReferenceDefinition(_)
+            | CompileError::ExpectedAlgebraicType(_)
+            | CompileError::ExpectedTraitDefinition(_)
+            | CompileError::ExpectedEncodedValue { .. } => {
                 self.add_internal_report(groups);
             }
         }

@@ -128,7 +128,7 @@ pub enum SyntaxKind {
     TypeParameter,
     WhereClause,
     WherePredicate,
-    SelfValue,
+    SelfExpression,
 
     EnumUnitVariant,
     EnumTupleFieldsVariant,
@@ -299,6 +299,7 @@ impl SyntaxKind {
                 | SyntaxKind::SubtractionExpression
                 | SyntaxKind::WhileExpression
                 | SyntaxKind::BooleanExpression
+                | SyntaxKind::SelfExpression
         )
     }
 
@@ -383,7 +384,7 @@ impl SyntaxKind {
             SyntaxKind::ReturnExpression => "return expression",
             SyntaxKind::Root => "root",
             SyntaxKind::SelfType => "self type",
-            SyntaxKind::SelfValue => "self value",
+            SyntaxKind::SelfExpression => "self expression",
             SyntaxKind::SimplePath => "simple path",
             SyntaxKind::SliceType => "slice type",
             SyntaxKind::StringExpression => "string expression",
@@ -468,23 +469,20 @@ impl SyntaxFlags {
     pub const PUBLIC: Self = Self(1);
     pub const MUTABLE: Self = Self(1);
     pub const SELF_VALUE: Self = Self(1);
-    pub const BOOLEAN_TRUE: Self = Self(1);
+    pub const TRUE: Self = Self(1);
 
     // Children flags
     pub const TYPE_PARAMETERS: Self = Self(2);
     pub const TYPE_ARGUMENTS: Self = Self(2);
-
     pub const VALUE_PARAMETERS: Self = Self(4);
     pub const VALUE_ARGUMENTS: Self = Self(4);
-
     pub const RETURN_TYPE: Self = Self(8);
     pub const SUPERTRAITS: Self = Self(8);
     pub const TYPE_NAME: Self = Self(8);
     pub const FIELDS: Self = Self(8);
-
     pub const WHERE_CLAUSE: Self = Self(16);
 
-    pub const RESERVED: [Self; 3] = [Self(32), Self(64), Self(128)];
+    const RESERVED: [Self; 3] = [Self(32), Self(64), Self(128)];
 
     pub fn new(flags: u8) -> Self {
         Self(flags)
@@ -520,7 +518,7 @@ impl SyntaxFlags {
                 Some("with self")
             }
             SyntaxKind::BooleanExpression => {
-                if self.get_flag(SyntaxFlags::BOOLEAN_TRUE) {
+                if self.get_flag(SyntaxFlags::TRUE) {
                     Some("true")
                 } else {
                     Some("false")

@@ -77,23 +77,79 @@ impl ConstantValue {
     }
 
     pub fn encoded_u16(self) -> Option<u16> {
-        fn encode<I: TryInto<u16>>(integer: I) -> Option<u16> {
-            integer.try_into().ok()
-        }
-
         match self {
             ConstantValue::Boolean(boolean) => Some(boolean as u16),
             ConstantValue::I8(integer) => Some(integer as u16),
             ConstantValue::I16(integer) => Some(integer as u16),
-            ConstantValue::I32(integer) => encode(integer),
-            ConstantValue::I64(integer) => encode(integer),
-            ConstantValue::I128(integer) => encode(integer),
+            ConstantValue::I32(integer) => {
+                if (i16::MIN as i32..=i16::MAX as i32).contains(&integer) {
+                    Some(integer as u16)
+                } else {
+                    None
+                }
+            }
+            ConstantValue::I64(integer) => {
+                if (i16::MIN as i64..=i16::MAX as i64).contains(&integer) {
+                    Some(integer as u16)
+                } else {
+                    None
+                }
+            }
+            ConstantValue::I128(integer) => {
+                if (i16::MIN as i128..=i16::MAX as i128).contains(&integer) {
+                    Some(integer as u16)
+                } else {
+                    None
+                }
+            }
             ConstantValue::U8(integer) => Some(integer as u16),
             ConstantValue::U16(integer) => Some(integer),
-            ConstantValue::U32(integer) => encode(integer),
-            ConstantValue::U64(integer) => encode(integer),
-            ConstantValue::U128(integer) => encode(integer),
-            ConstantValue::Character(_) | ConstantValue::F32(_) | ConstantValue::F64(_) => None,
+            ConstantValue::U32(integer) => {
+                if integer <= u16::MAX as u32 {
+                    Some(integer as u16)
+                } else {
+                    None
+                }
+            }
+            ConstantValue::U64(integer) => {
+                if integer <= u16::MAX as u64 {
+                    Some(integer as u16)
+                } else {
+                    None
+                }
+            }
+            ConstantValue::U128(integer) => {
+                if integer <= u16::MAX as u128 {
+                    Some(integer as u16)
+                } else {
+                    None
+                }
+            }
+            ConstantValue::Character(character) => {
+                if character as u32 <= u16::MAX as u32 {
+                    Some(character as u16)
+                } else {
+                    None
+                }
+            }
+            ConstantValue::F32(float) => {
+                let bits = float.to_bits();
+
+                if bits <= u16::MAX as u32 {
+                    Some(bits as u16)
+                } else {
+                    None
+                }
+            }
+            ConstantValue::F64(float) => {
+                let bits = float.to_bits();
+
+                if bits <= u16::MAX as u64 {
+                    Some(bits as u16)
+                } else {
+                    None
+                }
+            }
             ConstantValue::Function { prototype_id, .. } => Some(prototype_id.inner()),
         }
     }
@@ -434,7 +490,7 @@ impl ConstantValue {
                     .try_into()
                     .map_err(|_| create_exponent_error!(syntax))?;
 
-                left.checked_pow(right as u32)
+                left.checked_pow(right)
                     .map(ConstantValue::I64)
                     .ok_or_else(|| self.create_overflow_error(other, syntax))
             }
@@ -447,7 +503,7 @@ impl ConstantValue {
                     .try_into()
                     .map_err(|_| create_exponent_error!(syntax))?;
 
-                left.checked_pow(right as u32)
+                left.checked_pow(right)
                     .map(ConstantValue::U128)
                     .ok_or_else(|| self.create_overflow_error(other, syntax))
             }
@@ -460,7 +516,7 @@ impl ConstantValue {
                     .try_into()
                     .map_err(|_| create_exponent_error!(syntax))?;
 
-                left.checked_pow(right as u32)
+                left.checked_pow(right)
                     .map(ConstantValue::I128)
                     .ok_or_else(|| self.create_overflow_error(other, syntax))
             }

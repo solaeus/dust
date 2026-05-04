@@ -1496,7 +1496,7 @@ impl<'src> Parser<'src> {
         let mut node = SyntaxKind::BooleanExpression.empty(self.previous_token.span);
 
         if self.previous_token.kind == TokenKind::True {
-            node.flags.set_flag(SyntaxFlags::BOOLEAN_TRUE);
+            node.flags.set_flag(SyntaxFlags::TRUE);
         }
 
         Ok(node)
@@ -1782,7 +1782,7 @@ impl<'src> Parser<'src> {
     fn parse_prefix_self_value(&mut self) -> Result<SyntaxNode, ParseError> {
         self.advance();
 
-        Ok(SyntaxKind::SelfValue.empty(self.previous_token.span))
+        Ok(SyntaxKind::SelfExpression.empty(self.previous_token.span))
     }
 
     fn parse_prefix_identifier(&mut self) -> Result<SyntaxNode, ParseError> {

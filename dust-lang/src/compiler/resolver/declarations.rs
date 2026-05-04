@@ -41,9 +41,16 @@ impl Declarations {
     }
 
     pub fn get_declaration(&self, id: DeclarationId) -> Result<&Declaration, CompileError> {
-        self.declarations
-            .get(id.0 as usize)
-            .ok_or(CompileError::MissingDeclaration(id))
+        let declaration = &self.declarations[id.0 as usize];
+
+        if let Definition::ForwardReference {
+            resolved: Some(resolved_id),
+        } = declaration.definition
+        {
+            return self.get_declaration(resolved_id);
+        }
+
+        Ok(declaration)
     }
 
     pub fn reserve_declaration_id(
@@ -60,6 +67,7 @@ impl Declarations {
             scope_id,
             syntax,
         });
+        self.declaration_lookup.insert((symbol_id, scope_id), id);
 
         id
     }
@@ -81,9 +89,6 @@ impl Declarations {
         debug_assert_eq!(declaration.definition, Definition::Placeholder);
 
         declaration.definition = definition;
-
-        self.declaration_lookup
-            .insert((declaration.symbol_id, declaration.scope_id), id);
     }
 
     pub fn find_declaration_id(
@@ -92,6 +97,16 @@ impl Declarations {
         scope_id: ScopeId,
     ) -> Option<&DeclarationId> {
         self.declaration_lookup.get(&(symbol_id, scope_id))
+    }
+
+    pub fn resolve_forward_reference(
+        &mut self,
+        forward_id: DeclarationId,
+        resolved_id: DeclarationId,
+    ) {
+        self.declarations[forward_id.0 as usize].definition = Definition::ForwardReference {
+            resolved: Some(resolved_id),
+        };
     }
 
     /// Finds the declaration with the given type ID, if it exists. This is O(n) and should only be
@@ -299,6 +314,8 @@ pub enum Definition {
 
     InherentImplementation {
         type_parameters: Option<ScopeId>,
+        self_declaration_id: DeclarationId,
+        self_type_arguments: TypeMembers,
         declarations: Option<ScopeId>,
     },
 
@@ -324,6 +341,8 @@ pub enum Definition {
 
     TraitImplementation {
         type_parameters: Option<ScopeId>,
+        self_declaration_id: DeclarationId,
+        self_type_arguments: TypeMembers,
         trait_declaration_id: DeclarationId,
         trait_type_arguments: TypeMembers,
         declarations: Option<ScopeId>,
@@ -340,6 +359,10 @@ pub enum Definition {
         parent: DeclarationId,
         type_parameters: Option<ScopeId>,
         default_aliased_type_id: Option<TypeId>,
+    },
+
+    ForwardReference {
+        resolved: Option<DeclarationId>,
     },
 
     /// Used when reserving a declaration ID.

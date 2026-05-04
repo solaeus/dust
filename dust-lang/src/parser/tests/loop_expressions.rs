@@ -60,7 +60,7 @@ fn break_empty() {
             WhileExpression.with_binary_children(Span::new(16, 37), SyntaxId(2), SyntaxId(4)),
             BooleanExpression
                 .empty(Span::new(22, 26))
-                .with_flags(SyntaxFlags::BOOLEAN_TRUE),
+                .with_flags(SyntaxFlags::TRUE),
             BlockExpression.with_single_child(Span::new(27, 37), SyntaxId(3)),
             BreakExpression.empty(Span::new(29, 35)),
         ]
@@ -90,7 +90,7 @@ fn break_with_value() {
             WhileExpression.with_binary_children(Span::new(16, 39), SyntaxId(2), SyntaxId(5)),
             BooleanExpression
                 .empty(Span::new(22, 26))
-                .with_flags(SyntaxFlags::BOOLEAN_TRUE),
+                .with_flags(SyntaxFlags::TRUE),
             BlockExpression.with_single_child(Span::new(27, 39), SyntaxId(4)),
             BreakExpression.with_single_child(Span::new(29, 37), SyntaxId(3)),
             IntegerExpression.empty(Span::new(35, 37)),

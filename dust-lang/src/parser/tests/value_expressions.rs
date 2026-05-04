@@ -31,7 +31,7 @@ fn boolean() {
             BlockExpression.with_single_child(Span::new(10, 22), SyntaxId(2)),
             BooleanExpression
                 .empty(Span::new(16, 20))
-                .with_flags(SyntaxFlags::BOOLEAN_TRUE),
+                .with_flags(SyntaxFlags::TRUE),
         ]
     );
 }

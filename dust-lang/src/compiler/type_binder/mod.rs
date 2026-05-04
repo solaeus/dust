@@ -8,7 +8,7 @@ use crate::{
         error::CompileError,
         resolver::{
             Resolver,
-            declarations::{Declaration, DeclarationId, Definition},
+            declarations::{DeclarationId, Definition},
             scopes::ScopeId,
             types::{InferredTypeConstraint, Type, TypeId, TypeMembers},
         },
@@ -52,46 +52,17 @@ impl<'a> TypeBinder<'a> {
         }
     }
 
-    fn infer_type(&self, type_id: TypeId) -> Result<TypeId, CompileError> {
-        if let Type::Inferred {
-            resolved: Some(resolved),
-            ..
-        } = self.resolver.types.get_type(type_id)?
-        {
-            self.infer_type(*resolved)
-        } else {
-            Ok(type_id)
-        }
-    }
-
-    fn unify_types(
-        &mut self,
-        left: TypeId,
-        left_syntax: Option<SyntaxReader>,
-        right: TypeId,
-        right_syntax: SyntaxReader,
-    ) -> Result<(), CompileError> {
-        if left == right {
-            return Ok(());
-        }
-
-        let left_inferred = self.infer_type(left)?;
-        let right_inferred = self.infer_type(right)?;
-
-        if left_inferred == right_inferred {
-            return Ok(());
-        }
-
-        self.unify_inferred_types(left_inferred, left_syntax, right_inferred, right_syntax)
-    }
-
-    fn unify_inferred_types<'b>(
+    fn unify_types<'b>(
         &'b mut self,
         left: TypeId,
         left_syntax: Option<SyntaxReader<'b>>,
         right: TypeId,
         right_syntax: SyntaxReader<'b>,
     ) -> Result<(), CompileError> {
+        if left == right {
+            return Ok(());
+        }
+
         let left_type_node = *self.resolver.types.get_type(left)?;
         let right_type_node = *self.resolver.types.get_type(right)?;
 
@@ -532,6 +503,7 @@ impl<'a> TypeBinder<'a> {
             SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
                 self.bind_logic_expression(reader, input)
             }
+            SyntaxKind::SelfExpression => self.bind_self_expression(reader, input),
             _ => Err(CompileError::UnexpectedSyntax {
                 expected: &[
                     SyntaxKind::AdditionAssignmentExpression,
@@ -934,8 +906,10 @@ impl<'a> TypeBinder<'a> {
                         .get_members(scope_id)
                         .iter()
                         .map(|parameter_declaration_id| {
-                            let parameter_declaration =
-                                self.resolver.declarations.get_declaration(*parameter_declaration_id)?;
+                            let parameter_declaration = self
+                                .resolver
+                                .declarations
+                                .get_declaration(*parameter_declaration_id)?;
                             match parameter_declaration.definition {
                                 Definition::Local { type_id, .. } => Ok(type_id),
                                 _ => Err(CompileError::ExpectedConcreteType),
@@ -945,11 +919,10 @@ impl<'a> TypeBinder<'a> {
                 } else {
                     SmallVec::new()
                 };
-                let value_parameters_members =
-                    self.resolver.types.add_type_members(parameter_type_ids);
+                let value_parameters = self.resolver.types.add_type_members(parameter_type_ids);
 
                 let function_type = Type::Function {
-                    value_parameters: value_parameters_members,
+                    value_parameters,
                     return_type_id,
                 };
 
@@ -974,8 +947,10 @@ impl<'a> TypeBinder<'a> {
                         .get_members(scope_id)
                         .iter()
                         .map(|field_declaration_id| {
-                            let field_declaration =
-                                self.resolver.declarations.get_declaration(*field_declaration_id)?;
+                            let field_declaration = self
+                                .resolver
+                                .declarations
+                                .get_declaration(*field_declaration_id)?;
                             match field_declaration.definition {
                                 Definition::Field { type_id, .. } => Ok(type_id),
                                 Definition::Local { type_id, .. } => Ok(type_id),
@@ -1257,8 +1232,7 @@ impl<'a> TypeBinder<'a> {
         let CallExpression { callee, arguments } = reader.as_component()?;
 
         let callee_type_id = self.bind_expression(callee, ())?;
-        let resolved_callee_type_id = self.infer_type(callee_type_id)?;
-        let callee_type = *self.resolver.types.get_type(resolved_callee_type_id)?;
+        let callee_type = *self.resolver.types.get_type(callee_type_id)?;
 
         let (parameter_members, return_type_id) = match callee_type {
             Type::Function {
@@ -1286,7 +1260,8 @@ impl<'a> TypeBinder<'a> {
         }
 
         let resolved_return_type_id = self.resolver.resolve_type(return_type_id)?;
-        self.resolver.add_type_binding(reader.id, resolved_return_type_id);
+        self.resolver
+            .add_type_binding(reader.id, resolved_return_type_id);
 
         Ok(resolved_return_type_id)
     }
@@ -1308,13 +1283,58 @@ impl<'a> TypeBinder<'a> {
             .resolver
             .declarations
             .get_declaration(field_declaration_id)?;
-        let type_id = if let Definition::Field { type_id, .. } = field_declaration.definition {
-            self.resolver.resolve_type(type_id)?
-        } else {
-            return Err(CompileError::ExpectedFieldDefinition(field_declaration_id));
+        let type_id = match field_declaration.definition {
+            Definition::Field { type_id, .. } => self.resolver.resolve_type(type_id)?,
+            Definition::Function {
+                value_parameters,
+                return_type_id,
+                ..
+            } => {
+                let parameter_type_ids: TypeId::SmallVec = if let Some(scope_id) = value_parameters
+                {
+                    self.resolver
+                        .scopes
+                        .get_members(scope_id)
+                        .iter()
+                        .map(|parameter_declaration_id| {
+                            let parameter_declaration = self
+                                .resolver
+                                .declarations
+                                .get_declaration(*parameter_declaration_id)?;
+                            match parameter_declaration.definition {
+                                Definition::Local { type_id, .. } => Ok(type_id),
+                                _ => Err(CompileError::ExpectedConcreteType),
+                            }
+                        })
+                        .collect::<Result<_, CompileError>>()?
+                } else {
+                    SmallVec::new()
+                };
+                let value_parameters = self.resolver.types.add_type_members(parameter_type_ids);
+
+                self.resolver.types.add_type(Type::Function {
+                    value_parameters,
+                    return_type_id,
+                })
+            }
+            _ => return Err(CompileError::ExpectedFieldDefinition(field_declaration_id)),
         };
 
         self.resolver.add_type_binding(reader.id, type_id);
+
+        Ok(type_id)
+    }
+
+    fn bind_self_expression(
+        &mut self,
+        reader: SyntaxReader,
+        _: (),
+    ) -> Result<TypeId, CompileError> {
+        let declaration_id = *self.resolver.get_declaration_binding(&reader.id)?;
+        let type_id = self.resolver.types.add_type(Type::Algebraic {
+            declaration_id,
+            type_arguments: TypeMembers::default(),
+        });
 
         Ok(type_id)
     }

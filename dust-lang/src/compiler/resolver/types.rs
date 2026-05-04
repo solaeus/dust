@@ -83,9 +83,17 @@ impl Types {
     }
 
     pub fn get_type(&self, id: TypeId) -> Result<&Type, CompileError> {
-        self.types
-            .get_index(id.0 as usize)
-            .ok_or(CompileError::MissingType(id))
+        let r#type = &self.types[id.0 as usize];
+
+        if let Type::Inferred {
+            resolved: Some(resolved_id),
+            ..
+        } = r#type
+        {
+            return self.get_type(*resolved_id);
+        }
+
+        Ok(r#type)
     }
 
     pub fn get_type_mut(&mut self, id: TypeId) -> Result<&mut Type, CompileError> {
