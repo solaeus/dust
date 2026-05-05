@@ -941,8 +941,14 @@ impl<'a> TypeBinder<'a> {
                 fields,
                 ..
             } => {
-                let parameter_type_ids: TypeId::SmallVec = if let Some(scope_id) = fields {
-                    self.resolver
+                let return_type_id = self.resolver.types.add_type(Type::Algebraic {
+                    declaration_id: enum_declaration_id,
+                    type_arguments: TypeMembers::default(),
+                });
+
+                if let Some(scope_id) = fields {
+                    let parameter_type_ids: TypeId::SmallVec = self
+                        .resolver
                         .scopes
                         .get_members(scope_id)
                         .iter()
@@ -951,31 +957,24 @@ impl<'a> TypeBinder<'a> {
                                 .resolver
                                 .declarations
                                 .get_declaration(*field_declaration_id)?;
+
                             match field_declaration.definition {
                                 Definition::Field { type_id, .. } => Ok(type_id),
-                                Definition::Local { type_id, .. } => Ok(type_id),
                                 _ => Err(CompileError::ExpectedConcreteType),
                             }
                         })
-                        .collect::<Result<_, CompileError>>()?
+                        .collect::<Result<_, CompileError>>()?;
+                    let value_parameters = self.resolver.types.add_type_members(parameter_type_ids);
+
+                    let function_type = Type::Function {
+                        value_parameters,
+                        return_type_id,
+                    };
+
+                    self.resolver.types.add_type(function_type)
                 } else {
-                    SmallVec::new()
-                };
-                let value_parameters_members =
-                    self.resolver.types.add_type_members(parameter_type_ids);
-
-                let return_algebraic = Type::Algebraic {
-                    declaration_id: enum_declaration_id,
-                    type_arguments: TypeMembers::default(),
-                };
-                let return_type_id = self.resolver.types.add_type(return_algebraic);
-
-                let function_type = Type::Function {
-                    value_parameters: value_parameters_members,
-                    return_type_id,
-                };
-
-                self.resolver.types.add_type(function_type)
+                    return_type_id
+                }
             }
             Definition::Use {
                 source_declaration_id,

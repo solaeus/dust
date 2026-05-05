@@ -1179,8 +1179,7 @@ fn add_core(resolver: &mut Resolver) {
 
     debug_assert_eq!(core_scope_id, ScopeId::CORE);
 
-    let mut core_namespace_entries = Vec::with_capacity(BUILT_IN_TYPES.len());
-    let mut type_declaration_entries = Vec::with_capacity(BUILT_IN_TYPES.len());
+    let mut type_declaration_ids = Vec::with_capacity(BUILT_IN_TYPES.len());
 
     for built_in_type in BUILT_IN_TYPES {
         let type_symbol_id = resolver.symbols.add_symbol(built_in_type.name());
@@ -1189,19 +1188,18 @@ fn add_core(resolver: &mut Resolver) {
                 .declarations
                 .reserve_declaration_id(type_symbol_id, core_scope_id, None);
 
-        core_namespace_entries.push((type_symbol_id, type_declaration_id));
-        type_declaration_entries.push((*built_in_type, type_declaration_id));
+        resolver
+            .scopes
+            .add_to_current_namespace(type_declaration_id);
+        type_declaration_ids.push((*built_in_type, type_declaration_id));
     }
 
-    debug_assert_eq!(type_declaration_entries[0].1, DeclarationId::OPTION);
-    debug_assert_eq!(type_declaration_entries[1].1, DeclarationId::RESULT);
-    debug_assert_eq!(type_declaration_entries[2].1, DeclarationId::RANGE);
-    debug_assert_eq!(
-        type_declaration_entries[3].1,
-        DeclarationId::RANGE_INCLUSIVE
-    );
+    debug_assert_eq!(type_declaration_ids[0].1, DeclarationId::OPTION);
+    debug_assert_eq!(type_declaration_ids[1].1, DeclarationId::RESULT);
+    debug_assert_eq!(type_declaration_ids[2].1, DeclarationId::RANGE);
+    debug_assert_eq!(type_declaration_ids[3].1, DeclarationId::RANGE_INCLUSIVE);
 
-    for (built_in_type, type_declaration_id) in type_declaration_entries {
+    for (built_in_type, type_declaration_id) in type_declaration_ids {
         add_built_in_type_definition(resolver, built_in_type, type_declaration_id, core_scope_id);
     }
 
@@ -1466,6 +1464,9 @@ fn add_built_in_variants(
             }
         };
 
+        resolver
+            .scopes
+            .add_to_current_namespace(variant_declaration_id);
         variant_namespace_entries.push((variant_symbol_id, variant_declaration_id));
     }
 

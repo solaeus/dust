@@ -275,6 +275,10 @@ impl<'a> Emitter<'a> {
 
                 self.handle_function_body_instructions(instructions)?;
 
+                if index == child_count - 1 {
+                    self.emit_instruction(Instruction::r#return());
+                }
+
                 continue;
             }
 
@@ -1018,6 +1022,14 @@ impl<'a> Emitter<'a> {
             }
             Emission::Place(Place::Register(emission_allocation)) => {
                 let mut return_instructions = InstructionsEmission::new();
+
+                if emission_allocation.claims.len() == target_registers.claims.len()
+                    && emission_allocation.claims[0].index == target_registers.claims[0].index
+                {
+                    return Ok(InstructionsEmission::with_instruction(
+                        Instruction::r#return(),
+                    ));
+                }
 
                 for (emission_register, target_register) in emission_allocation
                     .claims
@@ -1962,6 +1974,33 @@ impl<'a> Emitter<'a> {
                     })?;
 
                 Ok(Emission::Value(value))
+            }
+            Definition::Variant {
+                discriminant,
+                fields: None,
+                ..
+            } => {
+                let type_id = *self.resolver.get_type_binding(&reader.id)?;
+                let register = match target {
+                    ExpressionTarget::ClaimedRegister(registers) => registers,
+                    ExpressionTarget::UnclaimedRegister(register_kind) => {
+                        self.claim_registers(type_id, register_kind)?
+                    }
+                    ExpressionTarget::Any => {
+                        self.claim_registers(type_id, RegisterKind::Temporary)?
+                    }
+                }
+                .expect_single()?;
+                let move_instruction = Instruction::r#move(
+                    register.index,
+                    register.operand_type,
+                    MemoryKind::ENCODED,
+                    discriminant,
+                );
+
+                Ok(Emission::Instructions(
+                    InstructionsEmission::with_instruction(move_instruction),
+                ))
             }
             _ => Err(CompileError::ExpectedValue {
                 source_id: reader.source_id(),

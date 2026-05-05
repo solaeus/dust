@@ -237,6 +237,14 @@ impl<'a> DeclarationBinder<'a> {
             }
         }
 
+        if let Some(declaration_id) = self
+            .resolver
+            .declarations
+            .find_declaration_id(symbol_id, ScopeId::CORE)
+        {
+            return Ok(Some(*declaration_id));
+        }
+
         Ok(None)
     }
 
@@ -318,24 +326,26 @@ impl<'a> DeclarationBinder<'a> {
                         }
                     }
                     Definition::TraitImplementation {
-                        declarations: Some(scope_id),
+                        trait_declaration_id,
                         ..
-                    } => {
-                        if let Some(declaration_id) = self
+                    } if found_in_trait_implementation.is_none() => {
+                        let trait_declaration = self
                             .resolver
                             .declarations
-                            .find_declaration_id(symbol_id, scope_id)
-                        {
-                            return Ok(*declaration_id);
-                        }
+                            .get_declaration(trait_declaration_id)?;
+                        let Definition::Trait {
+                            declarations: Some(trait_scope_id),
+                            ..
+                        } = trait_declaration.definition
+                        else {
+                            continue;
+                        };
 
-                        if found_in_trait_implementation.is_none() {
-                            found_in_trait_implementation = self
-                                .resolver
-                                .declarations
-                                .find_declaration_id(symbol_id, scope_id)
-                                .copied();
-                        }
+                        found_in_trait_implementation = self
+                            .resolver
+                            .declarations
+                            .find_declaration_id(symbol_id, trait_scope_id)
+                            .copied();
                     }
                     _ => continue,
                 };
@@ -1362,7 +1372,9 @@ impl<'a> DeclarationBinder<'a> {
             SyntaxKind::ArrayExpression => self.bind_array_expression(reader),
             SyntaxKind::ArrayRepeatExpression => self.bind_array_repeat_expression(reader),
             SyntaxKind::IndexExpression => self.bind_index_expression(reader),
-            SyntaxKind::RangeExpression => self.bind_range_expression(reader),
+            SyntaxKind::RangeExpression | SyntaxKind::RangeInclusiveExpression => {
+                self.bind_range_expression(reader)
+            }
             SyntaxKind::PathExpression => self.bind_path_expression(reader),
             SyntaxKind::StructExpression => self.bind_struct_expression(reader),
             SyntaxKind::GroupedExpression => self.bind_grouped_expression(reader),
@@ -1743,15 +1755,11 @@ impl<'a> DeclarationBinder<'a> {
         let field_declaration_id = match type_declaration.definition {
             Definition::Local { type_id, .. } => {
                 let r#type = self.resolver.types.get_type(type_id)?;
-                let Type::Algebraic {
-                    declaration_id: struct_declaration_id,
-                    ..
-                } = r#type
-                else {
+                let Type::Algebraic { declaration_id, .. } = r#type else {
                     return Err(CompileError::ExpectedAlgebraicType(type_id));
                 };
 
-                self.find_member_declaration(field_symbol_id, *struct_declaration_id, field_name)?
+                self.find_member_declaration(field_symbol_id, *declaration_id, field_name)?
             }
             Definition::StructType { .. } | Definition::EnumType { .. } => {
                 let Context::Impl {
@@ -1765,6 +1773,14 @@ impl<'a> DeclarationBinder<'a> {
                 };
 
                 self.find_member_declaration(field_symbol_id, self_declaration_id, field_name)?
+            }
+            Definition::Function { return_type_id, .. } => {
+                let return_type = self.resolver.types.get_type(return_type_id)?;
+                let Type::Algebraic { declaration_id, .. } = return_type else {
+                    return Err(CompileError::ExpectedAlgebraicType(return_type_id));
+                };
+
+                self.find_member_declaration(field_symbol_id, *declaration_id, field_name)?
             }
             Definition::Trait {
                 supertraits,
