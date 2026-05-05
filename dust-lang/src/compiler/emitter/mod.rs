@@ -1247,52 +1247,19 @@ impl<'a> Emitter<'a> {
 
         let mut assignment_instructions = InstructionsEmission::new();
 
-        let target_registers = if target.node.kind == SyntaxKind::IndexExpression {
-            let target_emission = self.emit_index_expression(
-                target,
-                ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
-            )?;
-
-            match target_emission {
-                Emission::Place(Place::Register(allocation)) => allocation,
-                Emission::Instructions(InstructionsEmission {
-                    instructions,
-                    target_registers: Some(target_registers),
-                    pending_drops,
-                }) => {
-                    assignment_instructions.instructions.extend(instructions);
-                    assignment_instructions.pending_drops.extend(pending_drops);
-
-                    target_registers
-                }
-                Emission::Instructions(_) => {
-                    return Err(CompileError::ExpectedValue {
-                        source_id: target.source_id(),
-                        syntax_id: target.id,
-                    });
-                }
-                _ => {
-                    return Err(CompileError::CannotMutate {
-                        position: target.position(),
-                    });
-                }
-            }
-        } else {
-            let declaration_id = self.resolver.get_declaration_binding(&target.id)?;
-            let local = self.locals.get(declaration_id).ok_or_else(|| {
-                CompileError::DeclarationOutOfScope {
+        let declaration_id = self.resolver.get_declaration_binding(&target.id)?;
+        let local =
+            self.locals
+                .get(declaration_id)
+                .ok_or_else(|| CompileError::DeclarationOutOfScope {
                     declaration_id: *declaration_id,
                     usage_position: target.position(),
-                }
-            })?;
+                })?;
 
-            if let Local::Place(Place::Register(registers)) = local {
-                registers.clone()
-            } else {
-                return Err(CompileError::CannotMutate {
-                    position: target.position(),
-                });
-            }
+        let Local::Place(Place::Register(target_registers)) = local.clone() else {
+            return Err(CompileError::CannotMutate {
+                position: target.position(),
+            });
         };
 
         let source_emission = self.emit_expression(
@@ -2371,20 +2338,12 @@ impl<'a> Emitter<'a> {
 
         let mut math_emission = InstructionsEmission::new();
 
-        let place_target = if let Emission::Place(Place::Register(allocation)) = &left_emission {
-            Some(allocation.kind)
-        } else if let Emission::Instructions(instructions) = &left_emission {
-            instructions.target_registers.as_ref().map(|r| r.kind)
-        } else {
-            None
-        };
         let (left_memory, left_index) =
             self.handle_operand_emission(&mut math_emission, left_emission, &left)?;
         let (right_memory, right_index) =
             self.handle_operand_emission(&mut math_emission, right_emission, &right)?;
 
         let type_id = *self.resolver.get_type_binding(&reader.id)?;
-
         let is_assignment = matches!(
             reader.node.kind,
             SyntaxKind::AdditionAssignmentExpression
@@ -2394,13 +2353,19 @@ impl<'a> Emitter<'a> {
                 | SyntaxKind::ModuloAssignmentExpression
                 | SyntaxKind::ExponentAssignmentExpression
         );
+        let (destination, operand_type, registers) = if is_assignment {
+            let operand_type = self
+                .resolver
+                .get_operand_types(type_id)?
+                .first()
+                .copied()
+                .ok_or_else(|| CompileError::CannotApplyOperator {
+                    operator: reader.node.kind,
+                    type_id,
+                    operand_position: reader.position(),
+                })?;
 
-        let register = if is_assignment {
-            let kind = place_target.unwrap_or(RegisterKind::Temporary);
-            let allocation = self.claim_registers(type_id, kind)?;
-            let reg = allocation.expect_single()?;
-            math_emission.set_target(Some(allocation));
-            reg
+            (left_index, operand_type, None)
         } else {
             let target_registers = match target {
                 ExpressionTarget::ClaimedRegister(registers) => registers,
@@ -2409,22 +2374,20 @@ impl<'a> Emitter<'a> {
                 }
                 ExpressionTarget::Any => self.claim_registers(type_id, RegisterKind::Temporary)?,
             };
-            let reg = target_registers.expect_single()?;
-            math_emission.set_target(Some(target_registers));
-            reg
-        };
+            let register = target_registers.expect_single()?;
 
-        let destination = if is_assignment {
-            left_index
-        } else {
-            register.index
+            (
+                register.index,
+                register.operand_type,
+                Some(target_registers),
+            )
         };
 
         let math_instruction = match reader.node.kind {
             SyntaxKind::AdditionExpression | SyntaxKind::AdditionAssignmentExpression => {
                 Instruction::add(
                     destination,
-                    register.operand_type,
+                    operand_type,
                     left_memory,
                     left_index,
                     right_memory,
@@ -2434,7 +2397,7 @@ impl<'a> Emitter<'a> {
             SyntaxKind::SubtractionExpression | SyntaxKind::SubtractionAssignmentExpression => {
                 Instruction::subtract(
                     destination,
-                    register.operand_type,
+                    operand_type,
                     left_memory,
                     left_index,
                     right_memory,
@@ -2444,7 +2407,7 @@ impl<'a> Emitter<'a> {
             SyntaxKind::MultiplicationExpression
             | SyntaxKind::MultiplicationAssignmentExpression => Instruction::multiply(
                 destination,
-                register.operand_type,
+                operand_type,
                 left_memory,
                 left_index,
                 right_memory,
@@ -2453,7 +2416,7 @@ impl<'a> Emitter<'a> {
             SyntaxKind::DivisionExpression | SyntaxKind::DivisionAssignmentExpression => {
                 Instruction::divide(
                     destination,
-                    register.operand_type,
+                    operand_type,
                     left_memory,
                     left_index,
                     right_memory,
@@ -2463,7 +2426,7 @@ impl<'a> Emitter<'a> {
             SyntaxKind::ModuloExpression | SyntaxKind::ModuloAssignmentExpression => {
                 Instruction::modulo(
                     destination,
-                    register.operand_type,
+                    operand_type,
                     left_memory,
                     left_index,
                     right_memory,
@@ -2473,7 +2436,7 @@ impl<'a> Emitter<'a> {
             SyntaxKind::ExponentExpression | SyntaxKind::ExponentAssignmentExpression => {
                 Instruction::power(
                     destination,
-                    register.operand_type,
+                    operand_type,
                     left_memory,
                     left_index,
                     right_memory,
@@ -2496,6 +2459,7 @@ impl<'a> Emitter<'a> {
         };
 
         math_emission.push(math_instruction);
+        math_emission.set_target(registers);
 
         Ok(Emission::Instructions(math_emission))
     }

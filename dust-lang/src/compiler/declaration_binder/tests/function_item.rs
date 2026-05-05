@@ -25,6 +25,7 @@ fn empty() {
         .unwrap();
     let Definition::Function {
         public,
+        parent_trait_or_impl,
         type_parameters,
         value_parameters,
         return_type_id,
@@ -34,6 +35,7 @@ fn empty() {
     };
 
     assert!(!public);
+    assert_eq!(parent_trait_or_impl, None);
     assert_eq!(type_parameters, None);
     assert_eq!(value_parameters, None);
     assert_eq!(return_type_id, TypeId::UNIT);
@@ -60,6 +62,7 @@ fn with_generics_parameters_and_return_type() {
         .unwrap();
     let Definition::Function {
         public,
+        parent_trait_or_impl,
         type_parameters,
         value_parameters,
         return_type_id,
@@ -70,6 +73,7 @@ fn with_generics_parameters_and_return_type() {
     let type_parameter_entries = resolver.scopes.get_members(type_parameters.unwrap());
 
     assert!(public);
+    assert_eq!(parent_trait_or_impl, None);
     assert_eq!(return_type_id, TypeId::I_64);
     assert_eq!(type_parameter_entries.len(), 2);
 

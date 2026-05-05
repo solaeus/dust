@@ -221,6 +221,7 @@ pub enum Definition {
     /// - `fn foo<T>(x: T) -> T { ... }`
     Function {
         public: bool,
+        parent_trait_or_impl: Option<DeclarationId>,
         type_parameters: Option<ScopeId>,
         value_parameters: Option<ScopeId>,
         return_type_id: TypeId,

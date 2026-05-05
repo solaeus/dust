@@ -593,11 +593,24 @@ impl<'a> DeclarationBinder<'a> {
             self.exit_scope();
         }
 
+        let parent_declaration_id = match self.context {
+            Context::Trait {
+                trait_declaration_id,
+                ..
+            } => Some(trait_declaration_id),
+            Context::Impl {
+                impl_declaration_id,
+                ..
+            } => Some(impl_declaration_id),
+            Context::Other => None,
+        };
+
         self.exit_scope();
         self.resolver.declarations.set_reserved_declaration(
             function_declaration_id,
             Definition::Function {
                 public,
+                parent_trait_or_impl: parent_declaration_id,
                 type_parameters: type_parameters_scope_id,
                 value_parameters: value_parameters_scope_id,
                 return_type_id,
@@ -989,6 +1002,10 @@ impl<'a> DeclarationBinder<'a> {
             body,
         } = reader.as_component()?;
 
+        let impl_symbol_id = self.resolver.symbols.add_impl_symbol();
+        let impl_declaration_id =
+            self.reserve_declaration_id(impl_symbol_id, Some((reader.position(), reader.id)));
+
         self.enter_scope(ScopeKind::Item);
 
         let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
@@ -1010,6 +1027,7 @@ impl<'a> DeclarationBinder<'a> {
             &mut self.context,
             Context::Impl {
                 self_declaration_id,
+                impl_declaration_id,
             },
         );
 
@@ -1090,7 +1108,6 @@ impl<'a> DeclarationBinder<'a> {
         self.exit_scope();
         self.exit_scope();
 
-        let impl_symbol_id = self.resolver.symbols.add_impl_symbol();
         let definition = if let Some(trait_declaration_id) = trait_declaration_id {
             Definition::TraitImplementation {
                 type_parameters: type_parameters_scope_id,
@@ -1108,15 +1125,12 @@ impl<'a> DeclarationBinder<'a> {
                 declarations: impl_scope_id,
             }
         };
-        let impl_declaration_id = self.add_declaration(
-            impl_symbol_id,
-            definition,
-            Some((reader.position(), reader.id)),
-        );
 
         self.resolver
+            .declarations
+            .set_reserved_declaration(impl_declaration_id, definition);
+        self.resolver
             .add_declaration_binding(reader.id, impl_declaration_id);
-
         self.resolver
             .implementations
             .entry(self_declaration_id)
@@ -1179,6 +1193,7 @@ impl<'a> DeclarationBinder<'a> {
             Context::Trait {
                 supertraits_scope_id,
                 self_declaration_id,
+                trait_declaration_id,
             },
         );
 
@@ -1704,6 +1719,7 @@ impl<'a> DeclarationBinder<'a> {
     fn bind_self_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         if let Context::Impl {
             self_declaration_id,
+            ..
         }
         | Context::Trait {
             self_declaration_id,
@@ -1764,6 +1780,7 @@ impl<'a> DeclarationBinder<'a> {
             Definition::StructType { .. } | Definition::EnumType { .. } => {
                 let Context::Impl {
                     self_declaration_id,
+                    ..
                 } = self.context
                 else {
                     return Err(CompileError::Undeclared {
@@ -1939,6 +1956,7 @@ impl<'a> DeclarationBinder<'a> {
             SyntaxKind::SelfType => {
                 if let Context::Impl {
                     self_declaration_id,
+                    ..
                 }
                 | Context::Trait {
                     self_declaration_id,
@@ -2060,9 +2078,11 @@ enum Context {
     Other,
     Impl {
         self_declaration_id: DeclarationId,
+        impl_declaration_id: DeclarationId,
     },
     Trait {
-        supertraits_scope_id: Option<ScopeId>,
+        trait_declaration_id: DeclarationId,
         self_declaration_id: DeclarationId,
+        supertraits_scope_id: Option<ScopeId>,
     },
 }

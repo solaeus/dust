@@ -921,12 +921,10 @@ impl<'a> TypeBinder<'a> {
                 };
                 let value_parameters = self.resolver.types.add_type_members(parameter_type_ids);
 
-                let function_type = Type::Function {
+                self.resolver.types.add_type(Type::Function {
                     value_parameters,
                     return_type_id,
-                };
-
-                self.resolver.types.add_type(function_type)
+                })
             }
             Definition::StructType { .. } | Definition::EnumType { .. } => {
                 let algebraic_type = Type::Algebraic {
@@ -938,44 +936,11 @@ impl<'a> TypeBinder<'a> {
             }
             Definition::Variant {
                 enum_declaration_id,
-                fields,
                 ..
-            } => {
-                let return_type_id = self.resolver.types.add_type(Type::Algebraic {
-                    declaration_id: enum_declaration_id,
-                    type_arguments: TypeMembers::default(),
-                });
-
-                if let Some(scope_id) = fields {
-                    let parameter_type_ids: TypeId::SmallVec = self
-                        .resolver
-                        .scopes
-                        .get_members(scope_id)
-                        .iter()
-                        .map(|field_declaration_id| {
-                            let field_declaration = self
-                                .resolver
-                                .declarations
-                                .get_declaration(*field_declaration_id)?;
-
-                            match field_declaration.definition {
-                                Definition::Field { type_id, .. } => Ok(type_id),
-                                _ => Err(CompileError::ExpectedConcreteType),
-                            }
-                        })
-                        .collect::<Result<_, CompileError>>()?;
-                    let value_parameters = self.resolver.types.add_type_members(parameter_type_ids);
-
-                    let function_type = Type::Function {
-                        value_parameters,
-                        return_type_id,
-                    };
-
-                    self.resolver.types.add_type(function_type)
-                } else {
-                    return_type_id
-                }
-            }
+            } => self.resolver.types.add_type(Type::Algebraic {
+                declaration_id: enum_declaration_id,
+                type_arguments: TypeMembers::default(),
+            }),
             Definition::Use {
                 source_declaration_id,
                 ..
@@ -1330,10 +1295,17 @@ impl<'a> TypeBinder<'a> {
         _: (),
     ) -> Result<TypeId, CompileError> {
         let declaration_id = *self.resolver.get_declaration_binding(&reader.id)?;
-        let type_id = self.resolver.types.add_type(Type::Algebraic {
-            declaration_id,
-            type_arguments: TypeMembers::default(),
-        });
+        let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+        let type_id = match declaration.definition {
+            Definition::TypeParameter => self
+                .resolver
+                .types
+                .add_type(Type::Generic { declaration_id }),
+            _ => self.resolver.types.add_type(Type::Algebraic {
+                declaration_id,
+                type_arguments: TypeMembers::default(),
+            }),
+        };
 
         Ok(type_id)
     }
