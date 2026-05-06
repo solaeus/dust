@@ -20,8 +20,7 @@ fn simple() {
         .unwrap();
     let x_declaration = resolver
         .declarations
-        .get_declaration(x_declaration_id)
-        .unwrap();
+        .get_declaration(x_declaration_id);
     let Definition::Constant { public, type_id } = x_declaration.definition else {
         panic!();
     };
@@ -48,8 +47,7 @@ fn value_expression_scoped() {
         .unwrap();
     let x_declaration = resolver
         .declarations
-        .get_declaration(x_declaration_id)
-        .unwrap();
+        .get_declaration(x_declaration_id);
     let Definition::Constant { public, type_id } = x_declaration.definition else {
         panic!();
     };

@@ -24,8 +24,7 @@ fn inline() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
 
     assert!(matches!(
         foo_declaration.definition,
@@ -51,8 +50,7 @@ fn public_inline() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
 
     assert!(matches!(
         foo_declaration.definition,
@@ -78,8 +76,7 @@ fn inline_creates_module_scope() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Module { inner_scope_id, .. } = foo_declaration.definition else {
         panic!();
     };
@@ -107,8 +104,7 @@ fn inline_with_function() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Module { inner_scope_id, .. } = foo_declaration.definition else {
         panic!();
     };
@@ -120,8 +116,7 @@ fn inline_with_function() {
         .unwrap();
     let bar_declaration = resolver
         .declarations
-        .get_declaration(bar_declaration_id)
-        .unwrap();
+        .get_declaration(bar_declaration_id);
 
     assert!(matches!(
         bar_declaration.definition,
@@ -146,8 +141,7 @@ fn nested_inline() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Module {
         inner_scope_id: foo_scope_id,
         ..
@@ -163,8 +157,7 @@ fn nested_inline() {
         .unwrap();
     let bar_declaration = resolver
         .declarations
-        .get_declaration(bar_declaration_id)
-        .unwrap();
+        .get_declaration(bar_declaration_id);
     let Definition::Module {
         inner_scope_id: bar_scope_id,
         ..
@@ -221,8 +214,7 @@ fn file() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
 
     assert!(matches!(
         foo_declaration.definition,
@@ -253,8 +245,7 @@ fn public_file() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
 
     assert!(matches!(
         foo_declaration.definition,
@@ -285,8 +276,7 @@ fn file_binds_contents() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Module { inner_scope_id, .. } = foo_declaration.definition else {
         panic!();
     };
@@ -298,8 +288,7 @@ fn file_binds_contents() {
         .unwrap();
     let bar_declaration = resolver
         .declarations
-        .get_declaration(bar_declaration_id)
-        .unwrap();
+        .get_declaration(bar_declaration_id);
 
     assert!(matches!(
         bar_declaration.definition,

@@ -51,8 +51,7 @@ fn emit_function(source_code: &str) -> Prototype {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(declaration_id)
-        .unwrap();
+        .get_declaration(declaration_id);
 
     let Definition::Function { return_type_id, .. } = foo_declaration.definition else {
         panic!();

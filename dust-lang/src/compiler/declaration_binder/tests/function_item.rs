@@ -21,8 +21,7 @@ fn empty() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Function {
         public,
         parent_impl_or_trait,
@@ -58,8 +57,7 @@ fn with_generics_parameters_and_return_type() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Function {
         public,
         parent_impl_or_trait,
@@ -78,7 +76,7 @@ fn with_generics_parameters_and_return_type() {
     assert_eq!(type_parameter_entries.len(), 2);
 
     for &id in type_parameter_entries {
-        let declaration = resolver.declarations.get_declaration(id).unwrap();
+        let declaration = resolver.declarations.get_declaration(id);
 
         assert!(matches!(
             declaration.definition,
@@ -90,12 +88,10 @@ fn with_generics_parameters_and_return_type() {
     let b_symbol = resolver.symbols.add_symbol("B");
     let first = resolver
         .declarations
-        .get_declaration(type_parameter_entries[0])
-        .unwrap();
+        .get_declaration(type_parameter_entries[0]);
     let second = resolver
         .declarations
-        .get_declaration(type_parameter_entries[1])
-        .unwrap();
+        .get_declaration(type_parameter_entries[1]);
 
     assert_eq!(first.symbol_id, a_symbol);
     assert_eq!(second.symbol_id, b_symbol);
@@ -106,8 +102,7 @@ fn with_generics_parameters_and_return_type() {
 
     let first_parameter = resolver
         .declarations
-        .get_declaration(parameter_entries[0])
-        .unwrap();
+        .get_declaration(parameter_entries[0]);
     let Definition::Local {
         type_id: first_type,
         ..
@@ -117,8 +112,7 @@ fn with_generics_parameters_and_return_type() {
     };
     let second_parameter = resolver
         .declarations
-        .get_declaration(parameter_entries[1])
-        .unwrap();
+        .get_declaration(parameter_entries[1]);
     let Definition::Local {
         type_id: second_type,
         ..
@@ -167,8 +161,7 @@ fn same_name_in_different_modules() {
         .unwrap();
     let a_declaration = resolver
         .declarations
-        .get_declaration(a_declaration_id)
-        .unwrap();
+        .get_declaration(a_declaration_id);
     let Definition::Module {
         inner_scope_id: a_scope,
         ..
@@ -184,8 +177,7 @@ fn same_name_in_different_modules() {
         .unwrap();
     let b_declaration = resolver
         .declarations
-        .get_declaration(b_declaration_id)
-        .unwrap();
+        .get_declaration(b_declaration_id);
     let Definition::Module {
         inner_scope_id: b_scope,
         ..
@@ -199,7 +191,7 @@ fn same_name_in_different_modules() {
         .declarations
         .find_declaration_id(foo_symbol, a_scope.unwrap())
         .unwrap();
-    let a_foo = resolver.declarations.get_declaration(a_foo_id).unwrap();
+    let a_foo = resolver.declarations.get_declaration(a_foo_id);
     let Definition::Function {
         return_type_id: a_return,
         ..
@@ -214,7 +206,7 @@ fn same_name_in_different_modules() {
         .declarations
         .find_declaration_id(foo_symbol, b_scope.unwrap())
         .unwrap();
-    let b_foo = resolver.declarations.get_declaration(b_foo_id).unwrap();
+    let b_foo = resolver.declarations.get_declaration(b_foo_id);
     let Definition::Function {
         return_type_id: b_return,
         ..
@@ -241,8 +233,7 @@ fn type_parameters_have_correct_identity() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Function {
         type_parameters, ..
     } = foo_declaration.definition
@@ -259,12 +250,10 @@ fn type_parameters_have_correct_identity() {
 
     let first = resolver
         .declarations
-        .get_declaration(type_parameter_entries[0])
-        .unwrap();
+        .get_declaration(type_parameter_entries[0]);
     let second = resolver
         .declarations
-        .get_declaration(type_parameter_entries[1])
-        .unwrap();
+        .get_declaration(type_parameter_entries[1]);
 
     assert_eq!(first.symbol_id, a_symbol);
     assert!(matches!(
@@ -295,8 +284,7 @@ fn value_parameter_declarations() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Function {
         value_parameters, ..
     } = foo_declaration.definition
@@ -311,8 +299,7 @@ fn value_parameter_declarations() {
         .unwrap();
     let x_declaration = resolver
         .declarations
-        .get_declaration(x_declaration_id)
-        .unwrap();
+        .get_declaration(x_declaration_id);
     let Definition::Local {
         mutable: x_mutable,
         type_id: x_type,
@@ -332,8 +319,7 @@ fn value_parameter_declarations() {
         .unwrap();
     let y_declaration = resolver
         .declarations
-        .get_declaration(y_declaration_id)
-        .unwrap();
+        .get_declaration(y_declaration_id);
     let Definition::Local {
         mutable: y_mutable,
         type_id: y_type,
@@ -382,8 +368,7 @@ fn nested_function() {
         .unwrap();
     let outer_declaration = resolver
         .declarations
-        .get_declaration(outer_declaration_id)
-        .unwrap();
+        .get_declaration(outer_declaration_id);
 
     assert!(matches!(
         outer_declaration.definition,
@@ -398,8 +383,7 @@ fn nested_function() {
         .unwrap();
     let inner_declaration = resolver
         .declarations
-        .get_declaration(inner_declaration_id)
-        .unwrap();
+        .get_declaration(inner_declaration_id);
     let Definition::Function {
         value_parameters,
         return_type_id,

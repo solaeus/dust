@@ -155,7 +155,7 @@ impl Resolver {
 
             for value_parameter_id in value_parameter_ids {
                 let value_parameter_declaration =
-                    resolver.declarations.get_declaration(*value_parameter_id)?;
+                    resolver.declarations.get_declaration(*value_parameter_id);
                 let (Definition::Local { type_id, .. } | Definition::Field { type_id, .. }) =
                     value_parameter_declaration.definition
                 else {
@@ -170,7 +170,7 @@ impl Resolver {
 
         let mut value_parameter_type_ids = TypeId::SmallVec::new();
 
-        let declaration = self.declarations.get_declaration(function_declaration_id)?;
+        let declaration = self.declarations.get_declaration(function_declaration_id);
         let return_type_id = match declaration.definition {
             Definition::Function {
                 parent_impl_or_trait,
@@ -183,7 +183,7 @@ impl Resolver {
                     (parent_impl_or_trait, self_type_id)
                 {
                     let parent_declaration =
-                        self.declarations.get_declaration(parent_impl_or_trait_id)?;
+                        self.declarations.get_declaration(parent_impl_or_trait_id);
 
                     if let Definition::InherentImplementation {
                         declarations: Some(declarations),
@@ -199,8 +199,7 @@ impl Resolver {
                     } = parent_declaration.definition
                     {
                         for &member_id in self.scopes.get_members(declarations) {
-                            let member_declaration =
-                                self.declarations.get_declaration(member_id)?;
+                            let member_declaration = self.declarations.get_declaration(member_id);
 
                             if matches!(
                                 member_declaration.definition,
@@ -269,7 +268,7 @@ impl Resolver {
         let mut type_parameter_ids = DeclarationId::SmallVec::new();
 
         if let Some(parent_declaration_id) = parent_impl_or_trait {
-            let parent_declaration = self.declarations.get_declaration(parent_declaration_id)?;
+            let parent_declaration = self.declarations.get_declaration(parent_declaration_id);
 
             match &parent_declaration.definition {
                 Definition::Trait {
@@ -278,7 +277,7 @@ impl Resolver {
                     ..
                 } => {
                     for &member_id in self.scopes.get_members(*declarations) {
-                        let member_declaration = self.declarations.get_declaration(member_id)?;
+                        let member_declaration = self.declarations.get_declaration(member_id);
 
                         if matches!(
                             member_declaration.definition,
@@ -502,7 +501,7 @@ impl Resolver {
                 declaration_id,
                 type_arguments,
             } => {
-                let declaration = self.declarations.get_declaration(*declaration_id)?;
+                let declaration = self.declarations.get_declaration(*declaration_id);
 
                 match &declaration.definition {
                     Definition::EnumType {
@@ -532,7 +531,7 @@ impl Resolver {
 
                         for &variant_declaration_id in variant_entries {
                             let variant_declaration =
-                                self.declarations.get_declaration(variant_declaration_id)?;
+                                self.declarations.get_declaration(variant_declaration_id);
                             let Definition::Variant { fields, .. } =
                                 &variant_declaration.definition
                             else {
@@ -550,7 +549,7 @@ impl Resolver {
 
                             for &field_declaration_id in field_entries {
                                 let field_declaration =
-                                    self.declarations.get_declaration(field_declaration_id)?;
+                                    self.declarations.get_declaration(field_declaration_id);
                                 let Definition::Field {
                                     type_id: field_type_id,
                                     ..
@@ -657,7 +656,7 @@ impl Resolver {
 
                         for &field_declaration_id in field_entries {
                             let field_declaration =
-                                self.declarations.get_declaration(field_declaration_id)?;
+                                self.declarations.get_declaration(field_declaration_id);
                             let Definition::Field {
                                 type_id: field_type_id,
                                 ..
@@ -1054,7 +1053,7 @@ impl Resolver {
                 declaration_id,
                 type_arguments,
             } => {
-                let declaration = self.declarations.get_declaration(*declaration_id)?;
+                let declaration = self.declarations.get_declaration(*declaration_id);
 
                 match &declaration.definition {
                     Definition::EnumType {
@@ -1086,7 +1085,7 @@ impl Resolver {
 
                         for variant_declaration_id in variant_entries {
                             let variant_declaration =
-                                self.declarations.get_declaration(*variant_declaration_id)?;
+                                self.declarations.get_declaration(*variant_declaration_id);
                             let Definition::Variant { fields, .. } =
                                 &variant_declaration.definition
                             else {
@@ -1107,7 +1106,7 @@ impl Resolver {
                                 field_entries.iter().enumerate()
                             {
                                 let field_declaration =
-                                    self.declarations.get_declaration(*field_declaration_id)?;
+                                    self.declarations.get_declaration(*field_declaration_id);
                                 let Definition::Field {
                                     type_id: field_type_id,
                                     ..
@@ -1184,7 +1183,7 @@ impl Resolver {
 
                         for field_declaration_id in field_entries {
                             let field_declaration =
-                                self.declarations.get_declaration(*field_declaration_id)?;
+                                self.declarations.get_declaration(*field_declaration_id);
                             let Definition::Field {
                                 type_id: field_type_id,
                                 ..
@@ -1269,7 +1268,7 @@ impl Resolver {
                 declaration_id,
                 type_arguments,
             } => {
-                let declaration = self.declarations.get_declaration(*declaration_id)?;
+                let declaration = self.declarations.get_declaration(*declaration_id);
 
                 match &declaration.definition {
                     Definition::Function {
@@ -1283,9 +1282,8 @@ impl Resolver {
                                 .get_members(value_parameters)
                                 .iter()
                                 .map(|&parameter_declaration_id| {
-                                    let parameter_declaration = self
-                                        .declarations
-                                        .get_declaration(parameter_declaration_id)?;
+                                    let parameter_declaration =
+                                        self.declarations.get_declaration(parameter_declaration_id);
                                     let type_id = if let Definition::Local { type_id, .. } =
                                         parameter_declaration.definition
                                     {

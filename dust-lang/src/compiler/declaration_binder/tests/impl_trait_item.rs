@@ -33,8 +33,7 @@ fn with_method() {
         .unwrap();
     let implementation_declaration = resolver
         .declarations
-        .get_declaration(implementation_declaration_id)
-        .unwrap();
+        .get_declaration(implementation_declaration_id);
     let Definition::TraitImplementation {
         trait_declaration_id,
         declarations,
@@ -50,8 +49,7 @@ fn with_method() {
     let member_entries = resolver.scopes.get_members(declarations.unwrap());
     let baz_declaration = resolver
         .declarations
-        .get_declaration(member_entries[0])
-        .unwrap();
+        .get_declaration(member_entries[0]);
     let baz_symbol = resolver.symbols.add_symbol("baz");
 
     assert_eq!(baz_declaration.symbol_id, baz_symbol);
@@ -81,8 +79,7 @@ fn with_associated_type() {
         .unwrap();
     let implementation_declaration = resolver
         .declarations
-        .get_declaration(implementation_declaration_id)
-        .unwrap();
+        .get_declaration(implementation_declaration_id);
     let Definition::TraitImplementation { declarations, .. } =
         implementation_declaration.definition
     else {
@@ -94,8 +91,7 @@ fn with_associated_type() {
     let member_entries = resolver.scopes.get_members(declarations.unwrap());
     let item_declaration = resolver
         .declarations
-        .get_declaration(member_entries[0])
-        .unwrap();
+        .get_declaration(member_entries[0]);
     let Definition::InherentAssociatedType {
         aliased_type_id, ..
     } = item_declaration.definition

@@ -28,8 +28,7 @@ fn immutable() {
         .unwrap();
     let x_declaration = resolver
         .declarations
-        .get_declaration(x_declaration_id)
-        .unwrap();
+        .get_declaration(x_declaration_id);
     let Definition::Local {
         mutable,
         shadowed,
@@ -66,8 +65,7 @@ fn mutable() {
         .unwrap();
     let x_declaration = resolver
         .declarations
-        .get_declaration(x_declaration_id)
-        .unwrap();
+        .get_declaration(x_declaration_id);
     let Definition::Local {
         mutable, type_id, ..
     } = x_declaration.definition
@@ -100,8 +98,7 @@ fn with_type_notation() {
         .unwrap();
     let x_declaration = resolver
         .declarations
-        .get_declaration(x_declaration_id)
-        .unwrap();
+        .get_declaration(x_declaration_id);
     let Definition::Local {
         mutable, type_id, ..
     } = x_declaration.definition
@@ -131,8 +128,7 @@ fn mutable_with_type_notation() {
         .unwrap();
     let x_declaration = resolver
         .declarations
-        .get_declaration(x_declaration_id)
-        .unwrap();
+        .get_declaration(x_declaration_id);
     let Definition::Local {
         mutable, type_id, ..
     } = x_declaration.definition
@@ -163,8 +159,7 @@ fn shadowing() {
         .unwrap();
     let second_x_declaration = resolver
         .declarations
-        .get_declaration(second_x_declaration_id)
-        .unwrap();
+        .get_declaration(second_x_declaration_id);
     let Definition::Local {
         shadowed: second_shadowed,
         ..
@@ -175,8 +170,7 @@ fn shadowing() {
     let first_x_declaration_id = second_shadowed.unwrap();
     let first_x_declaration = resolver
         .declarations
-        .get_declaration(first_x_declaration_id)
-        .unwrap();
+        .get_declaration(first_x_declaration_id);
     let Definition::Local {
         shadowed: first_shadowed,
         ..
@@ -208,8 +202,7 @@ fn multiple() {
         .unwrap();
     let x_declaration = resolver
         .declarations
-        .get_declaration(x_declaration_id)
-        .unwrap();
+        .get_declaration(x_declaration_id);
     let y_symbol = resolver.symbols.add_symbol("y");
     let y_declaration_id = *resolver
         .declarations
@@ -217,8 +210,7 @@ fn multiple() {
         .unwrap();
     let y_declaration = resolver
         .declarations
-        .get_declaration(y_declaration_id)
-        .unwrap();
+        .get_declaration(y_declaration_id);
 
     assert!(matches!(x_declaration.definition, Definition::Local { .. }));
     assert!(matches!(y_declaration.definition, Definition::Local { .. }));

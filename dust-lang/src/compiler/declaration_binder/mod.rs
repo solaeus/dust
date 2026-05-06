@@ -85,7 +85,7 @@ impl<'a> DeclarationBinder<'a> {
             let forward_reference = self
                 .resolver
                 .declarations
-                .get_declaration(forward_reference_id)?;
+                .get_declaration(forward_reference_id);
 
             let resolved_declaration_id = {
                 let mut scope_id = forward_reference.scope_id;
@@ -100,7 +100,7 @@ impl<'a> DeclarationBinder<'a> {
                         let declaration = self
                             .resolver
                             .declarations
-                            .get_declaration(*declaration_id)?;
+                            .get_declaration(*declaration_id);
 
                         if crossed_scope_kinds
                             .iter()
@@ -214,7 +214,7 @@ impl<'a> DeclarationBinder<'a> {
                 let declaration = self
                     .resolver
                     .declarations
-                    .get_declaration(*declaration_id)?;
+                    .get_declaration(*declaration_id);
 
                 if crossed_scope_kinds
                     .iter()
@@ -257,7 +257,7 @@ impl<'a> DeclarationBinder<'a> {
         let parent_declaration = self
             .resolver
             .declarations
-            .get_declaration(parent_declaration_id)?;
+            .get_declaration(parent_declaration_id);
         let primary_member_scope_id = match parent_declaration.definition {
             Definition::Module {
                 inner_scope_id: Some(inner_scope_id),
@@ -310,7 +310,7 @@ impl<'a> DeclarationBinder<'a> {
                 let implementation_declaration = self
                     .resolver
                     .declarations
-                    .get_declaration(*implementation_declaration_id)?;
+                    .get_declaration(*implementation_declaration_id);
 
                 match implementation_declaration.definition {
                     Definition::InherentImplementation {
@@ -342,7 +342,7 @@ impl<'a> DeclarationBinder<'a> {
                             let trait_declaration = self
                                 .resolver
                                 .declarations
-                                .get_declaration(trait_declaration_id)?;
+                                .get_declaration(trait_declaration_id);
                             let Definition::Trait {
                                 declarations: Some(trait_scope_id),
                                 ..
@@ -1623,7 +1623,7 @@ impl<'a> DeclarationBinder<'a> {
         let struct_declaration = self
             .resolver
             .declarations
-            .get_declaration(struct_declaration_id)?;
+            .get_declaration(struct_declaration_id);
         let Definition::StructType {
             fields: fields_scope_id,
             ..
@@ -1824,7 +1824,7 @@ impl<'a> DeclarationBinder<'a> {
         let type_declaration = self
             .resolver
             .declarations
-            .get_declaration(type_declaration_id)?;
+            .get_declaration(type_declaration_id);
 
         if matches!(
             type_declaration.definition,
@@ -1917,7 +1917,7 @@ impl<'a> DeclarationBinder<'a> {
         scope_id: ScopeId,
     ) -> Result<Option<DeclarationId>, CompileError> {
         for trait_id in self.resolver.scopes.get_members(scope_id) {
-            let trait_declaration = self.resolver.declarations.get_declaration(*trait_id)?;
+            let trait_declaration = self.resolver.declarations.get_declaration(*trait_id);
             let Definition::Trait {
                 declarations: Some(declarations_scope_id),
                 ..
@@ -2009,7 +2009,7 @@ impl<'a> DeclarationBinder<'a> {
                 self.resolver
                     .add_declaration_binding(reader.id, declaration_id);
 
-                let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+                let declaration = self.resolver.declarations.get_declaration(declaration_id);
 
                 match declaration.definition {
                     Definition::StructType { .. } | Definition::EnumType { .. } => {

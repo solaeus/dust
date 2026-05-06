@@ -23,8 +23,7 @@ fn parameter_type_of_foo(source_code: &str) -> TypeId {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Function {
         value_parameters, ..
     } = foo_declaration.definition
@@ -38,8 +37,7 @@ fn parameter_type_of_foo(source_code: &str) -> TypeId {
 
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0])
-        .unwrap();
+        .get_declaration(parameter_entries[0]);
     let Definition::Local { type_id, .. } = parameter_declaration.definition else {
         panic!();
     };
@@ -173,8 +171,7 @@ fn tuple_type_empty() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Function {
         value_parameters, ..
     } = foo_declaration.definition
@@ -185,8 +182,7 @@ fn tuple_type_empty() {
     let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0])
-        .unwrap();
+        .get_declaration(parameter_entries[0]);
     let Definition::Local {
         type_id: parameter_type_id,
         ..
@@ -219,8 +215,7 @@ fn tuple_type_multiple() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Function {
         value_parameters, ..
     } = foo_declaration.definition
@@ -231,8 +226,7 @@ fn tuple_type_multiple() {
     let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0])
-        .unwrap();
+        .get_declaration(parameter_entries[0]);
     let Definition::Local {
         type_id: parameter_type_id,
         ..
@@ -267,8 +261,7 @@ fn function_type_basic() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Function {
         value_parameters, ..
     } = foo_declaration.definition
@@ -282,8 +275,7 @@ fn function_type_basic() {
 
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0])
-        .unwrap();
+        .get_declaration(parameter_entries[0]);
     let Definition::Local {
         type_id: parameter_type_id,
         ..
@@ -322,8 +314,7 @@ fn function_type_no_params() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Function {
         value_parameters, ..
     } = foo_declaration.definition
@@ -334,8 +325,7 @@ fn function_type_no_params() {
     let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0])
-        .unwrap();
+        .get_declaration(parameter_entries[0]);
     let Definition::Local {
         type_id: parameter_type_id,
         ..
@@ -374,8 +364,7 @@ fn function_type_multiple_params() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Function {
         value_parameters, ..
     } = foo_declaration.definition
@@ -386,8 +375,7 @@ fn function_type_multiple_params() {
     let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0])
-        .unwrap();
+        .get_declaration(parameter_entries[0]);
     let Definition::Local {
         type_id: parameter_type_id,
         ..
@@ -427,8 +415,7 @@ fn function_type_no_return() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Function {
         value_parameters, ..
     } = foo_declaration.definition
@@ -439,8 +426,7 @@ fn function_type_no_return() {
     let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0])
-        .unwrap();
+        .get_declaration(parameter_entries[0]);
     let Definition::Local {
         type_id: parameter_type_id,
         ..
@@ -486,8 +472,7 @@ fn type_path_to_struct() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Function {
         value_parameters, ..
     } = foo_declaration.definition
@@ -498,8 +483,7 @@ fn type_path_to_struct() {
     let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0])
-        .unwrap();
+        .get_declaration(parameter_entries[0]);
     let Definition::Local {
         type_id: parameter_type_id,
         ..
@@ -543,8 +527,7 @@ fn type_path_to_enum() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Function {
         value_parameters, ..
     } = foo_declaration.definition
@@ -555,8 +538,7 @@ fn type_path_to_enum() {
     let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0])
-        .unwrap();
+        .get_declaration(parameter_entries[0]);
     let Definition::Local {
         type_id: parameter_type_id,
         ..
@@ -586,8 +568,7 @@ fn type_path_to_type_parameter() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Function {
         type_parameters,
         value_parameters,
@@ -605,8 +586,7 @@ fn type_path_to_type_parameter() {
     let parameter_entries = resolver.scopes.get_members(value_parameters.unwrap());
     let parameter_declaration = resolver
         .declarations
-        .get_declaration(parameter_entries[0])
-        .unwrap();
+        .get_declaration(parameter_entries[0]);
     let Definition::Local {
         type_id: parameter_type_id,
         ..

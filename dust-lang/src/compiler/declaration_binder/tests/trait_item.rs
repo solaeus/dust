@@ -23,8 +23,7 @@ fn with_method_and_const() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Trait { declarations, .. } = foo_declaration.definition else {
         panic!();
     };
@@ -38,8 +37,7 @@ fn with_method_and_const() {
 
     let bar_decl = resolver
         .declarations
-        .get_declaration(member_entries[0])
-        .unwrap();
+        .get_declaration(member_entries[0]);
     let Definition::Function {
         value_parameters,
         return_type_id,
@@ -59,8 +57,7 @@ fn with_method_and_const() {
 
     let n_decl = resolver
         .declarations
-        .get_declaration(member_entries[1])
-        .unwrap();
+        .get_declaration(member_entries[1]);
     let Definition::InherentAssociatedConstant {
         parent, type_id, ..
     } = n_decl.definition
@@ -97,8 +94,7 @@ fn supertraits_resolved() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Trait { supertraits, .. } = foo_declaration.definition else {
         panic!();
     };
@@ -124,8 +120,7 @@ fn trait_creates_trait_scope() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::Trait { declarations, .. } = foo_declaration.definition else {
         panic!();
     };

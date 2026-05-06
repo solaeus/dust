@@ -23,8 +23,7 @@ fn simple() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::TypeAlias {
         public,
         type_parameters,
@@ -54,8 +53,7 @@ fn generic_alias_resolves_type_parameter() {
         .unwrap();
     let pair_declaration = resolver
         .declarations
-        .get_declaration(pair_declaration_id)
-        .unwrap();
+        .get_declaration(pair_declaration_id);
     let Definition::TypeAlias {
         type_parameters,
         aliased_type_id,
@@ -76,8 +74,7 @@ fn generic_alias_resolves_type_parameter() {
     let t_symbol = resolver.symbols.add_symbol("T");
     let t_declaration = resolver
         .declarations
-        .get_declaration(t_declaration_id)
-        .unwrap();
+        .get_declaration(t_declaration_id);
 
     assert_eq!(t_declaration.symbol_id, t_symbol);
     assert!(matches!(

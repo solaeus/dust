@@ -34,8 +34,7 @@ fn binds_field_declaration() {
         .unwrap();
     let field_declaration = resolver
         .declarations
-        .get_declaration(field_declaration_id)
-        .unwrap();
+        .get_declaration(field_declaration_id);
 
     let foo_symbol = resolver.symbols.add_symbol("Foo");
     let foo_declaration_id = *resolver

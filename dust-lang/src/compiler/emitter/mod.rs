@@ -100,7 +100,7 @@ impl<'a> Emitter<'a> {
 
             for (parameter_name, _) in name_type_pairs {
                 let declaration_id = *resolver.get_declaration_binding(&parameter_name.id)?;
-                let declaration = resolver.declarations.get_declaration(declaration_id)?;
+                let declaration = resolver.declarations.get_declaration(declaration_id);
                 let Definition::Local { type_id, .. } = declaration.definition else {
                     return Err(CompileError::ExpectedLocalDefinition(declaration_id));
                 };
@@ -160,7 +160,7 @@ impl<'a> Emitter<'a> {
                 let declaration = emitter
                     .resolver
                     .declarations
-                    .get_declaration(declaration_id)?;
+                    .get_declaration(declaration_id);
                 let Definition::Local { type_id, .. } = declaration.definition else {
                     return Err(CompileError::ExpectedLocal);
                 };
@@ -1903,7 +1903,7 @@ impl<'a> Emitter<'a> {
             }
         }
 
-        let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+        let declaration = self.resolver.declarations.get_declaration(declaration_id);
 
         match declaration.definition {
             Definition::Function { .. } => {
@@ -3012,7 +3012,7 @@ impl<'a> Emitter<'a> {
         let field_declaration = self
             .resolver
             .declarations
-            .get_declaration(field_declaration_id)?;
+            .get_declaration(field_declaration_id);
 
         let parent_struct = match field_declaration.definition {
             Definition::Field { parent_struct, .. } => parent_struct,
@@ -3024,7 +3024,7 @@ impl<'a> Emitter<'a> {
             }
         };
 
-        let struct_declaration = self.resolver.declarations.get_declaration(parent_struct)?;
+        let struct_declaration = self.resolver.declarations.get_declaration(parent_struct);
 
         let fields = match struct_declaration.definition {
             Definition::StructType {
@@ -3048,7 +3048,7 @@ impl<'a> Emitter<'a> {
                 break;
             }
 
-            let field_declaration = self.resolver.declarations.get_declaration(field_id)?;
+            let field_declaration = self.resolver.declarations.get_declaration(field_id);
 
             if let Definition::Field { type_id, .. } = field_declaration.definition {
                 let operand_types = self.resolver.get_operand_types(type_id)?;

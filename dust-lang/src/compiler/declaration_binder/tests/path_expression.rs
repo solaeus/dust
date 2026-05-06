@@ -24,8 +24,7 @@ fn binds_declaration() {
     let declaration_id = resolver.get_declaration_binding(&path_expr.id).unwrap();
     let declaration = resolver
         .declarations
-        .get_declaration(*declaration_id)
-        .unwrap();
+        .get_declaration(*declaration_id);
 
     assert!(matches!(declaration.definition, Definition::Local { .. }));
 }

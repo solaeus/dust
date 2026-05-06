@@ -334,14 +334,7 @@ impl<'a> DustError<'a> for CompileError {
             } => {
                 let title = "Declaration out of scope";
 
-                let declaration = match resolver.declarations.get_declaration(*declaration_id) {
-                    Ok(declaration) => declaration,
-                    Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
-
-                        return;
-                    }
-                };
+                let declaration = resolver.declarations.get_declaration(*declaration_id);
                 let name = match resolver.symbols.get_symbol(&declaration.symbol_id) {
                     Ok(name) => name,
                     Err(error) => {
@@ -397,14 +390,7 @@ impl<'a> DustError<'a> for CompileError {
                     Type::Algebraic { declaration_id, .. }
                     | Type::FunctionDefinition { declaration_id, .. }
                     | Type::Generic { declaration_id } => {
-                        match resolver.declarations.get_declaration(*declaration_id) {
-                            Ok(declaration) => Some(declaration),
-                            Err(error) => {
-                                error.add_report((source, syntax, resolver), groups);
-
-                                return;
-                            }
-                        }
+                        Some(resolver.declarations.get_declaration(*declaration_id))
                     }
                     _ => None,
                 };
@@ -1007,14 +993,7 @@ impl<'a> DustError<'a> for CompileError {
                 position,
             } => {
                 let title = "Cannot import";
-                let declaration = match resolver.declarations.get_declaration(*declaration_id) {
-                    Ok(declaration) => declaration,
-                    Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
-
-                        return;
-                    }
-                };
+                let declaration = resolver.declarations.get_declaration(*declaration_id);
                 let name = match resolver.symbols.get_symbol(&declaration.symbol_id) {
                     Ok(name) => name,
                     Err(error) => {

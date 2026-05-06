@@ -23,8 +23,7 @@ fn empty() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::StructType {
         public,
         type_parameters,
@@ -57,8 +56,7 @@ fn with_named_fields() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::StructType { fields, .. } = foo_declaration.definition else {
         panic!();
     };
@@ -71,8 +69,7 @@ fn with_named_fields() {
 
     let first_field = resolver
         .declarations
-        .get_declaration(field_entries[0])
-        .unwrap();
+        .get_declaration(field_entries[0]);
     let Definition::Field {
         parent_struct: first_parent,
         type_id: first_type,
@@ -87,8 +84,7 @@ fn with_named_fields() {
 
     let second_field = resolver
         .declarations
-        .get_declaration(field_entries[1])
-        .unwrap();
+        .get_declaration(field_entries[1]);
     let Definition::Field {
         parent_struct: second_parent,
         type_id: second_type,
@@ -119,8 +115,7 @@ fn tuple() {
         .unwrap();
     let bar_declaration = resolver
         .declarations
-        .get_declaration(bar_declaration_id)
-        .unwrap();
+        .get_declaration(bar_declaration_id);
     let Definition::StructType { fields, .. } = bar_declaration.definition else {
         panic!();
     };
@@ -130,8 +125,7 @@ fn tuple() {
 
     let first_field = resolver
         .declarations
-        .get_declaration(field_entries[0])
-        .unwrap();
+        .get_declaration(field_entries[0]);
     let Definition::Field {
         parent_struct: first_parent,
         type_id: first_type,
@@ -145,8 +139,7 @@ fn tuple() {
 
     let second_field = resolver
         .declarations
-        .get_declaration(field_entries[1])
-        .unwrap();
+        .get_declaration(field_entries[1]);
     let Definition::Field {
         parent_struct: second_parent,
         type_id: second_type,
@@ -176,8 +169,7 @@ fn public_generic() {
         .unwrap();
     let pair_declaration = resolver
         .declarations
-        .get_declaration(pair_declaration_id)
-        .unwrap();
+        .get_declaration(pair_declaration_id);
     let Definition::StructType {
         public,
         type_parameters,
@@ -197,12 +189,10 @@ fn public_generic() {
     let b_symbol = resolver.symbols.add_symbol("B");
     let first_tp = resolver
         .declarations
-        .get_declaration(type_parameter_entries[0])
-        .unwrap();
+        .get_declaration(type_parameter_entries[0]);
     let second_tp = resolver
         .declarations
-        .get_declaration(type_parameter_entries[1])
-        .unwrap();
+        .get_declaration(type_parameter_entries[1]);
 
     assert_eq!(first_tp.symbol_id, a_symbol);
     assert!(matches!(
@@ -220,8 +210,7 @@ fn public_generic() {
 
     let field = resolver
         .declarations
-        .get_declaration(field_entries[0])
-        .unwrap();
+        .get_declaration(field_entries[0]);
     let Definition::Field { type_id, .. } = field.definition else {
         panic!();
     };
@@ -266,8 +255,7 @@ fn same_name_in_different_modules() {
         .unwrap();
     let a_declaration = resolver
         .declarations
-        .get_declaration(a_declaration_id)
-        .unwrap();
+        .get_declaration(a_declaration_id);
     let Definition::Module {
         inner_scope_id: a_scope,
         ..
@@ -283,8 +271,7 @@ fn same_name_in_different_modules() {
         .unwrap();
     let b_declaration = resolver
         .declarations
-        .get_declaration(b_declaration_id)
-        .unwrap();
+        .get_declaration(b_declaration_id);
     let Definition::Module {
         inner_scope_id: b_scope,
         ..
@@ -301,8 +288,7 @@ fn same_name_in_different_modules() {
         .unwrap();
     let a_foo = resolver
         .declarations
-        .get_declaration(a_foo_declaration_id)
-        .unwrap();
+        .get_declaration(a_foo_declaration_id);
     let Definition::StructType {
         fields: a_fields, ..
     } = a_foo.definition
@@ -312,8 +298,7 @@ fn same_name_in_different_modules() {
     let a_field_entries = resolver.scopes.get_members(a_fields.unwrap());
     let a_field = resolver
         .declarations
-        .get_declaration(a_field_entries[0])
-        .unwrap();
+        .get_declaration(a_field_entries[0]);
     let Definition::Field {
         type_id: a_field_type,
         ..
@@ -329,8 +314,7 @@ fn same_name_in_different_modules() {
         .unwrap();
     let b_foo = resolver
         .declarations
-        .get_declaration(b_foo_declaration_id)
-        .unwrap();
+        .get_declaration(b_foo_declaration_id);
     let Definition::StructType {
         fields: b_fields, ..
     } = b_foo.definition
@@ -340,8 +324,7 @@ fn same_name_in_different_modules() {
     let b_field_entries = resolver.scopes.get_members(b_fields.unwrap());
     let b_field = resolver
         .declarations
-        .get_declaration(b_field_entries[0])
-        .unwrap();
+        .get_declaration(b_field_entries[0]);
     let Definition::Field {
         type_id: b_field_type,
         ..
@@ -368,8 +351,7 @@ fn unit() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::StructType {
         public,
         type_parameters,
@@ -401,8 +383,7 @@ fn field_publicity() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::StructType { fields, .. } = foo_declaration.definition else {
         panic!();
     };
@@ -412,8 +393,7 @@ fn field_publicity() {
 
     let first_field = resolver
         .declarations
-        .get_declaration(field_entries[0])
-        .unwrap();
+        .get_declaration(field_entries[0]);
     let Definition::Field {
         public: first_public,
         ..
@@ -425,8 +405,7 @@ fn field_publicity() {
 
     let second_field = resolver
         .declarations
-        .get_declaration(field_entries[1])
-        .unwrap();
+        .get_declaration(field_entries[1]);
     let Definition::Field {
         public: second_public,
         ..
@@ -454,8 +433,7 @@ fn generic_field_uses_type_parameter() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
     let Definition::StructType {
         type_parameters,
         fields,
@@ -476,8 +454,7 @@ fn generic_field_uses_type_parameter() {
 
     let field = resolver
         .declarations
-        .get_declaration(field_entries[0])
-        .unwrap();
+        .get_declaration(field_entries[0]);
     let Definition::Field { type_id, .. } = field.definition else {
         panic!();
     };

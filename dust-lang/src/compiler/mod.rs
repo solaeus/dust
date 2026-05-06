@@ -197,11 +197,10 @@ impl<'src> Compiler<'src> {
                 return Err(errors);
             }
         };
-        let main_declaration = unwrap_or_return!(
-            self.resolver
-                .declarations
-                .get_declaration(main_declaration_id)
-        );
+        let main_declaration = self
+            .resolver
+            .declarations
+            .get_declaration(main_declaration_id);
         let Definition::Function { .. } = main_declaration.definition else {
             errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
 
@@ -271,8 +270,7 @@ impl<'src> Compiler<'src> {
             .resolver
             .get_monomorphized_function(prototype_id)
             .clone();
-        let declaration =
-            unwrap_or_return!(self.resolver.declarations.get_declaration(declaration_id));
+        let declaration = self.resolver.declarations.get_declaration(declaration_id);
         let Definition::Function {
             type_parameters,
             return_type_id,

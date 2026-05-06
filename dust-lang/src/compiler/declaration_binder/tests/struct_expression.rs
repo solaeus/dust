@@ -31,10 +31,7 @@ fn binds_field_name() {
 
     for (field_name, _) in name_expression_pairs {
         let declaration_id = resolver.get_declaration_binding(&field_name.id).unwrap();
-        let declaration = resolver
-            .declarations
-            .get_declaration(*declaration_id)
-            .unwrap();
+        let declaration = resolver.declarations.get_declaration(*declaration_id);
 
         assert!(matches!(declaration.definition, Definition::Field { .. }));
     }

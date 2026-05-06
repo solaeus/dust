@@ -25,8 +25,7 @@ fn with_method() {
     let impl_declaration_id = *resolver.get_declaration_binding(&impl_item.id).unwrap();
     let impl_declaration = resolver
         .declarations
-        .get_declaration(impl_declaration_id)
-        .unwrap();
+        .get_declaration(impl_declaration_id);
     let Definition::InherentImplementation { declarations, .. } = impl_declaration.definition
     else {
         panic!();
@@ -37,8 +36,7 @@ fn with_method() {
     let method_entries = resolver.scopes.get_members(declarations.unwrap());
     let method = resolver
         .declarations
-        .get_declaration(method_entries[0])
-        .unwrap();
+        .get_declaration(method_entries[0]);
     let bar_symbol = resolver.symbols.add_symbol("bar");
 
     assert_eq!(method.symbol_id, bar_symbol);

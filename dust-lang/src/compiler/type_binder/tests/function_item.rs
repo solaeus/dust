@@ -99,8 +99,7 @@ fn generic_return_type_resolves_through_type_parameter_map() {
         .unwrap();
     let foo_declaration = resolver
         .declarations
-        .get_declaration(foo_declaration_id)
-        .unwrap();
+        .get_declaration(foo_declaration_id);
 
     let Definition::Function {
         type_parameters, ..

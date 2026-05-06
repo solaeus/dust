@@ -567,7 +567,7 @@ impl<'a> TypeBinder<'a> {
         };
 
         let declaration_id = *self.resolver.get_declaration_binding(&name.id)?;
-        let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+        let declaration = self.resolver.declarations.get_declaration(declaration_id);
         let Definition::Constant {
             type_id: declared_type_id,
             ..
@@ -635,7 +635,7 @@ impl<'a> TypeBinder<'a> {
         } = reader.as_component()?;
 
         let declaration_id = *self.resolver.get_declaration_binding(&name.id)?;
-        let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+        let declaration = self.resolver.declarations.get_declaration(declaration_id);
         let Definition::Local {
             type_id: declared_type_id,
             ..
@@ -851,7 +851,7 @@ impl<'a> TypeBinder<'a> {
         }
 
         let declaration_id = *self.resolver.get_declaration_binding(&reader.id)?;
-        let declaration = self.resolver.declarations.get_declaration(declaration_id)?;
+        let declaration = self.resolver.declarations.get_declaration(declaration_id);
         let type_id = match declaration.definition {
             Definition::Local { type_id, .. }
             | Definition::Constant { type_id, .. }
@@ -897,7 +897,7 @@ impl<'a> TypeBinder<'a> {
                 let target_declaration = self
                     .resolver
                     .declarations
-                    .get_declaration(source_declaration_id)?;
+                    .get_declaration(source_declaration_id);
 
                 match target_declaration.definition {
                     Definition::Local { type_id, .. }
@@ -937,7 +937,7 @@ impl<'a> TypeBinder<'a> {
             let field_declaration = self
                 .resolver
                 .declarations
-                .get_declaration(field_declaration_id)?;
+                .get_declaration(field_declaration_id);
 
             let Definition::Field { type_id, .. } = field_declaration.definition else {
                 return Err(CompileError::ExpectedFieldDefinition(field_declaration_id));
@@ -1177,7 +1177,7 @@ impl<'a> TypeBinder<'a> {
         let field_declaration = self
             .resolver
             .declarations
-            .get_declaration(field_declaration_id)?;
+            .get_declaration(field_declaration_id);
         let type_id = match field_declaration.definition {
             Definition::Field { type_id, .. } => self.resolver.resolve_type(type_id)?,
             _ => return Err(CompileError::ExpectedFieldDefinition(field_declaration_id)),

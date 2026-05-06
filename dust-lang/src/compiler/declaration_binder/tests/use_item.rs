@@ -20,8 +20,7 @@ fn module() {
         .unwrap();
     let use_declaration = resolver
         .declarations
-        .get_declaration(use_declaration_id)
-        .unwrap();
+        .get_declaration(use_declaration_id);
 
     assert!(matches!(
         use_declaration.definition,
@@ -46,8 +45,7 @@ fn public_module() {
         .unwrap();
     let use_declaration = resolver
         .declarations
-        .get_declaration(use_declaration_id)
-        .unwrap();
+        .get_declaration(use_declaration_id);
 
     assert!(matches!(
         use_declaration.definition,
@@ -72,8 +70,7 @@ fn resolves_to_module() {
         .unwrap();
     let use_declaration = resolver
         .declarations
-        .get_declaration(use_declaration_id)
-        .unwrap();
+        .get_declaration(use_declaration_id);
     let Definition::Use {
         source_declaration_id,
         ..
@@ -83,8 +80,7 @@ fn resolves_to_module() {
     };
     let target = resolver
         .declarations
-        .get_declaration(source_declaration_id)
-        .unwrap();
+        .get_declaration(source_declaration_id);
 
     assert!(matches!(target.definition, Definition::Module { .. }));
 }
@@ -106,8 +102,7 @@ fn function_from_module() {
         .unwrap();
     let use_declaration = resolver
         .declarations
-        .get_declaration(use_declaration_id)
-        .unwrap();
+        .get_declaration(use_declaration_id);
     let Definition::Use {
         source_declaration_id,
         ..
@@ -117,8 +112,7 @@ fn function_from_module() {
     };
     let target = resolver
         .declarations
-        .get_declaration(source_declaration_id)
-        .unwrap();
+        .get_declaration(source_declaration_id);
 
     assert!(matches!(target.definition, Definition::Function { .. }));
 }
@@ -140,8 +134,7 @@ fn struct_from_module() {
         .unwrap();
     let use_declaration = resolver
         .declarations
-        .get_declaration(use_declaration_id)
-        .unwrap();
+        .get_declaration(use_declaration_id);
     let Definition::Use {
         source_declaration_id,
         ..
@@ -151,8 +144,7 @@ fn struct_from_module() {
     };
     let target = resolver
         .declarations
-        .get_declaration(source_declaration_id)
-        .unwrap();
+        .get_declaration(source_declaration_id);
 
     assert!(matches!(target.definition, Definition::StructType { .. }));
 }
@@ -174,8 +166,7 @@ fn from_nested_module() {
         .unwrap();
     let use_declaration = resolver
         .declarations
-        .get_declaration(use_declaration_id)
-        .unwrap();
+        .get_declaration(use_declaration_id);
     let Definition::Use {
         source_declaration_id,
         ..
@@ -185,8 +176,7 @@ fn from_nested_module() {
     };
     let target = resolver
         .declarations
-        .get_declaration(source_declaration_id)
-        .unwrap();
+        .get_declaration(source_declaration_id);
 
     assert!(matches!(target.definition, Definition::Function { .. }));
 }
@@ -208,8 +198,7 @@ fn nested_module() {
         .unwrap();
     let use_declaration = resolver
         .declarations
-        .get_declaration(use_declaration_id)
-        .unwrap();
+        .get_declaration(use_declaration_id);
     let Definition::Use {
         source_declaration_id,
         ..
@@ -219,8 +208,7 @@ fn nested_module() {
     };
     let target = resolver
         .declarations
-        .get_declaration(source_declaration_id)
-        .unwrap();
+        .get_declaration(source_declaration_id);
 
     assert!(matches!(target.definition, Definition::Module { .. }));
 }
@@ -242,8 +230,7 @@ fn inside_module() {
         .unwrap();
     let baz_declaration = resolver
         .declarations
-        .get_declaration(baz_declaration_id)
-        .unwrap();
+        .get_declaration(baz_declaration_id);
     let Definition::Module { inner_scope_id, .. } = baz_declaration.definition else {
         panic!();
     };
@@ -254,8 +241,7 @@ fn inside_module() {
         .unwrap();
     let use_declaration = resolver
         .declarations
-        .get_declaration(use_declaration_id)
-        .unwrap();
+        .get_declaration(use_declaration_id);
     let Definition::Use {
         source_declaration_id,
         ..
@@ -265,8 +251,7 @@ fn inside_module() {
     };
     let target = resolver
         .declarations
-        .get_declaration(source_declaration_id)
-        .unwrap();
+        .get_declaration(source_declaration_id);
 
     assert!(matches!(target.definition, Definition::Function { .. }));
 }
@@ -288,8 +273,7 @@ fn public_function() {
         .unwrap();
     let use_declaration = resolver
         .declarations
-        .get_declaration(use_declaration_id)
-        .unwrap();
+        .get_declaration(use_declaration_id);
 
     assert!(matches!(
         use_declaration.definition,
@@ -339,8 +323,7 @@ fn enum_from_module() {
         .unwrap();
     let use_declaration = resolver
         .declarations
-        .get_declaration(use_declaration_id)
-        .unwrap();
+        .get_declaration(use_declaration_id);
     let Definition::Use {
         source_declaration_id,
         ..
@@ -350,8 +333,7 @@ fn enum_from_module() {
     };
     let target = resolver
         .declarations
-        .get_declaration(source_declaration_id)
-        .unwrap();
+        .get_declaration(source_declaration_id);
 
     assert!(matches!(target.definition, Definition::EnumType { .. }));
 }
@@ -373,8 +355,7 @@ fn enum_variant_from_module() {
         .unwrap();
     let use_declaration = resolver
         .declarations
-        .get_declaration(use_declaration_id)
-        .unwrap();
+        .get_declaration(use_declaration_id);
     let Definition::Use {
         source_declaration_id,
         ..
@@ -384,8 +365,7 @@ fn enum_variant_from_module() {
     };
     let target = resolver
         .declarations
-        .get_declaration(source_declaration_id)
-        .unwrap();
+        .get_declaration(source_declaration_id);
 
     assert!(matches!(target.definition, Definition::Variant { .. }));
 }

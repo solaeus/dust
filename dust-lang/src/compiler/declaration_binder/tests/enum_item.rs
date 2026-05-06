@@ -24,7 +24,7 @@ fn with_unit_variants() {
         .declarations
         .find_declaration_id(color_symbol, crate_scope_id)
         .unwrap();
-    let color_declaration = resolver.declarations.get_declaration(color_id).unwrap();
+    let color_declaration = resolver.declarations.get_declaration(color_id);
     let Definition::EnumType {
         public,
         type_parameters,
@@ -47,8 +47,7 @@ fn with_unit_variants() {
 
     let red = resolver
         .declarations
-        .get_declaration(variant_entries[0])
-        .unwrap();
+        .get_declaration(variant_entries[0]);
     let Definition::Variant {
         discriminant: red_discriminant,
         enum_declaration_id: red_parent_id,
@@ -64,8 +63,7 @@ fn with_unit_variants() {
 
     let green = resolver
         .declarations
-        .get_declaration(variant_entries[1])
-        .unwrap();
+        .get_declaration(variant_entries[1]);
     let Definition::Variant {
         discriminant: green_discriminant,
         enum_declaration_id: green_parent_id,
@@ -81,8 +79,7 @@ fn with_unit_variants() {
 
     let blue = resolver
         .declarations
-        .get_declaration(variant_entries[2])
-        .unwrap();
+        .get_declaration(variant_entries[2]);
     let Definition::Variant {
         discriminant: blue_discriminant,
         enum_declaration_id: blue_parent_id,
@@ -112,7 +109,7 @@ fn public_generic() {
         .declarations
         .find_declaration_id(opt_symbol, crate_scope_id)
         .unwrap();
-    let opt_declaration = resolver.declarations.get_declaration(opt_id).unwrap();
+    let opt_declaration = resolver.declarations.get_declaration(opt_id);
     let Definition::EnumType {
         public,
         type_parameters,
@@ -132,12 +129,10 @@ fn public_generic() {
     let b_symbol = resolver.symbols.add_symbol("B");
     let first_tp = resolver
         .declarations
-        .get_declaration(type_parameter_entries[0])
-        .unwrap();
+        .get_declaration(type_parameter_entries[0]);
     let second_tp = resolver
         .declarations
-        .get_declaration(type_parameter_entries[1])
-        .unwrap();
+        .get_declaration(type_parameter_entries[1]);
 
     assert_eq!(first_tp.symbol_id, a_symbol);
     assert!(matches!(
@@ -166,7 +161,7 @@ fn with_mixed_variants() {
         .declarations
         .find_declaration_id(shape_symbol, crate_scope_id)
         .unwrap();
-    let shape_declaration = resolver.declarations.get_declaration(shape_id).unwrap();
+    let shape_declaration = resolver.declarations.get_declaration(shape_id);
     let Definition::EnumType { variants, .. } = shape_declaration.definition else {
         panic!();
     };
@@ -181,8 +176,7 @@ fn with_mixed_variants() {
 
     let point = resolver
         .declarations
-        .get_declaration(variant_entries[0])
-        .unwrap();
+        .get_declaration(variant_entries[0]);
     let Definition::Variant {
         discriminant: point_discriminant,
         enum_declaration_id: point_parent_id,
@@ -200,8 +194,7 @@ fn with_mixed_variants() {
 
     let line = resolver
         .declarations
-        .get_declaration(variant_entries[1])
-        .unwrap();
+        .get_declaration(variant_entries[1]);
     let Definition::Variant {
         discriminant: line_discriminant,
         enum_declaration_id: line_parent_id,
@@ -222,8 +215,7 @@ fn with_mixed_variants() {
 
     let line_field = resolver
         .declarations
-        .get_declaration(line_field_entries[0])
-        .unwrap();
+        .get_declaration(line_field_entries[0]);
     let Definition::Field {
         type_id: line_field_type,
         ..
@@ -236,8 +228,7 @@ fn with_mixed_variants() {
 
     let rect = resolver
         .declarations
-        .get_declaration(variant_entries[2])
-        .unwrap();
+        .get_declaration(variant_entries[2]);
     let Definition::Variant {
         discriminant: rectangle_discriminant,
         enum_declaration_id: rectangle_parent_id,
@@ -260,12 +251,10 @@ fn with_mixed_variants() {
     let h_symbol = resolver.symbols.add_symbol("h");
     let w_field = resolver
         .declarations
-        .get_declaration(rect_field_entries[0])
-        .unwrap();
+        .get_declaration(rect_field_entries[0]);
     let h_field = resolver
         .declarations
-        .get_declaration(rect_field_entries[1])
-        .unwrap();
+        .get_declaration(rect_field_entries[1]);
 
     assert_eq!(w_field.symbol_id, w_symbol);
     assert_eq!(h_field.symbol_id, h_symbol);
@@ -305,7 +294,7 @@ fn same_name_in_different_modules() {
         .declarations
         .find_declaration_id(a_symbol, crate_scope_id)
         .unwrap();
-    let a_declaration = resolver.declarations.get_declaration(a_id).unwrap();
+    let a_declaration = resolver.declarations.get_declaration(a_id);
     let Definition::Module {
         inner_scope_id: a_scope,
         ..
@@ -319,7 +308,7 @@ fn same_name_in_different_modules() {
         .declarations
         .find_declaration_id(b_symbol, crate_scope_id)
         .unwrap();
-    let b_declaration = resolver.declarations.get_declaration(b_id).unwrap();
+    let b_declaration = resolver.declarations.get_declaration(b_id);
     let Definition::Module {
         inner_scope_id: b_scope,
         ..
@@ -333,7 +322,7 @@ fn same_name_in_different_modules() {
         .declarations
         .find_declaration_id(foo_symbol, a_scope.unwrap())
         .unwrap();
-    let a_foo = resolver.declarations.get_declaration(a_foo_id).unwrap();
+    let a_foo = resolver.declarations.get_declaration(a_foo_id);
 
     let Definition::EnumType {
         variants: a_variants,
@@ -345,8 +334,7 @@ fn same_name_in_different_modules() {
     let a_variant_entries = resolver.scopes.get_members(a_variants.unwrap());
     let a_variant = resolver
         .declarations
-        .get_declaration(a_variant_entries[0])
-        .unwrap();
+        .get_declaration(a_variant_entries[0]);
     let x_symbol = resolver.symbols.add_symbol("X");
 
     assert_eq!(a_variant.symbol_id, x_symbol);
@@ -355,7 +343,7 @@ fn same_name_in_different_modules() {
         .declarations
         .find_declaration_id(foo_symbol, b_scope.unwrap())
         .unwrap();
-    let b_foo = resolver.declarations.get_declaration(b_foo_id).unwrap();
+    let b_foo = resolver.declarations.get_declaration(b_foo_id);
 
     let Definition::EnumType {
         variants: b_variants,
@@ -367,8 +355,7 @@ fn same_name_in_different_modules() {
     let b_variant_entries = resolver.scopes.get_members(b_variants.unwrap());
     let b_variant = resolver
         .declarations
-        .get_declaration(b_variant_entries[0])
-        .unwrap();
+        .get_declaration(b_variant_entries[0]);
     let y_symbol = resolver.symbols.add_symbol("Y");
 
     assert_eq!(b_variant.symbol_id, y_symbol);
@@ -390,7 +377,7 @@ fn generic_variant_field() {
         .declarations
         .find_declaration_id(opt_symbol, crate_scope_id)
         .unwrap();
-    let opt_declaration = resolver.declarations.get_declaration(opt_id).unwrap();
+    let opt_declaration = resolver.declarations.get_declaration(opt_id);
     let Definition::EnumType {
         type_parameters,
         variants,
@@ -411,8 +398,7 @@ fn generic_variant_field() {
 
     let some_variant = resolver
         .declarations
-        .get_declaration(variant_entries[0])
-        .unwrap();
+        .get_declaration(variant_entries[0]);
     let Definition::Variant {
         fields: some_fields,
         ..
@@ -426,8 +412,7 @@ fn generic_variant_field() {
 
     let some_field = resolver
         .declarations
-        .get_declaration(some_field_entries[0])
-        .unwrap();
+        .get_declaration(some_field_entries[0]);
     let Definition::Field { type_id, .. } = some_field.definition else {
         panic!();
     };
@@ -440,8 +425,7 @@ fn generic_variant_field() {
 
     let none_variant = resolver
         .declarations
-        .get_declaration(variant_entries[1])
-        .unwrap();
+        .get_declaration(variant_entries[1]);
     let Definition::Variant {
         fields: none_fields,
         ..
