@@ -140,9 +140,15 @@ fn public_generic() {
         .unwrap();
 
     assert_eq!(first_tp.symbol_id, a_symbol);
-    assert!(matches!(first_tp.definition, Definition::TypeParameter));
+    assert!(matches!(
+        first_tp.definition,
+        Definition::TypeParameter { is_self: false }
+    ));
     assert_eq!(second_tp.symbol_id, b_symbol);
-    assert!(matches!(second_tp.definition, Definition::TypeParameter));
+    assert!(matches!(
+        second_tp.definition,
+        Definition::TypeParameter { is_self: false }
+    ));
     assert_eq!(resolver.scopes.get_members(variants.unwrap()).len(), 2);
 }
 

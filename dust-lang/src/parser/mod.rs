@@ -126,7 +126,7 @@ impl<'src> Parser<'src> {
                 SyntaxNode {
                     kind,
                     children,
-                    children_kind: SyntaxChildrenKind::ThreeOrMore,
+                    children_kind: SyntaxChildrenKind::Multiple,
                     flags,
                     span,
                 }
@@ -1110,7 +1110,6 @@ impl<'src> Parser<'src> {
         }
 
         let expression_id = expression_statement_node.children.left_id();
-
         let children = self.tree.add_children([name_id, type_id, expression_id]);
 
         Ok(SyntaxKind::ConstItem
@@ -1776,13 +1775,35 @@ impl<'src> Parser<'src> {
     }
 
     fn parse_prefix_return_keyord(&mut self) -> Result<SyntaxNode, ParseError> {
-        todo!()
-    }
-
-    fn parse_prefix_self_value(&mut self) -> Result<SyntaxNode, ParseError> {
         self.advance();
 
-        Ok(SyntaxKind::SelfExpression.empty(self.previous_token.span))
+        if self.allow(TokenKind::Semicolon) {
+            Ok(SyntaxKind::ReturnExpression.empty(self.previous_token.span))
+        } else {
+            let expression_statement_node = self.parse_expression()?;
+
+            if expression_statement_node.kind != SyntaxKind::ExpressionStatement {
+                return Err(ParseError::ExpectedToken {
+                    expected: TokenKind::Semicolon,
+                    found: self.current_token.kind,
+                    position: self.current_position(),
+                });
+            }
+
+            let expression_id = expression_statement_node.children.left_id();
+
+            Ok(SyntaxKind::ReturnExpression
+                .with_single_child(self.previous_token.span, expression_id))
+        }
+    }
+
+    fn parse_prefix_self_keyword(&mut self) -> Result<SyntaxNode, ParseError> {
+        self.advance();
+
+        let segment_node = SyntaxKind::PathSegment.empty(self.previous_token.span);
+        let segment_id = self.tree.add_node(segment_node);
+
+        Ok(SyntaxKind::PathExpression.with_single_child(segment_node.span, segment_id))
     }
 
     fn parse_prefix_identifier(&mut self) -> Result<SyntaxNode, ParseError> {
@@ -1873,17 +1894,52 @@ impl<'src> Parser<'src> {
         let left_id = self.tree.add_node(left);
 
         self.advance();
+        self.expect(TokenKind::Identifier)?;
 
-        let field_name_node = self.expect_simple_path()?;
+        let field_name_node = SyntaxKind::SimplePath.empty(self.previous_token.span);
         let field_name_id = self.tree.add_node(field_name_node);
 
-        let end = self.previous_token.span.end();
+        if !matches!(
+            self.current_token.kind,
+            TokenKind::Less | TokenKind::LeftParenthesis
+        ) {
+            return Ok(SyntaxKind::FieldAccessExpression.with_binary_children(
+                Span::new(start, self.previous_token.span.end()),
+                left_id,
+                field_name_id,
+            ));
+        }
 
-        Ok(SyntaxKind::FieldAccessExpression.with_binary_children(
-            Span::new(start, end),
-            left_id,
-            field_name_id,
-        ))
+        let mut children = Self::new_child_buffer();
+        let mut flags = SyntaxFlags::default();
+
+        children.push(left_id);
+        children.push(field_name_id);
+
+        if let Some(type_arguments_node) = self.allow_type_arguments()? {
+            let type_arguments_id = self.tree.add_node(type_arguments_node);
+
+            children.push(type_arguments_id);
+            flags.set_flag(SyntaxFlags::TYPE_ARGUMENTS);
+        }
+
+        if let Some(value_arguments_node) = self.allow_value_arguments()? {
+            let value_arguments_id = self.tree.add_node(value_arguments_node);
+
+            children.push(value_arguments_id);
+            flags.set_flag(SyntaxFlags::VALUE_ARGUMENTS);
+        }
+
+        let end = self.previous_token.span.end();
+        let children = self.tree.add_children(children);
+
+        Ok(SyntaxNode {
+            kind: SyntaxKind::MethodCallExpression,
+            children,
+            children_kind: SyntaxChildrenKind::Multiple,
+            flags,
+            span: Span::new(start, end),
+        })
     }
 
     fn parse_infix_left_bracket(&mut self, left: SyntaxNode) -> Result<SyntaxNode, ParseError> {
@@ -1910,15 +1966,35 @@ impl<'src> Parser<'src> {
         let start = left.span.start();
         let left_id = self.tree.add_node(left);
 
-        self.advance();
+        if let Some(value_arguments_node) = self.allow_value_arguments()? {
+            let value_arguments_id = self.tree.add_node(value_arguments_node);
+            let end = self.previous_token.span.end();
 
-        let mut value_arguments = Self::new_child_buffer();
+            Ok(SyntaxKind::CallExpression.with_binary_children(
+                Span::new(start, end),
+                left_id,
+                value_arguments_id,
+            ))
+        } else {
+            Ok(SyntaxKind::CallExpression
+                .with_single_child(Span::new(start, self.previous_token.span.end()), left_id))
+        }
+    }
+
+    fn allow_value_arguments(&mut self) -> Result<Option<SyntaxNode>, ParseError> {
+        if !self.allow(TokenKind::LeftParenthesis) {
+            return Ok(None);
+        }
+
+        let start = self.previous_token.span.start();
+
+        let mut value_argument_nodes = Self::new_child_buffer();
 
         while !self.allow(TokenKind::RightParenthesis) {
             let argument_node = self.parse_expression()?;
             let argument_id = self.tree.add_node(argument_node);
 
-            value_arguments.push(argument_id);
+            value_argument_nodes.push(argument_id);
 
             match self.current_token.kind {
                 TokenKind::Comma => self.advance(),
@@ -1934,19 +2010,13 @@ impl<'src> Parser<'src> {
         }
 
         let end = self.previous_token.span.end();
-        let call_value_arguments_node = self.create_node(
-            SyntaxKind::ValueArguments,
-            value_arguments,
-            SyntaxFlags::default(),
-            Span::new(left.span.start(), self.previous_token.span.end()),
-        );
-        let call_value_arguments_id = self.tree.add_node(call_value_arguments_node);
 
-        Ok(SyntaxKind::CallExpression.with_binary_children(
+        Ok(Some(self.create_node(
+            SyntaxKind::ValueArguments,
+            value_argument_nodes,
+            SyntaxFlags::default(),
             Span::new(start, end),
-            left_id,
-            call_value_arguments_id,
-        ))
+        )))
     }
 
     fn expect_path(&mut self) -> Result<SyntaxNode, ParseError> {

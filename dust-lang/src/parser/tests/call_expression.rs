@@ -1,5 +1,5 @@
-use crate::function_wrapper;
 use crate::{
+    function_wrapper,
     lexer::Lexer,
     parser::{ParseResult, Parser},
     source::{SourceCodeId, Span},
@@ -29,7 +29,7 @@ fn call_with_two_arguments() {
             CallExpression.with_binary_children(Span::new(16, 25), SyntaxId(3), SyntaxId(6)),
             PathExpression.with_single_child(Span::new(16, 19), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 19)),
-            ValueArguments.with_binary_children(Span::new(16, 25), SyntaxId(4), SyntaxId(5)),
+            ValueArguments.with_binary_children(Span::new(19, 25), SyntaxId(4), SyntaxId(5)),
             IntegerExpression.empty(Span::new(20, 21)),
             IntegerExpression.empty(Span::new(23, 24)),
         ]

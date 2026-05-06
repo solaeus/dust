@@ -116,10 +116,8 @@ impl Types {
         TypeMembers { start, end }
     }
 
-    pub fn get_type_members(&self, members: TypeMembers) -> Result<&[TypeId], CompileError> {
-        self.members
-            .get(members.as_usize_range())
-            .ok_or(CompileError::MissingTypeMembers(members))
+    pub fn get_type_members(&self, members: TypeMembers) -> &[TypeId] {
+        &self.members[members.as_usize_range()]
     }
 
     pub fn get_type_member(&self, index: u32) -> Result<&TypeId, CompileError> {

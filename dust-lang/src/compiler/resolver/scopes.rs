@@ -98,7 +98,7 @@ impl ScopeKind {
                 Definition::Local { .. } | Definition::Field { .. },
             ) | (
                 ScopeKind::Item | ScopeKind::Constant,
-                Definition::TypeParameter
+                Definition::TypeParameter { .. }
             )
         )
     }

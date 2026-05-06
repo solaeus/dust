@@ -6,6 +6,7 @@ pub mod types;
 use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
+    iter::repeat_with,
 };
 
 use indexmap::IndexSet;
@@ -16,7 +17,7 @@ use crate::{
     compiler::{
         error::CompileError,
         resolver::{
-            declarations::{Declaration, DeclarationId, Declarations, Definition},
+            declarations::{Declaration, DeclarationId, Declarations, Definition, VariantKind},
             scopes::{ScopeId, ScopeKind, Scopes},
             symbols::{SymbolId, Symbols},
             types::{
@@ -139,6 +140,241 @@ impl Resolver {
         self.constant_item_values.get(declaration_id).copied()
     }
 
+    pub fn get_signature(
+        &mut self,
+        function_declaration_id: DeclarationId,
+        type_arguments: TypeMembers,
+        self_type_id: Option<TypeId>,
+    ) -> Result<(TypeId::SmallVec, TypeId), CompileError> {
+        fn collect_value_parameter_type_ids(
+            resolver: &mut Resolver,
+            value_parameters: ScopeId,
+            value_parameter_type_ids: &mut TypeId::SmallVec,
+        ) -> Result<(), CompileError> {
+            let value_parameter_ids = resolver.scopes.get_members(value_parameters);
+
+            for value_parameter_id in value_parameter_ids {
+                let value_parameter_declaration =
+                    resolver.declarations.get_declaration(*value_parameter_id)?;
+                let (Definition::Local { type_id, .. } | Definition::Field { type_id, .. }) =
+                    value_parameter_declaration.definition
+                else {
+                    return Err(CompileError::ExpectedLocalDefinition(*value_parameter_id));
+                };
+
+                value_parameter_type_ids.push(type_id);
+            }
+
+            Ok(())
+        }
+
+        let mut value_parameter_type_ids = TypeId::SmallVec::new();
+
+        let declaration = self.declarations.get_declaration(function_declaration_id)?;
+        let return_type_id = match declaration.definition {
+            Definition::Function {
+                parent_impl_or_trait,
+                type_parameters,
+                value_parameters,
+                return_type_id,
+                ..
+            } => {
+                if let (Some(parent_impl_or_trait_id), Some(self_type_id)) =
+                    (parent_impl_or_trait, self_type_id)
+                {
+                    let parent_declaration =
+                        self.declarations.get_declaration(parent_impl_or_trait_id)?;
+
+                    if let Definition::InherentImplementation {
+                        declarations: Some(declarations),
+                        ..
+                    }
+                    | Definition::Trait {
+                        declarations: Some(declarations),
+                        ..
+                    }
+                    | Definition::TraitImplementation {
+                        declarations: Some(declarations),
+                        ..
+                    } = parent_declaration.definition
+                    {
+                        for &member_id in self.scopes.get_members(declarations) {
+                            let member_declaration =
+                                self.declarations.get_declaration(member_id)?;
+
+                            if matches!(
+                                member_declaration.definition,
+                                Definition::TypeParameter { is_self: true }
+                            ) {
+                                self.type_parameter_map.insert(member_id, self_type_id);
+
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if let Some(value_parameters) = value_parameters {
+                    collect_value_parameter_type_ids(
+                        self,
+                        value_parameters,
+                        &mut value_parameter_type_ids,
+                    )?;
+                }
+
+                let type_parameter_ids =
+                    self.get_type_parameter_ids(parent_impl_or_trait, type_parameters)?;
+                let type_argument_ids = self.types.get_type_members(type_arguments);
+
+                for (parameter_id, argument_id) in
+                    type_parameter_ids.into_iter().zip(type_argument_ids)
+                {
+                    self.type_parameter_map.insert(parameter_id, *argument_id);
+                }
+
+                self.resolve_type(return_type_id)?
+            }
+            Definition::Variant {
+                enum_declaration_id,
+                fields: Some(fields),
+                kind: VariantKind::TupleFields,
+                ..
+            } => {
+                collect_value_parameter_type_ids(self, fields, &mut value_parameter_type_ids)?;
+
+                self.types.add_type(Type::Algebraic {
+                    declaration_id: enum_declaration_id,
+                    type_arguments: TypeMembers::default(),
+                })
+            }
+            _ => todo!("Error"),
+        };
+
+        for type_id in value_parameter_type_ids.iter_mut() {
+            *type_id = self.resolve_type(*type_id)?;
+        }
+
+        Ok((value_parameter_type_ids, return_type_id))
+    }
+
+    pub fn get_type_parameter_ids(
+        &mut self,
+        parent_impl_or_trait: Option<DeclarationId>,
+        type_parameters: Option<ScopeId>,
+    ) -> Result<DeclarationId::SmallVec, CompileError> {
+        if parent_impl_or_trait.is_none() && type_parameters.is_none() {
+            return Ok(DeclarationId::SmallVec::new());
+        }
+
+        let mut type_parameter_ids = DeclarationId::SmallVec::new();
+
+        if let Some(parent_declaration_id) = parent_impl_or_trait {
+            let parent_declaration = self.declarations.get_declaration(parent_declaration_id)?;
+
+            match &parent_declaration.definition {
+                Definition::Trait {
+                    type_parameters,
+                    declarations: Some(declarations),
+                    ..
+                } => {
+                    for &member_id in self.scopes.get_members(*declarations) {
+                        let member_declaration = self.declarations.get_declaration(member_id)?;
+
+                        if matches!(
+                            member_declaration.definition,
+                            Definition::TypeParameter { is_self: true }
+                        ) {
+                            type_parameter_ids.push(member_id);
+
+                            break;
+                        }
+                    }
+
+                    if let Some(type_parameters) = type_parameters {
+                        type_parameter_ids
+                            .extend(self.scopes.get_members(*type_parameters).iter().copied());
+                    }
+                }
+                Definition::TraitImplementation {
+                    type_parameters, ..
+                }
+                | Definition::InherentImplementation {
+                    type_parameters, ..
+                } => {
+                    if let Some(type_parameters) = type_parameters {
+                        type_parameter_ids
+                            .extend(self.scopes.get_members(*type_parameters).iter().copied());
+                    }
+                }
+                _ => {}
+            };
+        }
+
+        if let Some(type_parameters) = type_parameters {
+            type_parameter_ids.extend(self.scopes.get_members(type_parameters).iter().copied());
+        }
+
+        Ok(type_parameter_ids)
+    }
+
+    pub fn find_method(
+        &self,
+        symbol_id: SymbolId,
+        implementation_declaration_ids: &[DeclarationId],
+    ) -> Option<DeclarationId> {
+        let mut found_in_trait_implementation = None;
+
+        for implementation_declaration_id in implementation_declaration_ids {
+            let implementation_declaration = self
+                .declarations
+                .get_declaration(*implementation_declaration_id);
+
+            match implementation_declaration.definition {
+                Definition::InherentImplementation {
+                    declarations: Some(scope_id),
+                    ..
+                } => {
+                    if let Some(declaration_id) =
+                        self.declarations.find_declaration_id(symbol_id, scope_id)
+                    {
+                        return Some(*declaration_id);
+                    }
+                }
+                Definition::TraitImplementation {
+                    trait_declaration_id,
+                    declarations: Some(scope_id),
+                    ..
+                } => {
+                    if let Some(declaration_id) =
+                        self.declarations.find_declaration_id(symbol_id, scope_id)
+                    {
+                        return Some(*declaration_id);
+                    }
+
+                    if found_in_trait_implementation.is_none() {
+                        let trait_declaration =
+                            self.declarations.get_declaration(trait_declaration_id);
+                        let Definition::Trait {
+                            declarations: Some(trait_scope_id),
+                            ..
+                        } = trait_declaration.definition
+                        else {
+                            continue;
+                        };
+
+                        found_in_trait_implementation = self
+                            .declarations
+                            .find_declaration_id(symbol_id, trait_scope_id)
+                            .copied();
+                    }
+                }
+                _ => continue,
+            };
+        }
+
+        found_in_trait_implementation
+    }
+
     pub fn resolve_type(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
         let resolved_type = *self.types.get_type(type_id)?;
 
@@ -233,7 +469,7 @@ impl Resolver {
             Type::Float(FloatType::F32) => Ok(smallvec![OperandType::F_32]),
             Type::Float(FloatType::F64) => Ok(smallvec![OperandType::F_64]),
             Type::Tuple { element_types } => {
-                let element_type_ids = self.types.get_type_members(*element_types)?;
+                let element_type_ids = self.types.get_type_members(*element_types);
                 let mut operand_types = SmallVec::with_capacity(element_type_ids.len());
 
                 for element_type_id in element_type_ids {
@@ -664,8 +900,8 @@ impl Resolver {
                     variants.iter().enumerate()
                 {
                     let variant_symbol_id = self.symbols.add_symbol(variant_name);
-                    let fields = match variant_value_type {
-                        DustStructTypeFields::Unit => None,
+                    let (fields, kind) = match variant_value_type {
+                        DustStructTypeFields::Unit => (None, VariantKind::Unit),
                         DustStructTypeFields::Tuple(types) => {
                             let enum_variant_scope_id = self
                                 .scopes
@@ -693,7 +929,8 @@ impl Resolver {
                             }
 
                             self.scopes.exit_scope(enum_variant_scope_id);
-                            Some(enum_variant_scope_id)
+
+                            (Some(enum_variant_scope_id), VariantKind::TupleFields)
                         }
                         DustStructTypeFields::Named(fields) => {
                             let enum_variant_scope_id = self
@@ -722,7 +959,8 @@ impl Resolver {
                             }
 
                             self.scopes.exit_scope(enum_variant_scope_id);
-                            Some(enum_variant_scope_id)
+
+                            (Some(enum_variant_scope_id), VariantKind::NamedFields)
                         }
                     };
 
@@ -732,6 +970,7 @@ impl Resolver {
                             discriminant: discriminant as u16,
                             enum_declaration_id,
                             fields,
+                            kind,
                         },
                         scope_id: enum_scope_id,
                         syntax: None,
@@ -1324,7 +1563,7 @@ fn add_built_in_type_parameters<'a>(
         let type_parameter_symbol_id = resolver.symbols.add_symbol(type_parameter_name);
         let type_parameter_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: type_parameter_symbol_id,
-            definition: Definition::TypeParameter,
+            definition: Definition::TypeParameter { is_self: false },
             scope_id: item_scope_id,
             syntax: None,
         });
@@ -1433,11 +1672,12 @@ fn add_built_in_variants(
                     discriminant: variant_index as u16,
                     enum_declaration_id,
                     fields: None,
+                    kind: VariantKind::Unit,
                 },
                 scope_id: variants_scope_id,
                 syntax: None,
             }),
-            BuiltInStructFields::Tuple(_) | BuiltInStructFields::Named(_) => {
+            BuiltInStructFields::Tuple(_) => {
                 let variant_declaration_id = resolver.declarations.reserve_declaration_id(
                     variant_symbol_id,
                     variants_scope_id,
@@ -1457,6 +1697,33 @@ fn add_built_in_variants(
                         discriminant: variant_index as u16,
                         enum_declaration_id,
                         fields,
+                        kind: VariantKind::TupleFields,
+                    },
+                );
+
+                variant_declaration_id
+            }
+            BuiltInStructFields::Named(_) => {
+                let variant_declaration_id = resolver.declarations.reserve_declaration_id(
+                    variant_symbol_id,
+                    variants_scope_id,
+                    None,
+                );
+                let fields = add_built_in_fields(
+                    resolver,
+                    *variant_fields,
+                    variant_declaration_id,
+                    variants_scope_id,
+                    type_parameter_declarations,
+                );
+
+                resolver.declarations.set_reserved_declaration(
+                    variant_declaration_id,
+                    Definition::Variant {
+                        discriminant: variant_index as u16,
+                        enum_declaration_id,
+                        fields,
+                        kind: VariantKind::NamedFields,
                     },
                 );
 

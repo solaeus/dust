@@ -15,8 +15,8 @@ fn fill() {
         Prototype {
             instructions: vec![
                 Instruction::r#move(0, OperandType::I_32, MemoryKind::ENCODED, 0),
-                Instruction::r#move(1, OperandType::I_32, MemoryKind::ENCODED, 0),
-                Instruction::r#move(2, OperandType::I_32, MemoryKind::ENCODED, 0),
+                Instruction::r#move(1, OperandType::I_32, MemoryKind::REGISTER, 0),
+                Instruction::r#move(2, OperandType::I_32, MemoryKind::REGISTER, 0),
                 Instruction::r#return(),
             ],
             return_types: smallvec![OperandType::I_32, OperandType::I_32, OperandType::I_32],

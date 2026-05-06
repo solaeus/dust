@@ -10,7 +10,7 @@ use crate::{
         error::CompileError,
         resolver::{
             Resolver,
-            declarations::{Declaration, DeclarationId, Definition, ModuleKind},
+            declarations::{Declaration, DeclarationId, Definition, ModuleKind, VariantKind},
             scopes::{ScopeId, ScopeKind},
             symbols::SymbolId,
             types::{Type, TypeId, TypeMembers},
@@ -26,10 +26,10 @@ use crate::{
             BlockExpression, CallExpression, ComparisonExpression, ConstItem, EnumItem,
             EnumItemTupleVariant, EnumNamedFieldsVariant, EnumUnitVariant, ExpressionStatement,
             FieldAccessExpression, FnItem, FunctionType, GroupedExpression, IfExpression, ImplItem,
-            IndexExpression, LetStatement, LogicExpression, MathExpression, ModItem, NamedFields,
-            NegationExpression, NotExpression, PathSegment, RangeExpression, Root,
-            StructExpression, StructExpressionStructFields, StructItem, SyntaxComponent, TraitItem,
-            TupleFields, TupleType, TypeItem, UseItem, ValueParameters, WhileExpression,
+            IndexExpression, LetStatement, LogicExpression, MathExpression, MethodCallExpression,
+            ModItem, NamedFields, NegationExpression, NotExpression, PathSegment, RangeExpression,
+            Root, StructExpression, StructExpressionStructFields, StructItem, SyntaxComponent,
+            TraitItem, TupleFields, TupleType, TypeItem, UseItem, ValueParameters, WhileExpression,
         },
         node::{SyntaxFlags, SyntaxKind},
         reader::SyntaxReader,
@@ -327,25 +327,36 @@ impl<'a> DeclarationBinder<'a> {
                     }
                     Definition::TraitImplementation {
                         trait_declaration_id,
+                        declarations: Some(scope_id),
                         ..
-                    } if found_in_trait_implementation.is_none() => {
-                        let trait_declaration = self
+                    } => {
+                        if let Some(declaration_id) = self
                             .resolver
                             .declarations
-                            .get_declaration(trait_declaration_id)?;
-                        let Definition::Trait {
-                            declarations: Some(trait_scope_id),
-                            ..
-                        } = trait_declaration.definition
-                        else {
-                            continue;
-                        };
+                            .find_declaration_id(symbol_id, scope_id)
+                        {
+                            return Ok(*declaration_id);
+                        }
 
-                        found_in_trait_implementation = self
-                            .resolver
-                            .declarations
-                            .find_declaration_id(symbol_id, trait_scope_id)
-                            .copied();
+                        if found_in_trait_implementation.is_none() {
+                            let trait_declaration = self
+                                .resolver
+                                .declarations
+                                .get_declaration(trait_declaration_id)?;
+                            let Definition::Trait {
+                                declarations: Some(trait_scope_id),
+                                ..
+                            } = trait_declaration.definition
+                            else {
+                                continue;
+                            };
+
+                            found_in_trait_implementation = self
+                                .resolver
+                                .declarations
+                                .find_declaration_id(symbol_id, trait_scope_id)
+                                .copied();
+                        }
                     }
                     _ => continue,
                 };
@@ -544,6 +555,42 @@ impl<'a> DeclarationBinder<'a> {
 
             self.enter_scope(ScopeKind::Members);
 
+            if value_parameters
+                .node
+                .flags
+                .get_flag(SyntaxFlags::SELF_VALUE)
+            {
+                let self_symbol_id = self.resolver.symbols.add_symbol("self");
+                let self_type_id = match self.context {
+                    Context::Trait {
+                        self_declaration_id,
+                        ..
+                    } => self.resolver.types.add_type(Type::Generic {
+                        declaration_id: self_declaration_id,
+                    }),
+                    Context::Impl {
+                        self_declaration_id,
+                        ..
+                    } => self.resolver.types.add_type(Type::Algebraic {
+                        declaration_id: self_declaration_id,
+                        type_arguments: TypeMembers::default(),
+                    }),
+                    Context::Other => {
+                        return Err(CompileError::InvalidContext);
+                    }
+                };
+
+                self.add_declaration(
+                    self_symbol_id,
+                    Definition::Local {
+                        mutable: false,
+                        shadowed: None,
+                        type_id: self_type_id,
+                    },
+                    Some((value_parameters.position(), value_parameters.id)),
+                );
+            }
+
             for (parameter_name, parameter_type) in name_type_pairs {
                 let parameter_name_str = self.source.get_content(parameter_name.position())?;
                 let parameter_symbol_id = self.resolver.symbols.add_symbol(parameter_name_str);
@@ -610,7 +657,7 @@ impl<'a> DeclarationBinder<'a> {
             function_declaration_id,
             Definition::Function {
                 public,
-                parent_trait_or_impl: parent_declaration_id,
+                parent_impl_or_trait: parent_declaration_id,
                 type_parameters: type_parameters_scope_id,
                 value_parameters: value_parameters_scope_id,
                 return_type_id,
@@ -779,7 +826,7 @@ impl<'a> DeclarationBinder<'a> {
                 self.resolver.symbols.add_symbol(type_parameter_name_str);
             let type_parameter_declaration_id = self.add_declaration(
                 type_parameter_symbol_id,
-                Definition::TypeParameter,
+                Definition::TypeParameter { is_self: false },
                 Some((type_parameter.position(), type_parameter.id)),
             );
 
@@ -810,6 +857,7 @@ impl<'a> DeclarationBinder<'a> {
                         discriminant,
                         enum_declaration_id,
                         fields: None,
+                        kind: VariantKind::Unit,
                     },
                     Some((name.position(), name.id)),
                 );
@@ -855,6 +903,7 @@ impl<'a> DeclarationBinder<'a> {
                         discriminant,
                         enum_declaration_id,
                         fields: Some(fields_scope_id),
+                        kind: VariantKind::TupleFields,
                     },
                 );
                 self.resolver
@@ -897,6 +946,7 @@ impl<'a> DeclarationBinder<'a> {
                         discriminant,
                         enum_declaration_id,
                         fields: Some(fields_scope_id),
+                        kind: VariantKind::NamedFields,
                     },
                 );
                 self.resolver
@@ -1181,11 +1231,11 @@ impl<'a> DeclarationBinder<'a> {
 
         self.enter_scope(ScopeKind::Members);
 
-        let self_symbol_id = self.resolver.symbols.add_self_symbol();
+        let self_symbol_id = self.resolver.symbols.add_symbol("Self");
         let self_declaration_id = self.resolver.declarations.add_declaration(Declaration {
             symbol_id: self_symbol_id,
             scope_id: self.current_scope_id,
-            definition: Definition::TypeParameter,
+            definition: Definition::TypeParameter { is_self: true },
             syntax: None,
         });
         let previous_context = replace(
@@ -1400,6 +1450,7 @@ impl<'a> DeclarationBinder<'a> {
             SyntaxKind::WhileExpression => self.bind_while_expression(reader),
             SyntaxKind::BreakExpression => self.bind_break_expression(reader),
             SyntaxKind::CallExpression => self.bind_call_expression(reader),
+            SyntaxKind::MethodCallExpression => self.bind_method_call_expression(reader),
             SyntaxKind::FieldAccessExpression => self.bind_field_access_expression(reader),
             SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
                 self.bind_logic_expression(reader)
@@ -1423,45 +1474,45 @@ impl<'a> DeclarationBinder<'a> {
             | SyntaxKind::LessThanOrEqualExpression
             | SyntaxKind::EqualExpression
             | SyntaxKind::NotEqualExpression => self.bind_comparison_expression(reader),
-            SyntaxKind::SelfExpression => self.bind_self_expression(reader),
             _ => Err(CompileError::UnexpectedSyntax {
                 expected: &[
                     SyntaxKind::AdditionExpression,
-                    SyntaxKind::SubtractionExpression,
-                    SyntaxKind::MultiplicationExpression,
-                    SyntaxKind::DivisionExpression,
-                    SyntaxKind::ModuloExpression,
-                    SyntaxKind::ExponentExpression,
-                    SyntaxKind::AssignmentExpression,
                     SyntaxKind::AndExpression,
-                    SyntaxKind::OrExpression,
-                    SyntaxKind::GreaterThanExpression,
-                    SyntaxKind::LessThanExpression,
-                    SyntaxKind::GreaterThanOrEqualExpression,
-                    SyntaxKind::LessThanOrEqualExpression,
-                    SyntaxKind::EqualExpression,
-                    SyntaxKind::NotEqualExpression,
-                    SyntaxKind::BooleanExpression,
-                    SyntaxKind::HexadecimalExpression,
-                    SyntaxKind::CharacterExpression,
-                    SyntaxKind::FloatExpression,
-                    SyntaxKind::IntegerExpression,
-                    SyntaxKind::StringExpression,
                     SyntaxKind::ArrayExpression,
                     SyntaxKind::ArrayRepeatExpression,
-                    SyntaxKind::IndexExpression,
-                    SyntaxKind::RangeExpression,
-                    SyntaxKind::PathExpression,
-                    SyntaxKind::StructExpression,
-                    SyntaxKind::GroupedExpression,
+                    SyntaxKind::AssignmentExpression,
                     SyntaxKind::BlockExpression,
-                    SyntaxKind::IfExpression,
-                    SyntaxKind::NegationExpression,
-                    SyntaxKind::NotExpression,
-                    SyntaxKind::WhileExpression,
+                    SyntaxKind::BooleanExpression,
                     SyntaxKind::BreakExpression,
                     SyntaxKind::CallExpression,
+                    SyntaxKind::CharacterExpression,
+                    SyntaxKind::DivisionExpression,
+                    SyntaxKind::EqualExpression,
+                    SyntaxKind::ExponentExpression,
                     SyntaxKind::FieldAccessExpression,
+                    SyntaxKind::FloatExpression,
+                    SyntaxKind::GreaterThanExpression,
+                    SyntaxKind::GreaterThanOrEqualExpression,
+                    SyntaxKind::GroupedExpression,
+                    SyntaxKind::HexadecimalExpression,
+                    SyntaxKind::IfExpression,
+                    SyntaxKind::IndexExpression,
+                    SyntaxKind::IntegerExpression,
+                    SyntaxKind::LessThanExpression,
+                    SyntaxKind::LessThanOrEqualExpression,
+                    SyntaxKind::MethodCallExpression,
+                    SyntaxKind::ModuloExpression,
+                    SyntaxKind::MultiplicationExpression,
+                    SyntaxKind::NegationExpression,
+                    SyntaxKind::NotEqualExpression,
+                    SyntaxKind::NotExpression,
+                    SyntaxKind::OrExpression,
+                    SyntaxKind::PathExpression,
+                    SyntaxKind::RangeExpression,
+                    SyntaxKind::StringExpression,
+                    SyntaxKind::StructExpression,
+                    SyntaxKind::SubtractionExpression,
+                    SyntaxKind::WhileExpression,
                 ],
                 found: reader.node.kind,
             }),
@@ -1531,6 +1582,22 @@ impl<'a> DeclarationBinder<'a> {
     fn bind_range_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let RangeExpression { start, end } = reader.as_component()?;
 
+        let declaration_id = match reader.node.kind {
+            SyntaxKind::RangeExpression => DeclarationId::RANGE,
+            SyntaxKind::RangeInclusiveExpression => DeclarationId::RANGE_INCLUSIVE,
+            _ => {
+                return Err(CompileError::UnexpectedSyntax {
+                    expected: &[
+                        SyntaxKind::RangeExpression,
+                        SyntaxKind::RangeInclusiveExpression,
+                    ],
+                    found: reader.node.kind,
+                });
+            }
+        };
+
+        self.resolver
+            .add_declaration_binding(reader.id, declaration_id);
         self.bind_expression(start)?;
         self.bind_expression(end)?;
 
@@ -1716,26 +1783,31 @@ impl<'a> DeclarationBinder<'a> {
         Ok(())
     }
 
-    fn bind_self_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        if let Context::Impl {
-            self_declaration_id,
-            ..
-        }
-        | Context::Trait {
-            self_declaration_id,
-            ..
-        } = self.context
-        {
-            self.resolver
-                .add_declaration_binding(reader.id, self_declaration_id);
+    fn bind_method_call_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        let MethodCallExpression {
+            method_parent,
+            method: _,
+            type_arguments,
+            value_arguments,
+        } = reader.as_component()?;
 
-            Ok(())
-        } else {
-            Err(CompileError::Undeclared {
-                symbol_id: self.resolver.symbols.add_self_symbol(),
-                usage_position: reader.position(),
-            })
+        self.bind_expression(method_parent)?;
+
+        if let Some(type_arguments) = type_arguments {
+            for type_argument in type_arguments.children() {
+                let type_id = self.handle_explicit_type(type_argument)?;
+
+                self.resolver.add_type_binding(type_argument.id, type_id);
+            }
         }
+
+        if let Some(value_arguments) = value_arguments {
+            for value_argument in value_arguments.children() {
+                self.bind_expression(value_argument)?;
+            }
+        }
+
+        Ok(())
     }
 
     fn bind_field_access_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
@@ -1946,34 +2018,31 @@ impl<'a> DeclarationBinder<'a> {
                             type_arguments: TypeMembers::default(),
                         }))
                     }
-                    Definition::TypeParameter => Ok(self
+                    Definition::TypeParameter { .. } => Ok(self
                         .resolver
                         .types
                         .add_type(Type::Generic { declaration_id })),
                     _ => Err(CompileError::ExpectedTypeDeclaration(declaration_id)),
                 }
             }
-            SyntaxKind::SelfType => {
-                if let Context::Impl {
+            SyntaxKind::SelfType => match self.context {
+                Context::Impl {
                     self_declaration_id,
                     ..
-                }
-                | Context::Trait {
+                } => Ok(self.resolver.types.add_type(Type::Algebraic {
+                    declaration_id: self_declaration_id,
+                    type_arguments: TypeMembers::default(),
+                })),
+                Context::Trait {
                     self_declaration_id,
                     ..
-                } = self.context
-                {
-                    Ok(self.resolver.types.add_type(Type::Algebraic {
-                        declaration_id: self_declaration_id,
-                        type_arguments: TypeMembers::default(),
-                    }))
-                } else {
-                    Err(CompileError::Undeclared {
-                        symbol_id: self.resolver.symbols.add_self_symbol(),
-                        usage_position: reader.position(),
-                    })
-                }
-            }
+                } => Ok(self.resolver.types.add_type(Type::Generic {
+                    declaration_id: self_declaration_id,
+                })),
+                _ => Err(CompileError::SelfTypeOutsideOfImplOrTrait {
+                    position: reader.position(),
+                }),
+            },
             _ => Err(CompileError::UnexpectedSyntax {
                 expected: &[
                     SyntaxKind::BooleanType,
@@ -2065,7 +2134,9 @@ impl<'a> DeclarationBinder<'a> {
 
         if let Some(type_arguments) = type_arguments {
             for type_argument in type_arguments.children() {
-                self.handle_explicit_type(type_argument)?;
+                let type_id = self.handle_explicit_type(type_argument)?;
+
+                self.resolver.add_type_binding(type_argument.id, type_id);
             }
         }
 

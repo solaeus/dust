@@ -166,18 +166,16 @@ impl<E> Display for DustStructValue<E> {
     }
 }
 
+pub type DustFunctionLogic<E> = fn(&[DustValue<E>]) -> Result<Option<DustValue<E>>, E>;
+
 pub struct DustFunction<E> {
     pub name: String,
     pub r#type: DustFunctionType,
-    logic: fn(&[DustValue<E>]) -> Result<Option<DustValue<E>>, E>,
+    logic: DustFunctionLogic<E>,
 }
 
 impl<E: Debug> DustFunction<E> {
-    pub fn new(
-        name: String,
-        r#type: DustFunctionType,
-        logic: fn(&[DustValue<E>]) -> Result<Option<DustValue<E>>, E>,
-    ) -> Self {
+    pub fn new(name: String, r#type: DustFunctionType, logic: DustFunctionLogic<E>) -> Self {
         Self {
             name,
             r#type,
@@ -195,7 +193,7 @@ impl<E: Debug> DustFunction<E> {
     }
 }
 
-enum DustFunctionError<E> {
+pub enum DustFunctionError<E> {
     Custom(E),
     Panic(Box<dyn Any + Send + 'static>),
 }

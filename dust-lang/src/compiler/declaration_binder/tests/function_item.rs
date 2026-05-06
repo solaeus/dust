@@ -25,7 +25,7 @@ fn empty() {
         .unwrap();
     let Definition::Function {
         public,
-        parent_trait_or_impl,
+        parent_impl_or_trait,
         type_parameters,
         value_parameters,
         return_type_id,
@@ -35,7 +35,7 @@ fn empty() {
     };
 
     assert!(!public);
-    assert_eq!(parent_trait_or_impl, None);
+    assert_eq!(parent_impl_or_trait, None);
     assert_eq!(type_parameters, None);
     assert_eq!(value_parameters, None);
     assert_eq!(return_type_id, TypeId::UNIT);
@@ -62,7 +62,7 @@ fn with_generics_parameters_and_return_type() {
         .unwrap();
     let Definition::Function {
         public,
-        parent_trait_or_impl,
+        parent_impl_or_trait,
         type_parameters,
         value_parameters,
         return_type_id,
@@ -73,14 +73,17 @@ fn with_generics_parameters_and_return_type() {
     let type_parameter_entries = resolver.scopes.get_members(type_parameters.unwrap());
 
     assert!(public);
-    assert_eq!(parent_trait_or_impl, None);
+    assert_eq!(parent_impl_or_trait, None);
     assert_eq!(return_type_id, TypeId::I_64);
     assert_eq!(type_parameter_entries.len(), 2);
 
     for &id in type_parameter_entries {
         let declaration = resolver.declarations.get_declaration(id).unwrap();
 
-        assert!(matches!(declaration.definition, Definition::TypeParameter));
+        assert!(matches!(
+            declaration.definition,
+            Definition::TypeParameter { is_self: false }
+        ));
     }
 
     let a_symbol = resolver.symbols.add_symbol("A");
@@ -264,9 +267,15 @@ fn type_parameters_have_correct_identity() {
         .unwrap();
 
     assert_eq!(first.symbol_id, a_symbol);
-    assert!(matches!(first.definition, Definition::TypeParameter));
+    assert!(matches!(
+        first.definition,
+        Definition::TypeParameter { is_self: false }
+    ));
     assert_eq!(second.symbol_id, b_symbol);
-    assert!(matches!(second.definition, Definition::TypeParameter));
+    assert!(matches!(
+        second.definition,
+        Definition::TypeParameter { is_self: false }
+    ));
 }
 
 #[test]

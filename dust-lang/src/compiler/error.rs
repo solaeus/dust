@@ -147,6 +147,9 @@ pub enum CompileError {
     ExpectedIndexableType {
         type_id: TypeId,
     },
+    SelfTypeOutsideOfImplOrTrait {
+        position: Position,
+    },
 
     // Internal errors
     ValueCreation(lexical_parse_integer::Error),
@@ -209,6 +212,8 @@ pub enum CompileError {
     ExpectedEncodedValue {
         found: ConstantValue,
     },
+    InvalidContext,
+    ExpectedImplOrTraitDefinition(DeclarationId),
 }
 
 impl From<SyntaxError> for CompileError {
@@ -1201,6 +1206,24 @@ impl<'a> DustError<'a> for CompileError {
 
                 groups.push(group);
             }
+            CompileError::SelfTypeOutsideOfImplOrTrait { position } => {
+                let title = "Use of `Self` type outside of impl or trait";
+                let file_content = match source.get_code(position.source_id) {
+                    Ok(file) => file.content_as_str(),
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label("The `Self` type can only be used within impl blocks and trait definitions."),
+                    ),
+                );
+
+                groups.push(group);
+            }
             CompileError::Syntax(error) => error.add_report((), groups),
             CompileError::ConstantList(error) => error.add_report((), groups),
             CompileError::Source(error) => error.add_report((), groups),
@@ -1243,7 +1266,9 @@ impl<'a> DustError<'a> for CompileError {
             | CompileError::ExpectedForwardReferenceDefinition(_)
             | CompileError::ExpectedAlgebraicType(_)
             | CompileError::ExpectedTraitDefinition(_)
-            | CompileError::ExpectedEncodedValue { .. } => {
+            | CompileError::ExpectedEncodedValue { .. }
+            | CompileError::InvalidContext
+            | CompileError::ExpectedImplOrTraitDefinition(_) => {
                 self.add_internal_report(groups);
             }
         }

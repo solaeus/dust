@@ -29,7 +29,7 @@ fn turbofish_type_arguments() {
         panic!("expected FunctionDefinition, got {type:?}");
     };
 
-    let type_argument_ids = resolver.types.get_type_members(type_arguments).unwrap();
+    let type_argument_ids = resolver.types.get_type_members(type_arguments);
 
     assert_eq!(type_argument_ids.len(), 1);
     assert_eq!(type_argument_ids[0], TypeId::I_32);

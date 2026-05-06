@@ -40,7 +40,7 @@ impl Declarations {
         declaration_id
     }
 
-    pub fn get_declaration(&self, id: DeclarationId) -> Result<&Declaration, CompileError> {
+    pub fn get_declaration(&self, id: DeclarationId) -> &Declaration {
         let declaration = &self.declarations[id.0 as usize];
 
         if let Definition::ForwardReference {
@@ -50,7 +50,7 @@ impl Declarations {
             return self.get_declaration(resolved_id);
         }
 
-        Ok(declaration)
+        declaration
     }
 
     pub fn reserve_declaration_id(
@@ -221,7 +221,7 @@ pub enum Definition {
     /// - `fn foo<T>(x: T) -> T { ... }`
     Function {
         public: bool,
-        parent_trait_or_impl: Option<DeclarationId>,
+        parent_impl_or_trait: Option<DeclarationId>,
         type_parameters: Option<ScopeId>,
         value_parameters: Option<ScopeId>,
         return_type_id: TypeId,
@@ -294,13 +294,16 @@ pub enum Definition {
         discriminant: u16,
         enum_declaration_id: DeclarationId,
         fields: Option<ScopeId>,
+        kind: VariantKind,
     },
 
     /// Type parameters have a unique `Type::Generic` type. When a type is instantiated, the type
     /// instance is given a type argument for each type parameter.
     ///
     /// `T` in `fn foo<T>(x: T) -> T { ... }`
-    TypeParameter,
+    TypeParameter {
+        is_self: bool,
+    },
 
     TypeAlias {
         public: bool,
@@ -374,4 +377,11 @@ pub enum Definition {
 pub enum ModuleKind {
     File { source_id: SourceCodeId },
     Inline,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum VariantKind {
+    Unit,
+    TupleFields,
+    NamedFields,
 }

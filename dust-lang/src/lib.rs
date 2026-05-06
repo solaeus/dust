@@ -51,11 +51,11 @@ const fn optimal_small_vec_inline_capacity<T>() -> usize {
     use smallvec::SmallVec;
 
     macro_rules! try_capacities {
-            ($($capacity:literal),*) => {{
+        (($($capacity:literal),*), $target_size: expr) => {{
                 $(
                     let small_vec_size = size_of::<SmallVec<[T; $capacity]>>();
 
-                    if small_vec_size <= size_of::<Vec<T>>() {
+                    if small_vec_size <= $target_size {
                         return $capacity;
                     }
                 )*
@@ -64,7 +64,10 @@ const fn optimal_small_vec_inline_capacity<T>() -> usize {
             }};
         }
 
-    try_capacities!(16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4)
+    try_capacities!(
+        (16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4),
+        size_of::<Vec<T>>()
+    )
 }
 
 #[cfg(test)]

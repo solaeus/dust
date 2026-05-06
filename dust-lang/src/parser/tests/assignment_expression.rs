@@ -7,10 +7,10 @@ use crate::{
 };
 
 #[test]
-fn field_access() {
+fn assignment_expression() {
     let parser = Parser::new(
         SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x.y")),
+        Lexer::with_unvalidated_source(function_wrapper!("x = 42;")),
     );
     let ParseResult {
         syntax_tree,
@@ -22,14 +22,15 @@ fn field_access() {
     assert_eq!(
         syntax_tree.sorted_nodes(),
         [
-            Root.with_single_child(Span::new(0, 21), SyntaxId(7)),
-            FnItem.with_binary_children(Span::new(0, 21), SyntaxId(1), SyntaxId(6)),
+            Root.with_single_child(Span::new(0, 25), SyntaxId(8)),
+            FnItem.with_binary_children(Span::new(0, 25), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            BlockExpression.with_single_child(Span::new(10, 21), SyntaxId(5)),
-            FieldAccessExpression.with_binary_children(Span::new(16, 19), SyntaxId(3), SyntaxId(4)),
+            BlockExpression.with_single_child(Span::new(10, 25), SyntaxId(6)),
+            ExpressionStatement.with_single_child(Span::new(16, 23), SyntaxId(5)),
+            AssignmentExpression.with_binary_children(Span::new(16, 22), SyntaxId(3), SyntaxId(4)),
             PathExpression.with_single_child(Span::new(16, 17), SyntaxId(2)),
             PathSegment.empty(Span::new(16, 17)),
-            SimplePath.empty(Span::new(18, 19)),
+            IntegerExpression.empty(Span::new(20, 22)),
         ]
     );
 }

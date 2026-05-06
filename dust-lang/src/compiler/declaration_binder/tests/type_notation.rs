@@ -244,12 +244,11 @@ fn tuple_type_multiple() {
     let Type::Tuple { element_types } = tuple_type else {
         panic!();
     };
-    let elements = resolver.types.get_type_members(*element_types).unwrap();
+    let elements = resolver.types.get_type_members(*element_types);
 
     assert_eq!(parameter_entries.len(), 1);
     assert_eq!(elements, &[TypeId::I_64, TypeId::BOOLEAN]);
 }
-
 
 #[test]
 fn function_type_basic() {
@@ -300,10 +299,7 @@ fn function_type_basic() {
     else {
         panic!();
     };
-    let parameters = resolver
-        .types
-        .get_type_members(*function_value_parameters)
-        .unwrap();
+    let parameters = resolver.types.get_type_members(*function_value_parameters);
 
     assert_eq!(parameters, &[TypeId::I_64]);
     assert_eq!(*return_type_id, TypeId::I_64);
@@ -408,10 +404,7 @@ fn function_type_multiple_params() {
     else {
         panic!();
     };
-    let function_parameters = resolver
-        .types
-        .get_type_members(*function_value_parameters)
-        .unwrap();
+    let function_parameters = resolver.types.get_type_members(*function_value_parameters);
 
     assert_eq!(function_parameters, &[TypeId::I_64, TypeId::BOOLEAN]);
     assert_eq!(*return_type_id, TypeId::CHARACTER);
@@ -464,10 +457,7 @@ fn function_type_no_return() {
     else {
         panic!();
     };
-    let function_value_parameters = resolver
-        .types
-        .get_type_members(*function_value_parameters)
-        .unwrap();
+    let function_value_parameters = resolver.types.get_type_members(*function_value_parameters);
 
     assert_eq!(function_value_parameters, &[TypeId::I_64]);
     assert_eq!(*return_type_id, TypeId::UNIT);

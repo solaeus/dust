@@ -15,7 +15,6 @@ pub struct Symbols {
     spans: IndexMap<u64, Span, FxBuildHasher>,
 
     next_impl_index: u32,
-    next_self_index: u32,
 }
 
 impl Symbols {
@@ -23,7 +22,6 @@ impl Symbols {
         Self {
             pool: String::new(),
             spans: IndexMap::default(),
-            next_self_index: 0,
             next_impl_index: 0,
         }
     }
@@ -45,8 +43,10 @@ impl Symbols {
         let start = self.pool.len() as u32;
 
         self.pool.push_str(name);
-        self.spans
-            .insert(hash, Span::new(start, self.pool.len() as u32));
+
+        let end = self.pool.len() as u32;
+
+        self.spans.insert(hash, Span::new(start, end));
 
         id
     }
@@ -93,31 +93,6 @@ impl Symbols {
 
         let _ = write!(&mut self.pool, "impl#{}", self.next_impl_index);
         self.next_impl_index += 1;
-
-        self.spans
-            .insert(hash, Span::new(start, self.pool.len() as u32));
-
-        id
-    }
-
-    pub fn add_self_symbol(&mut self) -> SymbolId {
-        let hash = {
-            let mut hasher = FxHasher::default();
-
-            hasher.write_u8(4);
-            self.next_self_index.hash(&mut hasher);
-            hasher.finish()
-        };
-
-        if let Some(existing_index) = self.spans.get_index_of(&hash) {
-            return SymbolId(existing_index as u32);
-        }
-
-        let id = SymbolId(self.spans.len() as u32);
-        let start = self.pool.len() as u32;
-
-        let _ = write!(&mut self.pool, "Self#{}", self.next_self_index);
-        self.next_self_index += 1;
 
         self.spans
             .insert(hash, Span::new(start, self.pool.len() as u32));

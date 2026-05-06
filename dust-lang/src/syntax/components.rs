@@ -551,12 +551,47 @@ pub struct CallExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for CallExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
+    const SYNTAX_KIND: SyntaxKind = SyntaxKind::CallExpression;
 
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let (callee, arguments) = reader.binary_children()?;
 
         Ok(Self { callee, arguments })
+    }
+}
+
+pub struct MethodCallExpression<'a> {
+    pub method_parent: SyntaxReader<'a>,
+    pub method: SyntaxReader<'a>,
+    pub type_arguments: Option<SyntaxReader<'a>>,
+    pub value_arguments: Option<SyntaxReader<'a>>,
+}
+
+impl<'a> SyntaxComponent<'a> for MethodCallExpression<'a> {
+    const SYNTAX_KIND: SyntaxKind = SyntaxKind::MethodCallExpression;
+
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        let mut children = reader.children();
+
+        let method_parent = children.expect_next()?;
+        let method = children.expect_next()?;
+        let type_arguments = if reader.node.flags.get_flag(SyntaxFlags::TYPE_ARGUMENTS) {
+            Some(children.expect_next()?)
+        } else {
+            None
+        };
+        let value_arguments = if reader.node.flags.get_flag(SyntaxFlags::VALUE_ARGUMENTS) {
+            Some(children.expect_next()?)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            method_parent,
+            method,
+            type_arguments,
+            value_arguments,
+        })
     }
 }
 
@@ -566,7 +601,7 @@ pub struct StructExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for StructExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
+    const SYNTAX_KIND: SyntaxKind = SyntaxKind::StructExpression;
 
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let (path, fields) = reader.binary_children()?;

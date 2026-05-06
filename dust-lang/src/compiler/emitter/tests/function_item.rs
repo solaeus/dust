@@ -75,12 +75,11 @@ fn parameter_passthrough() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(1, OperandType::I_32, MemoryKind::REGISTER, 0),
-                Instruction::call(0, MemoryKind::ENCODED, 1, 1),
+                Instruction::call(0, MemoryKind::ENCODED, 1, 0),
                 Instruction::r#return(),
             ],
             return_types: smallvec![OperandType::I_32],
-            register_count: 2,
+            register_count: 1,
             argument_count: 1,
         }
     );
@@ -96,12 +95,11 @@ fn generic_monomorphization() {
         prototype,
         Prototype {
             instructions: vec![
-                Instruction::r#move(1, OperandType::I_32, MemoryKind::REGISTER, 0),
-                Instruction::call(0, MemoryKind::ENCODED, 1, 1),
+                Instruction::call(0, MemoryKind::ENCODED, 1, 0),
                 Instruction::r#return(),
             ],
             return_types: smallvec![OperandType::I_32],
-            register_count: 2,
+            register_count: 1,
             argument_count: 1,
         }
     );

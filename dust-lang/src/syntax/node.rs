@@ -98,6 +98,7 @@ pub enum SyntaxKind {
     RangeInclusiveExpression,
 
     CallExpression,
+    MethodCallExpression,
     FieldAccessExpression,
     IfExpression,
     WhileExpression,
@@ -128,7 +129,6 @@ pub enum SyntaxKind {
     TypeParameter,
     WhereClause,
     WherePredicate,
-    SelfExpression,
 
     EnumUnitVariant,
     EnumTupleFieldsVariant,
@@ -220,7 +220,7 @@ impl SyntaxKind {
         SyntaxNode {
             kind: self,
             children,
-            children_kind: SyntaxChildrenKind::ThreeOrMore,
+            children_kind: SyntaxChildrenKind::Multiple,
             flags: SyntaxFlags::default(),
             span,
         }
@@ -267,6 +267,7 @@ impl SyntaxKind {
                 | SyntaxKind::ArrayRepeatExpression
                 | SyntaxKind::AsExpression
                 | SyntaxKind::BlockExpression
+                | SyntaxKind::BooleanExpression
                 | SyntaxKind::BreakExpression
                 | SyntaxKind::CallExpression
                 | SyntaxKind::CharacterExpression
@@ -284,6 +285,7 @@ impl SyntaxKind {
                 | SyntaxKind::IntegerExpression
                 | SyntaxKind::LessThanExpression
                 | SyntaxKind::LessThanOrEqualExpression
+                | SyntaxKind::MethodCallExpression
                 | SyntaxKind::ModuloExpression
                 | SyntaxKind::MultiplicationExpression
                 | SyntaxKind::NegationExpression
@@ -298,8 +300,6 @@ impl SyntaxKind {
                 | SyntaxKind::StructExpression
                 | SyntaxKind::SubtractionExpression
                 | SyntaxKind::WhileExpression
-                | SyntaxKind::BooleanExpression
-                | SyntaxKind::SelfExpression
         )
     }
 
@@ -384,11 +384,11 @@ impl SyntaxKind {
             SyntaxKind::ReturnExpression => "return expression",
             SyntaxKind::Root => "root",
             SyntaxKind::SelfType => "self type",
-            SyntaxKind::SelfExpression => "self expression",
             SyntaxKind::SimplePath => "simple path",
             SyntaxKind::SliceType => "slice type",
             SyntaxKind::StringExpression => "string expression",
             SyntaxKind::StringType => "string type",
+            SyntaxKind::MethodCallExpression => "method call expression",
             SyntaxKind::NamedFields => "named fields",
             SyntaxKind::StructExpression => "struct expression",
             SyntaxKind::StructExpressionNamedFields => "struct expression named fields",
@@ -458,7 +458,7 @@ pub enum SyntaxChildrenKind {
     None,
     Single,
     Binary,
-    ThreeOrMore,
+    Multiple,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -482,7 +482,7 @@ impl SyntaxFlags {
     pub const FIELDS: Self = Self(8);
     pub const WHERE_CLAUSE: Self = Self(16);
 
-    const RESERVED: [Self; 3] = [Self(32), Self(64), Self(128)];
+    const _RESERVED: [Self; 3] = [Self(32), Self(64), Self(128)];
 
     pub fn new(flags: u8) -> Self {
         Self(flags)
