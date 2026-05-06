@@ -51,21 +51,3 @@ fn generic_infers_type_from_argument() {
 
     assert_eq!(resolved, TypeId::I_32);
 }
-
-#[test]
-fn method_return_type() {
-    let (syntax, mut resolver, _) = type_bind_function(
-        "struct Foo {} impl Foo { fn bar(self) -> i32 { 1 } } fn foo(f: Foo) -> i32 { f.bar() }",
-    );
-
-    let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();
-    let call_expr = tree
-        .iter()
-        .find(|n| n.node.kind == SyntaxKind::CallExpression)
-        .unwrap();
-
-    let type_id = *resolver.get_type_binding(&call_expr.id).unwrap();
-    let resolved = resolver.resolve_type(type_id).unwrap();
-
-    assert_eq!(resolved, TypeId::I_32);
-}

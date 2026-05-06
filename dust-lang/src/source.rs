@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    fmt::{self, Display, Formatter},
+    fmt::{self, Debug, Display, Formatter},
     fs::File,
     io::{self, Read},
     ops::Range,
@@ -102,7 +102,7 @@ impl SourceCodeId {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum SourceCode<'src> {
     File {
         path: PathBuf,
@@ -318,6 +318,43 @@ impl<'src> SourceCode<'src> {
                     handle_utf8_validation(&path.to_string_lossy(), content)
                 }
             }
+        }
+    }
+}
+
+impl Debug for SourceCode<'_> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::File {
+                path,
+                content,
+                utf8_validated,
+            } => f
+                .debug_struct("File")
+                .field("path", path)
+                .field("content", &String::from_utf8_lossy(content))
+                .field("utf8_validated", utf8_validated)
+                .finish(),
+            Self::Borrowed {
+                name,
+                content,
+                utf8_validated,
+            } => f
+                .debug_struct("Borrowed")
+                .field("name", name)
+                .field("content", &String::from_utf8_lossy(content))
+                .field("utf8_validated", utf8_validated)
+                .finish(),
+            Self::Owned {
+                name,
+                content,
+                utf8_validated,
+            } => f
+                .debug_struct("Owned")
+                .field("name", name)
+                .field("content", &String::from_utf8_lossy(content))
+                .field("utf8_validated", utf8_validated)
+                .finish(),
         }
     }
 }

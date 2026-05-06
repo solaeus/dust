@@ -221,14 +221,20 @@ impl Resolver {
                     )?;
                 }
 
-                let type_parameter_ids =
-                    self.get_type_parameter_ids(parent_impl_or_trait, type_parameters)?;
-                let type_argument_ids = self.types.get_type_members(type_arguments);
+                let mut type_parameter_ids = self
+                    .get_type_parameter_ids(parent_impl_or_trait, type_parameters)?
+                    .into_iter();
+                let type_argument_ids = self.types.get_type_members(type_arguments).iter();
 
-                for (parameter_id, argument_id) in
-                    type_parameter_ids.into_iter().zip(type_argument_ids)
+                for (parameter_id, argument_id) in (&mut type_parameter_ids).zip(type_argument_ids)
                 {
                     self.type_parameter_map.insert(parameter_id, *argument_id);
+                }
+
+                for parameter_id in type_parameter_ids {
+                    let argument_id = self.types.create_inferred_type(None);
+
+                    self.type_parameter_map.insert(parameter_id, argument_id);
                 }
 
                 self.resolve_type(return_type_id)?
@@ -246,7 +252,7 @@ impl Resolver {
                     type_arguments: TypeMembers::default(),
                 })
             }
-            _ => todo!("Error"),
+            _ => todo!("Error: {:?}", declaration.definition),
         };
 
         for type_id in value_parameter_type_ids.iter_mut() {
@@ -319,8 +325,9 @@ impl Resolver {
     pub fn find_method(
         &self,
         symbol_id: SymbolId,
-        implementation_declaration_ids: &[DeclarationId],
+        parent_declaration_id: DeclarationId,
     ) -> Option<DeclarationId> {
+        let implementation_declaration_ids = self.implementations.get(&parent_declaration_id)?;
         let mut found_in_trait_implementation = None;
 
         for implementation_declaration_id in implementation_declaration_ids {

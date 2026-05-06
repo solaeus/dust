@@ -5,6 +5,24 @@ use crate::{
 };
 
 #[test]
+fn method_return_type() {
+    let (syntax, mut resolver, _) = type_bind_function(
+        "struct Foo {} impl Foo { fn bar(self) -> i32 { 1 } } fn foo(f: Foo) -> i32 { f.bar() }",
+    );
+
+    let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();
+    let call_expr = tree
+        .iter()
+        .find(|n| n.node.kind == SyntaxKind::MethodCallExpression)
+        .unwrap();
+
+    let type_id = *resolver.get_type_binding(&call_expr.id).unwrap();
+    let resolved = resolver.resolve_type(type_id).unwrap();
+
+    assert_eq!(resolved, TypeId::I_32);
+}
+
+#[test]
 fn trait_method_on_value() {
     type_bind_function(
         r#"
@@ -48,7 +66,7 @@ fn trait_method_return_type() {
     let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();
     let call_expression = tree
         .iter()
-        .find(|node| node.node.kind == SyntaxKind::CallExpression)
+        .find(|node| node.node.kind == SyntaxKind::MethodCallExpression)
         .unwrap();
 
     let type_id = *resolver.get_type_binding(&call_expression.id).unwrap();
@@ -169,7 +187,7 @@ fn self_as_return_type() {
     let tree = syntax.get_tree(SourceCodeId::MAIN).unwrap();
     let call_expression = tree
         .iter()
-        .find(|node| node.node.kind == SyntaxKind::CallExpression)
+        .find(|node| node.node.kind == SyntaxKind::MethodCallExpression)
         .unwrap();
 
     let type_id = *resolver.get_type_binding(&call_expression.id).unwrap();

@@ -860,7 +860,7 @@ impl<'a> TypeBinder<'a> {
                 self.resolver.resolve_type(type_id)?
             }
             Definition::Function { .. } => {
-                let type_arguments = collect_turbofish_arguments(&mut self.resolver, reader)?;
+                let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
 
                 self.resolver.types.add_type(Type::FunctionDefinition {
                     declaration_id,
@@ -873,7 +873,7 @@ impl<'a> TypeBinder<'a> {
                 ..
             } => match kind {
                 VariantKind::Unit => {
-                    let type_arguments = collect_turbofish_arguments(&mut self.resolver, reader)?;
+                    let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
 
                     self.resolver.types.add_type(Type::Algebraic {
                         declaration_id: enum_declaration_id,
@@ -881,10 +881,10 @@ impl<'a> TypeBinder<'a> {
                     })
                 }
                 VariantKind::TupleFields => {
-                    let type_arguments = collect_turbofish_arguments(&mut self.resolver, reader)?;
+                    let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
 
                     self.resolver.types.add_type(Type::FunctionDefinition {
-                        declaration_id: enum_declaration_id,
+                        declaration_id,
                         type_arguments,
                     })
                 }
@@ -1154,12 +1154,52 @@ impl<'a> TypeBinder<'a> {
         let method_symbol_str = self.source.get_content(method.position())?;
         let method_symbol_id = self.resolver.symbols.add_symbol(method_symbol_str);
 
-        if let Some(implementations) = self.resolver.implementations.get(&parent_declaration_id) {
-            let function_declaration_id =
-                self.resolver.find_method(method_symbol_id, implementations);
+        let method_declaration_id = self
+            .resolver
+            .find_method(method_symbol_id, parent_declaration_id)
+            .ok_or_else(|| CompileError::Undeclared {
+                symbol_id: method_symbol_id,
+                usage_position: method.position(),
+            })?;
+
+        let method_type_arguments = if let Some(type_arguments) = type_arguments {
+            let mut type_argument_ids = TypeId::SmallVec::new();
+
+            for type_argument in type_arguments.children() {
+                let type_argument_id = *self.resolver.get_type_binding(&type_argument.id)?;
+
+                type_argument_ids.push(type_argument_id);
+            }
+
+            self.resolver.types.add_type_members(type_argument_ids)
+        } else {
+            TypeMembers::default()
+        };
+        let method_type_id = self.resolver.types.add_type(Type::FunctionDefinition {
+            declaration_id: method_declaration_id,
+            type_arguments: method_type_arguments,
+        });
+
+        let (value_parameter_type_ids, return_type_id) =
+            self.resolver
+                .get_signature(method_declaration_id, method_type_arguments, None)?;
+
+        if let Some(value_arguments) = value_arguments {
+            for (argument, expected_type_id) in
+                value_arguments.children().zip(value_parameter_type_ids)
+            {
+                let actual_type_id = self.bind_expression(argument)?;
+
+                self.unify_types(expected_type_id, Some(argument), actual_type_id, argument)?;
+            }
         }
 
-        todo!()
+        self.resolver
+            .add_declaration_binding(method.id, method_declaration_id);
+        self.resolver.add_type_binding(method.id, method_type_id);
+        self.resolver.add_type_binding(reader.id, return_type_id);
+
+        Ok(return_type_id)
     }
 
     fn bind_field_access_expression(
