@@ -120,10 +120,10 @@ impl Types {
         &self.members[members.as_usize_range()]
     }
 
-    pub fn get_type_member(&self, index: u32) -> Result<&TypeId, CompileError> {
+    pub fn get_type_member(&self, index: usize) -> Result<&TypeId, CompileError> {
         self.members
-            .get(index as usize)
-            .ok_or(CompileError::MissingTypeMember(index))
+            .get(index)
+            .ok_or(CompileError::MissingTypeMember(index as u32))
     }
 
     pub fn create_inferred_type(&mut self, constraint: Option<InferredTypeConstraint>) -> TypeId {

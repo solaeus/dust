@@ -30,7 +30,7 @@ use crate::{
     dust_type::{DustEnumType, DustFunctionType, DustStructType, DustStructTypeFields, DustType},
     instruction::OperandType,
     prototype::Prototype,
-    syntax::SyntaxId,
+    syntax::{SyntaxId, reader::SyntaxReader},
 };
 
 #[derive(Debug)]
@@ -221,20 +221,28 @@ impl Resolver {
                     )?;
                 }
 
-                let mut type_parameter_ids = self
+                let type_parameter_ids = self
                     .get_type_parameter_ids(parent_impl_or_trait, type_parameters)?
                     .into_iter();
-                let type_argument_ids = self.types.get_type_members(type_arguments).iter();
+                let mut explicit_type_argument_ids = self
+                    .types
+                    .get_type_members(type_arguments)
+                    .iter()
+                    .copied()
+                    .collect::<TypeId::SmallVec>()
+                    .into_iter();
 
-                for (parameter_id, argument_id) in (&mut type_parameter_ids).zip(type_argument_ids)
-                {
-                    self.type_parameter_map.insert(parameter_id, *argument_id);
-                }
+                for parameter_declaration_id in type_parameter_ids {
+                    let argument_type_id = if let Some(explicit_type_argument_id) =
+                        explicit_type_argument_ids.next()
+                    {
+                        explicit_type_argument_id
+                    } else {
+                        self.types.create_inferred_type(None)
+                    };
 
-                for parameter_id in type_parameter_ids {
-                    let argument_id = self.types.create_inferred_type(None);
-
-                    self.type_parameter_map.insert(parameter_id, argument_id);
+                    self.type_parameter_map
+                        .insert(parameter_declaration_id, argument_type_id);
                 }
 
                 self.resolve_type(return_type_id)?
@@ -430,6 +438,164 @@ impl Resolver {
         }
     }
 
+    pub fn find_visible_declaration(
+        &self,
+        symbol_id: SymbolId,
+        starting_scope_id: ScopeId,
+        path_segment: SyntaxReader,
+    ) -> Result<Option<DeclarationId>, CompileError> {
+        let mut scope_id = Some(starting_scope_id);
+        let mut crossed_scope_kinds = SmallVec::<[ScopeKind; 7]>::new();
+
+        while let Some(current_scope_id) = scope_id {
+            if let Some(declaration_id) = self
+                .declarations
+                .find_declaration_id(symbol_id, current_scope_id)
+            {
+                let declaration = self.declarations.get_declaration(*declaration_id);
+
+                if crossed_scope_kinds
+                    .iter()
+                    .any(|scope_kind| scope_kind.is_barrier(&declaration.definition))
+                {
+                    return Err(CompileError::Undeclared {
+                        symbol_id,
+                        usage_position: path_segment.position(),
+                    });
+                }
+
+                return Ok(Some(*declaration_id));
+            }
+
+            let scope = self.scopes.get_scope(current_scope_id);
+            scope_id = scope.parent;
+
+            if !crossed_scope_kinds.contains(&scope.kind) {
+                crossed_scope_kinds.push(scope.kind);
+            }
+        }
+
+        if let Some(declaration_id) = self
+            .declarations
+            .find_declaration_id(symbol_id, ScopeId::CORE)
+        {
+            return Ok(Some(*declaration_id));
+        }
+
+        Ok(None)
+    }
+
+    pub fn find_member_declaration(
+        &self,
+        symbol_id: SymbolId,
+        parent_declaration_id: DeclarationId,
+        path_segment: SyntaxReader,
+    ) -> Result<DeclarationId, CompileError> {
+        let parent_declaration = self.declarations.get_declaration(parent_declaration_id);
+        let primary_member_scope_id = match parent_declaration.definition {
+            Definition::Module {
+                inner_scope_id: Some(inner_scope_id),
+                ..
+            }
+            | Definition::StructType {
+                fields: Some(inner_scope_id),
+                ..
+            }
+            | Definition::EnumType {
+                variants: Some(inner_scope_id),
+                ..
+            }
+            | Definition::TraitImplementation {
+                declarations: Some(inner_scope_id),
+                ..
+            }
+            | Definition::InherentImplementation {
+                declarations: Some(inner_scope_id),
+                ..
+            } => Some(inner_scope_id),
+            Definition::StructType { fields: None, .. }
+            | Definition::EnumType { variants: None, .. } => None,
+            _ => {
+                return Err(CompileError::Undeclared {
+                    symbol_id,
+                    usage_position: path_segment.position(),
+                });
+            }
+        };
+
+        if let Some(scope_id) = primary_member_scope_id
+            && let Some(declaration_id) = self.declarations.find_declaration_id(symbol_id, scope_id)
+        {
+            return Ok(*declaration_id);
+        }
+
+        if matches!(
+            parent_declaration.definition,
+            Definition::StructType { .. } | Definition::EnumType { .. }
+        ) && let Some(implementation_declaration_ids) =
+            self.implementations.get(&parent_declaration_id)
+        {
+            let mut found_in_trait_implementation = None;
+
+            for implementation_declaration_id in implementation_declaration_ids {
+                let implementation_declaration = self
+                    .declarations
+                    .get_declaration(*implementation_declaration_id);
+
+                match implementation_declaration.definition {
+                    Definition::InherentImplementation {
+                        declarations: Some(scope_id),
+                        ..
+                    } => {
+                        if let Some(declaration_id) =
+                            self.declarations.find_declaration_id(symbol_id, scope_id)
+                        {
+                            return Ok(*declaration_id);
+                        }
+                    }
+                    Definition::TraitImplementation {
+                        trait_declaration_id,
+                        declarations: Some(scope_id),
+                        ..
+                    } => {
+                        if let Some(declaration_id) =
+                            self.declarations.find_declaration_id(symbol_id, scope_id)
+                        {
+                            return Ok(*declaration_id);
+                        }
+
+                        if found_in_trait_implementation.is_none() {
+                            let trait_declaration =
+                                self.declarations.get_declaration(trait_declaration_id);
+                            let Definition::Trait {
+                                declarations: Some(trait_scope_id),
+                                ..
+                            } = trait_declaration.definition
+                            else {
+                                continue;
+                            };
+
+                            found_in_trait_implementation = self
+                                .declarations
+                                .find_declaration_id(symbol_id, trait_scope_id)
+                                .copied();
+                        }
+                    }
+                    _ => continue,
+                };
+            }
+
+            if let Some(declaration_id) = found_in_trait_implementation {
+                return Ok(declaration_id);
+            }
+        }
+
+        Err(CompileError::Undeclared {
+            symbol_id,
+            usage_position: path_segment.position(),
+        })
+    }
+
     pub fn get_operand_types(
         &self,
         type_id: TypeId,
@@ -521,7 +687,7 @@ impl Resolver {
                             .unwrap_or_default();
                         let type_parameter_argument_pairs = type_param_entries
                             .iter()
-                            .zip(type_arguments.as_range())
+                            .zip(type_arguments.as_usize_range())
                             .filter_map(|(parameter_declaration_id, argument_index)| {
                                 let argument_type_id =
                                     self.types.get_type_member(argument_index).ok()?;
@@ -649,7 +815,7 @@ impl Resolver {
 
                         let type_parameter_argument_pairs = type_paramter_declaration_ids
                             .iter()
-                            .zip(type_arguments.as_range())
+                            .zip(type_arguments.as_usize_range())
                             .filter_map(|(parameter_declaration_id, argument_index)| {
                                 let argument_type_id =
                                     self.types.get_type_member(argument_index).ok()?;
@@ -1077,7 +1243,7 @@ impl Resolver {
                         let type_parameter_map: SmallVec<[(DeclarationId, TypeId); 4]> =
                             type_param_entries
                                 .iter()
-                                .zip(type_arguments.as_range())
+                                .zip(type_arguments.as_usize_range())
                                 .filter_map(|(parameter_declaration_id, argument_index)| {
                                     let argument_type_id =
                                         self.types.get_type_member(argument_index).ok()?;
@@ -1339,7 +1505,7 @@ impl Resolver {
         &'a self,
         type_members: TypeMembers,
     ) -> impl Iterator<Item = Result<DustType, CompileError>> + 'a {
-        type_members.as_range().map(move |index| {
+        type_members.as_usize_range().map(move |index| {
             let type_id = *self.types.get_type_member(index)?;
 
             self.get_external_type(type_id)
@@ -1359,12 +1525,8 @@ pub struct PrototypeId(#[cfg(test)] pub(crate) u16, #[cfg(not(test))] u16);
 impl PrototypeId {
     pub(crate) const MAIN: Self = Self(0);
 
-    pub fn inner(self) -> u16 {
+    pub fn index(self) -> u16 {
         self.0
-    }
-
-    pub fn index_usize(self) -> usize {
-        self.0 as usize
     }
 }
 

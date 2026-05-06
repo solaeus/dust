@@ -1,14 +1,12 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::{Instruction, InstructionBuilder, MemoryKind, OperandType, Operation};
+use crate::instruction::{Address, Instruction, InstructionBuilder, OperandType, Operation};
 
 pub struct Divide {
     pub destination: u16,
     pub operand_type: OperandType,
-    pub left_memory: MemoryKind,
-    pub left_index: u16,
-    pub right_memory: MemoryKind,
-    pub right_index: u16,
+    pub left_address: Address,
+    pub right_address: Address,
 }
 
 impl From<&Instruction> for Divide {
@@ -16,10 +14,8 @@ impl From<&Instruction> for Divide {
         Divide {
             destination: instruction.a_field(),
             operand_type: instruction.operand_type(),
-            left_memory: instruction.b_memory(),
-            left_index: instruction.b_field(),
-            right_memory: instruction.c_memory(),
-            right_index: instruction.c_field(),
+            left_address: instruction.b_address(),
+            right_address: instruction.c_address(),
         }
     }
 }
@@ -29,19 +25,15 @@ impl From<Divide> for Instruction {
         let Divide {
             destination,
             operand_type,
-            left_memory,
-            left_index,
-            right_memory,
-            right_index,
+            left_address,
+            right_address,
         } = divide;
 
         InstructionBuilder::new(Operation::DIVIDE)
             .a_field(destination)
-            .b_memory(left_memory)
-            .b_field(left_index)
-            .c_memory(right_memory)
-            .c_field(right_index)
             .operand_type(operand_type)
+            .b_address(left_address)
+            .c_address(right_address)
             .build()
     }
 }
@@ -51,15 +43,13 @@ impl Display for Divide {
         let Divide {
             destination,
             operand_type,
-            left_memory,
-            left_index,
-            right_memory,
-            right_index,
+            left_address,
+            right_address,
         } = *self;
 
         write!(
             f,
-            "reg_{destination}: {operand_type} = {left_memory}_{left_index} ÷ {right_memory}_{right_index}"
+            "reg_{destination}: {operand_type} = {left_address} / {right_address}"
         )
     }
 }

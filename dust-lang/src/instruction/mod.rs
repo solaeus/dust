@@ -126,108 +126,84 @@ impl Instruction {
     pub fn add(
         destination: u16,
         operand_type: OperandType,
-        left_memory: MemoryKind,
-        left_index: u16,
-        right_memory: MemoryKind,
-        right_index: u16,
+        left_address: Address,
+        right_address: Address,
     ) -> Instruction {
         Instruction::from(Add {
             destination,
             operand_type,
-            left_memory,
-            left_index,
-            right_memory,
-            right_index,
+            left_address,
+            right_address,
         })
     }
 
     pub fn subtract(
         destination: u16,
         operand_type: OperandType,
-        left_memory: MemoryKind,
-        left_index: u16,
-        right_memory: MemoryKind,
-        right_index: u16,
+        left_address: Address,
+        right_address: Address,
     ) -> Instruction {
         Instruction::from(Subtract {
             destination,
             operand_type,
-            left_memory,
-            left_index,
-            right_memory,
-            right_index,
+            left_address,
+            right_address,
         })
     }
 
     pub fn multiply(
         destination: u16,
         operand_type: OperandType,
-        left_memory: MemoryKind,
-        left_index: u16,
-        right_memory: MemoryKind,
-        right_index: u16,
+        left_address: Address,
+        right_address: Address,
     ) -> Instruction {
         Instruction::from(Multiply {
             destination,
             operand_type,
-            left_memory,
-            left_index,
-            right_memory,
-            right_index,
+            left_address,
+            right_address,
         })
     }
 
     pub fn divide(
         destination: u16,
         operand_type: OperandType,
-        left_memory: MemoryKind,
-        left_index: u16,
-        right_memory: MemoryKind,
-        right_index: u16,
+        left_address: Address,
+        right_address: Address,
     ) -> Instruction {
         Instruction::from(Divide {
             destination,
             operand_type,
-            left_memory,
-            left_index,
-            right_memory,
-            right_index,
+            left_address,
+            right_address,
         })
     }
 
     pub fn modulo(
         destination: u16,
         operand_type: OperandType,
-        left_memory: MemoryKind,
-        left_index: u16,
-        right_memory: MemoryKind,
-        right_index: u16,
+        left_address: Address,
+        right_address: Address,
     ) -> Instruction {
         Instruction::from(Modulo {
             destination,
             operand_type,
-            left_memory,
-            left_index,
-            right_memory,
-            right_index,
+            left_address,
+            right_address,
         })
     }
 
     pub fn power(
         destination: u16,
         operand_type: OperandType,
-        base_memory: MemoryKind,
-        base_index: u16,
-        exponent_memory: MemoryKind,
-        exponent_index: u16,
+        base_address: Address,
+        exponent_address: Address,
     ) -> Instruction {
         Instruction::from(Power {
             destination,
             operand_type,
-            base_memory,
-            base_index,
-            exponent_memory,
-            exponent_index,
+            base_address,
+            exponent_address,
         })
     }
 
@@ -446,6 +422,20 @@ impl Instruction {
         ((self.0 >> 10) & 0x3F) as u16
     }
 
+    pub fn b_address(&self) -> Address {
+        Address {
+            memory: self.b_memory(),
+            index: self.b_field(),
+        }
+    }
+
+    pub fn c_address(&self) -> Address {
+        Address {
+            memory: self.c_memory(),
+            index: self.c_field(),
+        }
+    }
+
     pub fn is_coallescible_with_jump(&self, forward: bool) -> bool {
         match self.operation() {
             Operation::DROP => true,
@@ -578,6 +568,20 @@ impl InstructionBuilder {
         self
     }
 
+    pub fn b_address(mut self, address: Address) -> Self {
+        self.b_memory = Some(address.memory);
+        self.b_field = Some(address.index);
+
+        self
+    }
+
+    pub fn c_address(mut self, address: Address) -> Self {
+        self.c_memory = Some(address.memory);
+        self.c_field = Some(address.index);
+
+        self
+    }
+
     pub fn build(self) -> Instruction {
         let mut bits = self.operation.0 as u64;
 
@@ -641,6 +645,12 @@ pub struct Address {
     pub index: u16,
 }
 
+impl Display for Address {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}_{}", self.memory, self.index)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::instruction::*;
@@ -675,10 +685,14 @@ mod tests {
         let instruction = Instruction::add(
             42,
             OperandType::F_64,
-            MemoryKind::CONSTANT,
-            1,
-            MemoryKind::CONSTANT,
-            2,
+            Address {
+                memory: MemoryKind::CONSTANT,
+                index: 1,
+            },
+            Address {
+                memory: MemoryKind::CONSTANT,
+                index: 2,
+            },
         );
 
         assert_eq!(instruction.c_memory(), MemoryKind::CONSTANT);

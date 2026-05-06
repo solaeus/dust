@@ -292,8 +292,8 @@ impl<'a> TypeBinder<'a> {
                 }
 
                 for (left_index, right_index) in left_type_arguments
-                    .as_range()
-                    .zip(right_type_arguments.as_range())
+                    .as_usize_range()
+                    .zip(right_type_arguments.as_usize_range())
                 {
                     let left_arg = *self.resolver.types.get_type_member(left_index)?;
                     let right_arg = *self.resolver.types.get_type_member(right_index)?;
@@ -349,8 +349,8 @@ impl<'a> TypeBinder<'a> {
                     };
                 } else {
                     for (left_index, right_index) in left_type_arguments
-                        .as_range()
-                        .zip(right_type_arguments.as_range())
+                        .as_usize_range()
+                        .zip(right_type_arguments.as_usize_range())
                     {
                         let left_arg = *self.resolver.types.get_type_member(left_index)?;
                         let right_arg = *self.resolver.types.get_type_member(right_index)?;
@@ -1180,13 +1180,17 @@ impl<'a> TypeBinder<'a> {
             type_arguments: method_type_arguments,
         });
 
-        let (value_parameter_type_ids, return_type_id) =
-            self.resolver
-                .get_signature(method_declaration_id, method_type_arguments, None)?;
+        let (value_parameter_type_ids, return_type_id) = self.resolver.get_signature(
+            method_declaration_id,
+            method_type_arguments,
+            Some(parent_type_id),
+        )?;
+        let value_parameter_ids_without_self = value_parameter_type_ids.into_iter().skip(1);
 
         if let Some(value_arguments) = value_arguments {
-            for (argument, expected_type_id) in
-                value_arguments.children().zip(value_parameter_type_ids)
+            for (argument, expected_type_id) in value_arguments
+                .children()
+                .zip(value_parameter_ids_without_self)
             {
                 let actual_type_id = self.bind_expression(argument)?;
 
@@ -1211,20 +1215,42 @@ impl<'a> TypeBinder<'a> {
             field_name,
         } = reader.as_component()?;
 
-        self.bind_expression(struct_expression)?;
-
-        let field_declaration_id = *self.resolver.get_declaration_binding(&field_name.id)?;
-        let field_declaration = self
-            .resolver
-            .declarations
-            .get_declaration(field_declaration_id);
-        let type_id = match field_declaration.definition {
-            Definition::Field { type_id, .. } => self.resolver.resolve_type(type_id)?,
-            _ => return Err(CompileError::ExpectedFieldDefinition(field_declaration_id)),
+        let parent_type_id = self.bind_expression(struct_expression)?;
+        let Type::Algebraic {
+            declaration_id: parent_declaration_id,
+            ..
+        } = *self.resolver.types.get_type(parent_type_id)?
+        else {
+            return Err(CompileError::ExpectedAlgebraicType(parent_type_id));
         };
 
-        self.resolver.add_type_binding(reader.id, type_id);
+        let field_symbol_str = self.source.get_content(field_name.position())?;
+        let field_symbol_id = self.resolver.symbols.add_symbol(field_symbol_str);
+        let field_declaration_id = self.resolver.find_member_declaration(
+            field_symbol_id,
+            parent_declaration_id,
+            field_name,
+        )?;
+        let Definition::Field {
+            type_id: field_raw_type_id,
+            ..
+        } = self
+            .resolver
+            .declarations
+            .get_declaration(field_declaration_id)
+            .definition
+        else {
+            return Err(CompileError::ExpectedFieldDefinition(field_declaration_id));
+        };
+        let field_type_id = self.resolver.resolve_type(field_raw_type_id)?;
 
-        Ok(type_id)
+        self.resolver
+            .add_declaration_binding(field_name.id, field_declaration_id);
+        self.resolver
+            .add_declaration_binding(reader.id, field_declaration_id);
+
+        self.resolver.add_type_binding(reader.id, field_type_id);
+
+        Ok(field_raw_type_id)
     }
 }

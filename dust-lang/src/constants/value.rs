@@ -150,7 +150,7 @@ impl ConstantValue {
                     None
                 }
             }
-            ConstantValue::Function { prototype_id, .. } => Some(prototype_id.inner()),
+            ConstantValue::Function { prototype_id, .. } => Some(prototype_id.index()),
         }
     }
 

@@ -2,7 +2,7 @@ use smallvec::smallvec;
 
 use crate::{
     compiler::emitter::tests::emit_function,
-    instruction::{Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, MemoryKind, OperandType},
     prototype::Prototype,
 };
 
@@ -37,10 +37,14 @@ fn function_call_binding() {
                 Instruction::add(
                     0,
                     OperandType::I_32,
-                    MemoryKind::REGISTER,
-                    0,
-                    MemoryKind::ENCODED,
-                    1
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 0,
+                    },
+                    Address {
+                        memory: MemoryKind::ENCODED,
+                        index: 1
+                    }
                 ),
                 Instruction::r#return(),
             ],

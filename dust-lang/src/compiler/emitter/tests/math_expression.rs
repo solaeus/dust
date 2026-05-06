@@ -2,7 +2,7 @@ use smallvec::smallvec;
 
 use crate::{
     compiler::emitter::tests::emit_function,
-    instruction::{Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, MemoryKind, OperandType},
     prototype::Prototype,
 };
 
@@ -107,10 +107,14 @@ fn runtime_add() {
                 Instruction::add(
                     0,
                     OperandType::I_32,
-                    MemoryKind::REGISTER,
-                    0,
-                    MemoryKind::REGISTER,
-                    1
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 0
+                    },
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 1
+                    }
                 ),
                 Instruction::r#return(),
             ],
@@ -132,10 +136,14 @@ fn runtime_subtract() {
                 Instruction::subtract(
                     0,
                     OperandType::I_32,
-                    MemoryKind::REGISTER,
-                    0,
-                    MemoryKind::REGISTER,
-                    1
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 0
+                    },
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 1
+                    }
                 ),
                 Instruction::r#return(),
             ],
@@ -157,10 +165,14 @@ fn runtime_multiply() {
                 Instruction::multiply(
                     0,
                     OperandType::I_32,
-                    MemoryKind::REGISTER,
-                    0,
-                    MemoryKind::REGISTER,
-                    1
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 0
+                    },
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 1
+                    }
                 ),
                 Instruction::r#return(),
             ],
@@ -182,10 +194,14 @@ fn runtime_divide() {
                 Instruction::divide(
                     0,
                     OperandType::I_32,
-                    MemoryKind::REGISTER,
-                    0,
-                    MemoryKind::REGISTER,
-                    1
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 0
+                    },
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 1
+                    }
                 ),
                 Instruction::r#return(),
             ],
@@ -207,10 +223,14 @@ fn runtime_modulo() {
                 Instruction::modulo(
                     0,
                     OperandType::I_32,
-                    MemoryKind::REGISTER,
-                    0,
-                    MemoryKind::REGISTER,
-                    1
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 0
+                    },
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 1
+                    }
                 ),
                 Instruction::r#return(),
             ],
@@ -232,10 +252,14 @@ fn runtime_power() {
                 Instruction::power(
                     0,
                     OperandType::I_32,
-                    MemoryKind::REGISTER,
-                    0,
-                    MemoryKind::REGISTER,
-                    1
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 0
+                    },
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 1
+                    }
                 ),
                 Instruction::r#return(),
             ],

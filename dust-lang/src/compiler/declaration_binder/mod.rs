@@ -97,10 +97,8 @@ impl<'a> DeclarationBinder<'a> {
                         .declarations
                         .find_declaration_id(forward_reference.symbol_id, scope_id)
                     {
-                        let declaration = self
-                            .resolver
-                            .declarations
-                            .get_declaration(*declaration_id);
+                        let declaration =
+                            self.resolver.declarations.get_declaration(*declaration_id);
 
                         if crossed_scope_kinds
                             .iter()
@@ -195,182 +193,6 @@ impl<'a> DeclarationBinder<'a> {
             .add_to_current_namespace(declaration_id);
 
         declaration_id
-    }
-
-    fn find_visible_declaration(
-        &self,
-        symbol_id: SymbolId,
-        path_segment: SyntaxReader,
-    ) -> Result<Option<DeclarationId>, CompileError> {
-        let mut scope_id = Some(self.current_scope_id);
-        let mut crossed_scope_kinds = SmallVec::<[ScopeKind; 7]>::new();
-
-        while let Some(current_scope_id) = scope_id {
-            if let Some(declaration_id) = self
-                .resolver
-                .declarations
-                .find_declaration_id(symbol_id, current_scope_id)
-            {
-                let declaration = self
-                    .resolver
-                    .declarations
-                    .get_declaration(*declaration_id);
-
-                if crossed_scope_kinds
-                    .iter()
-                    .any(|scope_kind| scope_kind.is_barrier(&declaration.definition))
-                {
-                    return Err(CompileError::Undeclared {
-                        symbol_id,
-                        usage_position: path_segment.position(),
-                    });
-                }
-
-                return Ok(Some(*declaration_id));
-            }
-
-            let scope = self.resolver.scopes.get_scope(current_scope_id);
-            scope_id = scope.parent;
-
-            if !crossed_scope_kinds.contains(&scope.kind) {
-                crossed_scope_kinds.push(scope.kind);
-            }
-        }
-
-        if let Some(declaration_id) = self
-            .resolver
-            .declarations
-            .find_declaration_id(symbol_id, ScopeId::CORE)
-        {
-            return Ok(Some(*declaration_id));
-        }
-
-        Ok(None)
-    }
-
-    fn find_member_declaration(
-        &self,
-        symbol_id: SymbolId,
-        parent_declaration_id: DeclarationId,
-        path_segment: SyntaxReader,
-    ) -> Result<DeclarationId, CompileError> {
-        let parent_declaration = self
-            .resolver
-            .declarations
-            .get_declaration(parent_declaration_id);
-        let primary_member_scope_id = match parent_declaration.definition {
-            Definition::Module {
-                inner_scope_id: Some(inner_scope_id),
-                ..
-            }
-            | Definition::StructType {
-                fields: Some(inner_scope_id),
-                ..
-            }
-            | Definition::EnumType {
-                variants: Some(inner_scope_id),
-                ..
-            }
-            | Definition::TraitImplementation {
-                declarations: Some(inner_scope_id),
-                ..
-            }
-            | Definition::InherentImplementation {
-                declarations: Some(inner_scope_id),
-                ..
-            } => Some(inner_scope_id),
-            Definition::StructType { fields: None, .. }
-            | Definition::EnumType { variants: None, .. } => None,
-            _ => {
-                return Err(CompileError::Undeclared {
-                    symbol_id,
-                    usage_position: path_segment.position(),
-                });
-            }
-        };
-
-        if let Some(scope_id) = primary_member_scope_id
-            && let Some(declaration_id) = self
-                .resolver
-                .declarations
-                .find_declaration_id(symbol_id, scope_id)
-        {
-            return Ok(*declaration_id);
-        }
-
-        if matches!(
-            parent_declaration.definition,
-            Definition::StructType { .. } | Definition::EnumType { .. }
-        ) && let Some(implementation_declaration_ids) =
-            self.resolver.implementations.get(&parent_declaration_id)
-        {
-            let mut found_in_trait_implementation = None;
-
-            for implementation_declaration_id in implementation_declaration_ids {
-                let implementation_declaration = self
-                    .resolver
-                    .declarations
-                    .get_declaration(*implementation_declaration_id);
-
-                match implementation_declaration.definition {
-                    Definition::InherentImplementation {
-                        declarations: Some(scope_id),
-                        ..
-                    } => {
-                        if let Some(declaration_id) = self
-                            .resolver
-                            .declarations
-                            .find_declaration_id(symbol_id, scope_id)
-                        {
-                            return Ok(*declaration_id);
-                        }
-                    }
-                    Definition::TraitImplementation {
-                        trait_declaration_id,
-                        declarations: Some(scope_id),
-                        ..
-                    } => {
-                        if let Some(declaration_id) = self
-                            .resolver
-                            .declarations
-                            .find_declaration_id(symbol_id, scope_id)
-                        {
-                            return Ok(*declaration_id);
-                        }
-
-                        if found_in_trait_implementation.is_none() {
-                            let trait_declaration = self
-                                .resolver
-                                .declarations
-                                .get_declaration(trait_declaration_id);
-                            let Definition::Trait {
-                                declarations: Some(trait_scope_id),
-                                ..
-                            } = trait_declaration.definition
-                            else {
-                                continue;
-                            };
-
-                            found_in_trait_implementation = self
-                                .resolver
-                                .declarations
-                                .find_declaration_id(symbol_id, trait_scope_id)
-                                .copied();
-                        }
-                    }
-                    _ => continue,
-                };
-            }
-
-            if let Some(declaration_id) = found_in_trait_implementation {
-                return Ok(declaration_id);
-            }
-        }
-
-        Err(CompileError::Undeclared {
-            symbol_id,
-            usage_position: path_segment.position(),
-        })
     }
 
     fn bind_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
@@ -488,8 +310,11 @@ impl<'a> DeclarationBinder<'a> {
         })?;
         let first_segment_str = file.get_str(first_segment.node.span)?;
         let first_symbol_id = self.resolver.symbols.add_symbol(first_segment_str);
-        let Some(first_declaration_id) =
-            self.find_visible_declaration(first_symbol_id, first_segment)?
+        let Some(first_declaration_id) = self.resolver.find_visible_declaration(
+            first_symbol_id,
+            self.current_scope_id,
+            first_segment,
+        )?
         else {
             return Err(CompileError::Undeclared {
                 symbol_id: first_symbol_id,
@@ -504,8 +329,11 @@ impl<'a> DeclarationBinder<'a> {
         for segment in path_segments {
             let segment_str = file.get_str(segment.node.span)?;
             let segment_symbol_id = self.resolver.symbols.add_symbol(segment_str);
-            let segment_declaration_id =
-                self.find_member_declaration(segment_symbol_id, current_declaration_id, segment)?;
+            let segment_declaration_id = self.resolver.find_member_declaration(
+                segment_symbol_id,
+                current_declaration_id,
+                segment,
+            )?;
 
             current_declaration_id = segment_declaration_id;
             current_symbol_id = segment_symbol_id;
@@ -1812,130 +1640,10 @@ impl<'a> DeclarationBinder<'a> {
 
     fn bind_field_access_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let FieldAccessExpression {
-            struct_expression,
-            field_name,
+            struct_expression, ..
         } = reader.as_component()?;
 
-        self.bind_expression(struct_expression)?;
-
-        let type_declaration_id = *self
-            .resolver
-            .get_declaration_binding(&struct_expression.id)?;
-        let type_declaration = self
-            .resolver
-            .declarations
-            .get_declaration(type_declaration_id);
-
-        if matches!(
-            type_declaration.definition,
-            Definition::ForwardReference { .. }
-        ) {
-            self.resolver
-                .add_declaration_binding(field_name.id, type_declaration_id);
-            self.resolver
-                .add_declaration_binding(reader.id, type_declaration_id);
-
-            return Ok(());
-        }
-
-        let field_name_str = self.source.get_content(field_name.position())?;
-        let field_symbol_id = self.resolver.symbols.add_symbol(field_name_str);
-        let field_declaration_id = match type_declaration.definition {
-            Definition::Local { type_id, .. } => {
-                let r#type = self.resolver.types.get_type(type_id)?;
-                let Type::Algebraic { declaration_id, .. } = r#type else {
-                    return Err(CompileError::ExpectedAlgebraicType(type_id));
-                };
-
-                self.find_member_declaration(field_symbol_id, *declaration_id, field_name)?
-            }
-            Definition::StructType { .. } | Definition::EnumType { .. } => {
-                let Context::Impl {
-                    self_declaration_id,
-                    ..
-                } = self.context
-                else {
-                    return Err(CompileError::Undeclared {
-                        symbol_id: field_symbol_id,
-                        usage_position: field_name.position(),
-                    });
-                };
-
-                self.find_member_declaration(field_symbol_id, self_declaration_id, field_name)?
-            }
-            Definition::Function { return_type_id, .. } => {
-                let return_type = self.resolver.types.get_type(return_type_id)?;
-                let Type::Algebraic { declaration_id, .. } = return_type else {
-                    return Err(CompileError::ExpectedAlgebraicType(return_type_id));
-                };
-
-                self.find_member_declaration(field_symbol_id, *declaration_id, field_name)?
-            }
-            Definition::Trait {
-                supertraits,
-                declarations,
-                ..
-            } => {
-                if let Some(declarations_scope_id) = declarations
-                    && let Some(field_declaration_id) = self
-                        .resolver
-                        .declarations
-                        .find_declaration_id(field_symbol_id, declarations_scope_id)
-                {
-                    *field_declaration_id
-                } else if let Some(supertraits_scope_id) = supertraits
-                    && let Some(found_declaration_id) =
-                        self.find_in_traits(field_symbol_id, supertraits_scope_id)?
-                {
-                    found_declaration_id
-                } else {
-                    return Err(CompileError::Undeclared {
-                        symbol_id: field_symbol_id,
-                        usage_position: field_name.position(),
-                    });
-                }
-            }
-            _ => {
-                return Err(CompileError::Undeclared {
-                    symbol_id: field_symbol_id,
-                    usage_position: field_name.position(),
-                });
-            }
-        };
-
-        self.resolver
-            .add_declaration_binding(field_name.id, field_declaration_id);
-        self.resolver
-            .add_declaration_binding(reader.id, field_declaration_id);
-
-        Ok(())
-    }
-
-    fn find_in_traits(
-        &self,
-        symbol_id: SymbolId,
-        scope_id: ScopeId,
-    ) -> Result<Option<DeclarationId>, CompileError> {
-        for trait_id in self.resolver.scopes.get_members(scope_id) {
-            let trait_declaration = self.resolver.declarations.get_declaration(*trait_id);
-            let Definition::Trait {
-                declarations: Some(declarations_scope_id),
-                ..
-            } = trait_declaration.definition
-            else {
-                continue;
-            };
-
-            if let Some(declaration_id) = self
-                .resolver
-                .declarations
-                .find_declaration_id(symbol_id, declarations_scope_id)
-            {
-                return Ok(Some(*declaration_id));
-            }
-        }
-
-        Ok(None)
+        self.bind_expression(struct_expression)
     }
 
     fn handle_explicit_type(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
@@ -2085,8 +1793,9 @@ impl<'a> DeclarationBinder<'a> {
 
         let first_segment_str = source_code.get_str(first_segment.node.span)?;
         let first_symbol_id = self.resolver.symbols.add_symbol(first_segment_str);
-        let mut current_declaration_id = if let Some(declaration_id) =
-            self.find_visible_declaration(first_symbol_id, first_segment)?
+        let mut current_declaration_id = if let Some(declaration_id) = self
+            .resolver
+            .find_visible_declaration(first_symbol_id, self.current_scope_id, first_segment)?
         {
             declaration_id
         } else {
@@ -2110,7 +1819,7 @@ impl<'a> DeclarationBinder<'a> {
             let segment_str = source_code.get_str(path_segment.node.span)?;
             let segment_symbol_id = self.resolver.symbols.add_symbol(segment_str);
 
-            current_declaration_id = self.find_member_declaration(
+            current_declaration_id = self.resolver.find_member_declaration(
                 segment_symbol_id,
                 current_declaration_id,
                 path_segment,

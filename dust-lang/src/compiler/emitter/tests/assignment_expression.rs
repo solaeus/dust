@@ -2,7 +2,7 @@ use smallvec::smallvec;
 
 use crate::{
     compiler::emitter::tests::emit_function,
-    instruction::{Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, MemoryKind, OperandType},
     prototype::Prototype,
 };
 
@@ -37,10 +37,14 @@ fn compound_addition() {
                 Instruction::add(
                     0,
                     OperandType::I_32,
-                    MemoryKind::REGISTER,
-                    0,
-                    MemoryKind::ENCODED,
-                    2
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 0,
+                    },
+                    Address {
+                        memory: MemoryKind::ENCODED,
+                        index: 2,
+                    }
                 ),
                 Instruction::r#return(),
             ],
@@ -63,10 +67,14 @@ fn compound_subtraction() {
                 Instruction::subtract(
                     0,
                     OperandType::I_32,
-                    MemoryKind::REGISTER,
-                    0,
-                    MemoryKind::ENCODED,
-                    3
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 0
+                    },
+                    Address {
+                        memory: MemoryKind::ENCODED,
+                        index: 3
+                    }
                 ),
                 Instruction::r#return(),
             ],
@@ -89,10 +97,14 @@ fn compound_multiplication() {
                 Instruction::multiply(
                     0,
                     OperandType::I_32,
-                    MemoryKind::REGISTER,
-                    0,
-                    MemoryKind::ENCODED,
-                    4
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 0
+                    },
+                    Address {
+                        memory: MemoryKind::ENCODED,
+                        index: 4
+                    }
                 ),
                 Instruction::r#return(),
             ],
@@ -115,10 +127,14 @@ fn compound_division() {
                 Instruction::divide(
                     0,
                     OperandType::I_32,
-                    MemoryKind::REGISTER,
-                    0,
-                    MemoryKind::ENCODED,
-                    3
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 0
+                    },
+                    Address {
+                        memory: MemoryKind::ENCODED,
+                        index: 3
+                    }
                 ),
                 Instruction::r#return(),
             ],
@@ -141,10 +157,14 @@ fn compound_modulo() {
                 Instruction::modulo(
                     0,
                     OperandType::I_32,
-                    MemoryKind::REGISTER,
-                    0,
-                    MemoryKind::ENCODED,
-                    3
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 0
+                    },
+                    Address {
+                        memory: MemoryKind::ENCODED,
+                        index: 3
+                    }
                 ),
                 Instruction::r#return(),
             ],
@@ -167,10 +187,14 @@ fn compound_power() {
                 Instruction::power(
                     0,
                     OperandType::I_32,
-                    MemoryKind::REGISTER,
-                    0,
-                    MemoryKind::ENCODED,
-                    3
+                    Address {
+                        memory: MemoryKind::REGISTER,
+                        index: 0
+                    },
+                    Address {
+                        memory: MemoryKind::ENCODED,
+                        index: 3
+                    }
                 ),
                 Instruction::r#return(),
             ],

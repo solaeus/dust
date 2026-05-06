@@ -272,6 +272,7 @@ impl<'src> Compiler<'src> {
             .clone();
         let declaration = self.resolver.declarations.get_declaration(declaration_id);
         let Definition::Function {
+            parent_impl_or_trait,
             type_parameters,
             return_type_id,
             ..
@@ -308,12 +309,10 @@ impl<'src> Compiler<'src> {
 
         self.resolver.type_parameter_map.clear();
 
-        let type_parameter_ids = match type_parameters {
-            Some(type_parameter_scope_id) => {
-                self.resolver.scopes.get_members(type_parameter_scope_id)
-            }
-            None => &[],
-        };
+        let type_parameter_ids = unwrap_or_return!(
+            self.resolver
+                .get_type_parameter_ids(parent_impl_or_trait, type_parameters)
+        );
 
         if type_parameter_ids.len() != type_arguments.len() {
             errors.push(ErrorKind::Compile(

@@ -214,6 +214,7 @@ pub enum CompileError {
     },
     InvalidContext,
     ExpectedImplOrTraitDefinition(DeclarationId),
+    ExpectedFunctionDefinitionType(TypeId),
 }
 
 impl From<SyntaxError> for CompileError {
@@ -1247,7 +1248,8 @@ impl<'a> DustError<'a> for CompileError {
             | CompileError::ExpectedTraitDefinition(_)
             | CompileError::ExpectedEncodedValue { .. }
             | CompileError::InvalidContext
-            | CompileError::ExpectedImplOrTraitDefinition(_) => {
+            | CompileError::ExpectedImplOrTraitDefinition(_)
+            | CompileError::ExpectedFunctionDefinitionType(_) => {
                 self.add_internal_report(groups);
             }
         }

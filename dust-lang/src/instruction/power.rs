@@ -1,14 +1,12 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::{Instruction, InstructionBuilder, MemoryKind, OperandType, Operation};
+use crate::instruction::{Address, Instruction, InstructionBuilder, OperandType, Operation};
 
 pub struct Power {
     pub destination: u16,
     pub operand_type: OperandType,
-    pub base_memory: MemoryKind,
-    pub base_index: u16,
-    pub exponent_memory: MemoryKind,
-    pub exponent_index: u16,
+    pub base_address: Address,
+    pub exponent_address: Address,
 }
 
 impl From<&Instruction> for Power {
@@ -16,10 +14,8 @@ impl From<&Instruction> for Power {
         Power {
             destination: instruction.a_field(),
             operand_type: instruction.operand_type(),
-            base_memory: instruction.b_memory(),
-            base_index: instruction.b_field(),
-            exponent_memory: instruction.c_memory(),
-            exponent_index: instruction.c_field(),
+            base_address: instruction.b_address(),
+            exponent_address: instruction.c_address(),
         }
     }
 }
@@ -29,19 +25,15 @@ impl From<Power> for Instruction {
         let Power {
             destination,
             operand_type,
-            base_memory,
-            base_index,
-            exponent_memory,
-            exponent_index,
+            base_address,
+            exponent_address,
         } = power;
 
         InstructionBuilder::new(Operation::POWER)
             .a_field(destination)
             .operand_type(operand_type)
-            .b_memory(base_memory)
-            .b_field(base_index)
-            .c_memory(exponent_memory)
-            .c_field(exponent_index)
+            .b_address(base_address)
+            .c_address(exponent_address)
             .build()
     }
 }
@@ -51,15 +43,13 @@ impl Display for Power {
         let Power {
             destination,
             operand_type,
-            base_memory,
-            base_index,
-            exponent_memory,
-            exponent_index,
+            base_address,
+            exponent_address,
         } = *self;
 
         write!(
             f,
-            "reg_{destination}: {operand_type} = {base_memory}_{base_index} ^ {exponent_memory}_{exponent_index}"
+            "reg_{destination}: {operand_type} = {base_address} ^ {exponent_address}"
         )
     }
 }
