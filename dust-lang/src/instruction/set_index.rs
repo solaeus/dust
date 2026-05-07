@@ -11,8 +11,8 @@ pub struct SetIndex {
     pub source_index: u16,
 }
 
-impl From<&Instruction> for SetIndex {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for SetIndex {
+    fn from(instruction: Instruction) -> Self {
         SetIndex {
             base_register: instruction.a_field(),
             operand_type: instruction.operand_type(),

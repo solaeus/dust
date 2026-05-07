@@ -357,7 +357,7 @@ impl Widget for &mut Disassembler<'_> {
                 file_name: _,
                 source_id,
             } => {
-                let source_file = self.source.get_code(*source_id).unwrap();
+                let source_file = self.source.get_code(*source_id);
                 let syntax_tree = self.syntax.get_tree(*source_id).unwrap();
 
                 self.draw_source_tab(source_file, syntax_tree, tab_content_area, buffer);

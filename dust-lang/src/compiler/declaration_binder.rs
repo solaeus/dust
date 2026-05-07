@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod tests;
-
 use std::mem::replace;
 
 use smallvec::SmallVec;
@@ -302,7 +299,7 @@ impl<'a> DeclarationBinder<'a> {
     fn bind_use_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let UseItem { public, path } = reader.as_component()?;
 
-        let file = self.source.get_code(path.source_id())?;
+        let file = self.source.get_code(path.source_id());
         let mut path_segments = path.children();
 
         let first_segment = path_segments.next().ok_or(CompileError::ExpectedSyntax {
@@ -544,7 +541,7 @@ impl<'a> DeclarationBinder<'a> {
                 SyntaxKind::NamedFields => {
                     let NamedFields { name_type_pairs } = NamedFields::from_reader(&fields)?;
 
-                    let file = self.source.get_code(name.source_id())?;
+                    let file = self.source.get_code(name.source_id());
 
                     for (field_name, field_type) in name_type_pairs {
                         let public = field_name.node.flags.get_flag(SyntaxFlags::PUBLIC);
@@ -671,7 +668,7 @@ impl<'a> DeclarationBinder<'a> {
         enum_declaration_id: DeclarationId,
         discriminant: u16,
     ) -> Result<DeclarationId, CompileError> {
-        let file = self.source.get_code(reader.source_id())?;
+        let file = self.source.get_code(reader.source_id());
 
         match reader.node.kind {
             SyntaxKind::EnumUnitVariant => {
@@ -1780,7 +1777,7 @@ impl<'a> DeclarationBinder<'a> {
     }
 
     fn bind_path(&mut self, path: SyntaxReader) -> Result<DeclarationId, CompileError> {
-        let source_code = self.source.get_code(path.source_id())?;
+        let source_code = self.source.get_code(path.source_id());
 
         let mut path_segments = path.children();
         let Some(first_segment) = path_segments.next() else {

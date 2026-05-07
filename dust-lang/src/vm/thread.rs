@@ -3,7 +3,7 @@ use std::{sync::Arc, thread::current_id};
 use crossbeam_channel::Sender;
 
 use crate::{
-    instruction::{MemoryKind, Move, OperandType, Operation},
+    instruction::{Address, MemoryKind, Move, OperandType, Operation},
     program::Program,
     vm::{call_frame::CallFrame, error::VmError, register::Register, thread_pool::ThreadMessage},
 };
@@ -93,7 +93,7 @@ impl Thread {
                     "Unrecoverable error: Instruction pointer out of bounds"
                 );
 
-                let instruction = &current_prototype.instructions[instruction_pointer];
+                let instruction = current_prototype.instructions[instruction_pointer];
                 let operation = instruction.operation();
 
                 match operation {
@@ -101,8 +101,11 @@ impl Thread {
                         let Move {
                             destination,
                             operand_type,
-                            operand_memory,
-                            operand_index,
+                            operand:
+                                Address {
+                                    memory: operand_memory,
+                                    index: operand_index,
+                                },
                             jump_distance,
                             jump_forward,
                         } = Move::from(instruction);

@@ -76,7 +76,7 @@ impl ConstantValue {
         }
     }
 
-    pub fn encoded_u16(self) -> Option<u16> {
+    pub fn to_encoded_u16(self) -> Option<u16> {
         match self {
             ConstantValue::Boolean(boolean) => Some(boolean as u16),
             ConstantValue::I8(integer) => Some(integer as u16),

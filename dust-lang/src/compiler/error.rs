@@ -18,7 +18,7 @@ use crate::{
     syntax::{Syntax, SyntaxId, error::SyntaxError, node::SyntaxKind},
 };
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum CompileError {
     // User errors
     CannotAccessField {
@@ -242,8 +242,8 @@ impl<'a> DustError<'a> for CompileError {
         match self {
             CompileError::DivisionByZero { position } => {
                 let title = "Division by zero";
-                let file_content = match source.get_code(position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*position) {
+                    Ok(content) => content,
                     Err(error) => {
                         error.add_report((), groups);
 
@@ -263,8 +263,8 @@ impl<'a> DustError<'a> for CompileError {
                     .map(|r#type| r#type.to_string())
                     .unwrap_or("<invalid type>".to_string());
                 let title = format!("Expected an integer index, found {found_type}");
-                let file_content = match source.get_code(position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*position) {
+                    Ok(content) => content,
                     Err(error) => {
                         error.add_report((), groups);
 
@@ -284,8 +284,8 @@ impl<'a> DustError<'a> for CompileError {
                 position,
             } => {
                 let title = "Expected a boolean expression";
-                let file_content = match source.get_code(position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*position) {
+                    Ok(file) => file,
                     Err(error) => {
                         error.add_report((), groups);
 
@@ -314,8 +314,8 @@ impl<'a> DustError<'a> for CompileError {
                 position,
             } => {
                 let title = format!("Expected a function, found {node_kind}");
-                let file_content = match source.get_code(position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*position) {
+                    Ok(file) => file,
                     Err(error) => {
                         error.add_report((), groups);
 
@@ -344,8 +344,8 @@ impl<'a> DustError<'a> for CompileError {
                         return;
                     }
                 };
-                let file_content = match source.get_code(usage_position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*usage_position) {
+                    Ok(content) => content,
                     Err(error) => {
                         error.add_report((), groups);
 
@@ -416,8 +416,8 @@ impl<'a> DustError<'a> for CompileError {
                 let group = if let Some((position, _)) =
                     declaration.and_then(|declaration| declaration.syntax)
                 {
-                    let file_content = match source.get_code(position.source_id) {
-                        Ok(file) => file.content_as_str(),
+                    let file_content = match source.get_content(position) {
+                        Ok(content) => content,
                         Err(error) => {
                             error.add_report((), groups);
 
@@ -465,27 +465,13 @@ impl<'a> DustError<'a> for CompileError {
                         return;
                     }
                 };
+                let found_file = source.get_code(found_position.source_id);
                 let group = if let Some(expected_position) = expected_position {
-                    let expected_file = match source.get_code(expected_position.source_id) {
-                        Ok(file) => file,
-                        Err(error) => {
-                            error.add_report((), groups);
-
-                            return;
-                        }
-                    };
-                    let found_file = match source.get_code(found_position.source_id) {
-                        Ok(file) => file,
-                        Err(error) => {
-                            error.add_report((), groups);
-
-                            return;
-                        }
-                    };
+                    let expected_file = source.get_code(expected_position.source_id);
 
                     Group::with_title(Level::ERROR.primary_title(title)).elements([
                         Snippet::source(expected_file.content_as_str())
-                            .path(found_file.file_name())
+                            .path(expected_file.path_or_name())
                             .annotation(
                                 AnnotationKind::Context
                                     .span(expected_position.span.as_usize_range())
@@ -500,15 +486,10 @@ impl<'a> DustError<'a> for CompileError {
                         ),
                     ])
                 } else {
-                    let file = match source.get_code(found_position.source_id) {
-                        Ok(file) => file,
-                        Err(error) => return error.add_report((), groups),
-                    };
-
                     Group::with_title(Level::ERROR.primary_title(title))
                         .element(
-                            Snippet::source(file.content_as_str())
-                                .path(file.path_or_name())
+                            Snippet::source(found_file.content_as_str())
+                                .path(found_file.path_or_name())
                                 .fold(false)
                                 .annotation(
                                     AnnotationKind::Primary
@@ -529,8 +510,8 @@ impl<'a> DustError<'a> for CompileError {
                 operand_position,
             } => {
                 let title = "Cannot apply operator";
-                let file_content = match source.get_code(operand_position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*operand_position) {
+                    Ok(content) => content,
                     Err(error) => {
                         error.add_report((), groups);
 
@@ -565,14 +546,7 @@ impl<'a> DustError<'a> for CompileError {
                 source_id,
             } => {
                 let title = "Cannot apply operator";
-                let file_content = match source.get_code(*source_id) {
-                    Ok(file) => file.content_as_str(),
-                    Err(error) => {
-                        error.add_report((), groups);
-
-                        return;
-                    }
-                };
+                let file_content = source.get_code(*source_id).content_as_str();
                 let left_type = match resolver.get_external_type(*left_type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
@@ -627,8 +601,8 @@ impl<'a> DustError<'a> for CompileError {
                     }
                 };
                 let title = format!("Cannot index type {type}");
-                let file_content = match source.get_code(position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*position) {
+                    Ok(content) => content,
                     Err(error) => {
                         return error.add_report((), groups);
                     }
@@ -648,8 +622,8 @@ impl<'a> DustError<'a> for CompileError {
                 usage_position,
             } => {
                 let title = "Undeclared symbol";
-                let file_content = match source.get_code(usage_position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*usage_position) {
+                    Ok(content) => content,
                     Err(error) => {
                         return error.add_report((), groups);
                     }
@@ -692,8 +666,8 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::CannotMutate { position } => {
                 let title = "Cannot mutate immutable value";
-                let file_content = match source.get_code(position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*position) {
+                    Ok(content) => content,
                     Err(error) => {
                         return error.add_report((), groups);
                     }
@@ -707,8 +681,8 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::ExpectedFunctionType { found, position } => {
                 let title = "Expected a function type";
-                let file_content = match source.get_code(position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*position) {
+                    Ok(content) => content,
                     Err(error) => {
                         return error.add_report((), groups);
                     }
@@ -741,8 +715,8 @@ impl<'a> DustError<'a> for CompileError {
                 found_count,
             } => {
                 let title = "Incorrect argument count";
-                let file_content = match source.get_code(found_position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*found_position) {
+                    Ok(content) => content,
                     Err(error) => {
                         return error.add_report((), groups);
                     }
@@ -787,12 +761,8 @@ impl<'a> DustError<'a> for CompileError {
                 };
 
                 let title = "Expected a value";
-                let file_content = match source.get_code(*source_id) {
-                    Ok(file) => file.content_as_str(),
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
+                let file_content = source.get_code(*source_id).content_as_str();
+
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
@@ -812,8 +782,8 @@ impl<'a> DustError<'a> for CompileError {
                 position,
             } => {
                 let title = "Index out of bounds";
-                let file_content = match source.get_code(position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*position) {
+                    Ok(content) => content,
                     Err(error) => {
                         return error.add_report((), groups);
                     }
@@ -835,8 +805,8 @@ impl<'a> DustError<'a> for CompileError {
                 position,
             } => {
                 let title = "Expected type `none`";
-                let file_content = match source.get_code(position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*position) {
+                    Ok(content) => content,
                     Err(error) => {
                         return error.add_report((), groups);
                     }
@@ -868,8 +838,8 @@ impl<'a> DustError<'a> for CompileError {
                 let error_message = format!("Type {type} is an enum and cannot be instantiated.");
                 let help_message = "You must specify which variant of the enum you want to crete.";
                 let group = if let Some(position) = position {
-                    let file_content = match source.get_code(position.source_id) {
-                        Ok(file) => file.content_as_str(),
+                    let file_content = match source.get_content(*position) {
+                        Ok(content) => content,
                         Err(error) => {
                             return error.add_report((), groups);
                         }
@@ -895,8 +865,8 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::ExpectedNativeFunctionCall { position } => {
                 let title = "Expected a native function to be called";
-                let file_content = match source.get_code(position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*position) {
+                    Ok(content) => content,
                     Err(error) => {
                         return error.add_report((), groups);
                     }
@@ -930,8 +900,8 @@ impl<'a> DustError<'a> for CompileError {
                 position,
             } => {
                 let title = "List element too large";
-                let file_content = match source.get_code(position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*position) {
+                    Ok(content) => content,
                     Err(error) => {
                         return error.add_report((), groups);
                     }
@@ -971,8 +941,8 @@ impl<'a> DustError<'a> for CompileError {
                 );
 
                 if let Some(position) = found_type_declaration_position {
-                    let file_content = match source.get_code(position.source_id) {
-                        Ok(file) => file.content_as_str(),
+                    let file_content = match source.get_content(position) {
+                        Ok(content) => content,
                         Err(error) => {
                             return error.add_report((), groups);
                         }
@@ -1003,8 +973,8 @@ impl<'a> DustError<'a> for CompileError {
                         return;
                     }
                 };
-                let file_content = match source.get_code(position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*position) {
+                    Ok(content) => content,
                     Err(error) => {
                         return error.add_report((), groups);
                     }
@@ -1030,8 +1000,8 @@ impl<'a> DustError<'a> for CompileError {
                         return;
                     }
                 };
-                let file_content = match source.get_code(position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*position) {
+                    Ok(content) => content,
                     Err(error) => {
                         return error.add_report((), groups);
                     }
@@ -1055,12 +1025,8 @@ impl<'a> DustError<'a> for CompileError {
                 source_id,
             } => {
                 let title = "Constant overflow";
-                let file_content = match source.get_code(*source_id) {
-                    Ok(file) => file.content_as_str(),
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
+                let file_content = source.get_code(*source_id).content_as_str();
+
                 let group = Group::with_title(Level::ERROR.primary_title(title))
                     .element(
                         Snippet::source(file_content).annotation(
@@ -1089,12 +1055,8 @@ impl<'a> DustError<'a> for CompileError {
                 source_id,
             } => {
                 let title = "Constant overflow";
-                let file_content = match source.get_code(*source_id) {
-                    Ok(file) => file.content_as_str(),
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
+                let file_content = source.get_code(*source_id).content_as_str();
+
                 let group = Group::with_title(Level::ERROR.primary_title(title))
                     .element(
                         Snippet::source(file_content).annotation(
@@ -1118,12 +1080,8 @@ impl<'a> DustError<'a> for CompileError {
                 source_id,
             } => {
                 let title = "Invalid constant exponent";
-                let file_content = match source.get_code(*source_id) {
-                    Ok(file) => file.content_as_str(),
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
+                let file_content = source.get_code(*source_id).content_as_str();
+
                 let group = Group::with_title(Level::ERROR.primary_title(title))
                     .element(
                         Snippet::source(file_content).annotation(
@@ -1188,8 +1146,8 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::SelfTypeOutsideOfImplOrTrait { position } => {
                 let title = "Use of `Self` type outside of impl or trait";
-                let file_content = match source.get_code(position.source_id) {
-                    Ok(file) => file.content_as_str(),
+                let file_content = match source.get_content(*position) {
+                    Ok(content) => content,
                     Err(error) => {
                         return error.add_report((), groups);
                     }

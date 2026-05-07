@@ -7,6 +7,7 @@
     iterator_try_collect,
     thread_id_value
 )]
+#![macro_use]
 
 pub mod compiler;
 mod constants;
@@ -34,58 +35,72 @@ mod allocator {
     static GLOBAL: MiMalloc = MiMalloc;
 }
 
-/// Determines the optimal inline capacity for `SmallVec<T>` based on the size of `T` and the target
-/// platform's pointer size.
+/// Determines an optimal inline capacity for `SmallVec<T>` based on the size of `T` and the target
+/// platform's pointer size. Given a minimum capacity, it determines if an extra element can be
+/// added without increasing the stack size. A hard minimum of 2 is enforced, passing 0 or 1 will be
+/// treated as 2.
 ///
-/// Use this only for small types. The returned capacity is never less than 4, to ensure that the
-/// overhead of using `SmallVec` is justified. Otherwise, the capacity is as large as possible
-/// without exceeding the size of `Vec<T>` unless the size of `SmallVec<[T; 4]>` is already larger
-/// than `Vec<T>`, in which case it uses as much capacity as possible without exceeding that size.
-///
-/// For example, on a 64-bit platform, `u8` returns 8 and `u32` returns 4. Note that this function
-/// cannot account for the size of a type that owns the SmallVec. Due to padding, it may be possible
-/// to use an even larger capacity without increasing the overall size of the owning type. That
-/// level of optimization would have to be done case-by-case, would not account for the platform's
-/// pointer size and would be fragile to refactoring.
-const fn optimal_small_vec_inline_capacity<T>() -> usize {
-    use smallvec::SmallVec;
+/// For example, on 64-bit platforms, `optimal_inline_capacity!(u32, 4)` returns 5 because
+/// `SmallVec<[u32; 5]>` has the same stack size as `SmallVec<[u32; 4]>`. This is an unconditional
+/// win over hard coding 4 as the capacity.
+#[macro_export]
+macro_rules! optimal_inline_capacity {
+    ($type: ty, $minimum: expr) => {{
+        use smallvec::SmallVec;
+        use $crate::try_capacities;
 
-    macro_rules! try_capacities {
-        (($($capacity:literal),*), $target_size: expr) => {{
-                $(
-                    let small_vec_size = size_of::<SmallVec<[T; $capacity]>>();
+        const MINIMUM: usize = if $minimum > 2 { $minimum } else { 2 };
+        let vec_size = size_of::<Vec<$type>>();
+        let minimum_small_vec_size = size_of::<SmallVec<[$type; MINIMUM]>>();
 
-                    if small_vec_size <= $target_size {
-                        return $capacity;
-                    }
-                )*
+        let compared_to_vec = try_capacities!(
+            (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16),
+            $type,
+            vec_size
+        );
+        let compared_to_minimum = try_capacities!(
+            (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16),
+            $type,
+            minimum_small_vec_size
+        );
 
-                4
-            }};
+        if compared_to_vec > compared_to_minimum {
+            compared_to_vec
+        } else {
+            compared_to_minimum
         }
+    }};
+}
 
-    try_capacities!(
-        (16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4),
-        size_of::<Vec<T>>()
-    )
+#[macro_export]
+macro_rules! try_capacities {
+    (($($capacity: literal),*), $type: ty, $target_size: expr) => {
+        {
+            let mut result = MINIMUM;
+
+            $(
+                let small_vec_size = size_of::<SmallVec<[$type; $capacity]>>();
+
+                if small_vec_size <= $target_size {
+                    result = $capacity;
+                }
+            )*
+
+            result
+        }
+    };
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
-    fn optimal_small_vec_inline_capacities() {
-        #[cfg(target_pointer_width = "64")]
-        {
-            assert_eq!(optimal_small_vec_inline_capacity::<u8>(), 8);
-            assert_eq!(optimal_small_vec_inline_capacity::<u32>(), 4);
-        }
-
-        #[cfg(target_pointer_width = "32")]
-        {
-            assert_eq!(optimal_small_vec_inline_capacity::<u8>(), 16);
-            assert_eq!(optimal_small_vec_inline_capacity::<u32>(), 8);
-        }
+    #[cfg(target_pointer_width = "64")]
+    fn test_optimal_inline_capacity() {
+        assert_eq!(optimal_inline_capacity!(u8, 0), 8);
+        assert_eq!(optimal_inline_capacity!(u32, 4), 5);
+        assert_eq!(optimal_inline_capacity!((u32, u16), 0), 2);
+        assert_eq!(optimal_inline_capacity!((u32, u16), 3), 3);
+        assert_eq!(optimal_inline_capacity!(u64, 0), 2);
+        assert_eq!(optimal_inline_capacity!(u128, 0), 2);
     }
 }

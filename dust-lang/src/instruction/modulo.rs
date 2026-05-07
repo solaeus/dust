@@ -9,8 +9,8 @@ pub struct Modulo {
     pub right_address: Address,
 }
 
-impl From<&Instruction> for Modulo {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Modulo {
+    fn from(instruction: Instruction) -> Self {
         Modulo {
             destination: instruction.a_field(),
             operand_type: instruction.operand_type(),

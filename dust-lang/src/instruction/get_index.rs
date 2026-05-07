@@ -10,8 +10,8 @@ pub struct GetIndex {
     pub index_index: u16,
 }
 
-impl From<&Instruction> for GetIndex {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for GetIndex {
+    fn from(instruction: Instruction) -> Self {
         GetIndex {
             destination: instruction.a_field(),
             operand_type: instruction.operand_type(),

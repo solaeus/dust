@@ -12,7 +12,7 @@ pub struct Program {
 }
 
 impl Program {
-    pub const DEFAULT_NAME: &str = "dust_program";
+    const DEFAULT_NAME: &str = "dust_program";
 
     pub fn new(
         name: Option<String>,

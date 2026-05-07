@@ -9,8 +9,8 @@ pub struct Multiply {
     pub right_address: Address,
 }
 
-impl From<&Instruction> for Multiply {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Multiply {
+    fn from(instruction: Instruction) -> Self {
         Multiply {
             destination: instruction.a_field(),
             operand_type: instruction.operand_type(),

@@ -9,7 +9,7 @@ use crate::{
         resolver::{TypeId, scopes::ScopeId, symbols::SymbolId, types::TypeMembers},
     },
     native_function::NativeFunction,
-    optimal_small_vec_inline_capacity,
+    optimal_inline_capacity,
     source::{Position, SourceCodeId},
     syntax::SyntaxId,
 };
@@ -160,7 +160,7 @@ impl Default for Declarations {
 pub struct DeclarationId(#[cfg(test)] pub(crate) u32, #[cfg(not(test))] u32);
 
 impl DeclarationId {
-    pub type SmallVec = SmallVec<[Self; optimal_small_vec_inline_capacity::<Self>()]>;
+    pub type SmallVec = SmallVec<[Self; optimal_inline_capacity!(Self, 0)]>;
 
     pub const RESERVED: Range<u32> = 0..100;
 

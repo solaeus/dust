@@ -4,8 +4,8 @@ use crate::instruction::{Instruction, InstructionBuilder, Operation};
 
 pub struct Return;
 
-impl From<&Instruction> for Return {
-    fn from(_: &Instruction) -> Self {
+impl From<Instruction> for Return {
+    fn from(_: Instruction) -> Self {
         Return
     }
 }

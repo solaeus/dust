@@ -2,7 +2,6 @@
 mod add;
 mod call;
 mod call_native;
-mod check_index;
 mod divide;
 mod drop;
 mod equal;
@@ -25,7 +24,6 @@ mod test;
 pub use add::Add;
 pub use call::Call;
 pub use call_native::CallNative;
-pub use check_index::CheckIndex;
 pub use divide::Divide;
 pub use drop::Drop;
 pub use equal::Equal;
@@ -82,17 +80,11 @@ impl Instruction {
         Instruction(0)
     }
 
-    pub fn r#move(
-        destination: u16,
-        operand_type: OperandType,
-        operand_memory: MemoryKind,
-        operand_index: u16,
-    ) -> Instruction {
+    pub fn r#move(destination: u16, operand_type: OperandType, operand: Address) -> Instruction {
         Instruction::from(Move {
             destination,
             operand_type,
-            operand_memory,
-            operand_index,
+            operand,
             jump_distance: 0,
             jump_forward: false,
         })
@@ -101,25 +93,23 @@ impl Instruction {
     pub fn move_with_jump(
         destination: u16,
         operand_type: OperandType,
-        operand_memory: MemoryKind,
-        operand_index: u16,
+        operand: Address,
         jump_distance: u16,
         jump_forward: bool,
     ) -> Instruction {
         Instruction::from(Move {
             destination,
             operand_type,
-            operand_memory,
-            operand_index,
+            operand,
             jump_distance,
             jump_forward,
         })
     }
 
-    pub fn drop(drop_list_start: u16, drop_list_end: u16) -> Instruction {
+    pub fn drop(start_register: u16, end_register: u16) -> Instruction {
         Instruction::from(Drop {
-            drop_list_start,
-            drop_list_end,
+            start_register,
+            end_register,
         })
     }
 
@@ -210,82 +200,58 @@ impl Instruction {
     pub fn equal(
         comparator: bool,
         operand_type: OperandType,
-        left_memory: MemoryKind,
-        left_index: u16,
-        right_memory: MemoryKind,
-        right_index: u16,
+        left_address: Address,
+        right_address: Address,
     ) -> Instruction {
         Instruction::from(Equal {
             comparator,
             operand_type,
-            left_memory,
-            left_index,
-            right_memory,
-            right_index,
+            left_address,
+            right_address,
         })
     }
 
     pub fn less(
         comparator: bool,
         operand_type: OperandType,
-        left_memory: MemoryKind,
-        left_index: u16,
-        right_memory: MemoryKind,
-        right_index: u16,
+        left_address: Address,
+        right_address: Address,
     ) -> Instruction {
         Instruction::from(Less {
             comparator,
             operand_type,
-            left_memory,
-            left_index,
-            right_memory,
-            right_index,
+            left_address,
+            right_address,
         })
     }
 
     pub fn less_equal(
         comparator: bool,
         operand_type: OperandType,
-        left_memory: MemoryKind,
-        left_index: u16,
-        right_memory: MemoryKind,
-        right_index: u16,
+        left_address: Address,
+        right_address: Address,
     ) -> Instruction {
         Instruction::from(LessEqual {
             comparator,
             operand_type,
-            left_memory,
-            left_index,
-            right_memory,
-            right_index,
+            left_address,
+            right_address,
         })
     }
 
-    pub fn test(
-        comparator: bool,
-        operand_memory: MemoryKind,
-        operand_index: u16,
-        jump_distance: u16,
-    ) -> Instruction {
+    pub fn test(comparator: bool, operand: Address, jump_distance: u16) -> Instruction {
         Instruction::from(Test {
             comparator,
-            operand_memory,
-            operand_index,
+            operand,
             jump_distance,
         })
     }
 
-    pub fn negate(
-        destination: u16,
-        operand_type: OperandType,
-        operand_memory: MemoryKind,
-        operand_index: u16,
-    ) -> Instruction {
+    pub fn negate(destination: u16, operand_type: OperandType, operand: Address) -> Instruction {
         Instruction::from(Negate {
             destination,
             operand_type,
-            operand_memory,
-            operand_index,
+            operand,
         })
     }
 
@@ -293,7 +259,7 @@ impl Instruction {
         Instruction::from(Jump {
             offset,
             is_positive,
-            drop_list_start: 0,
+            drop_register_start: 0,
             drop_list_end: 0,
         })
     }
@@ -301,28 +267,22 @@ impl Instruction {
     pub fn jump_with_drops(
         offset: u16,
         is_positive: bool,
-        drop_list_start: u16,
+        drop_register_start: u16,
         drop_list_end: u16,
     ) -> Instruction {
         Instruction::from(Jump {
             offset,
             is_positive,
-            drop_list_start,
+            drop_register_start,
             drop_list_end,
         })
     }
 
-    pub fn call(
-        destination: u16,
-        callee_memory: MemoryKind,
-        callee_index: u16,
-        arguments_start: u16,
-    ) -> Instruction {
+    pub fn call(destination: u16, callee: Address, arguments_start: u16) -> Instruction {
         Instruction::from(Call {
             destination,
             arguments_start,
-            callee_memory,
-            callee_index,
+            callee,
         })
     }
 
@@ -342,18 +302,6 @@ impl Instruction {
 
     pub fn r#return() -> Instruction {
         Instruction::from(Return)
-    }
-
-    pub fn check_index(
-        index_memory: MemoryKind,
-        index_index: u16,
-        array_length: u16,
-    ) -> Instruction {
-        Instruction::from(CheckIndex {
-            index_memory,
-            index_index,
-            array_length,
-        })
     }
 
     pub fn get_index(
@@ -390,53 +338,53 @@ impl Instruction {
         })
     }
 
-    pub fn operation(&self) -> Operation {
+    pub fn operation(self) -> Operation {
         Operation(self.0 as u8 & 0x1F)
     }
 
-    pub fn operand_type(&self) -> OperandType {
+    pub fn operand_type(self) -> OperandType {
         OperandType(((self.0 >> 10) & 0x1F) as u8)
     }
 
-    pub fn b_memory(&self) -> MemoryKind {
+    pub fn b_memory(self) -> MemoryKind {
         MemoryKind(((self.0 >> 6) & 0x3) as u8)
     }
 
-    pub fn c_memory(&self) -> MemoryKind {
+    pub fn c_memory(self) -> MemoryKind {
         MemoryKind(((self.0 >> 8) & 0x3) as u8)
     }
 
-    pub fn a_field(&self) -> u16 {
+    pub fn a_field(self) -> u16 {
         ((self.0 >> 16) & 0xFFFF) as u16
     }
 
-    pub fn b_field(&self) -> u16 {
+    pub fn b_field(self) -> u16 {
         ((self.0 >> 32) & 0xFFFF) as u16
     }
 
-    pub fn c_field(&self) -> u16 {
+    pub fn c_field(self) -> u16 {
         ((self.0 >> 48) & 0xFFFF) as u16
     }
 
-    pub fn _d_field(&self) -> u16 {
+    pub fn _d_field(self) -> u16 {
         ((self.0 >> 10) & 0x3F) as u16
     }
 
-    pub fn b_address(&self) -> Address {
+    pub fn b_address(self) -> Address {
         Address {
             memory: self.b_memory(),
             index: self.b_field(),
         }
     }
 
-    pub fn c_address(&self) -> Address {
+    pub fn c_address(self) -> Address {
         Address {
             memory: self.c_memory(),
             index: self.c_field(),
         }
     }
 
-    pub fn is_coallescible_with_jump(&self, forward: bool) -> bool {
+    pub fn is_coallescible_with_jump(self, forward: bool) -> bool {
         match self.operation() {
             Operation::DROP => true,
             Operation::NO_OP => forward,
@@ -458,7 +406,7 @@ impl Instruction {
         }
     }
 
-    pub fn disassembly_info(&self) -> String {
+    pub fn disassembly_info(self) -> String {
         let operation = self.operation();
 
         match operation {
@@ -480,7 +428,6 @@ impl Instruction {
             Operation::CALL_NATIVE => CallNative::from(self).to_string(),
             Operation::JUMP => Jump::from(self).to_string(),
             Operation::RETURN => Return::from(self).to_string(),
-            Operation::CHECK_INDEX => CheckIndex::from(self).to_string(),
             Operation::GET_INDEX => GetIndex::from(self).to_string(),
             Operation::SET_INDEX => SetIndex::from(self).to_string(),
             unknown => format!("Unknown operation: {}", unknown.0),
@@ -568,16 +515,16 @@ impl InstructionBuilder {
         self
     }
 
-    pub fn b_address(mut self, address: Address) -> Self {
-        self.b_memory = Some(address.memory);
-        self.b_field = Some(address.index);
+    pub fn b_address(mut self, operand: Address) -> Self {
+        self.b_memory = Some(operand.memory);
+        self.b_field = Some(operand.index);
 
         self
     }
 
-    pub fn c_address(mut self, address: Address) -> Self {
-        self.c_memory = Some(address.memory);
-        self.c_field = Some(address.index);
+    pub fn c_address(mut self, operand: Address) -> Self {
+        self.c_memory = Some(operand.memory);
+        self.c_field = Some(operand.index);
 
         self
     }
@@ -645,6 +592,12 @@ pub struct Address {
     pub index: u16,
 }
 
+impl Address {
+    pub fn new(memory: MemoryKind, index: u16) -> Self {
+        Self { memory, index }
+    }
+}
+
 impl Display for Address {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}_{}", self.memory, self.index)
@@ -656,7 +609,16 @@ mod tests {
     use crate::instruction::*;
 
     fn create_instruction() -> Instruction {
-        Instruction::move_with_jump(42, OperandType::U_128, MemoryKind::CONSTANT, 666, 777, true)
+        Instruction::move_with_jump(
+            42,
+            OperandType::U_128,
+            Address {
+                memory: MemoryKind::CONSTANT,
+                index: 666,
+            },
+            777,
+            true,
+        )
     }
 
     #[test]

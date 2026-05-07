@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod tests;
-
 use std::collections::HashMap;
 
 use rustc_hash::FxBuildHasher;
@@ -31,7 +28,7 @@ use crate::{
         Address, Drop, Instruction, Jump, MemoryKind, Move, OperandType, Operation, Test,
     },
     native_function::NativeFunction,
-    optimal_small_vec_inline_capacity,
+    optimal_inline_capacity,
     prototype::Prototype,
     source::Source,
     syntax::{
@@ -185,13 +182,13 @@ impl<'a> Emitter<'a> {
         for (_, jump) in self.jump_placements {
             let JumpPlacement {
                 index,
-                distance,
+                distance: base_distance,
                 forward,
                 coalesce,
             } = jump;
 
             if !coalesce {
-                let jump_instruction = Instruction::jump(distance, forward);
+                let jump_instruction = Instruction::jump(base_distance, forward);
 
                 self.instructions[index] = jump_instruction;
 
@@ -203,49 +200,52 @@ impl<'a> Emitter<'a> {
             match instruction.operation() {
                 Operation::DROP => {
                     let Drop {
-                        drop_list_start,
-                        drop_list_end,
-                    } = Drop::from(&*instruction);
+                        start_register,
+                        end_register,
+                    } = Drop::from(*instruction);
 
                     *instruction = Instruction::jump_with_drops(
-                        distance,
+                        base_distance,
                         forward,
-                        drop_list_start,
-                        drop_list_end,
+                        start_register,
+                        end_register,
                     )
                 }
                 Operation::NO_OP => {
-                    *instruction = Instruction::jump(distance, forward);
+                    *instruction = Instruction::jump(base_distance, forward);
                 }
                 Operation::TEST => {
                     let Test {
                         comparator,
-                        operand_memory,
-                        operand_index,
+                        operand,
                         jump_distance,
-                        ..
-                    } = Test::from(&*instruction);
-                    let total_distance = jump_distance + distance;
+                    } = Test::from(*instruction);
+                    let total_distance = base_distance + jump_distance;
 
-                    *instruction = Instruction::test(
-                        comparator,
-                        operand_memory,
-                        operand_index,
-                        total_distance,
-                    );
+                    *instruction = Instruction::test(comparator, operand, total_distance);
                 }
                 Operation::MOVE => {
-                    let r#move = Move::from(&*instruction);
-                    let total_distance = r#move.jump_distance + distance;
+                    let Move {
+                        destination,
+                        operand_type,
+                        operand,
+                        jump_distance,
+                        jump_forward,
+                    } = Move::from(*instruction);
 
-                    *instruction = Instruction::move_with_jump(
-                        r#move.destination,
-                        r#move.operand_type,
-                        r#move.operand_memory,
-                        r#move.operand_index,
-                        total_distance,
-                        forward,
-                    );
+                    if jump_forward == forward {
+                        let total_distance = base_distance + jump_distance;
+
+                        *instruction = Instruction::move_with_jump(
+                            destination,
+                            operand_type,
+                            operand,
+                            total_distance,
+                            forward,
+                        );
+                    } else {
+                        *instruction = Instruction::r#move(destination, operand_type, operand);
+                    }
                 }
                 _ => {}
             }
@@ -323,7 +323,7 @@ impl<'a> Emitter<'a> {
         self.pending_drops.push(register_index);
     }
 
-    fn exit_drop_context(&mut self, instructions: &mut InstructionsEmission) {
+    fn exit_drop_context(&mut self, instructions: &mut Instructions) {
         let Some(start_index) = self.drop_stack.pop() else {
             return;
         };
@@ -348,18 +348,18 @@ impl<'a> Emitter<'a> {
         match last_instruction.operation() {
             Operation::DROP => {
                 let Drop {
-                    drop_list_start,
-                    drop_list_end,
-                } = Drop::from(&*last_instruction);
+                    start_register,
+                    end_register: end_regisrer,
+                } = Drop::from(*last_instruction);
 
                 let register_range = start_register..=end_register;
 
-                if register_range.contains(&drop_list_start)
-                    || register_range.contains(&drop_list_end)
+                if register_range.contains(&start_register)
+                    || register_range.contains(&end_regisrer)
                 {
                     *last_instruction = Instruction::drop(
-                        drop_list_start.min(start_register),
-                        drop_list_end.max(end_register),
+                        start_register.min(start_register),
+                        end_regisrer.max(end_register),
                     );
                 }
             }
@@ -367,9 +367,9 @@ impl<'a> Emitter<'a> {
                 let Jump {
                     offset,
                     is_positive,
-                    drop_list_start: _,
+                    drop_register_start: _,
                     drop_list_end,
-                } = Jump::from(&*last_instruction);
+                } = Jump::from(*last_instruction);
 
                 if drop_list_end == 0 {
                     *last_instruction = Instruction::jump_with_drops(
@@ -404,7 +404,7 @@ impl<'a> Emitter<'a> {
         fn collect_registers(
             type_id: TypeId,
             kind: RegisterKind,
-            registers: &mut SmallVec<[RegisterClaim; 4]>,
+            registers: &mut RegisterClaim::SmallVec,
             emitter: &mut Emitter,
         ) -> Result<(), CompileError> {
             let type_node = emitter.resolver.types.get_type(type_id)?;
@@ -584,7 +584,7 @@ impl<'a> Emitter<'a> {
     }
 
     fn materialize_value(&mut self, value: ConstantValue) -> Result<Address, CompileError> {
-        if let Some(encoded) = value.encoded_u16() {
+        if let Some(encoded) = value.to_encoded_u16() {
             return Ok(Address {
                 memory: MemoryKind::ENCODED,
                 index: encoded,
@@ -639,20 +639,20 @@ impl<'a> Emitter<'a> {
     fn place_emission(
         &mut self,
         source_emission: Emission,
-        target_instructions: &mut InstructionsEmission,
+        target_instructions: &mut Instructions,
         syntax: &SyntaxReader,
     ) -> Result<Place, CompileError> {
         match source_emission {
             Emission::Value(constant) => {
-                let address = self.materialize_value(constant)?;
+                let operand = self.materialize_value(constant)?;
 
                 Ok(Place::Constant {
                     operand_type: constant.operand_type(),
-                    index: address.index,
+                    index: operand.index,
                 })
             }
             Emission::Place(place) => Ok(place),
-            Emission::Instructions(InstructionsEmission {
+            Emission::Instructions(Instructions {
                 target_registers: target,
                 instructions,
                 pending_drops,
@@ -685,22 +685,18 @@ impl<'a> Emitter<'a> {
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         match target {
-            ExpressionTarget::ClaimedRegister(register_claims) => {
-                let register = register_claims.expect_single()?;
-                let address = self.materialize_value(value)?;
-                let move_instruction = Instruction::r#move(
-                    register.index,
-                    register.operand_type,
-                    address.memory,
-                    address.index,
-                );
+            ExpressionTarget::ClaimedRegister(registers) => {
+                let register = registers.expect_single()?;
+                let operand = self.materialize_value(value)?;
+                let move_instruction =
+                    Instruction::r#move(register.index, register.operand_type, operand);
 
-                Ok(Emission::Instructions(
-                    InstructionsEmission::with_instruction_and_target(
-                        move_instruction,
-                        register_claims,
-                    ),
-                ))
+                let mut instructions = Instructions::new();
+
+                instructions.push(move_instruction);
+                instructions.set_target(Some(registers));
+
+                Ok(Emission::Instructions(instructions))
             }
             _ => Ok(Emission::Value(value)),
         }
@@ -719,7 +715,7 @@ impl<'a> Emitter<'a> {
                     return Ok(Emission::Place(Place::Register(source_registers)));
                 }
 
-                let mut instructions = InstructionsEmission::new();
+                let mut instructions = Instructions::new();
 
                 for (destination, operand) in
                     target_registers.claims.iter().zip(&source_registers.claims)
@@ -727,8 +723,7 @@ impl<'a> Emitter<'a> {
                     let move_instruction = Instruction::r#move(
                         destination.index,
                         operand.operand_type,
-                        MemoryKind::REGISTER,
-                        operand.index,
+                        Address::new(MemoryKind::REGISTER, operand.index),
                     );
 
                     instructions.push(move_instruction);
@@ -744,7 +739,7 @@ impl<'a> Emitter<'a> {
 
     fn handle_function_body_instructions(
         &mut self,
-        instructions: InstructionsEmission,
+        instructions: Instructions,
     ) -> Result<(), CompileError> {
         for (instruction, mut jump_anchors) in instructions.instructions {
             self.emit_instruction(instruction);
@@ -851,7 +846,7 @@ impl<'a> Emitter<'a> {
 
     fn handle_operand_emission(
         &mut self,
-        instructions: &mut InstructionsEmission,
+        instructions: &mut Instructions,
         emission: Emission,
         operand: &SyntaxReader,
     ) -> Result<Address, CompileError> {
@@ -891,81 +886,74 @@ impl<'a> Emitter<'a> {
 
     fn handle_condition_emission(
         &mut self,
-        instructions: &mut InstructionsEmission,
+        target_instructions: &mut Instructions,
         emission: Emission,
         condition: &SyntaxReader,
         comparator: bool,
     ) -> Result<(), CompileError> {
         match emission {
             Emission::Value(ConstantValue::Boolean(boolean)) => {
-                let test_instruction =
-                    Instruction::test(comparator, MemoryKind::ENCODED, boolean as u16, 0);
+                let operand = Address::new(MemoryKind::ENCODED, boolean as u16);
+                let test_instruction = Instruction::test(comparator, operand, 0);
 
-                instructions.push(test_instruction);
+                target_instructions.push(test_instruction);
 
                 Ok(())
             }
             Emission::Place(Place::Constant { index, .. }) => {
                 let test_instruction =
-                    Instruction::test(comparator, MemoryKind::CONSTANT, index, 0);
+                    Instruction::test(comparator, Address::new(MemoryKind::CONSTANT, index), 0);
 
-                instructions.push(test_instruction);
+                target_instructions.push(test_instruction);
 
                 Ok(())
             }
             Emission::Place(Place::Register(allocation)) if allocation.claims.len() == 1 => {
-                let test_instruction = Instruction::test(
-                    comparator,
-                    MemoryKind::REGISTER,
-                    allocation.expect_base_index()?,
-                    0,
-                );
+                let operand = Address::new(MemoryKind::REGISTER, allocation.expect_base_index()?);
+                let test_instruction = Instruction::test(comparator, operand, 0);
 
-                instructions.push(test_instruction);
+                target_instructions.push(test_instruction);
 
                 Ok(())
             }
-            Emission::Instructions(mut condition_instructions) => {
-                let length = condition_instructions.length();
+            Emission::Instructions(Instructions {
+                mut instructions,
+                target_registers,
+                pending_drops,
+            }) => {
+                let length = instructions.len();
 
-                if condition_instructions.length() >= 3 {
-                    let condition_instruction =
-                        &mut condition_instructions.instructions[length - 3].0;
+                if length >= 3 {
+                    let condition_instruction = &mut instructions[length - 3].0;
 
                     match condition_instruction.operation() {
                         Operation::LESS | Operation::LESS_EQUAL | Operation::EQUAL => {
-                            condition_instructions.instructions.truncate(length - 2);
+                            instructions.truncate(length - 2);
 
-                            if let Some(registers) = &condition_instructions.target_registers {
+                            if let Some(registers) = &target_registers {
                                 self.register_tracker.deallocate(registers);
                             }
                         }
-                        Operation::TEST => {
-                            let first_move_instruction =
-                                condition_instructions.instructions[length - 2].0;
+                        Operation::TEST
+                            if instructions[length - 2].0.operation() == Operation::MOVE
+                                && instructions[length - 1].0.operation() == Operation::MOVE =>
+                        {
+                            let first_move_instruction = instructions[length - 2].0;
+                            let operand = Move::from(first_move_instruction).operand;
+                            let new_test_instruction = Instruction::test(comparator, operand, 1);
 
-                            let Move {
-                                operand_memory,
-                                operand_index,
-                                ..
-                            } = Move::from(&first_move_instruction);
+                            instructions.truncate(length - 3);
+                            instructions.push((new_test_instruction, SmallVec::new()));
 
-                            let new_test_instruction =
-                                Instruction::test(comparator, operand_memory, operand_index, 1);
-
-                            condition_instructions.instructions.truncate(length - 3);
-                            condition_instructions.push(new_test_instruction);
-
-                            if let Some(registers) = &condition_instructions.target_registers {
+                            if let Some(registers) = &target_registers {
                                 self.register_tracker.deallocate(registers);
                             }
                         }
                         _ => {
-                            let target_register_index = if let Some(allocation) =
-                                &condition_instructions.target_registers
+                            let operand = if let Some(allocation) = &target_registers
                                 && allocation.claims.len() == 1
                             {
-                                allocation.claims[0].index
+                                Address::new(MemoryKind::REGISTER, allocation.claims[0].index)
                             } else {
                                 return Err(CompileError::ExpectedBooleanExpression {
                                     found: *self.resolver.get_type_binding(&condition.id)?,
@@ -973,19 +961,16 @@ impl<'a> Emitter<'a> {
                                     position: condition.position(),
                                 });
                             };
-                            let test_instruction = Instruction::test(
-                                comparator,
-                                MemoryKind::REGISTER,
-                                target_register_index,
-                                1,
-                            );
+                            let test_instruction = Instruction::test(comparator, operand, 1);
 
-                            condition_instructions.push(test_instruction);
+                            instructions.push((test_instruction, SmallVec::new()));
                         }
                     }
                 }
 
-                instructions.merge(condition_instructions);
+                target_instructions.instructions.extend(instructions);
+                target_instructions.pending_drops.extend(pending_drops);
+                target_instructions.target_registers = target_registers;
 
                 Ok(())
             }
@@ -1000,7 +985,7 @@ impl<'a> Emitter<'a> {
     fn handle_branch_emission(
         &mut self,
         branch_emission: Emission,
-        instructions: &mut InstructionsEmission,
+        instructions: &mut Instructions,
         syntax: &SyntaxReader,
     ) -> Result<(), CompileError> {
         match branch_emission {
@@ -1019,68 +1004,60 @@ impl<'a> Emitter<'a> {
     fn create_return_instructions(
         &mut self,
         expression_emission: Emission,
-        target_registers: RegisterClaims,
+        registers: RegisterClaims,
         syntax: &SyntaxReader,
-    ) -> Result<InstructionsEmission, CompileError> {
+    ) -> Result<Instructions, CompileError> {
         match expression_emission {
             Emission::Value(value) => {
-                let address = self.materialize_value(value)?;
+                let mut return_instructions = Instructions::new();
+                let operand = self.materialize_value(value)?;
                 let move_instruction = Instruction::r#move(
-                    target_registers.expect_base_index()?,
+                    registers.expect_base_index()?,
                     value.operand_type(),
-                    address.memory,
-                    address.index,
+                    operand,
                 );
 
-                let mut instructions = InstructionsEmission::with_instruction_and_target(
-                    move_instruction,
-                    target_registers,
-                );
-                instructions.push(Instruction::r#return());
+                return_instructions.push(move_instruction);
+                return_instructions.push(Instruction::r#return());
+                return_instructions.set_target(Some(registers));
 
-                Ok(instructions)
+                Ok(return_instructions)
             }
             Emission::Place(Place::Constant {
                 operand_type,
                 index,
             }) => {
+                let mut return_instructions = Instructions::new();
                 let move_instruction = Instruction::r#move(
-                    target_registers.expect_base_index()?,
+                    registers.expect_base_index()?,
                     operand_type,
-                    MemoryKind::CONSTANT,
-                    index,
+                    Address::new(MemoryKind::CONSTANT, index),
                 );
 
-                Ok(InstructionsEmission {
-                    instructions: vec![
-                        (move_instruction, SmallVec::new()),
-                        (Instruction::r#return(), SmallVec::new()),
-                    ],
-                    target_registers: Some(target_registers),
-                    pending_drops: Vec::new(),
-                })
+                return_instructions.push(move_instruction);
+                return_instructions.push(Instruction::r#return());
+                return_instructions.set_target(Some(registers));
+
+                Ok(return_instructions)
             }
             Emission::Place(Place::Register(emission_allocation)) => {
-                let mut return_instructions = InstructionsEmission::new();
+                let mut return_instructions = Instructions::new();
 
-                if emission_allocation.claims.len() == target_registers.claims.len()
-                    && emission_allocation.claims[0].index == target_registers.claims[0].index
+                if emission_allocation.claims.len() == registers.claims.len()
+                    && emission_allocation.claims[0].index == registers.claims[0].index
                 {
-                    return Ok(InstructionsEmission::with_instruction(
-                        Instruction::r#return(),
-                    ));
+                    return_instructions.push(Instruction::r#return());
+
+                    return Ok(return_instructions);
                 }
 
-                for (emission_register, target_register) in emission_allocation
-                    .claims
-                    .into_iter()
-                    .zip(target_registers.claims)
+                for (emission_register, target_register) in
+                    emission_allocation.claims.into_iter().zip(registers.claims)
                 {
                     let move_instruction = Instruction::r#move(
                         target_register.index,
                         emission_register.operand_type,
-                        MemoryKind::REGISTER,
-                        emission_register.index,
+                        emission_register.address(),
                     );
 
                     return_instructions.push(move_instruction);
@@ -1090,15 +1067,17 @@ impl<'a> Emitter<'a> {
 
                 Ok(return_instructions)
             }
-            Emission::Instructions(mut instructions) => {
-                instructions.push(Instruction::r#return());
+            Emission::Instructions(mut emission_instructions) => {
+                emission_instructions.push(Instruction::r#return());
 
-                Ok(instructions)
+                Ok(emission_instructions)
             }
             Emission::Never | Emission::None => {
-                let return_instruction = Instruction::r#return();
+                let mut return_instructions = Instructions::new();
 
-                Ok(InstructionsEmission::with_instruction(return_instruction))
+                return_instructions.push(Instruction::r#return());
+
+                Ok(return_instructions)
             }
             Emission::NativeFunction(_) => Err(CompileError::ExpectedNativeFunctionCall {
                 position: syntax.position(),
@@ -1109,7 +1088,7 @@ impl<'a> Emitter<'a> {
     fn emit_statement(
         &mut self,
         reader: SyntaxReader,
-    ) -> Result<Option<InstructionsEmission>, CompileError> {
+    ) -> Result<Option<Instructions>, CompileError> {
         match reader.node.kind {
             SyntaxKind::ConstItem => self.emit_const_item(reader).map(|()| None),
             SyntaxKind::ModItem
@@ -1219,7 +1198,7 @@ impl<'a> Emitter<'a> {
     fn emit_let_statement(
         &mut self,
         syntax: SyntaxReader,
-    ) -> Result<Option<InstructionsEmission>, CompileError> {
+    ) -> Result<Option<Instructions>, CompileError> {
         let LetStatement {
             mutable,
             name,
@@ -1252,7 +1231,7 @@ impl<'a> Emitter<'a> {
 
                 Ok(None)
             }
-            Emission::Instructions(InstructionsEmission {
+            Emission::Instructions(Instructions {
                 instructions,
                 target_registers,
                 pending_drops,
@@ -1266,7 +1245,7 @@ impl<'a> Emitter<'a> {
                 self.locals
                     .insert(declaration_id, Local::Place(Place::Register(registers)));
 
-                Ok(Some(InstructionsEmission {
+                Ok(Some(Instructions {
                     instructions,
                     target_registers: None,
                     pending_drops,
@@ -1286,7 +1265,7 @@ impl<'a> Emitter<'a> {
     ) -> Result<Emission, CompileError> {
         let AssignmentExpression { target, source } = reader.as_component()?;
 
-        let mut assignment_instructions = InstructionsEmission::new();
+        let mut assignment_instructions = Instructions::new();
 
         let declaration_id = self.resolver.get_declaration_binding(&target.id)?;
         let local =
@@ -1311,18 +1290,17 @@ impl<'a> Emitter<'a> {
         match source_emission {
             Emission::Value(value) => {
                 let operand_type = value.operand_type();
-                let address = self.materialize_value(value)?;
+                let operand = self.materialize_value(value)?;
                 let move_instruction = Instruction::r#move(
                     target_registers.expect_base_index()?,
                     operand_type,
-                    address.memory,
-                    address.index,
+                    operand,
                 );
 
                 assignment_instructions.push(move_instruction);
 
                 if operand_type == OperandType::POINTER {
-                    self.add_drop(address.index);
+                    self.add_drop(operand.index);
                 }
             }
             Emission::Place(Place::Constant {
@@ -1333,8 +1311,7 @@ impl<'a> Emitter<'a> {
                     let move_instruction = Instruction::r#move(
                         destination.index,
                         operand_type,
-                        MemoryKind::CONSTANT,
-                        index,
+                        Address::new(MemoryKind::CONSTANT, index),
                     );
 
                     assignment_instructions.push(move_instruction);
@@ -1353,8 +1330,7 @@ impl<'a> Emitter<'a> {
                     let move_instruction = Instruction::r#move(
                         destination.index,
                         operand.operand_type,
-                        MemoryKind::REGISTER,
-                        operand.index,
+                        Address::new(MemoryKind::REGISTER, operand.index),
                     );
 
                     assignment_instructions.push(move_instruction);
@@ -1383,7 +1359,7 @@ impl<'a> Emitter<'a> {
     fn emit_expression_statement(
         &mut self,
         syntax: SyntaxReader<'_>,
-    ) -> Result<Option<InstructionsEmission>, CompileError> {
+    ) -> Result<Option<Instructions>, CompileError> {
         let ExpressionStatement { expression } = syntax.as_component()?;
 
         let expression_emission = self.emit_expression(
@@ -1547,7 +1523,7 @@ impl<'a> Emitter<'a> {
     ) -> Result<Emission, CompileError> {
         let ArrayExpression { elements } = reader.as_component()?;
 
-        let mut array_instructions = InstructionsEmission::new();
+        let mut array_instructions = Instructions::new();
 
         let array_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
@@ -1592,7 +1568,7 @@ impl<'a> Emitter<'a> {
     ) -> Result<Emission, CompileError> {
         let ArrayRepeatExpression { element, .. } = reader.as_component()?;
 
-        let mut array_instructions = InstructionsEmission::new();
+        let mut array_instructions = Instructions::new();
 
         let type_id = *self.resolver.get_type_binding(&reader.id)?;
         let array_length =
@@ -1634,8 +1610,7 @@ impl<'a> Emitter<'a> {
                 let move_instruction = Instruction::r#move(
                     destination_register.index,
                     source_register.operand_type,
-                    MemoryKind::REGISTER,
-                    source_register.index,
+                    source_register.address(),
                 );
 
                 array_instructions.push(move_instruction);
@@ -1713,13 +1688,13 @@ impl<'a> Emitter<'a> {
 
             let register_offset = constant_index * element_register_count;
 
-            let element_registers: SmallVec<[RegisterClaim; 4]> = list_registers
+            let element_registers = list_registers
                 .claims
                 .iter()
                 .skip(register_offset)
                 .take(element_register_count)
                 .copied()
-                .collect();
+                .collect::<RegisterClaim::SmallVec>();
 
             let element_allocation = RegisterClaims {
                 claims: element_registers,
@@ -1741,11 +1716,11 @@ impl<'a> Emitter<'a> {
         )?;
 
         let (index_memory, index_index) = if let Emission::Value(constant) = &index_emission
-            && let Some(encoded) = constant.encoded_u16()
+            && let Some(encoded) = constant.to_encoded_u16()
         {
             (MemoryKind::ENCODED, encoded)
         } else {
-            let mut index_instructions_tmp = InstructionsEmission::new();
+            let mut index_instructions_tmp = Instructions::new();
             let index_place =
                 self.place_emission(index_emission, &mut index_instructions_tmp, &index)?;
 
@@ -1781,13 +1756,8 @@ impl<'a> Emitter<'a> {
         let mut index_instructions = if let Some(instructions) = list_instructions {
             instructions
         } else {
-            InstructionsEmission::new()
+            Instructions::new()
         };
-
-        let check_index_instruction =
-            Instruction::check_index(index_memory, index_index, array_length as u16);
-
-        index_instructions.push(check_index_instruction);
 
         let get_index_instruction = Instruction::get_index(
             destination_register.index,
@@ -1819,7 +1789,7 @@ impl<'a> Emitter<'a> {
             ExpressionTarget::Any => self.claim_registers(type_id, RegisterKind::Temporary)?,
         };
 
-        let mut range_instructions = InstructionsEmission::new();
+        let mut range_instructions = Instructions::new();
 
         for (field_expression, destination) in
             [start, end].into_iter().zip(&target_registers.claims)
@@ -1830,13 +1800,12 @@ impl<'a> Emitter<'a> {
             )?;
 
             if let Emission::Value(constant) = &field_emission
-                && let Some(encoded) = constant.encoded_u16()
+                && let Some(encoded) = constant.to_encoded_u16()
             {
                 let move_instruction = Instruction::r#move(
                     destination.index,
                     constant.operand_type(),
-                    MemoryKind::ENCODED,
-                    encoded,
+                    Address::new(MemoryKind::ENCODED, encoded),
                 );
 
                 range_instructions.push(move_instruction);
@@ -1854,8 +1823,7 @@ impl<'a> Emitter<'a> {
                     let move_instruction = Instruction::r#move(
                         destination.index,
                         operand_type,
-                        MemoryKind::CONSTANT,
-                        index,
+                        Address::new(MemoryKind::CONSTANT, index),
                     );
 
                     range_instructions.push(move_instruction);
@@ -1865,8 +1833,7 @@ impl<'a> Emitter<'a> {
                         let move_instruction = Instruction::r#move(
                             destination.index,
                             register.operand_type,
-                            MemoryKind::REGISTER,
-                            register.index,
+                            register.address(),
                         );
 
                         range_instructions.push(move_instruction);
@@ -1897,14 +1864,13 @@ impl<'a> Emitter<'a> {
                     index,
                 }) => match target {
                     ExpressionTarget::ClaimedRegister(register_claims) => {
-                        let mut instructions = InstructionsEmission::new();
+                        let mut instructions = Instructions::new();
 
                         for register in register_claims.claims {
                             let move_instruction = Instruction::r#move(
                                 register.index,
                                 register.operand_type,
-                                MemoryKind::CONSTANT,
-                                index,
+                                register.address(),
                             );
 
                             instructions.push(move_instruction);
@@ -1916,14 +1882,13 @@ impl<'a> Emitter<'a> {
                         let type_id = *self.resolver.get_type_binding(&reader.id)?;
                         let registers = self.claim_registers(type_id, register_kind)?;
 
-                        let mut instructions = InstructionsEmission::new();
+                        let mut instructions = Instructions::new();
 
                         for register in &registers.claims {
                             let move_instruction = Instruction::r#move(
                                 register.index,
                                 register.operand_type,
-                                MemoryKind::CONSTANT,
-                                index,
+                                register.address(),
                             );
 
                             instructions.push(move_instruction);
@@ -1959,7 +1924,7 @@ impl<'a> Emitter<'a> {
 
                                 self.resolver.resolve_type(type_id)
                             })
-                            .try_collect::<SmallVec<[TypeId; 4]>>()?
+                            .try_collect::<TypeId::SmallVec>()?
                     } else {
                         SmallVec::new()
                     };
@@ -1988,6 +1953,7 @@ impl<'a> Emitter<'a> {
                 fields: None,
                 ..
             } => {
+                let mut instructions = Instructions::new();
                 let type_id = *self.resolver.get_type_binding(&reader.id)?;
                 let register = match target {
                     ExpressionTarget::ClaimedRegister(registers) => registers,
@@ -2002,13 +1968,12 @@ impl<'a> Emitter<'a> {
                 let move_instruction = Instruction::r#move(
                     register.index,
                     register.operand_type,
-                    MemoryKind::ENCODED,
-                    discriminant,
+                    Address::new(MemoryKind::ENCODED, discriminant),
                 );
 
-                Ok(Emission::Instructions(
-                    InstructionsEmission::with_instruction(move_instruction),
-                ))
+                instructions.push(move_instruction);
+
+                Ok(Emission::Instructions(instructions))
             }
             _ => Err(CompileError::ExpectedValue {
                 source_id: reader.source_id(),
@@ -2039,7 +2004,7 @@ impl<'a> Emitter<'a> {
             ExpressionTarget::Any => self.claim_registers(type_id, RegisterKind::Temporary)?,
         };
 
-        let mut struct_instructions = InstructionsEmission::new();
+        let mut struct_instructions = Instructions::new();
 
         for ((_, field_expression), destination) in
             name_expression_pairs.zip(&target_registers.claims)
@@ -2050,13 +2015,12 @@ impl<'a> Emitter<'a> {
             )?;
 
             if let Emission::Value(constant) = &field_emission
-                && let Some(encoded) = constant.encoded_u16()
+                && let Some(encoded) = constant.to_encoded_u16()
             {
                 let move_instruction = Instruction::r#move(
                     destination.index,
                     constant.operand_type(),
-                    MemoryKind::ENCODED,
-                    encoded,
+                    Address::new(MemoryKind::ENCODED, encoded),
                 );
 
                 struct_instructions.push(move_instruction);
@@ -2074,8 +2038,7 @@ impl<'a> Emitter<'a> {
                     let move_instruction = Instruction::r#move(
                         destination.index,
                         operand_type,
-                        MemoryKind::CONSTANT,
-                        index,
+                        Address::new(MemoryKind::CONSTANT, index),
                     );
 
                     struct_instructions.push(move_instruction);
@@ -2085,8 +2048,7 @@ impl<'a> Emitter<'a> {
                         let move_instruction = Instruction::r#move(
                             destination.index,
                             register.operand_type,
-                            MemoryKind::REGISTER,
-                            register.index,
+                            register.address(),
                         );
 
                         struct_instructions.push(move_instruction);
@@ -2121,7 +2083,7 @@ impl<'a> Emitter<'a> {
     ) -> Result<Emission, CompileError> {
         let BlockExpression { children } = reader.as_component()?;
 
-        let mut block_instructions = InstructionsEmission::new();
+        let mut block_instructions = Instructions::new();
 
         let type_id = *self.resolver.get_type_binding(&reader.id)?;
         let target_registers = match target {
@@ -2242,7 +2204,7 @@ impl<'a> Emitter<'a> {
             else_branch,
         } = reader.as_component()?;
 
-        let mut if_instructions = InstructionsEmission::new();
+        let mut if_instructions = Instructions::new();
 
         let condition_emission = self.emit_expression(
             condition,
@@ -2377,7 +2339,7 @@ impl<'a> Emitter<'a> {
             return self.create_emission_from_value(combined, target);
         }
 
-        let mut math_emission = InstructionsEmission::new();
+        let mut math_emission = Instructions::new();
 
         let left_address =
             self.handle_operand_emission(&mut math_emission, left_emission, &left)?;
@@ -2512,7 +2474,7 @@ impl<'a> Emitter<'a> {
             return self.create_emission_from_value(combined, target);
         }
 
-        let mut comparison_emission = InstructionsEmission::new();
+        let mut comparison_emission = Instructions::new();
 
         let left_address =
             self.handle_operand_emission(&mut comparison_emission, left_emission, &left)?;
@@ -2542,54 +2504,24 @@ impl<'a> Emitter<'a> {
         let register = target_registers.expect_single()?;
 
         let comparison_instruction = match reader.node.kind {
-            SyntaxKind::EqualExpression => Instruction::equal(
-                true,
-                left_operand_type,
-                left_address.memory,
-                left_address.index,
-                right_address.memory,
-                right_address.index,
-            ),
-            SyntaxKind::NotEqualExpression => Instruction::equal(
-                false,
-                left_operand_type,
-                left_address.memory,
-                left_address.index,
-                right_address.memory,
-                right_address.index,
-            ),
-            SyntaxKind::LessThanExpression => Instruction::less(
-                true,
-                left_operand_type,
-                left_address.memory,
-                left_address.index,
-                right_address.memory,
-                right_address.index,
-            ),
-            SyntaxKind::GreaterThanExpression => Instruction::less_equal(
-                false,
-                left_operand_type,
-                left_address.memory,
-                left_address.index,
-                right_address.memory,
-                right_address.index,
-            ),
-            SyntaxKind::LessThanOrEqualExpression => Instruction::less_equal(
-                true,
-                left_operand_type,
-                left_address.memory,
-                left_address.index,
-                right_address.memory,
-                right_address.index,
-            ),
-            SyntaxKind::GreaterThanOrEqualExpression => Instruction::less(
-                false,
-                left_operand_type,
-                left_address.memory,
-                left_address.index,
-                right_address.memory,
-                right_address.index,
-            ),
+            SyntaxKind::EqualExpression => {
+                Instruction::equal(true, left_operand_type, left_address, right_address)
+            }
+            SyntaxKind::NotEqualExpression => {
+                Instruction::equal(false, left_operand_type, left_address, right_address)
+            }
+            SyntaxKind::LessThanExpression => {
+                Instruction::less(true, left_operand_type, left_address, right_address)
+            }
+            SyntaxKind::GreaterThanExpression => {
+                Instruction::less_equal(false, left_operand_type, left_address, right_address)
+            }
+            SyntaxKind::LessThanOrEqualExpression => {
+                Instruction::less_equal(true, left_operand_type, left_address, right_address)
+            }
+            SyntaxKind::GreaterThanOrEqualExpression => {
+                Instruction::less(false, left_operand_type, left_address, right_address)
+            }
             _ => {
                 return Err(CompileError::UnexpectedSyntax {
                     expected: &[
@@ -2607,16 +2539,14 @@ impl<'a> Emitter<'a> {
         let load_false_instruction = Instruction::move_with_jump(
             register.index,
             OperandType::BOOLEAN,
-            MemoryKind::ENCODED,
-            false as u16,
+            Address::new(MemoryKind::ENCODED, false as u16),
             1,
             true,
         );
         let load_true_instruction = Instruction::r#move(
             register.index,
             OperandType::BOOLEAN,
-            MemoryKind::ENCODED,
-            true as u16,
+            Address::new(MemoryKind::ENCODED, true as u16),
         );
 
         comparison_emission.push(comparison_instruction);
@@ -2660,7 +2590,7 @@ impl<'a> Emitter<'a> {
             return self.create_emission_from_value(combined, target);
         }
 
-        let mut logic_instructions = InstructionsEmission::new();
+        let mut logic_instructions = Instructions::new();
 
         let left_address =
             self.handle_operand_emission(&mut logic_instructions, left_emission, &left)?;
@@ -2683,12 +2613,8 @@ impl<'a> Emitter<'a> {
         let register = target_registers.expect_single()?;
 
         let test_instruction = match reader.node.kind {
-            SyntaxKind::AndExpression => {
-                Instruction::test(false, left_address.memory, left_address.index, 1)
-            }
-            SyntaxKind::OrExpression => {
-                Instruction::test(true, left_address.memory, left_address.index, 1)
-            }
+            SyntaxKind::AndExpression => Instruction::test(false, left_address, 1),
+            SyntaxKind::OrExpression => Instruction::test(true, left_address, 1),
             _ => {
                 return Err(CompileError::UnexpectedSyntax {
                     expected: &[SyntaxKind::AndExpression, SyntaxKind::OrExpression],
@@ -2699,17 +2625,12 @@ impl<'a> Emitter<'a> {
         let right_move_instruction = Instruction::move_with_jump(
             register.index,
             OperandType::BOOLEAN,
-            right_address.memory,
-            right_address.index,
+            right_address,
             1,
             true,
         );
-        let left_move_instruction = Instruction::r#move(
-            register.index,
-            OperandType::BOOLEAN,
-            left_address.memory,
-            left_address.index,
-        );
+        let left_move_instruction =
+            Instruction::r#move(register.index, OperandType::BOOLEAN, left_address);
 
         logic_instructions.push(test_instruction);
         logic_instructions.push(right_move_instruction);
@@ -2739,9 +2660,9 @@ impl<'a> Emitter<'a> {
             return self.create_emission_from_value(negated, target);
         }
 
-        let mut negation_emission = InstructionsEmission::new();
+        let mut negation_emission = Instructions::new();
 
-        let operand_address =
+        let operand =
             self.handle_operand_emission(&mut negation_emission, expression_emission, &operand)?;
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
@@ -2758,12 +2679,8 @@ impl<'a> Emitter<'a> {
         };
         let register = target_registers.expect_single()?;
 
-        let negate_instruction = Instruction::negate(
-            register.index,
-            register.operand_type,
-            operand_address.memory,
-            operand_address.index,
-        );
+        let negate_instruction =
+            Instruction::negate(register.index, register.operand_type, operand);
 
         negation_emission.push(negate_instruction);
         negation_emission.set_target(Some(target_registers));
@@ -2791,9 +2708,9 @@ impl<'a> Emitter<'a> {
             return Ok(Emission::Value(negated));
         }
 
-        let mut negation_emission = InstructionsEmission::new();
+        let mut negation_emission = Instructions::new();
 
-        let operand_address =
+        let operand =
             self.handle_operand_emission(&mut negation_emission, expression_emission, &operand)?;
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
@@ -2810,12 +2727,8 @@ impl<'a> Emitter<'a> {
         };
         let register = target_registers.expect_single()?;
 
-        let negate_instruction = Instruction::negate(
-            register.index,
-            register.operand_type,
-            operand_address.memory,
-            operand_address.index,
-        );
+        let negate_instruction =
+            Instruction::negate(register.index, register.operand_type, operand);
 
         negation_emission.push(negate_instruction);
         negation_emission.set_target(Some(target_registers));
@@ -2830,7 +2743,7 @@ impl<'a> Emitter<'a> {
     ) -> Result<Emission, CompileError> {
         let WhileExpression { condition, body } = reader.as_component()?;
 
-        let mut while_instructions = InstructionsEmission::new();
+        let mut while_instructions = Instructions::new();
 
         let condition_emission = self.emit_expression(
             condition,
@@ -2879,7 +2792,7 @@ impl<'a> Emitter<'a> {
 
         self.jump_over_branch_ids.push(break_id);
 
-        let mut break_emission = InstructionsEmission::new();
+        let mut break_emission = Instructions::new();
 
         break_emission.push(Instruction::no_op());
         break_emission.push_jump_anchor(JumpAnchor::ForwardFromHere { id: break_id });
@@ -2894,22 +2807,17 @@ impl<'a> Emitter<'a> {
     ) -> Result<Emission, CompileError> {
         let CallExpression { callee, arguments } = reader.as_component()?;
 
-        let mut call_instructions = InstructionsEmission::new();
+        let mut call_instructions = Instructions::new();
 
         let callee_emission = self.emit_expression(
             callee,
             ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
         )?;
-        let callee_address =
+        let callee =
             self.handle_operand_emission(&mut call_instructions, callee_emission, &callee)?;
         let arguments_start = self.emit_value_arguments(arguments, None, &mut call_instructions)?;
         let (destination, registers) = self.claim_register_for_target(target, reader)?;
-        let call_instruction = Instruction::call(
-            destination,
-            callee_address.memory,
-            callee_address.index,
-            arguments_start,
-        );
+        let call_instruction = Instruction::call(destination, callee, arguments_start);
 
         call_instructions.push(call_instruction);
         call_instructions.set_target(registers);
@@ -2929,7 +2837,7 @@ impl<'a> Emitter<'a> {
             ..
         } = reader.as_component()?;
 
-        let mut call_instructions = InstructionsEmission::new();
+        let mut call_instructions = Instructions::new();
 
         let method_type_id = *self.resolver.get_type_binding(&method.id)?;
         let parent_type_id = {
@@ -2976,21 +2884,17 @@ impl<'a> Emitter<'a> {
             method_parent,
             ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
         )?;
-        let parent_address =
+        let parent =
             self.handle_operand_emission(&mut call_instructions, parent_emission, &method_parent)?;
 
-        let argument_index = if parent_address.memory == MemoryKind::REGISTER {
-            parent_address.index
+        let argument_index = if parent.memory == MemoryKind::REGISTER {
+            parent.index
         } else {
             let parent_registers = self.claim_registers(parent_type_id, RegisterKind::Temporary)?;
 
             for (offset, register) in parent_registers.claims.iter().enumerate() {
-                let move_instruction = Instruction::r#move(
-                    register.index,
-                    register.operand_type,
-                    parent_address.memory,
-                    parent_address.index + offset as u16,
-                );
+                let move_instruction =
+                    Instruction::r#move(register.index, register.operand_type, parent);
 
                 call_instructions.push(move_instruction);
             }
@@ -3009,8 +2913,7 @@ impl<'a> Emitter<'a> {
         let (destination, registers) = self.claim_register_for_target(target, reader)?;
         let call_instruction = Instruction::call(
             destination,
-            MemoryKind::CONSTANT,
-            prototype_id.index(),
+            Address::new(MemoryKind::CONSTANT, prototype_id.index()),
             argument_index,
         );
 
@@ -3024,7 +2927,7 @@ impl<'a> Emitter<'a> {
         &mut self,
         arguments: SyntaxReader,
         arguments_start: Option<u16>,
-        instructions: &mut InstructionsEmission,
+        instructions: &mut Instructions,
     ) -> Result<u16, CompileError> {
         let mut arguments_start = arguments_start.unwrap_or(u16::MAX);
 
@@ -3047,8 +2950,7 @@ impl<'a> Emitter<'a> {
                     let move_instruction = Instruction::r#move(
                         register.index,
                         register.operand_type,
-                        argument_address.memory,
-                        argument_address.index + offset as u16,
+                        argument_address,
                     );
 
                     instructions.push(move_instruction);
@@ -3083,7 +2985,7 @@ impl<'a> Emitter<'a> {
         let struct_registers = match operand_emission {
             Emission::Place(Place::Register(registers)) => registers,
             emission => {
-                let mut field_access_instructions = InstructionsEmission::new();
+                let mut field_access_instructions = Instructions::new();
                 let place = self.place_emission(
                     emission,
                     &mut field_access_instructions,
@@ -3170,10 +3072,10 @@ impl<'a> Emitter<'a> {
 
 #[derive(Clone, Debug)]
 pub enum Emission {
-    Instructions(InstructionsEmission),
     Value(ConstantValue),
-    NativeFunction(NativeFunction),
     Place(Place),
+    Instructions(Instructions),
+    NativeFunction(NativeFunction),
     Never,
     None,
 }
@@ -3185,33 +3087,17 @@ impl From<ConstantValue> for Emission {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct InstructionsEmission {
+pub struct Instructions {
     instructions: Vec<(Instruction, JumpAnchor::SmallVec)>,
     target_registers: Option<RegisterClaims>,
     pending_drops: Vec<u16>,
 }
 
-impl InstructionsEmission {
+impl Instructions {
     fn new() -> Self {
         Self {
             instructions: Vec::new(),
             target_registers: None,
-            pending_drops: Vec::new(),
-        }
-    }
-
-    fn with_instruction(instruction: Instruction) -> Self {
-        Self {
-            instructions: vec![(instruction, SmallVec::new())],
-            target_registers: None,
-            pending_drops: Vec::new(),
-        }
-    }
-
-    fn with_instruction_and_target(instruction: Instruction, target: RegisterClaims) -> Self {
-        Self {
-            instructions: vec![(instruction, SmallVec::new())],
-            target_registers: Some(target),
             pending_drops: Vec::new(),
         }
     }
@@ -3238,7 +3124,7 @@ impl InstructionsEmission {
         }
     }
 
-    fn merge(&mut self, other: InstructionsEmission) {
+    fn merge(&mut self, other: Instructions) {
         self.instructions.extend(other.instructions);
         self.pending_drops.extend(other.pending_drops);
         self.target_registers = other.target_registers;
@@ -3252,6 +3138,15 @@ pub enum Place {
         operand_type: OperandType,
     },
     Register(RegisterClaims),
+}
+
+impl Place {
+    fn address(&self) -> Address {
+        match self {
+            Place::Constant { index, .. } => Address::new(MemoryKind::CONSTANT, *index),
+            Place::Register(registers) => registers.expect_single().unwrap().address(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -3291,7 +3186,11 @@ pub struct RegisterClaim {
 }
 
 impl RegisterClaim {
-    type SmallVec = SmallVec<[Self; optimal_small_vec_inline_capacity::<Self>()]>;
+    type SmallVec = SmallVec<[Self; optimal_inline_capacity!(Self, 4)]>;
+
+    fn address(self) -> Address {
+        Address::new(MemoryKind::REGISTER, self.index)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -3325,7 +3224,7 @@ enum JumpAnchor {
 }
 
 impl JumpAnchor {
-    type SmallVec = SmallVec<[JumpAnchor; optimal_small_vec_inline_capacity::<JumpAnchor>()]>;
+    type SmallVec = SmallVec<[JumpAnchor; optimal_inline_capacity!(Self, 3)]>;
 }
 
 #[derive(Clone, Copy, Debug)]

@@ -9,8 +9,8 @@ pub struct Power {
     pub exponent_address: Address,
 }
 
-impl From<&Instruction> for Power {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Power {
+    fn from(instruction: Instruction) -> Self {
         Power {
             destination: instruction.a_field(),
             operand_type: instruction.operand_type(),

@@ -9,8 +9,8 @@ pub struct Divide {
     pub right_address: Address,
 }
 
-impl From<&Instruction> for Divide {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Divide {
+    fn from(instruction: Instruction) -> Self {
         Divide {
             destination: instruction.a_field(),
             operand_type: instruction.operand_type(),

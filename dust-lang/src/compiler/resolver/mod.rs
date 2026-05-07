@@ -389,55 +389,6 @@ impl Resolver {
         found_in_trait_implementation
     }
 
-    pub fn resolve_type(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
-        let resolved_type = *self.types.get_type(type_id)?;
-
-        let start_type_id = match resolved_type {
-            Type::Generic { declaration_id } => {
-                let concrete_type_id = self
-                    .type_parameter_map
-                    .get(&declaration_id)
-                    .ok_or(CompileError::ExpectedConcreteType)?;
-
-                *concrete_type_id
-            }
-            Type::Inferred { .. } => type_id,
-            _ => return Ok(type_id),
-        };
-
-        let mut current_type_id = start_type_id;
-
-        loop {
-            match *self.types.get_type(current_type_id)? {
-                Type::Inferred {
-                    resolved: Some(resolved),
-                    ..
-                } => {
-                    current_type_id = resolved;
-                }
-                Type::Inferred {
-                    inferred_id,
-                    constraint: Some(constraint),
-                    resolved: None,
-                } => {
-                    let default_type_id = match constraint {
-                        InferredTypeConstraint::Integer => TypeId::I_32,
-                        InferredTypeConstraint::Float => TypeId::F_64,
-                    };
-                    let r#type = self.types.get_type_mut(current_type_id)?;
-                    *r#type = Type::Inferred {
-                        inferred_id,
-                        constraint: Some(constraint),
-                        resolved: Some(default_type_id),
-                    };
-
-                    return Ok(default_type_id);
-                }
-                _ => return Ok(current_type_id),
-            }
-        }
-    }
-
     pub fn find_visible_declaration(
         &self,
         symbol_id: SymbolId,
@@ -594,6 +545,55 @@ impl Resolver {
             symbol_id,
             usage_position: path_segment.position(),
         })
+    }
+
+    pub fn resolve_type(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
+        let resolved_type = *self.types.get_type(type_id)?;
+
+        let start_type_id = match resolved_type {
+            Type::Generic { declaration_id } => {
+                let concrete_type_id = self
+                    .type_parameter_map
+                    .get(&declaration_id)
+                    .ok_or(CompileError::ExpectedConcreteType)?;
+
+                *concrete_type_id
+            }
+            Type::Inferred { .. } => type_id,
+            _ => return Ok(type_id),
+        };
+
+        let mut current_type_id = start_type_id;
+
+        loop {
+            match *self.types.get_type(current_type_id)? {
+                Type::Inferred {
+                    resolved: Some(resolved),
+                    ..
+                } => {
+                    current_type_id = resolved;
+                }
+                Type::Inferred {
+                    inferred_id,
+                    constraint: Some(constraint),
+                    resolved: None,
+                } => {
+                    let default_type_id = match constraint {
+                        InferredTypeConstraint::Integer => TypeId::I_32,
+                        InferredTypeConstraint::Float => TypeId::F_64,
+                    };
+                    let r#type = self.types.get_type_mut(current_type_id)?;
+                    *r#type = Type::Inferred {
+                        inferred_id,
+                        constraint: Some(constraint),
+                        resolved: Some(default_type_id),
+                    };
+
+                    return Ok(default_type_id);
+                }
+                _ => return Ok(current_type_id),
+            }
+        }
     }
 
     pub fn get_operand_types(
@@ -908,33 +908,6 @@ impl Resolver {
             } => Ok(smallvec![OperandType::F_64]),
             Type::Inferred { .. } => Err(CompileError::ExpectedConcreteType),
         }
-    }
-
-    pub fn add_external_types(&mut self, types: &[(String, DustType)]) -> Result<(), CompileError> {
-        let external_scope_id = self.scopes.enter_scope(ScopeKind::Module, None);
-
-        let mut type_bindings = Vec::with_capacity(types.len());
-
-        for (symbol, r#type) in types {
-            let symbol_id = self.symbols.add_symbol(symbol);
-            let type_id = self.add_external_type(r#type, external_scope_id);
-            let declaration_id = self.declarations.add_declaration(Declaration {
-                symbol_id,
-                definition: Definition::TypeAlias {
-                    public: true,
-                    aliased_type_id: type_id,
-                    type_parameters: None,
-                },
-                scope_id: external_scope_id,
-                syntax: None,
-            });
-
-            type_bindings.push((symbol_id, declaration_id));
-        }
-
-        self.scopes.exit_scope(external_scope_id);
-
-        Ok(())
     }
 
     fn add_external_type(&mut self, new_type: &DustType, scope_id: ScopeId) -> TypeId {

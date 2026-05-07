@@ -1,25 +1,21 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::{Instruction, InstructionBuilder, MemoryKind, OperandType, Operation};
+use crate::instruction::{Address, Instruction, InstructionBuilder, OperandType, Operation};
 
 pub struct Equal {
     pub comparator: bool,
     pub operand_type: OperandType,
-    pub left_memory: MemoryKind,
-    pub left_index: u16,
-    pub right_memory: MemoryKind,
-    pub right_index: u16,
+    pub left_address: Address,
+    pub right_address: Address,
 }
 
-impl From<&Instruction> for Equal {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for Equal {
+    fn from(instruction: Instruction) -> Self {
         Equal {
             comparator: instruction.a_field() != 0,
             operand_type: instruction.operand_type(),
-            left_memory: instruction.b_memory(),
-            left_index: instruction.b_field(),
-            right_memory: instruction.c_memory(),
-            right_index: instruction.c_field(),
+            left_address: instruction.b_address(),
+            right_address: instruction.c_address(),
         }
     }
 }
@@ -29,19 +25,15 @@ impl From<Equal> for Instruction {
         let Equal {
             comparator,
             operand_type,
-            left_memory,
-            left_index,
-            right_memory,
-            right_index,
+            left_address,
+            right_address,
         } = equal;
 
         InstructionBuilder::new(Operation::EQUAL)
             .a_field(comparator as u16)
             .operand_type(operand_type)
-            .b_memory(left_memory)
-            .b_field(left_index)
-            .c_memory(right_memory)
-            .c_field(right_index)
+            .b_address(left_address)
+            .c_address(right_address)
             .build()
     }
 }
@@ -51,16 +43,11 @@ impl Display for Equal {
         let Equal {
             comparator,
             operand_type: _,
-            left_memory,
-            left_index,
-            right_memory,
-            right_index,
+            left_address,
+            right_address,
         } = *self;
         let operator = if comparator { "==" } else { "≠" };
 
-        write!(
-            f,
-            "if {left_memory}_{left_index} {operator} {right_memory}_{right_index} {{ jump +1 }}"
-        )
+        write!(f, "if {left_address} {operator} {right_address} jump +1")
     }
 }

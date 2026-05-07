@@ -45,14 +45,12 @@ impl<'src> Source<'src> {
         id
     }
 
-    pub fn get_code(&self, source_id: SourceCodeId) -> Result<&SourceCode<'src>, SourceError> {
-        self.code
-            .get(source_id.0 as usize)
-            .ok_or(SourceError::MissingSourceFile(source_id))
+    pub fn get_code(&self, source_id: SourceCodeId) -> &SourceCode<'src> {
+        &self.code[source_id.0 as usize]
     }
 
     pub fn get_content(&self, position: Position) -> Result<&str, SourceError> {
-        self.get_code(position.source_id)?.get_str(position.span)
+        self.get_code(position.source_id).get_str(position.span)
     }
 
     pub fn set_utf8_validated(&mut self, source_id: SourceCodeId) {
@@ -287,24 +285,24 @@ impl<'src> SourceCode<'src> {
         match self {
             Self::Borrowed {
                 name,
-                content: source_bytes,
+                content,
                 utf8_validated,
             } => {
                 if *utf8_validated {
-                    unsafe { str::from_utf8_unchecked(source_bytes) }
+                    unsafe { str::from_utf8_unchecked(content) }
                 } else {
-                    handle_utf8_validation(name, source_bytes)
+                    handle_utf8_validation(name, content)
                 }
             }
             Self::Owned {
                 name,
-                content: source_bytes,
+                content,
                 utf8_validated,
             } => {
                 if *utf8_validated {
-                    unsafe { str::from_utf8_unchecked(source_bytes) }
+                    unsafe { str::from_utf8_unchecked(content) }
                 } else {
-                    handle_utf8_validation(name, source_bytes)
+                    handle_utf8_validation(name, content)
                 }
             }
             Self::File {
@@ -457,7 +455,7 @@ impl IntoSpanIndex for i32 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum SourceError {
     // User errors
     CannotOpen { io_error: io::ErrorKind },

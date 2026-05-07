@@ -12,8 +12,8 @@ pub struct CallNative {
     pub arguments_start: u16,
 }
 
-impl From<&Instruction> for CallNative {
-    fn from(instruction: &Instruction) -> Self {
+impl From<Instruction> for CallNative {
+    fn from(instruction: Instruction) -> Self {
         CallNative {
             destination: instruction.a_field(),
             function: NativeFunction::from_id(instruction.b_field()),

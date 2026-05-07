@@ -401,7 +401,7 @@ impl ConstantId {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ConstantsError {
     InvalidConstantPayload,
     MissingConstant(u16),

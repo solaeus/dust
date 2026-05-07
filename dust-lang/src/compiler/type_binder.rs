@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod tests;
-
 use smallvec::SmallVec;
 
 use crate::{

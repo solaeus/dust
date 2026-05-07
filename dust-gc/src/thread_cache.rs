@@ -3,7 +3,7 @@ use std::{array, ptr::NonNull, sync::Arc};
 use crate::{
     heap::HeapShared,
     page_allocator::PAGE_SIZE,
-    span::{SPAN_CLASS_COUNT, Span, SpanClass},
+    span::{Span, SpanClass, SPAN_CLASS_COUNT},
 };
 
 pub struct ThreadCache {

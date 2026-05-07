@@ -4,7 +4,7 @@ use annotate_snippets::Renderer;
 
 use crate::{error::DustError, source::SourceCodeId, syntax::SyntaxId};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum SyntaxError {
     MissingTree(SourceCodeId),
     MissingNode(SyntaxId),
