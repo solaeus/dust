@@ -41,16 +41,7 @@ impl Declarations {
     }
 
     pub fn get_declaration(&self, id: DeclarationId) -> &Declaration {
-        let declaration = &self.declarations[id.0 as usize];
-
-        if let Definition::ForwardReference {
-            resolved: Some(resolved_id),
-        } = declaration.definition
-        {
-            return self.get_declaration(resolved_id);
-        }
-
-        declaration
+        &self.declarations[id.0 as usize]
     }
 
     pub fn reserve_declaration_id(

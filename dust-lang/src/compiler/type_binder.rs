@@ -6,7 +6,6 @@ use crate::{
         resolver::{
             Resolver,
             declarations::{DeclarationId, Definition, VariantKind},
-            scopes::ScopeId,
             types::{InferredTypeConstraint, Type, TypeId, TypeMembers},
         },
         value_creation::create_usize_from_decimal,
@@ -17,13 +16,13 @@ use crate::{
         components::{
             ArrayExpression, ArrayRepeatExpression, AssignmentExpression, CallExpression,
             ComparisonExpression, ConstItem, ExpressionStatement, FieldAccessExpression,
-            FunctionType, GroupedExpression, IfExpression, ImplItem, IndexExpression, LetStatement,
+            GroupedExpression, IfExpression, ImplItem, IndexExpression, LetStatement,
             LogicExpression, MathExpression, MethodCallExpression, NegationExpression,
             NotExpression, PathExpression, PathSegment, RangeExpression, StructExpression,
             StructExpressionStructFields, TraitItem, WhileExpression,
         },
         node::SyntaxKind,
-        reader::{SyntaxIterator, SyntaxReader},
+        reader::SyntaxReader,
     },
 };
 
@@ -904,9 +903,30 @@ impl<'a> TypeBinder<'a> {
                         self.resolver.resolve_type(type_id)?
                     }
                     _ => {
+                        return Err(CompileError::ExpectedValue {
+                            source_id: reader.source_id(),
+                            syntax_id: reader.id,
+                        });
+                    }
+                }
+            }
+            Definition::ForwardReference {
+                resolved: Some(resolved),
+            } => {
+                let resolved_declaration = self.resolver.declarations.get_declaration(resolved);
+
+                match resolved_declaration.definition {
+                    Definition::Local { type_id, .. }
+                    | Definition::Constant { type_id, .. }
+                    | Definition::InherentAssociatedConstant { type_id, .. }
+                    | Definition::TraitAssociatedConstant { type_id, .. } => {
+                        self.resolver.resolve_type(type_id)?
+                    }
+                    _ => {
+                        let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
                         let algebraic_type = Type::Algebraic {
-                            declaration_id: source_declaration_id,
-                            type_arguments: TypeMembers::default(),
+                            declaration_id: resolved,
+                            type_arguments,
                         };
 
                         self.resolver.types.add_type(algebraic_type)
@@ -914,7 +934,7 @@ impl<'a> TypeBinder<'a> {
                 }
             }
             _ => {
-                todo!()
+                todo!("Handle {:?} {:?}", declaration.definition, declaration_id)
             }
         };
 

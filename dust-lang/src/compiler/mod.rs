@@ -266,7 +266,7 @@ impl<'src> Compiler<'src> {
             };
         }
 
-        let (declaration_id, type_arguments) = self
+        let (declaration_id, mut type_arguments) = self
             .resolver
             .get_monomorphized_function(prototype_id)
             .clone();
@@ -307,27 +307,20 @@ impl<'src> Compiler<'src> {
             return Err(());
         };
 
-        self.resolver.type_parameter_map.clear();
-
         let type_parameter_ids = unwrap_or_return!(
             self.resolver
                 .get_type_parameter_ids(parent_impl_or_trait, type_parameters)
         );
 
-        if type_parameter_ids.len() != type_arguments.len() {
-            errors.push(ErrorKind::Compile(
-                CompileError::TypeArgumentCountMismatch {
-                    expected: type_parameter_ids.len(),
-                    actual: type_arguments.len(),
-                },
-            ));
+        while type_arguments.len() < type_parameter_ids.len() {
+            let inferred_type_id = self.resolver.types.create_inferred_type(None);
 
-            return Err(());
+            type_arguments.push(inferred_type_id);
         }
 
         self.resolver
             .type_parameter_map
-            .extend(type_parameter_ids.iter().zip(type_arguments.iter()));
+            .extend(type_parameter_ids.into_iter().zip(type_arguments));
 
         {
             let span = span!(Level::INFO, "type_bind");
@@ -356,6 +349,8 @@ impl<'src> Compiler<'src> {
 
             self.resolver.set_prototype(prototype_id, prototype);
         }
+
+        self.resolver.type_parameter_map.clear();
 
         Ok(return_type_id)
     }

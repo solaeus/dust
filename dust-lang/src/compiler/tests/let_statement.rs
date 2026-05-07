@@ -10,7 +10,7 @@ use crate::{
 #[test]
 fn constant() {
     assert_program_eq!(
-        "let x = 42; x",
+        "fn main() -> u8 { let x = 42; x }",
         prototypes: [
             Prototype {
                 instructions: vec![
