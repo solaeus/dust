@@ -1092,7 +1092,7 @@ impl<'a> Emitter<'a> {
         match reader.node.kind {
             SyntaxKind::ConstItem => self.emit_const_item(reader).map(|()| None),
             SyntaxKind::ModItem
-            | SyntaxKind::FnItem
+            | SyntaxKind::FunctionItem
             | SyntaxKind::UseItem
             | SyntaxKind::StructItem
             | SyntaxKind::EnumItem

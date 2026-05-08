@@ -26,7 +26,7 @@ fn empty() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 22), SyntaxId(6)),
-            FnItem.with_binary_children(Span::new(0, 22), SyntaxId(1), SyntaxId(5)),
+            FunctionItem.with_binary_children(Span::new(0, 22), SyntaxId(1), SyntaxId(5)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 22), SyntaxId(4)),
             ExpressionStatement.with_single_child(Span::new(16, 20), SyntaxId(3)),
@@ -53,7 +53,7 @@ fn named_fields() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 39), SyntaxId(11)),
-            FnItem.with_binary_children(Span::new(0, 39), SyntaxId(1), SyntaxId(10)),
+            FunctionItem.with_binary_children(Span::new(0, 39), SyntaxId(1), SyntaxId(10)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 39), SyntaxId(9)),
             StructExpression

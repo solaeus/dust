@@ -23,7 +23,7 @@ fn grouped_expression() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 25), SyntaxId(9)),
-            FnItem.with_binary_children(Span::new(0, 25), SyntaxId(1), SyntaxId(8)),
+            FunctionItem.with_binary_children(Span::new(0, 25), SyntaxId(1), SyntaxId(8)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 25), SyntaxId(7)),
             GroupedExpression.with_single_child(Span::new(16, 23), SyntaxId(6)),

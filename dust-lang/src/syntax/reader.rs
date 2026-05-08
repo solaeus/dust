@@ -34,7 +34,7 @@ impl<'a> SyntaxReader<'a> {
             SyntaxChildrenKind::None => 0,
             SyntaxChildrenKind::Single => 1,
             SyntaxChildrenKind::Binary => 2,
-            SyntaxChildrenKind::Multiple => {
+            SyntaxChildrenKind::Many => {
                 (self.node.children.right - self.node.children.left) as usize
             }
         }
@@ -47,14 +47,14 @@ impl<'a> SyntaxReader<'a> {
     pub fn has_left_child(&self) -> bool {
         matches!(
             self.node.children_kind,
-            SyntaxChildrenKind::Single | SyntaxChildrenKind::Binary | SyntaxChildrenKind::Multiple
+            SyntaxChildrenKind::Single | SyntaxChildrenKind::Binary | SyntaxChildrenKind::Many
         )
     }
 
     pub fn has_right_child(&self) -> bool {
         matches!(
             self.node.children_kind,
-            SyntaxChildrenKind::Binary | SyntaxChildrenKind::Multiple
+            SyntaxChildrenKind::Binary | SyntaxChildrenKind::Many
         )
     }
 
@@ -101,7 +101,7 @@ impl<'a> SyntaxReader<'a> {
                 let id = self.node.children.right_id();
                 self.tree.read_node(id).map(Some)
             }
-            SyntaxChildrenKind::Multiple => {
+            SyntaxChildrenKind::Many => {
                 let last_index = self.node.children.right as usize - 1;
                 let id = self.tree.children[last_index];
                 self.tree.read_node(id).map(Some)
@@ -202,7 +202,7 @@ impl<'a> Iterator for SyntaxIterator<'a> {
             SyntaxChildrenKind::Binary if self.current_index == 1 => {
                 self.parent.node.children.right_id()
             }
-            SyntaxChildrenKind::Multiple => {
+            SyntaxChildrenKind::Many => {
                 let start = self.parent.node.children.left as usize;
                 let end = self.parent.node.children.right as usize;
                 let index = start + self.current_index;
@@ -248,7 +248,7 @@ impl DoubleEndedIterator for SyntaxIterator<'_> {
 
                 child_id
             }
-            SyntaxChildrenKind::Multiple if self.current_index < self.parent.child_count() => {
+            SyntaxChildrenKind::Many if self.current_index < self.parent.child_count() => {
                 let child_index = self.parent.node.children.right as usize - self.current_index - 1;
                 self.current_index += 1;
 
@@ -288,7 +288,7 @@ impl<'a> Iterator for SyntaxPairIterator<'a> {
                 self.parent.node.children.left_id(),
                 self.parent.node.children.right_id(),
             ),
-            SyntaxChildrenKind::Multiple => {
+            SyntaxChildrenKind::Many => {
                 let start = self.parent.node.children.left as usize;
                 let left_index = start + self.current_index;
                 let right_index = left_index + 1;

@@ -59,20 +59,14 @@ impl<'src> Compiler<'src> {
         match self.compile_inner() {
             Ok(return_type) => {
                 let (constants, _) = self.constants.build();
-                let program = Program::new(
-                    program_name,
-                    return_type,
-                    constants,
-                    self.resolver.into_prototypes(),
-                );
+                let prototypes = self.resolver.into_prototypes();
+                let program = Program::new(program_name, return_type, constants, prototypes);
 
                 Ok(program)
             }
             Err(errors) => {
-                let errors = Error::new(
-                    errors,
-                    ErrorContext::Full(self.source, self.syntax, Box::new(self.resolver)),
-                );
+                let context = ErrorContext::Full(self.source, self.syntax, Box::new(self.resolver));
+                let errors = Error::new(errors, context);
 
                 Err(errors)
             }
@@ -318,6 +312,7 @@ impl<'src> Compiler<'src> {
             type_arguments.push(inferred_type_id);
         }
 
+        self.resolver.type_parameter_map.clear();
         self.resolver
             .type_parameter_map
             .extend(type_parameter_ids.into_iter().zip(type_arguments));
@@ -350,8 +345,8 @@ impl<'src> Compiler<'src> {
             self.resolver.set_prototype(prototype_id, prototype);
         }
 
-        self.resolver.type_parameter_map.clear();
+        let resolved_return_type_id = unwrap_or_return!(self.resolver.resolve_type(return_type_id));
 
-        Ok(return_type_id)
+        Ok(resolved_return_type_id)
     }
 }

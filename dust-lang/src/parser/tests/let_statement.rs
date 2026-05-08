@@ -27,7 +27,7 @@ fn let_statement() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 29), SyntaxId(6)),
-            FnItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(5)),
+            FunctionItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(5)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 29), SyntaxId(4)),
             LetStatement.with_binary_children(Span::new(16, 27), SyntaxId(2), SyntaxId(3)),
@@ -54,7 +54,7 @@ fn let_statement_with_type() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 34), SyntaxId(7)),
-            FnItem.with_binary_children(Span::new(0, 34), SyntaxId(1), SyntaxId(6)),
+            FunctionItem.with_binary_children(Span::new(0, 34), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 34), SyntaxId(5)),
             LetStatement.with_children(Span::new(16, 32), SyntaxChildren::new(0, 3)),
@@ -82,7 +82,7 @@ fn let_mut_statement() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(6)),
-            FnItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(5)),
+            FunctionItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(5)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 33), SyntaxId(4)),
             LetStatement
@@ -111,7 +111,7 @@ fn let_mut_statement_with_type() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 38), SyntaxId(7)),
-            FnItem.with_binary_children(Span::new(0, 38), SyntaxId(1), SyntaxId(6)),
+            FunctionItem.with_binary_children(Span::new(0, 38), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 38), SyntaxId(5)),
             LetStatement

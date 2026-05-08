@@ -196,7 +196,7 @@ impl<'a> DeclarationBinder<'a> {
         match reader.node.kind {
             SyntaxKind::ModItem => self.bind_mod_item(reader),
             SyntaxKind::UseItem => self.bind_use_item(reader),
-            SyntaxKind::FnItem => self.bind_fn_item(reader).map(|_| ()),
+            SyntaxKind::FunctionItem => self.bind_fn_item(reader).map(|_| ()),
             SyntaxKind::StructItem => self.bind_struct_item(reader),
             SyntaxKind::EnumItem => self.bind_enum_item(reader),
             SyntaxKind::ConstItem => self.bind_const_item(reader).map(|_| ()),
@@ -207,7 +207,7 @@ impl<'a> DeclarationBinder<'a> {
                 expected: &[
                     SyntaxKind::ModItem,
                     SyntaxKind::UseItem,
-                    SyntaxKind::FnItem,
+                    SyntaxKind::FunctionItem,
                     SyntaxKind::StructItem,
                     SyntaxKind::EnumItem,
                     SyntaxKind::ConstItem,
@@ -908,7 +908,7 @@ impl<'a> DeclarationBinder<'a> {
 
         for child in body.children() {
             match child.node.kind {
-                SyntaxKind::FnItem => {
+                SyntaxKind::FunctionItem => {
                     self.bind_fn_item(child)?;
                 }
                 SyntaxKind::ConstItem => {
@@ -952,7 +952,7 @@ impl<'a> DeclarationBinder<'a> {
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
                         expected: &[
-                            SyntaxKind::FnItem,
+                            SyntaxKind::FunctionItem,
                             SyntaxKind::ConstItem,
                             SyntaxKind::TypeItem,
                         ],
@@ -1074,7 +1074,7 @@ impl<'a> DeclarationBinder<'a> {
 
         for child in body.children() {
             match child.node.kind {
-                SyntaxKind::FnItem => {
+                SyntaxKind::FunctionItem => {
                     self.bind_fn_item(child)?;
                 }
                 SyntaxKind::TypeItem => {
@@ -1140,7 +1140,7 @@ impl<'a> DeclarationBinder<'a> {
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
                         expected: &[
-                            SyntaxKind::FnItem,
+                            SyntaxKind::FunctionItem,
                             SyntaxKind::TypeItem,
                             SyntaxKind::ConstItem,
                         ],
@@ -1178,7 +1178,7 @@ impl<'a> DeclarationBinder<'a> {
     fn bind_statement(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         match reader.node.kind {
             SyntaxKind::UseItem => self.bind_use_item(reader),
-            SyntaxKind::FnItem => self.bind_fn_item(reader).map(|_| ()),
+            SyntaxKind::FunctionItem => self.bind_fn_item(reader).map(|_| ()),
             SyntaxKind::TypeItem => self.bind_type_item(reader).map(|_| ()),
             SyntaxKind::ConstItem => self.bind_const_item(reader).map(|_| ()),
             SyntaxKind::StructItem => self.bind_struct_item(reader),
@@ -1192,7 +1192,7 @@ impl<'a> DeclarationBinder<'a> {
                     SyntaxKind::ConstItem,
                     SyntaxKind::EnumItem,
                     SyntaxKind::ExpressionStatement,
-                    SyntaxKind::FnItem,
+                    SyntaxKind::FunctionItem,
                     SyntaxKind::ImplItem,
                     SyntaxKind::LetStatement,
                     SyntaxKind::StructItem,

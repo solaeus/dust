@@ -429,7 +429,7 @@ impl<'a> TypeBinder<'a> {
             SyntaxKind::ExpressionStatement => self.bind_expression_statement(reader),
             SyntaxKind::ModItem
             | SyntaxKind::UseItem
-            | SyntaxKind::FnItem
+            | SyntaxKind::FunctionItem
             | SyntaxKind::StructItem
             | SyntaxKind::EnumItem
             | SyntaxKind::TypeItem => Ok(()),
@@ -438,7 +438,7 @@ impl<'a> TypeBinder<'a> {
                     SyntaxKind::ConstItem,
                     SyntaxKind::EnumItem,
                     SyntaxKind::ExpressionStatement,
-                    SyntaxKind::FnItem,
+                    SyntaxKind::FunctionItem,
                     SyntaxKind::ImplItem,
                     SyntaxKind::LetStatement,
                     SyntaxKind::ModItem,
@@ -585,12 +585,12 @@ impl<'a> TypeBinder<'a> {
         for child in body.children() {
             match child.node.kind {
                 SyntaxKind::ConstItem => self.bind_const_item(child)?,
-                SyntaxKind::FnItem | SyntaxKind::TypeItem => {}
+                SyntaxKind::FunctionItem | SyntaxKind::TypeItem => {}
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
                         expected: &[
                             SyntaxKind::ConstItem,
-                            SyntaxKind::FnItem,
+                            SyntaxKind::FunctionItem,
                             SyntaxKind::TypeItem,
                         ],
                         found: child.node.kind,
@@ -608,12 +608,12 @@ impl<'a> TypeBinder<'a> {
         for child in body.children() {
             match child.node.kind {
                 SyntaxKind::ConstItem => self.bind_const_item(child)?,
-                SyntaxKind::FnItem | SyntaxKind::TypeItem => {}
+                SyntaxKind::FunctionItem | SyntaxKind::TypeItem => {}
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
                         expected: &[
                             SyntaxKind::ConstItem,
-                            SyntaxKind::FnItem,
+                            SyntaxKind::FunctionItem,
                             SyntaxKind::TypeItem,
                         ],
                         found: child.node.kind,

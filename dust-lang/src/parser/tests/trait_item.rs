@@ -208,7 +208,7 @@ fn with_method_signature() {
             TraitItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(5)),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.with_single_child(Span::new(10, 27), SyntaxId(4)),
-            FnItem
+            FunctionItem
                 .with_binary_children(Span::new(12, 25), SyntaxId(2), SyntaxId(3))
                 .with_flags(SyntaxFlags::VALUE_PARAMETERS),
             SimplePath.empty(Span::new(15, 18)),
@@ -239,7 +239,7 @@ fn with_default_method() {
             TraitItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.with_single_child(Span::new(10, 29), SyntaxId(5)),
-            FnItem
+            FunctionItem
                 .with_children(Span::new(12, 27), SyntaxChildren::new(0, 3))
                 .with_flags(SyntaxFlags::VALUE_PARAMETERS),
             SimplePath.empty(Span::new(15, 18)),
@@ -271,7 +271,7 @@ fn with_method_signature_and_return_type() {
             TraitItem.with_binary_children(Span::new(0, 34), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(6, 9)),
             TraitBody.with_single_child(Span::new(10, 34), SyntaxId(5)),
-            FnItem
+            FunctionItem
                 .with_children(Span::new(12, 32), SyntaxChildren::new(0, 3))
                 .with_flags(SyntaxFlags::VALUE_PARAMETERS.and(SyntaxFlags::RETURN_TYPE)),
             SimplePath.empty(Span::new(15, 18)),

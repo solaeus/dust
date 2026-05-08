@@ -26,7 +26,7 @@ fn r#if() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 40), SyntaxId(12)),
-            FnItem.with_binary_children(Span::new(0, 40), SyntaxId(1), SyntaxId(11)),
+            FunctionItem.with_binary_children(Span::new(0, 40), SyntaxId(1), SyntaxId(11)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 40), SyntaxId(10)),
             IfExpression.with_binary_children(Span::new(16, 38), SyntaxId(3), SyntaxId(9)),
@@ -59,7 +59,7 @@ fn if_else() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 55), SyntaxId(18)),
-            FnItem.with_binary_children(Span::new(0, 55), SyntaxId(1), SyntaxId(17)),
+            FunctionItem.with_binary_children(Span::new(0, 55), SyntaxId(1), SyntaxId(17)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 55), SyntaxId(16)),
             IfExpression.with_children(Span::new(16, 53), SyntaxChildren::new(0, 3)),
@@ -104,7 +104,7 @@ fn if_else_if() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 74), SyntaxId(27)),
-            FnItem.with_binary_children(Span::new(0, 74), SyntaxId(1), SyntaxId(26)),
+            FunctionItem.with_binary_children(Span::new(0, 74), SyntaxId(1), SyntaxId(26)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 74), SyntaxId(25)),
             IfExpression.with_children(Span::new(16, 72), SyntaxChildren::new(3, 6)),

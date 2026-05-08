@@ -71,7 +71,7 @@ pub struct FnItem<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for FnItem<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::FnItem;
+    const SYNTAX_KIND: SyntaxKind = SyntaxKind::FunctionItem;
 
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let mut children = reader.children();

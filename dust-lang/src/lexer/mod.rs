@@ -349,12 +349,11 @@ impl<'src> Lexer<'src> {
     #[inline(always)]
     fn scan_utf8_sequence(&mut self, start: usize) -> Result<usize, ()> {
         let first_byte = self.source[start];
-
-        if first_byte.is_ascii() {
-            return Ok(1);
-        }
-
         let width = first_byte.utf8_width();
+
+        if self.utf8_validated {
+            return Ok(width);
+        }
 
         if width == 0 || start + width > self.source.len() {
             {
@@ -363,10 +362,6 @@ impl<'src> Lexer<'src> {
 
                 return Err(());
             }
-        }
-
-        if self.utf8_validated {
-            return Ok(width);
         }
 
         match width {

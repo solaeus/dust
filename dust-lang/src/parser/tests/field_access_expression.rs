@@ -23,7 +23,7 @@ fn field_access() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 21), SyntaxId(7)),
-            FnItem.with_binary_children(Span::new(0, 21), SyntaxId(1), SyntaxId(6)),
+            FunctionItem.with_binary_children(Span::new(0, 21), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 21), SyntaxId(5)),
             FieldAccessExpression.with_binary_children(Span::new(16, 19), SyntaxId(3), SyntaxId(4)),

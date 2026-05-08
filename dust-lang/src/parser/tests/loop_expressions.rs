@@ -24,7 +24,7 @@ fn while_expression() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 31), SyntaxId(9)),
-            FnItem.with_binary_children(Span::new(0, 31), SyntaxId(1), SyntaxId(8)),
+            FunctionItem.with_binary_children(Span::new(0, 31), SyntaxId(1), SyntaxId(8)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 31), SyntaxId(7)),
             WhileExpression.with_binary_children(Span::new(16, 29), SyntaxId(3), SyntaxId(6)),
@@ -54,7 +54,7 @@ fn break_empty() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 39), SyntaxId(7)),
-            FnItem.with_binary_children(Span::new(0, 39), SyntaxId(1), SyntaxId(6)),
+            FunctionItem.with_binary_children(Span::new(0, 39), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 39), SyntaxId(5)),
             WhileExpression.with_binary_children(Span::new(16, 37), SyntaxId(2), SyntaxId(4)),
@@ -84,7 +84,7 @@ fn break_with_value() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 41), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 41), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 41), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 41), SyntaxId(6)),
             WhileExpression.with_binary_children(Span::new(16, 39), SyntaxId(2), SyntaxId(5)),

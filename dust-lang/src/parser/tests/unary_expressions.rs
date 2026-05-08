@@ -23,7 +23,7 @@ fn negation() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 20), SyntaxId(6)),
-            FnItem.with_binary_children(Span::new(0, 20), SyntaxId(1), SyntaxId(5)),
+            FunctionItem.with_binary_children(Span::new(0, 20), SyntaxId(1), SyntaxId(5)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 20), SyntaxId(4)),
             NegationExpression.with_single_child(Span::new(16, 18), SyntaxId(3)),
@@ -50,7 +50,7 @@ fn logical_not() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 20), SyntaxId(6)),
-            FnItem.with_binary_children(Span::new(0, 20), SyntaxId(1), SyntaxId(5)),
+            FunctionItem.with_binary_children(Span::new(0, 20), SyntaxId(1), SyntaxId(5)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 20), SyntaxId(4)),
             NotExpression.with_single_child(Span::new(16, 18), SyntaxId(3)),

@@ -35,7 +35,7 @@ pub enum SyntaxKind {
     // Items
     ModItem,
     UseItem,
-    FnItem,
+    FunctionItem,
     ConstItem,
     TypeItem,
     StructItem,
@@ -220,7 +220,7 @@ impl SyntaxKind {
         SyntaxNode {
             kind: self,
             children,
-            children_kind: SyntaxChildrenKind::Multiple,
+            children_kind: SyntaxChildrenKind::Many,
             flags: SyntaxFlags::default(),
             span,
         }
@@ -231,7 +231,7 @@ impl SyntaxKind {
             self,
             SyntaxKind::ModItem
                 | SyntaxKind::UseItem
-                | SyntaxKind::FnItem
+                | SyntaxKind::FunctionItem
                 | SyntaxKind::StructItem
                 | SyntaxKind::EnumItem
                 | SyntaxKind::ConstItem
@@ -246,7 +246,7 @@ impl SyntaxKind {
             self,
             SyntaxKind::ModItem
                 | SyntaxKind::UseItem
-                | SyntaxKind::FnItem
+                | SyntaxKind::FunctionItem
                 | SyntaxKind::StructItem
                 | SyntaxKind::EnumItem
                 | SyntaxKind::ConstItem
@@ -344,7 +344,7 @@ impl SyntaxKind {
             SyntaxKind::F64Type => "f64 type",
             SyntaxKind::FieldAccessExpression => "field access expression",
             SyntaxKind::FloatExpression => "float expression",
-            SyntaxKind::FnItem => "function item",
+            SyntaxKind::FunctionItem => "function item",
             SyntaxKind::FunctionType => "function type",
             SyntaxKind::GreaterThanExpression => "greater than expression",
             SyntaxKind::GreaterThanOrEqualExpression => "greater than or equal expression",
@@ -440,6 +440,20 @@ impl SyntaxChildren {
         Self { left, right }
     }
 
+    pub fn from_id(id: SyntaxId) -> Self {
+        Self {
+            left: id.0,
+            right: 0,
+        }
+    }
+
+    pub fn from_ids(left: SyntaxId, right: SyntaxId) -> Self {
+        Self {
+            left: left.0,
+            right: right.0,
+        }
+    }
+
     pub fn empty() -> Self {
         Self { left: 0, right: 0 }
     }
@@ -458,7 +472,7 @@ pub enum SyntaxChildrenKind {
     None,
     Single,
     Binary,
-    Multiple,
+    Many,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -504,7 +518,7 @@ impl SyntaxFlags {
         match kind {
             SyntaxKind::ModItem
             | SyntaxKind::UseItem
-            | SyntaxKind::FnItem
+            | SyntaxKind::FunctionItem
             | SyntaxKind::StructItem
             | SyntaxKind::EnumItem
             | SyntaxKind::ConstItem

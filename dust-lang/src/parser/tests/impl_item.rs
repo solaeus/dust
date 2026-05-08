@@ -54,7 +54,7 @@ fn with_function() {
             TypePath.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
             ImplBody.with_single_child(Span::new(9, 28), SyntaxId(6)),
-            FnItem
+            FunctionItem
                 .with_children(Span::new(11, 26), SyntaxChildren::new(0, 3))
                 .with_flags(SyntaxFlags::VALUE_PARAMETERS),
             SimplePath.empty(Span::new(14, 17)),
@@ -87,7 +87,7 @@ fn with_pub_function() {
             TypePath.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
             ImplBody.with_single_child(Span::new(9, 32), SyntaxId(6)),
-            FnItem
+            FunctionItem
                 .with_children(Span::new(15, 30), SyntaxChildren::new(0, 3))
                 .with_flags(SyntaxFlags::PUBLIC.and(SyntaxFlags::VALUE_PARAMETERS)),
             SimplePath.empty(Span::new(18, 21)),

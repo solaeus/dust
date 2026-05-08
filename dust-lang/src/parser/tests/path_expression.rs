@@ -23,7 +23,7 @@ fn simple() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 21), SyntaxId(5)),
-            FnItem.with_binary_children(Span::new(0, 21), SyntaxId(1), SyntaxId(4)),
+            FunctionItem.with_binary_children(Span::new(0, 21), SyntaxId(1), SyntaxId(4)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 21), SyntaxId(3)),
             PathExpression.with_single_child(Span::new(16, 19), SyntaxId(2)),
@@ -49,7 +49,7 @@ fn multi_segment() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(6)),
-            FnItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(5)),
+            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(5)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 26), SyntaxId(4)),
             PathExpression.with_binary_children(Span::new(16, 24), SyntaxId(2), SyntaxId(3)),
@@ -76,7 +76,7 @@ fn with_type_arguments() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 28), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 28), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 28), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 28), SyntaxId(6)),
             PathExpression.with_single_child(Span::new(16, 26), SyntaxId(5)),
@@ -105,7 +105,7 @@ fn with_multiple_type_arguments() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(10)),
-            FnItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(9)),
+            FunctionItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(9)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 33), SyntaxId(8)),
             PathExpression.with_single_child(Span::new(16, 31), SyntaxId(7)),
@@ -136,7 +136,7 @@ fn multi_segment_with_type_arguments() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(9)),
-            FnItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(8)),
+            FunctionItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(8)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 33), SyntaxId(7)),
             PathExpression.with_binary_children(Span::new(16, 31), SyntaxId(2), SyntaxId(6)),
@@ -166,7 +166,7 @@ fn type_arguments_on_middle_segment() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(9)),
-            FnItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(8)),
+            FunctionItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(8)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 33), SyntaxId(7)),
             PathExpression.with_binary_children(Span::new(16, 31), SyntaxId(5), SyntaxId(6)),

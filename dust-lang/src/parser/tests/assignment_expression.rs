@@ -23,7 +23,7 @@ fn assignment_expression() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 25), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 25), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 25), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 25), SyntaxId(6)),
             ExpressionStatement.with_single_child(Span::new(16, 23), SyntaxId(5)),

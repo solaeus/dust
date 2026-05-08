@@ -23,7 +23,7 @@ fn add_assign() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 26), SyntaxId(6)),
             ExpressionStatement.with_single_child(Span::new(16, 24), SyntaxId(5)),
@@ -56,7 +56,7 @@ fn subtract_assign() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 26), SyntaxId(6)),
             ExpressionStatement.with_single_child(Span::new(16, 24), SyntaxId(5)),
@@ -89,7 +89,7 @@ fn multiply_assign() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 26), SyntaxId(6)),
             ExpressionStatement.with_single_child(Span::new(16, 24), SyntaxId(5)),
@@ -122,7 +122,7 @@ fn divide_assign() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 26), SyntaxId(6)),
             ExpressionStatement.with_single_child(Span::new(16, 24), SyntaxId(5)),
@@ -155,7 +155,7 @@ fn modulo_assign() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 26), SyntaxId(6)),
             ExpressionStatement.with_single_child(Span::new(16, 24), SyntaxId(5)),
@@ -188,7 +188,7 @@ fn power_assign() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 26), SyntaxId(6)),
             ExpressionStatement.with_single_child(Span::new(16, 24), SyntaxId(5)),

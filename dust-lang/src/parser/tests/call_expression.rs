@@ -23,7 +23,7 @@ fn call_with_two_arguments() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 27), SyntaxId(9)),
-            FnItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(8)),
+            FunctionItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(8)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 27), SyntaxId(7)),
             CallExpression.with_binary_children(Span::new(16, 25), SyntaxId(3), SyntaxId(6)),

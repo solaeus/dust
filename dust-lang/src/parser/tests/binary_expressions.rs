@@ -23,7 +23,7 @@ fn addition() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
             AdditionExpression.with_binary_children(Span::new(16, 21), SyntaxId(3), SyntaxId(5)),
@@ -52,7 +52,7 @@ fn subtraction() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
             SubtractionExpression.with_binary_children(Span::new(16, 21), SyntaxId(3), SyntaxId(5)),
@@ -81,7 +81,7 @@ fn multiplication() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
             MultiplicationExpression.with_binary_children(
@@ -114,7 +114,7 @@ fn division() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
             DivisionExpression.with_binary_children(Span::new(16, 21), SyntaxId(3), SyntaxId(5)),
@@ -143,7 +143,7 @@ fn modulo() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
             ModuloExpression.with_binary_children(Span::new(16, 21), SyntaxId(3), SyntaxId(5)),
@@ -172,7 +172,7 @@ fn power() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
             ExponentExpression.with_binary_children(Span::new(16, 21), SyntaxId(3), SyntaxId(5)),
@@ -201,7 +201,7 @@ fn equal() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(6)),
             EqualExpression.with_binary_children(Span::new(16, 22), SyntaxId(3), SyntaxId(5)),
@@ -230,7 +230,7 @@ fn not_equal() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(6)),
             NotEqualExpression.with_binary_children(Span::new(16, 22), SyntaxId(3), SyntaxId(5)),
@@ -259,7 +259,7 @@ fn less_than() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
             LessThanExpression.with_binary_children(Span::new(16, 21), SyntaxId(3), SyntaxId(5)),
@@ -288,7 +288,7 @@ fn less_than_or_equal() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(6)),
             LessThanOrEqualExpression.with_binary_children(
@@ -321,7 +321,7 @@ fn greater_than() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 23), SyntaxId(6)),
             GreaterThanExpression.with_binary_children(Span::new(16, 21), SyntaxId(3), SyntaxId(5)),
@@ -350,7 +350,7 @@ fn greater_than_or_equal() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(6)),
             GreaterThanOrEqualExpression.with_binary_children(
@@ -383,7 +383,7 @@ fn logical_and() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(6)),
             AndExpression.with_binary_children(Span::new(16, 22), SyntaxId(3), SyntaxId(5)),
@@ -412,7 +412,7 @@ fn logical_or() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
-            FnItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
+            FunctionItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 24), SyntaxId(6)),
             OrExpression.with_binary_children(Span::new(16, 22), SyntaxId(3), SyntaxId(5)),

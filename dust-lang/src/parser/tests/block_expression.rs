@@ -26,7 +26,7 @@ fn empty() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 20), SyntaxId(4)),
-            FnItem.with_binary_children(Span::new(0, 20), SyntaxId(1), SyntaxId(3)),
+            FunctionItem.with_binary_children(Span::new(0, 20), SyntaxId(1), SyntaxId(3)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 20), SyntaxId(2)),
             BlockExpression.empty(Span::new(16, 18)),
@@ -51,11 +51,11 @@ fn item() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(7)),
-            FnItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(6)),
+            FunctionItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 33), SyntaxId(5)),
             BlockExpression.with_single_child(Span::new(16, 31), SyntaxId(4)),
-            FnItem.with_binary_children(Span::new(18, 29), SyntaxId(2), SyntaxId(3)),
+            FunctionItem.with_binary_children(Span::new(18, 29), SyntaxId(2), SyntaxId(3)),
             SimplePath.empty(Span::new(21, 24)),
             BlockExpression.empty(Span::new(27, 29)),
         ]
@@ -79,7 +79,7 @@ fn statement() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(7)),
-            FnItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(6)),
+            FunctionItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(6)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 33), SyntaxId(5)),
             BlockExpression.with_single_child(Span::new(16, 31), SyntaxId(4)),
@@ -107,7 +107,7 @@ fn expression() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 27), SyntaxId(9)),
-            FnItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(8)),
+            FunctionItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(8)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 27), SyntaxId(7)),
             BlockExpression.with_single_child(Span::new(16, 25), SyntaxId(6)),
@@ -137,11 +137,11 @@ fn mixed() {
         syntax_tree.sorted_nodes(),
         [
             Root.with_single_child(Span::new(0, 51), SyntaxId(15)),
-            FnItem.with_binary_children(Span::new(0, 51), SyntaxId(1), SyntaxId(14)),
+            FunctionItem.with_binary_children(Span::new(0, 51), SyntaxId(1), SyntaxId(14)),
             SimplePath.empty(Span::new(3, 7)),
             BlockExpression.with_single_child(Span::new(10, 51), SyntaxId(13)),
             BlockExpression.with_children(Span::new(16, 49), SyntaxChildren::new(0, 3)),
-            FnItem.with_binary_children(Span::new(18, 29), SyntaxId(2), SyntaxId(3)),
+            FunctionItem.with_binary_children(Span::new(18, 29), SyntaxId(2), SyntaxId(3)),
             SimplePath.empty(Span::new(21, 24)),
             BlockExpression.empty(Span::new(27, 29)),
             LetStatement.with_binary_children(Span::new(30, 41), SyntaxId(5), SyntaxId(6)),
