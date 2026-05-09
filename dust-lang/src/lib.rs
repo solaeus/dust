@@ -67,18 +67,17 @@ where
 {
     let minimum_small_vec_size = size_of::<SmallVec<[T; MINIMUM]>>();
     let vec_size = size_of::<Vec<T>>();
-    let target_size = if minimum_small_vec_size > vec_size {
-        if MINIMUM <= 2 {
-            return 2;
-        }
 
+    if minimum_small_vec_size > vec_size && MINIMUM <= 2 {
+        return 2;
+    }
+
+    let target_size = if minimum_small_vec_size > vec_size {
         minimum_small_vec_size
     } else {
         vec_size
     };
-
-    let capacities = [
-        size_of::<SmallVec<[T; MINIMUM]>>() <= target_size,
+    let checks = [
         size_of::<SmallVec<[T; MINIMUM + 1]>>() <= target_size,
         size_of::<SmallVec<[T; MINIMUM + 2]>>() <= target_size,
         size_of::<SmallVec<[T; MINIMUM + 3]>>() <= target_size,
@@ -94,28 +93,18 @@ where
         size_of::<SmallVec<[T; MINIMUM + 13]>>() <= target_size,
         size_of::<SmallVec<[T; MINIMUM + 14]>>() <= target_size,
         size_of::<SmallVec<[T; MINIMUM + 15]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 16]>>() <= target_size,
     ];
 
     let mut index = 0;
-    let mut found = false;
 
-    while index < capacities.len() {
-        if found && !capacities[index] {
-            index -= 1;
-
-            break;
-        }
-
-        if capacities[index] {
-            found = true;
-        }
-
+    while index < checks.len() && checks[index] {
         index += 1;
     }
 
-    let result = MINIMUM + index;
+    let capacity = MINIMUM + index;
 
-    if result < 2 { 2 } else { result }
+    if capacity < 2 { 2 } else { capacity }
 }
 
 #[cfg(test)]

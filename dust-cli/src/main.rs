@@ -174,7 +174,14 @@ where
     }
 }
 
-fn build_source<'src>(eval: Option<String>, path: Option<PathBuf>, stdin: bool) -> Source<'src> {
+fn build_source<'src>(
+    InputOptions {
+        eval,
+        eval_full,
+        stdin,
+        path,
+    }: InputOptions,
+) -> Source<'src> {
     let mut source = Source::new();
 
     if let Some(input) = eval {
@@ -182,9 +189,11 @@ fn build_source<'src>(eval: Option<String>, path: Option<PathBuf>, stdin: bool) 
         let code = SourceCode::validated_owned("CLI Input", eval_program);
 
         source.add_code(code);
-    }
+    } else if let Some(input) = eval_full {
+        let code = SourceCode::validated_owned("CLI Input", input);
 
-    if let Some(path) = path {
+        source.add_code(code);
+    } else if let Some(path) = path {
         if path.is_dir() {
             let config_path = path.join(PROJECT_CONFIG_PATH);
             let config = if config_path.exists() {
@@ -229,9 +238,7 @@ fn build_source<'src>(eval: Option<String>, path: Option<PathBuf>, stdin: bool) 
 
             source.add_code(code);
         }
-    }
-
-    if stdin {
+    } else if stdin {
         let mut buffer = Vec::new();
 
         io::stdin()

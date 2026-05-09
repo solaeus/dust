@@ -3,18 +3,12 @@ use dust_lang::{
     vm::{MINIMUM_OBJECT_HEAP_DEFAULT, Vm},
 };
 
-use crate::{
-    build_source,
-    cli::{InputOptions, RunCommand},
-};
+use crate::{build_source, cli::RunCommand};
 
 pub fn handle_run_command(commmand: RunCommand) {
-    let RunCommand {
-        global: _,
-        input: InputOptions { eval, stdin, path },
-    } = commmand;
+    let RunCommand { global: _, input } = commmand;
 
-    let source = build_source(eval, path, stdin);
+    let source = build_source(input);
     let compiler = Compiler::new(source);
     let compile_result = compiler.compile(None);
 

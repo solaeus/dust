@@ -589,11 +589,13 @@ impl Resolver {
                         resolved: Some(default_type_id),
                     };
 
-                    return Ok(default_type_id);
+                    break;
                 }
-                _ => return Ok(current_type_id),
+                _ => break,
             }
         }
+
+        Ok(current_type_id)
     }
 
     pub fn get_operand_types(

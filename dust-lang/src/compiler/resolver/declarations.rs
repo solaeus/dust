@@ -175,17 +175,6 @@ pub struct Declaration {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Definition {
-    /// A `let` statement or a function value parameter.
-    ///
-    /// - `let x = 42;`
-    /// - `let mut y: u64 = 666;`
-    /// - `a: f64` in `fn foo(a: f64) { ... }`
-    Local {
-        mutable: bool,
-        shadowed: Option<DeclarationId>,
-        type_id: TypeId,
-    },
-
     /// A `mod` item, which can contain other declarations, either inline or in another file.
     ///
     /// - `mod foo { mod bar { ... } }`
@@ -216,6 +205,17 @@ pub enum Definition {
         type_parameters: Option<ScopeId>,
         value_parameters: Option<ScopeId>,
         return_type_id: TypeId,
+    },
+
+    /// A `let` statement or a function value parameter.
+    ///
+    /// - `let x = 42;`
+    /// - `let mut y: u64 = 666;`
+    /// - `a: f64` in `fn foo(a: f64) { ... }`
+    Local {
+        mutable: bool,
+        shadowed: Option<DeclarationId>,
+        type_id: TypeId,
     },
 
     /// Definition of a function declared within the resolver (not by the user) that stores its

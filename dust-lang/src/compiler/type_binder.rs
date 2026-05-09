@@ -51,15 +51,6 @@ impl<'a> TypeBinder<'a> {
     pub fn bind_function_body(&mut self, body: SyntaxReader, return_type_id: TypeId) {
         assert_eq!(body.node.kind, SyntaxKind::BlockExpression);
 
-        let resolved_return_type_id = match self.resolver.resolve_type(return_type_id) {
-            Ok(type_id) => type_id,
-            Err(error) => {
-                self.errors.push(ErrorKind::Compile(error));
-
-                return;
-            }
-        };
-
         let mut body_type_id = TypeId::UNIT;
 
         for child in body.children() {
@@ -84,10 +75,11 @@ impl<'a> TypeBinder<'a> {
             }
         }
 
-        match self.unify_types(resolved_return_type_id, None, body_type_id, body) {
-            Ok(()) => {}
-            Err(error) => self.errors.push(ErrorKind::Compile(error)),
+        if let Err(error) = self.unify_types(return_type_id, None, body_type_id, body) {
+            self.errors.push(ErrorKind::Compile(error))
         }
+
+        let _ = self.resolver.resolve_type(return_type_id);
     }
 
     fn unify_types<'b>(

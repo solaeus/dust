@@ -5,13 +5,13 @@ use ron::ser::PrettyConfig;
 
 use crate::{
     build_source,
-    cli::{CompileCommand, InputOptions, OutputOptions},
+    cli::{CompileCommand, OutputOptions},
 };
 
 pub fn handle_compile_command(command: CompileCommand) {
     let CompileCommand {
         global: _,
-        input: InputOptions { eval, stdin, path },
+        input,
         output:
             OutputOptions {
                 debug,
@@ -22,7 +22,7 @@ pub fn handle_compile_command(command: CompileCommand) {
         tui,
     } = command;
 
-    let source = build_source(eval, path, stdin);
+    let source = build_source(input);
     let compiler = Compiler::new(source);
     let (program, source, syntax, constants) = match compiler.compile_with_extras(None) {
         Ok(result) => result,

@@ -73,8 +73,18 @@ pub enum Command {
 #[group()]
 pub struct InputOptions {
     /// Evaluate source code as a command-line argument
+    ///
+    /// Note: This wraps the input in a `main` function, so you can use statements and
+    /// expressions directly. You cannot define another `main` function.
     #[arg(short, long, value_name = "INPUT")]
     pub eval: Option<String>,
+
+    #[arg(long, value_name = "INPUT")]
+    /// Evaluate source code as a command-line argument
+    ///
+    /// Note: This does not modify the input in any way, so you must provide a complete program with
+    /// a `main` function.
+    pub eval_full: Option<String>,
 
     /// Read source code from stdin
     #[arg(short, long)]
