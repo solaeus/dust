@@ -28,7 +28,7 @@ use crate::{
         Address, Drop, Instruction, Jump, MemoryKind, Move, OperandType, Operation, Test,
     },
     native_function::NativeFunction,
-    optimal_inline_capacity,
+    optimize_inline_capacity,
     prototype::Prototype,
     source::Source,
     syntax::{
@@ -3186,7 +3186,7 @@ pub struct RegisterClaim {
 }
 
 impl RegisterClaim {
-    type SmallVec = SmallVec<[Self; optimal_inline_capacity!(Self, 4)]>;
+    type SmallVec = SmallVec<[Self; optimize_inline_capacity::<Self, 4>()]>;
 
     fn address(self) -> Address {
         Address::new(MemoryKind::REGISTER, self.index)
@@ -3224,7 +3224,7 @@ enum JumpAnchor {
 }
 
 impl JumpAnchor {
-    type SmallVec = SmallVec<[JumpAnchor; optimal_inline_capacity!(Self, 3)]>;
+    type SmallVec = SmallVec<[JumpAnchor; optimize_inline_capacity::<Self, 0>()]>;
 }
 
 #[derive(Clone, Copy, Debug)]

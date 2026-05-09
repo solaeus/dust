@@ -9,6 +9,8 @@
 )]
 #![macro_use]
 
+use smallvec::{Array, SmallVec};
+
 pub mod compiler;
 mod constants;
 pub mod disassembler;
@@ -37,70 +39,138 @@ mod allocator {
 
 /// Determines an optimal inline capacity for `SmallVec<T>` based on the size of `T` and the target
 /// platform's pointer size. Given a minimum capacity, it determines if an extra element can be
-/// added without increasing the stack size. A hard minimum of 2 is enforced, passing 0 or 1 will be
-/// treated as 2.
+/// added without increasing the stack size. If there is no desired minimum, pass 0 as the `MINIMUM`
+/// parameter. The returned value is always within `2..=(MINIMUM + 16)`.
 ///
 /// For example, on 64-bit platforms, `optimal_inline_capacity!(u32, 4)` returns 5 because
 /// `SmallVec<[u32; 5]>` has the same stack size as `SmallVec<[u32; 4]>`. This is an unconditional
 /// win over hard coding 4 as the capacity.
-#[macro_export]
-macro_rules! optimal_inline_capacity {
-    ($type: ty, $minimum: expr) => {{
-        use smallvec::SmallVec;
-        use $crate::try_capacities;
-
-        const MINIMUM: usize = if $minimum > 2 { $minimum } else { 2 };
-        let vec_size = size_of::<Vec<$type>>();
-        let minimum_small_vec_size = size_of::<SmallVec<[$type; MINIMUM]>>();
-
-        let compared_to_vec = try_capacities!(
-            (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16),
-            $type,
-            vec_size
-        );
-        let compared_to_minimum = try_capacities!(
-            (3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16),
-            $type,
-            minimum_small_vec_size
-        );
-
-        if compared_to_vec > compared_to_minimum {
-            compared_to_vec
-        } else {
-            compared_to_minimum
+const fn optimize_inline_capacity<T, const MINIMUM: usize>() -> usize
+where
+    [T; MINIMUM]: Array,
+    [T; MINIMUM + 1]: Array,
+    [T; MINIMUM + 2]: Array,
+    [T; MINIMUM + 3]: Array,
+    [T; MINIMUM + 4]: Array,
+    [T; MINIMUM + 5]: Array,
+    [T; MINIMUM + 6]: Array,
+    [T; MINIMUM + 7]: Array,
+    [T; MINIMUM + 8]: Array,
+    [T; MINIMUM + 9]: Array,
+    [T; MINIMUM + 10]: Array,
+    [T; MINIMUM + 11]: Array,
+    [T; MINIMUM + 12]: Array,
+    [T; MINIMUM + 13]: Array,
+    [T; MINIMUM + 14]: Array,
+    [T; MINIMUM + 15]: Array,
+    [T; MINIMUM + 16]: Array,
+{
+    let minimum_small_vec_size = size_of::<SmallVec<[T; MINIMUM]>>();
+    let vec_size = size_of::<Vec<T>>();
+    let target_size = if minimum_small_vec_size > vec_size {
+        if MINIMUM <= 2 {
+            return 2;
         }
-    }};
-}
 
-#[macro_export]
-macro_rules! try_capacities {
-    (($($capacity: literal),*), $type: ty, $target_size: expr) => {
-        {
-            let mut result = MINIMUM;
-
-            $(
-                let small_vec_size = size_of::<SmallVec<[$type; $capacity]>>();
-
-                if small_vec_size <= $target_size {
-                    result = $capacity;
-                }
-            )*
-
-            result
-        }
+        minimum_small_vec_size
+    } else {
+        vec_size
     };
+
+    let capacities = [
+        size_of::<SmallVec<[T; MINIMUM]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 1]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 2]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 3]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 4]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 5]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 6]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 7]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 8]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 9]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 10]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 11]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 12]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 13]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 14]>>() <= target_size,
+        size_of::<SmallVec<[T; MINIMUM + 15]>>() <= target_size,
+    ];
+
+    let mut index = 0;
+    let mut found = false;
+
+    while index < capacities.len() {
+        if found && !capacities[index] {
+            index -= 1;
+
+            break;
+        }
+
+        if capacities[index] {
+            found = true;
+        }
+
+        index += 1;
+    }
+
+    let result = MINIMUM + index;
+
+    if result < 2 { 2 } else { result }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    #[cfg(target_pointer_width = "64")]
-    fn test_optimal_inline_capacity() {
-        assert_eq!(optimal_inline_capacity!(u8, 0), 8);
-        assert_eq!(optimal_inline_capacity!(u32, 4), 5);
-        assert_eq!(optimal_inline_capacity!((u32, u16), 0), 2);
-        assert_eq!(optimal_inline_capacity!((u32, u16), 3), 3);
-        assert_eq!(optimal_inline_capacity!(u64, 0), 2);
-        assert_eq!(optimal_inline_capacity!(u128, 0), 2);
+    fn optimal_inline_capacity_unit() {
+        if cfg!(target_pointer_width = "64") {
+            assert_eq!(optimize_inline_capacity::<(), 0>(), 16);
+        } else {
+            todo!()
+        }
+    }
+
+    #[test]
+    fn optimal_inline_capacity_u8() {
+        if cfg!(target_pointer_width = "64") {
+            assert_eq!(optimize_inline_capacity::<u8, 0>(), 8);
+        } else {
+            todo!()
+        }
+    }
+
+    #[test]
+    fn optimal_inline_capacity_u16() {
+        if cfg!(target_pointer_width = "64") {
+            assert_eq!(optimize_inline_capacity::<u16, 0>(), 4);
+        } else {
+            todo!()
+        }
+    }
+
+    #[test]
+    fn optimal_inline_capacity_u32() {
+        if cfg!(target_pointer_width = "64") {
+            assert_eq!(optimize_inline_capacity::<u32, 0>(), 2);
+            assert_eq!(optimize_inline_capacity::<u32, 4>(), 5);
+
+            assert_eq!(
+                size_of::<SmallVec<[u32; 4]>>(),
+                size_of::<SmallVec<[u32; 5]>>()
+            );
+        } else {
+            todo!()
+        }
+    }
+
+    #[test]
+    fn optimal_inline_capacity_u64() {
+        assert_eq!(optimize_inline_capacity::<u64, 0>(), 2);
+    }
+
+    #[test]
+    fn optimal_inline_capacity_u128() {
+        assert_eq!(optimize_inline_capacity::<u128, 0>(), 2);
     }
 }
