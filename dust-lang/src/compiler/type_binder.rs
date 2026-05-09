@@ -4,7 +4,7 @@ use crate::{
     compiler::{
         error::CompileError,
         resolver::{
-            Resolver,
+            self, Resolver,
             declarations::{DeclarationId, Definition, VariantKind},
             types::{InferredTypeConstraint, Type, TypeId, TypeMembers},
         },
@@ -79,7 +79,7 @@ impl<'a> TypeBinder<'a> {
             self.errors.push(ErrorKind::Compile(error))
         }
 
-        let _ = self.resolver.get_concrete_type_id(return_type_id);
+        let _ = self.resolver.infer_concrete_type_id(return_type_id);
     }
 
     fn unify_types<'b>(
@@ -93,8 +93,14 @@ impl<'a> TypeBinder<'a> {
             return Ok(());
         }
 
-        let left = *self.resolver.follow_types(left_id)?;
-        let right = *self.resolver.follow_types(right_id)?;
+        let (left_id, left) = self
+            .resolver
+            .get_concrete_type(left_id)
+            .map(|(id, r#type)| (id, *r#type))?;
+        let (right_id, right) = self
+            .resolver
+            .get_concrete_type(right_id)
+            .map(|(id, r#type)| (id, *r#type))?;
 
         if left == right {
             return Ok(());
@@ -103,9 +109,9 @@ impl<'a> TypeBinder<'a> {
         match (left, right) {
             (
                 Type::Inferred {
-                    inferred_id: left_inferred_id,
                     constraint: left_constraint,
                     resolved: None,
+                    ..
                 },
                 Type::Inferred {
                     constraint: right_constraint,
@@ -133,22 +139,9 @@ impl<'a> TypeBinder<'a> {
                             found_position,
                         });
                     }
-                    (Some(bound), None) => match bound {
-                        InferredTypeConstraint::Integer => {
-                            self.resolver.types.resolve_type(right_id, TypeId::I_32)?;
-                        }
-                        InferredTypeConstraint::Float => {
-                            self.resolver.types.resolve_type(right_id, TypeId::F_64)?;
-                        }
-                    },
-                    (None, Some(bound)) => match bound {
-                        InferredTypeConstraint::Integer => {
-                            self.resolver.types.resolve_type(left_id, TypeId::I_32)?;
-                        }
-                        InferredTypeConstraint::Float => {
-                            self.resolver.types.resolve_type(left_id, TypeId::F_64)?;
-                        }
-                    },
+                    (Some(_), None) => self.resolver.types.resolve_type(right_id, left_id)?,
+                    (None, Some(_)) => self.resolver.types.resolve_type(left_id, right_id)?,
+
                     _ => {}
                 }
 
@@ -830,7 +823,7 @@ impl<'a> TypeBinder<'a> {
             | Definition::Constant { type_id, .. }
             | Definition::InherentAssociatedConstant { type_id, .. }
             | Definition::TraitAssociatedConstant { type_id, .. } => {
-                self.resolver.get_concrete_type_id(type_id)?
+                self.resolver.get_concrete_type(type_id)?.0
             }
             Definition::Function { .. } => {
                 let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
@@ -877,7 +870,7 @@ impl<'a> TypeBinder<'a> {
                     | Definition::Constant { type_id, .. }
                     | Definition::InherentAssociatedConstant { type_id, .. }
                     | Definition::TraitAssociatedConstant { type_id, .. } => {
-                        self.resolver.get_concrete_type_id(type_id)?
+                        self.resolver.get_concrete_type(type_id)?.0
                     }
                     _ => {
                         return Err(CompileError::ExpectedValue {
@@ -897,7 +890,7 @@ impl<'a> TypeBinder<'a> {
                     | Definition::Constant { type_id, .. }
                     | Definition::InherentAssociatedConstant { type_id, .. }
                     | Definition::TraitAssociatedConstant { type_id, .. } => {
-                        self.resolver.get_concrete_type_id(type_id)?
+                        self.resolver.get_concrete_type(type_id)?.0
                     }
                     _ => {
                         let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
@@ -937,7 +930,7 @@ impl<'a> TypeBinder<'a> {
                 return Err(CompileError::ExpectedFieldDefinition(field_declaration_id));
             };
 
-            let field_type_id = self.resolver.get_concrete_type_id(type_id)?;
+            let field_type_id = self.resolver.get_concrete_type(type_id)?.0;
             let value_type_id = self.bind_expression(field_value)?;
 
             self.unify_types(field_type_id, Some(field_name), value_type_id, field_value)?;
@@ -1236,7 +1229,7 @@ impl<'a> TypeBinder<'a> {
         else {
             return Err(CompileError::ExpectedFieldDefinition(field_declaration_id));
         };
-        let field_type_id = self.resolver.get_concrete_type_id(field_raw_type_id)?;
+        let field_type_id = self.resolver.get_concrete_type(field_raw_type_id)?.0;
 
         self.resolver
             .add_declaration_binding(field_name.id, field_declaration_id);

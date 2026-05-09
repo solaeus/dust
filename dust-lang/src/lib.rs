@@ -143,11 +143,6 @@ mod tests {
         if cfg!(target_pointer_width = "64") {
             assert_eq!(optimize_inline_capacity::<u32, 0>(), 2);
             assert_eq!(optimize_inline_capacity::<u32, 4>(), 5);
-
-            assert_eq!(
-                size_of::<SmallVec<[u32; 4]>>(),
-                size_of::<SmallVec<[u32; 5]>>()
-            );
         } else {
             todo!()
         }

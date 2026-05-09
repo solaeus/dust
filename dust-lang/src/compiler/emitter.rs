@@ -102,7 +102,7 @@ impl<'a> Emitter<'a> {
                 let Definition::Local { type_id, .. } = declaration.definition else {
                     return Err(CompileError::ExpectedLocalDefinition(declaration_id));
                 };
-                let concrete_type_id = resolver.get_concrete_type_id(type_id)?;
+                let concrete_type_id = resolver.infer_concrete_type_id(type_id)?;
                 let operand_types = resolver.get_operand_types(concrete_type_id)?;
                 let register_size = operand_types
                     .iter()
@@ -116,7 +116,7 @@ impl<'a> Emitter<'a> {
         } else {
             0
         };
-        let return_type_id = resolver.get_concrete_type_id(return_type_id)?;
+        let return_type_id = resolver.infer_concrete_type_id(return_type_id)?;
         let return_operand_types = resolver.get_operand_types(return_type_id)?;
         let return_register_count = return_operand_types
             .iter()
@@ -163,7 +163,7 @@ impl<'a> Emitter<'a> {
                 let Definition::Local { type_id, .. } = declaration.definition else {
                     return Err(CompileError::ExpectedLocal);
                 };
-                let concrete_type_id = emitter.resolver.get_concrete_type_id(type_id)?;
+                let concrete_type_id = emitter.resolver.infer_concrete_type_id(type_id)?;
                 let allocation =
                     emitter.claim_registers(concrete_type_id, RegisterKind::Reserved)?;
 
@@ -1922,7 +1922,7 @@ impl<'a> Emitter<'a> {
                             .map(|index| {
                                 let type_id = *self.resolver.types.get_type_member(index)?;
 
-                                self.resolver.get_concrete_type_id(type_id)
+                                self.resolver.infer_concrete_type_id(type_id)
                             })
                             .try_collect::<TypeId::SmallVec>()?
                     } else {
@@ -2843,7 +2843,7 @@ impl<'a> Emitter<'a> {
         let parent_type_id = {
             let raw_type_id = self.resolver.get_type_binding(&method_parent.id)?;
 
-            self.resolver.get_concrete_type_id(*raw_type_id)?
+            self.resolver.infer_concrete_type_id(*raw_type_id)?
         };
 
         let Type::FunctionDefinition {
@@ -2872,7 +2872,7 @@ impl<'a> Emitter<'a> {
 
         for index in type_arguments.as_usize_range() {
             let raw_type_argument_id = *self.resolver.types.get_type_member(index)?;
-            let type_argument_id = self.resolver.get_concrete_type_id(raw_type_argument_id)?;
+            let type_argument_id = self.resolver.infer_concrete_type_id(raw_type_argument_id)?;
 
             type_argument_ids.push(type_argument_id);
         }

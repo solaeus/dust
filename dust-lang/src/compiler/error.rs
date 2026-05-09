@@ -617,12 +617,7 @@ impl<'a> DustError<'a> for CompileError {
                 usage_position,
             } => {
                 let title = "Undeclared symbol";
-                let file_content = match source.get_content(*usage_position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
+                let file_content = source.get_code(usage_position.source_id).content_as_str();
                 let name_str = match resolver.symbols.get_symbol(symbol_id) {
                     Ok(name) => name,
                     Err(error) => {

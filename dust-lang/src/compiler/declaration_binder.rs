@@ -79,7 +79,7 @@ impl<'a> DeclarationBinder<'a> {
         }
 
         for forward_reference_id in self.forward_references.drain(..) {
-            let forward_reference = self
+            let forward_reference = *self
                 .resolver
                 .declarations
                 .get_declaration(forward_reference_id);
@@ -93,9 +93,9 @@ impl<'a> DeclarationBinder<'a> {
                         .resolver
                         .declarations
                         .find_declaration_id(forward_reference.symbol_id, scope_id)
+                        .copied()
                     {
-                        let declaration =
-                            self.resolver.declarations.get_declaration(*declaration_id);
+                        let declaration = self.resolver.get_defined_declaration(declaration_id)?;
 
                         if crossed_scope_kinds
                             .iter()
@@ -107,7 +107,7 @@ impl<'a> DeclarationBinder<'a> {
                             });
                         }
 
-                        break *declaration_id;
+                        break declaration_id;
                     }
 
                     let scope = self.resolver.scopes.get_scope(scope_id);
@@ -125,6 +125,11 @@ impl<'a> DeclarationBinder<'a> {
                     }
                 }
             };
+
+            println!(
+                "Forward reference: {:?} Resolved to: {:?}",
+                forward_reference_id, resolved_declaration_id
+            );
 
             self.resolver
                 .declarations

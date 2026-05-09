@@ -214,7 +214,7 @@ impl<'src> Compiler<'src> {
                 Ok(type_id) => {
                     if prototype_id == PrototypeId::MAIN {
                         main_return_type_id = Some(unwrap_or_return!(
-                            self.resolver.get_concrete_type_id(type_id)
+                            self.resolver.infer_concrete_type_id(type_id)
                         ));
                     }
                 }
@@ -347,7 +347,7 @@ impl<'src> Compiler<'src> {
         }
 
         let resolved_return_type_id =
-            unwrap_or_return!(self.resolver.get_concrete_type_id(return_type_id));
+            unwrap_or_return!(self.resolver.infer_concrete_type_id(return_type_id));
 
         Ok(resolved_return_type_id)
     }

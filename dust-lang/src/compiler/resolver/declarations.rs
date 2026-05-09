@@ -95,9 +95,14 @@ impl Declarations {
         forward_id: DeclarationId,
         resolved_id: DeclarationId,
     ) {
-        self.declarations[forward_id.0 as usize].definition = Definition::ForwardReference {
-            resolved: Some(resolved_id),
-        };
+        debug_assert!(matches!(
+            self.declarations[forward_id.0 as usize].definition,
+            Definition::ForwardReference { .. }
+        ));
+
+        let resolved = self.declarations[resolved_id.0 as usize];
+
+        self.declarations[forward_id.0 as usize] = resolved;
     }
 
     /// Finds the declaration with the given type ID, if it exists. This is O(n) and should only be

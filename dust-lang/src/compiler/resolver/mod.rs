@@ -6,7 +6,6 @@ pub mod types;
 use std::{
     collections::HashMap,
     fmt::{self, Display, Formatter},
-    iter::repeat_with,
 };
 
 use indexmap::IndexSet;
@@ -245,7 +244,7 @@ impl Resolver {
                         .insert(parameter_declaration_id, argument_type_id);
                 }
 
-                self.get_concrete_type_id(return_type_id)?
+                self.infer_concrete_type_id(return_type_id)?
             }
             Definition::Variant {
                 enum_declaration_id,
@@ -264,7 +263,7 @@ impl Resolver {
         };
 
         for type_id in value_parameter_type_ids.iter_mut() {
-            *type_id = self.get_concrete_type_id(*type_id)?;
+            *type_id = self.infer_concrete_type_id(*type_id)?;
         }
 
         Ok((value_parameter_type_ids, return_type_id))
@@ -547,8 +546,33 @@ impl Resolver {
         })
     }
 
-    pub fn get_concrete_type_id(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
-        let r#type = self.follow_types(type_id)?;
+    pub fn get_defined_declaration(
+        &mut self,
+        declaration_id: DeclarationId,
+    ) -> Result<Declaration, CompileError> {
+        let mut current_id = declaration_id;
+
+        loop {
+            let current_declaration = self.declarations.get_declaration(current_id);
+
+            match current_declaration.definition {
+                Definition::ForwardReference { resolved } => {
+                    if let Some(resolved_id) = resolved {
+                        current_id = resolved_id;
+                    } else {
+                        return Err(CompileError::Undeclared {
+                            symbol_id: current_declaration.symbol_id,
+                            usage_position: current_declaration.syntax.unwrap().0,
+                        });
+                    }
+                }
+                _ => return Ok(*current_declaration),
+            }
+        }
+    }
+
+    pub fn infer_concrete_type_id(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
+        let (type_id, r#type) = self.get_concrete_type(type_id)?;
 
         if let Type::Inferred {
             constraint: Some(constraint),
@@ -569,23 +593,28 @@ impl Resolver {
         }
     }
 
-    pub fn follow_types(&mut self, type_id: TypeId) -> Result<&Type, CompileError> {
-        let mut current = self.types.get_type(type_id);
+    pub fn get_concrete_type(&self, type_id: TypeId) -> Result<(TypeId, &Type), CompileError> {
+        let mut current_id = type_id;
 
         loop {
-            match current {
-                Type::Inferred {
-                    resolved: Some(resolved),
-                    ..
-                } => current = self.types.get_type(*resolved),
-                Type::Generic { declaration_id } => {
-                    if let Some(argument_type_id) = self.type_parameter_map.get(declaration_id) {
-                        current = self.types.get_type(*argument_type_id);
+            let current_type = self.types.get_type(current_id);
+
+            match current_type {
+                Type::Inferred { resolved, .. } => {
+                    if let Some(resolved_id) = resolved {
+                        current_id = *resolved_id;
                     } else {
                         return Err(CompileError::ExpectedConcreteType);
                     }
                 }
-                _ => return Ok(current),
+                Type::Generic { declaration_id } => {
+                    if let Some(argument_type_id) = self.type_parameter_map.get(declaration_id) {
+                        current_id = *argument_type_id;
+                    } else {
+                        return Err(CompileError::ExpectedConcreteType);
+                    }
+                }
+                _ => return Ok((current_id, current_type)),
             }
         }
     }
