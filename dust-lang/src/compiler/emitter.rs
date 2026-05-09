@@ -169,7 +169,7 @@ impl<'a> Emitter<'a> {
 
                 emitter
                     .locals
-                    .insert(declaration_id, Local::Place(Place::Register(allocation)));
+                    .insert(declaration_id, Local::Place(Place::Registers(allocation)));
             }
         }
 
@@ -653,15 +653,15 @@ impl<'a> Emitter<'a> {
             }
             Emission::Place(place) => Ok(place),
             Emission::Instructions(Instructions {
-                target_registers: target,
+                target_registers,
                 instructions,
                 pending_drops,
             }) => {
                 target_instructions.instructions.extend(instructions);
                 target_instructions.pending_drops.extend(pending_drops);
 
-                if let Some(allocation) = target {
-                    Ok(Place::Register(allocation))
+                if let Some(registers) = target_registers {
+                    Ok(Place::Registers(registers))
                 } else {
                     Err(CompileError::ExpectedValue {
                         source_id: syntax.source_id(),
@@ -712,7 +712,7 @@ impl<'a> Emitter<'a> {
                 if source_registers.claims.len() == target_registers.claims.len()
                     && source_registers.claims[0].index == target_registers.claims[0].index
                 {
-                    return Ok(Emission::Place(Place::Register(source_registers)));
+                    return Ok(Emission::Place(Place::Registers(source_registers)));
                 }
 
                 let mut instructions = Instructions::new();
@@ -733,7 +733,7 @@ impl<'a> Emitter<'a> {
 
                 Ok(Emission::Instructions(instructions))
             }
-            _ => Ok(Emission::Place(Place::Register(source_registers))),
+            _ => Ok(Emission::Place(Place::Registers(source_registers))),
         }
     }
 
@@ -856,7 +856,7 @@ impl<'a> Emitter<'a> {
                 memory: MemoryKind::CONSTANT,
                 index,
             }),
-            Emission::Place(Place::Register(allocation)) => Ok(Address {
+            Emission::Place(Place::Registers(allocation)) => Ok(Address {
                 memory: MemoryKind::REGISTER,
                 index: allocation.expect_base_index()?,
             }),
@@ -908,7 +908,7 @@ impl<'a> Emitter<'a> {
 
                 Ok(())
             }
-            Emission::Place(Place::Register(allocation)) if allocation.claims.len() == 1 => {
+            Emission::Place(Place::Registers(allocation)) if allocation.claims.len() == 1 => {
                 let operand = Address::new(MemoryKind::REGISTER, allocation.expect_base_index()?);
                 let test_instruction = Instruction::test(comparator, operand, 0);
 
@@ -1040,19 +1040,19 @@ impl<'a> Emitter<'a> {
 
                 Ok(return_instructions)
             }
-            Emission::Place(Place::Register(emission_allocation)) => {
+            Emission::Place(Place::Registers(emission_registers)) => {
+                debug_assert_eq!(emission_registers, registers);
+
                 let mut return_instructions = Instructions::new();
 
-                if emission_allocation.claims.len() == registers.claims.len()
-                    && emission_allocation.claims[0].index == registers.claims[0].index
-                {
+                if emission_registers.kind != RegisterKind::Reserved {
                     return_instructions.push(Instruction::r#return());
 
                     return Ok(return_instructions);
                 }
 
                 for (emission_register, target_register) in
-                    emission_allocation.claims.into_iter().zip(registers.claims)
+                    emission_registers.claims.into_iter().zip(registers.claims)
                 {
                     let move_instruction = Instruction::r#move(
                         target_register.index,
@@ -1243,7 +1243,7 @@ impl<'a> Emitter<'a> {
                 })?;
 
                 self.locals
-                    .insert(declaration_id, Local::Place(Place::Register(registers)));
+                    .insert(declaration_id, Local::Place(Place::Registers(registers)));
 
                 Ok(Some(Instructions {
                     instructions,
@@ -1276,7 +1276,7 @@ impl<'a> Emitter<'a> {
                     usage_position: target.position(),
                 })?;
 
-        let Local::Place(Place::Register(target_registers)) = local.clone() else {
+        let Local::Place(Place::Registers(target_registers)) = local.clone() else {
             return Err(CompileError::CannotMutate {
                 position: target.position(),
             });
@@ -1321,7 +1321,7 @@ impl<'a> Emitter<'a> {
                     }
                 }
             }
-            Emission::Place(Place::Register(operand_allocation)) => {
+            Emission::Place(Place::Registers(operand_allocation)) => {
                 for (destination, operand) in target_registers
                     .claims
                     .into_iter()
@@ -1636,7 +1636,7 @@ impl<'a> Emitter<'a> {
 
         let (list_registers, list_instructions) =
             match collection_emission {
-                Emission::Place(Place::Register(registers)) => (registers, None),
+                Emission::Place(Place::Registers(registers)) => (registers, None),
                 Emission::Instructions(instructions) => {
                     let registers = instructions.target_registers.clone().ok_or(
                         CompileError::ExpectedValue {
@@ -1726,7 +1726,7 @@ impl<'a> Emitter<'a> {
 
             match index_place {
                 Place::Constant { index, .. } => (MemoryKind::CONSTANT, index),
-                Place::Register(allocation) if allocation.claims.len() == 1 => {
+                Place::Registers(allocation) if allocation.claims.len() == 1 => {
                     (MemoryKind::REGISTER, allocation.claims[0].index)
                 }
                 _ => {
@@ -1828,7 +1828,7 @@ impl<'a> Emitter<'a> {
 
                     range_instructions.push(move_instruction);
                 }
-                Place::Register(ref allocation) => {
+                Place::Registers(ref allocation) => {
                     for register in &allocation.claims {
                         let move_instruction = Instruction::r#move(
                             destination.index,
@@ -1856,7 +1856,7 @@ impl<'a> Emitter<'a> {
 
         if let Some(local) = self.locals.get(&declaration_id).cloned() {
             match local {
-                Local::Place(Place::Register(registers)) => {
+                Local::Place(Place::Registers(registers)) => {
                     return self.create_emission_from_registers(registers, target);
                 }
                 Local::Place(Place::Constant {
@@ -2043,7 +2043,7 @@ impl<'a> Emitter<'a> {
 
                     struct_instructions.push(move_instruction);
                 }
-                Place::Register(ref allocation) => {
+                Place::Registers(ref allocation) => {
                     for register in &allocation.claims {
                         let move_instruction = Instruction::r#move(
                             destination.index,
@@ -2158,7 +2158,7 @@ impl<'a> Emitter<'a> {
 
         let target_allocation = match &result_emission {
             Emission::Instructions(instructions) => instructions.target_registers.as_ref(),
-            Emission::Place(Place::Register(target_allocation)) => Some(target_allocation),
+            Emission::Place(Place::Registers(target_allocation)) => Some(target_allocation),
             _ => None,
         };
 
@@ -2983,7 +2983,7 @@ impl<'a> Emitter<'a> {
         )?;
 
         let struct_registers = match operand_emission {
-            Emission::Place(Place::Register(registers)) => registers,
+            Emission::Place(Place::Registers(registers)) => registers,
             emission => {
                 let mut field_access_instructions = Instructions::new();
                 let place = self.place_emission(
@@ -2993,7 +2993,7 @@ impl<'a> Emitter<'a> {
                 )?;
 
                 match place {
-                    Place::Register(registers) => registers,
+                    Place::Registers(registers) => registers,
                     _ => {
                         return Err(CompileError::ExpectedValue {
                             source_id: struct_expression.source_id(),
@@ -3137,14 +3137,14 @@ pub enum Place {
         index: u16,
         operand_type: OperandType,
     },
-    Register(RegisterClaims),
+    Registers(RegisterClaims),
 }
 
 impl Place {
     fn address(&self) -> Address {
         match self {
             Place::Constant { index, .. } => Address::new(MemoryKind::CONSTANT, *index),
-            Place::Register(registers) => registers.expect_single().unwrap().address(),
+            Place::Registers(registers) => registers.expect_single().unwrap().address(),
         }
     }
 }
@@ -3155,7 +3155,7 @@ pub enum Local {
     Constant(ConstantValue),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RegisterClaims {
     claims: RegisterClaim::SmallVec,
     kind: RegisterKind,
@@ -3179,7 +3179,7 @@ impl RegisterClaims {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RegisterClaim {
     index: u16,
     operand_type: OperandType,

@@ -20,7 +20,7 @@ fn constant() {
                 return_types: smallvec![OperandType::U_8],
                 register_count: 1,
                 argument_count: 0,
-            }
+            },
         ],
         return_type: DustType::U8
     );
@@ -36,12 +36,22 @@ fn runtime() {
         prototypes: [
             Prototype {
                 instructions: vec![
+                    Instruction::r#move(0, OperandType::U_8, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::call(0, Address::new(MemoryKind::ENCODED, 1), 0),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::U_8],
                 register_count: 1,
                 argument_count: 0,
-            }
+            },
+            Prototype {
+                instructions: vec![
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::U_8],
+                register_count: 1,
+                argument_count: 0,
+            },
         ],
         return_type: DustType::U8
     );

@@ -129,21 +129,21 @@ impl Types {
         id: TypeId,
         arguments: TypeMembers,
     ) -> Result<(), CompileError> {
-        let r#type = self.types.get_index_mut2(id.0 as usize).unwrap();
+        let r#type = self.types.get_index_mut2(id.0 as usize);
 
         match r#type {
-            Type::FunctionDefinition {
+            Some(Type::FunctionDefinition {
                 type_arguments: old_arguments,
                 ..
-            }
-            | Type::Algebraic {
+            })
+            | Some(Type::Algebraic {
                 type_arguments: old_arguments,
                 ..
-            }
-            | Type::Pointer {
+            })
+            | Some(Type::Pointer {
                 type_arguments: old_arguments,
                 ..
-            } => {
+            }) => {
                 *old_arguments = arguments;
             }
             _ => return Err(CompileError::UnexpectedType(id)),

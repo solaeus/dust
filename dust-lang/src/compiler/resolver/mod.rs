@@ -601,12 +601,11 @@ impl Resolver {
             let current_type = self.types.get_type(current_id);
 
             match current_type {
-                Type::Inferred { resolved, .. } => {
-                    if let Some(resolved_id) = resolved {
-                        current_id = *resolved_id;
-                    } else {
-                        return Err(CompileError::ExpectedConcreteType);
-                    }
+                Type::Inferred {
+                    resolved: Some(resolved_id),
+                    ..
+                } => {
+                    current_id = *resolved_id;
                 }
                 Type::Generic { declaration_id } => {
                     if let Some(argument_type_id) = self.type_parameter_map.get(declaration_id) {

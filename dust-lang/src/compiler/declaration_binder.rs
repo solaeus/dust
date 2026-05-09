@@ -103,8 +103,6 @@ impl<'a> DeclarationBinder<'a> {
                             .iter()
                             .any(|scope_kind| scope_kind.is_barrier(&declaration.definition))
                         {
-                            println!("beep");
-
                             return Err(CompileError::Undeclared {
                                 symbol_id: forward_reference.symbol_id,
                                 usage_position: forward_reference.syntax.unwrap().0,
@@ -129,11 +127,6 @@ impl<'a> DeclarationBinder<'a> {
                     }
                 }
             };
-
-            println!(
-                "Forward reference: {:?} Resolved to: {:?}",
-                forward_reference_id, resolved_declaration_id
-            );
 
             self.resolver
                 .declarations

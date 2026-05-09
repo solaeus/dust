@@ -20,7 +20,7 @@ fn boolean() {
                 return_types: smallvec![OperandType::BOOLEAN],
                 register_count: 1,
                 argument_count: 0,
-            }
+            },
         ],
         return_type: DustType::Boolean
     );
@@ -39,7 +39,7 @@ fn i8() {
                 return_types: smallvec![OperandType::I_8],
                 register_count: 1,
                 argument_count: 0,
-            }
+            },
         ],
         return_type: DustType::I8
     );
@@ -66,9 +66,9 @@ fn i64_encodable() {
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 1,
+                register_count: 2,
                 argument_count: 0,
-            }
+            },
         ],
         return_type: DustType::I64
     );
@@ -85,9 +85,9 @@ fn i64_not_encodable() {
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 1,
+                register_count: 2,
                 argument_count: 0,
-            }
+            },
         ],
         return_type: DustType::I64
     );
@@ -104,9 +104,9 @@ fn i128_encodable() {
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_128],
-                register_count: 1,
+                register_count: 4,
                 argument_count: 0,
-            }
+            },
         ],
         return_type: DustType::I128
     );
@@ -123,9 +123,9 @@ fn i128_not_encodable() {
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_128],
-                register_count: 1,
+                register_count: 4,
                 argument_count: 0,
-            }
+            },
         ],
         return_type: DustType::I128
     );
@@ -144,7 +144,7 @@ fn u8() {
                 return_types: smallvec![OperandType::U_8],
                 register_count: 1,
                 argument_count: 0,
-            }
+            },
         ],
         return_type: DustType::U8
     );

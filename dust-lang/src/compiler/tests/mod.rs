@@ -8,7 +8,7 @@ mod let_statement;
 macro_rules! assert_program_eq {
     (
         $code: literal,
-        prototypes: [$($prototype: expr)*],
+        prototypes: [$($prototype: expr,)*],
         return_type: $return_type: expr
     ) => {
         use $crate::{compiler::Compiler, source::{Source, SourceCode}};
