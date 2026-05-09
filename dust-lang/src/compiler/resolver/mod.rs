@@ -245,7 +245,7 @@ impl Resolver {
                         .insert(parameter_declaration_id, argument_type_id);
                 }
 
-                self.resolve_type(return_type_id)?
+                self.get_concrete_type_id(return_type_id)?
             }
             Definition::Variant {
                 enum_declaration_id,
@@ -264,7 +264,7 @@ impl Resolver {
         };
 
         for type_id in value_parameter_type_ids.iter_mut() {
-            *type_id = self.resolve_type(*type_id)?;
+            *type_id = self.get_concrete_type_id(*type_id)?;
         }
 
         Ok((value_parameter_type_ids, return_type_id))
@@ -547,62 +547,54 @@ impl Resolver {
         })
     }
 
-    pub fn resolve_type(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
-        let resolved_type = *self.types.get_type(type_id)?;
+    pub fn get_concrete_type_id(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
+        let r#type = self.follow_types(type_id)?;
 
-        let start_type_id = match resolved_type {
-            Type::Generic { declaration_id } => {
-                let concrete_type_id = self
-                    .type_parameter_map
-                    .get(&declaration_id)
-                    .ok_or(CompileError::ExpectedConcreteType)?;
+        if let Type::Inferred {
+            constraint: Some(constraint),
+            resolved: None,
+            ..
+        } = r#type
+        {
+            let resolved_type_id = match constraint {
+                InferredTypeConstraint::Integer => TypeId::I_32,
+                InferredTypeConstraint::Float => TypeId::F_64,
+            };
 
-                *concrete_type_id
-            }
-            Type::Inferred { .. } => type_id,
-            _ => return Ok(type_id),
-        };
+            self.types.resolve_type(type_id, resolved_type_id)?;
 
-        let mut current_type_id = start_type_id;
+            Ok(resolved_type_id)
+        } else {
+            Ok(type_id)
+        }
+    }
+
+    pub fn follow_types(&mut self, type_id: TypeId) -> Result<&Type, CompileError> {
+        let mut current = self.types.get_type(type_id);
 
         loop {
-            match *self.types.get_type(current_type_id)? {
+            match current {
                 Type::Inferred {
                     resolved: Some(resolved),
                     ..
-                } => {
-                    current_type_id = resolved;
+                } => current = self.types.get_type(*resolved),
+                Type::Generic { declaration_id } => {
+                    if let Some(argument_type_id) = self.type_parameter_map.get(declaration_id) {
+                        current = self.types.get_type(*argument_type_id);
+                    } else {
+                        return Err(CompileError::ExpectedConcreteType);
+                    }
                 }
-                Type::Inferred {
-                    inferred_id,
-                    constraint: Some(constraint),
-                    resolved: None,
-                } => {
-                    let default_type_id = match constraint {
-                        InferredTypeConstraint::Integer => TypeId::I_32,
-                        InferredTypeConstraint::Float => TypeId::F_64,
-                    };
-                    let r#type = self.types.get_type_mut(current_type_id)?;
-                    *r#type = Type::Inferred {
-                        inferred_id,
-                        constraint: Some(constraint),
-                        resolved: Some(default_type_id),
-                    };
-
-                    break;
-                }
-                _ => break,
+                _ => return Ok(current),
             }
         }
-
-        Ok(current_type_id)
     }
 
     pub fn get_operand_types(
         &self,
         type_id: TypeId,
     ) -> Result<OperandType::SmallVec, CompileError> {
-        let r#type = self.types.get_type(type_id)?;
+        let r#type = self.types.get_type(type_id);
 
         match r#type {
             Type::Never => Ok(SmallVec::new()),
@@ -735,7 +727,7 @@ impl Resolver {
                                     ));
                                 };
 
-                                let resolved_field_type = *self.types.get_type(field_type_id)?;
+                                let resolved_field_type = *self.types.get_type(field_type_id);
                                 let type_id = if let Type::Generic {
                                     declaration_id: parameter_declaration_id,
                                 } = resolved_field_type
@@ -756,7 +748,7 @@ impl Resolver {
                                     field_type_id
                                 };
 
-                                let resolved_type_id = match self.types.get_type(type_id)? {
+                                let resolved_type_id = match self.types.get_type(type_id) {
                                     Type::Inferred {
                                         resolved: Some(resolved),
                                         ..
@@ -840,7 +832,7 @@ impl Resolver {
                                 continue;
                             };
 
-                            let resolved_field_type = *self.types.get_type(field_type_id)?;
+                            let resolved_field_type = *self.types.get_type(field_type_id);
                             let type_id = if let Type::Generic {
                                 declaration_id: parameter_declaration_id,
                             } = resolved_field_type
@@ -861,7 +853,7 @@ impl Resolver {
                                 field_type_id
                             };
 
-                            let resolved_type_id = match self.types.get_type(type_id)? {
+                            let resolved_type_id = match self.types.get_type(type_id) {
                                 Type::Inferred {
                                     resolved: Some(resolved),
                                     ..
@@ -1146,7 +1138,7 @@ impl Resolver {
     }
 
     pub fn get_external_type(&self, id: TypeId) -> Result<DustType, CompileError> {
-        let r#type = self.types.get_type(id)?;
+        let r#type = self.types.get_type(id);
 
         match r#type {
             Type::Never => Ok(DustType::Unit),
@@ -1263,7 +1255,7 @@ impl Resolver {
                                     continue;
                                 };
 
-                                let resolved_type = self.types.get_type(field_type_id)?;
+                                let resolved_type = self.types.get_type(field_type_id);
                                 let concrete_type_id = if let Type::Generic {
                                     declaration_id: parameter_declaration,
                                 } = resolved_type
@@ -1279,15 +1271,14 @@ impl Resolver {
                                     field_type_id
                                 };
 
-                                let resolved_type_id =
-                                    match self.types.get_type(concrete_type_id)? {
-                                        Type::Inferred {
-                                            resolved: Some(resolved),
-                                            ..
-                                        } => *resolved,
-                                        Type::Inferred { resolved: None, .. } => continue,
-                                        _ => concrete_type_id,
-                                    };
+                                let resolved_type_id = match self.types.get_type(concrete_type_id) {
+                                    Type::Inferred {
+                                        resolved: Some(resolved),
+                                        ..
+                                    } => *resolved,
+                                    Type::Inferred { resolved: None, .. } => continue,
+                                    _ => concrete_type_id,
+                                };
 
                                 let field_dust_type = self.get_external_type(resolved_type_id)?;
                                 let field_name = self

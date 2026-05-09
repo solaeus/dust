@@ -215,6 +215,8 @@ pub enum CompileError {
     InvalidContext,
     ExpectedImplOrTraitDefinition(DeclarationId),
     ExpectedFunctionDefinitionType(TypeId),
+    ExpectedInferredType(TypeId),
+    UnexpectedType(TypeId),
 }
 
 impl From<SyntaxError> for CompileError {
@@ -379,15 +381,8 @@ impl<'a> DustError<'a> for CompileError {
                 groups.push(group);
             }
             CompileError::CannotInferType { type_id } => {
-                let type_node = match resolver.types.get_type(*type_id) {
-                    Ok(type_node) => type_node,
-                    Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
-
-                        return;
-                    }
-                };
-                let declaration = match type_node {
+                let r#type = resolver.types.get_type(*type_id);
+                let declaration = match r#type {
                     Type::Algebraic { declaration_id, .. }
                     | Type::FunctionDefinition { declaration_id, .. }
                     | Type::Generic { declaration_id } => {
@@ -1207,7 +1202,9 @@ impl<'a> DustError<'a> for CompileError {
             | CompileError::ExpectedEncodedValue { .. }
             | CompileError::InvalidContext
             | CompileError::ExpectedImplOrTraitDefinition(_)
-            | CompileError::ExpectedFunctionDefinitionType(_) => {
+            | CompileError::ExpectedFunctionDefinitionType(_)
+            | CompileError::ExpectedInferredType(_)
+            | CompileError::UnexpectedType(_) => {
                 self.add_internal_report(groups);
             }
         }

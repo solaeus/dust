@@ -7,6 +7,7 @@ use std::{
 
 use indexmap::{IndexSet, set::MutableValues};
 use smallvec::SmallVec;
+use tracing::trace;
 
 use crate::{
     compiler::{error::CompileError, resolver::declarations::DeclarationId},
@@ -82,24 +83,53 @@ impl Types {
         type_id
     }
 
-    pub fn get_type(&self, id: TypeId) -> Result<&Type, CompileError> {
-        let r#type = &self.types[id.0 as usize];
-
-        if let Type::Inferred {
-            resolved: Some(resolved_id),
-            ..
-        } = r#type
-        {
-            return self.get_type(*resolved_id);
-        }
-
-        Ok(r#type)
+    pub fn get_type(&self, id: TypeId) -> &Type {
+        &self.types[id.0 as usize]
     }
 
-    pub fn get_type_mut(&mut self, id: TypeId) -> Result<&mut Type, CompileError> {
-        self.types
-            .get_index_mut2(id.0 as usize)
-            .ok_or(CompileError::MissingType(id))
+    pub fn resolve_type(&mut self, id: TypeId, resolved_id: TypeId) -> Result<(), CompileError> {
+        trace!(
+            "Resolving TypeId {} to {:?}",
+            id.0, &self.types[resolved_id.0 as usize]
+        );
+
+        let r#type = self.types.get_index_mut2(id.0 as usize);
+
+        if let Some(Type::Inferred { resolved, .. }) = r#type {
+            *resolved = Some(resolved_id);
+        } else {
+            return Err(CompileError::ExpectedInferredType(id));
+        }
+
+        Ok(())
+    }
+
+    pub fn resolve_type_arguments(
+        &mut self,
+        id: TypeId,
+        arguments: TypeMembers,
+    ) -> Result<(), CompileError> {
+        let r#type = self.types.get_index_mut2(id.0 as usize).unwrap();
+
+        match r#type {
+            Type::FunctionDefinition {
+                type_arguments: old_arguments,
+                ..
+            }
+            | Type::Algebraic {
+                type_arguments: old_arguments,
+                ..
+            }
+            | Type::Pointer {
+                type_arguments: old_arguments,
+                ..
+            } => {
+                *old_arguments = arguments;
+            }
+            _ => return Err(CompileError::UnexpectedType(id)),
+        }
+
+        Ok(())
     }
 
     pub fn add_type_members(&mut self, types: impl IntoIterator<Item = TypeId>) -> TypeMembers {

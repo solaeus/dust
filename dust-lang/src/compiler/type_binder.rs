@@ -79,24 +79,28 @@ impl<'a> TypeBinder<'a> {
             self.errors.push(ErrorKind::Compile(error))
         }
 
-        let _ = self.resolver.resolve_type(return_type_id);
+        let _ = self.resolver.get_concrete_type_id(return_type_id);
     }
 
     fn unify_types<'b>(
         &'b mut self,
-        left: TypeId,
+        left_id: TypeId,
         left_syntax: Option<SyntaxReader<'b>>,
-        right: TypeId,
+        right_id: TypeId,
         right_syntax: SyntaxReader<'b>,
     ) -> Result<(), CompileError> {
+        if left_id == right_id {
+            return Ok(());
+        }
+
+        let left = *self.resolver.follow_types(left_id)?;
+        let right = *self.resolver.follow_types(right_id)?;
+
         if left == right {
             return Ok(());
         }
 
-        let left_type_node = *self.resolver.types.get_type(left)?;
-        let right_type_node = *self.resolver.types.get_type(right)?;
-
-        match (left_type_node, right_type_node) {
+        match (left, right) {
             (
                 Type::Inferred {
                     inferred_id: left_inferred_id,
@@ -123,48 +127,48 @@ impl<'a> TypeBinder<'a> {
                             .position();
 
                         return Err(CompileError::TypeConflict {
-                            expected_type: left,
+                            expected_type: left_id,
                             expected_position,
-                            found_type: right,
+                            found_type: right_id,
                             found_position,
                         });
                     }
-                    (Some(inherited_constraint), None) => {
-                        let right_node = self.resolver.types.get_type_mut(right)?;
-
-                        if let Type::Inferred { constraint, .. } = right_node {
-                            *constraint = Some(inherited_constraint);
+                    (Some(bound), None) => match bound {
+                        InferredTypeConstraint::Integer => {
+                            self.resolver.types.resolve_type(right_id, TypeId::I_32)?;
                         }
-                    }
+                        InferredTypeConstraint::Float => {
+                            self.resolver.types.resolve_type(right_id, TypeId::F_64)?;
+                        }
+                    },
+                    (None, Some(bound)) => match bound {
+                        InferredTypeConstraint::Integer => {
+                            self.resolver.types.resolve_type(left_id, TypeId::I_32)?;
+                        }
+                        InferredTypeConstraint::Float => {
+                            self.resolver.types.resolve_type(left_id, TypeId::F_64)?;
+                        }
+                    },
                     _ => {}
                 }
 
-                let left_node = self.resolver.types.get_type_mut(left)?;
-
-                *left_node = Type::Inferred {
-                    inferred_id: left_inferred_id,
-                    constraint: left_constraint,
-                    resolved: Some(right),
-                };
-
                 Ok(())
             }
             (
                 Type::Inferred {
-                    inferred_id,
                     constraint,
                     resolved: None,
+                    ..
                 },
                 _,
             ) => {
                 if let Some(constraint) = constraint {
                     let satisfied = match constraint {
-                        InferredTypeConstraint::Integer => matches!(
-                            right_type_node,
-                            Type::SignedInteger(_) | Type::UnsignedInteger(_)
-                        ),
+                        InferredTypeConstraint::Integer => {
+                            matches!(right, Type::SignedInteger(_) | Type::UnsignedInteger(_))
+                        }
                         InferredTypeConstraint::Float => {
-                            matches!(right_type_node, Type::Float(_))
+                            matches!(right, Type::Float(_))
                         }
                     };
 
@@ -181,21 +185,15 @@ impl<'a> TypeBinder<'a> {
                             .position();
 
                         return Err(CompileError::TypeConflict {
-                            expected_type: left,
+                            expected_type: left_id,
                             expected_position,
-                            found_type: right,
+                            found_type: right_id,
                             found_position,
                         });
                     }
                 }
 
-                let left_node = self.resolver.types.get_type_mut(left)?;
-
-                *left_node = Type::Inferred {
-                    inferred_id,
-                    constraint,
-                    resolved: Some(right),
-                };
+                self.resolver.types.resolve_type(left_id, right_id)?;
 
                 Ok(())
             }
@@ -209,12 +207,11 @@ impl<'a> TypeBinder<'a> {
             ) => {
                 if let Some(constraint) = constraint {
                     let satisfied = match constraint {
-                        InferredTypeConstraint::Integer => matches!(
-                            left_type_node,
-                            Type::SignedInteger(_) | Type::UnsignedInteger(_)
-                        ),
+                        InferredTypeConstraint::Integer => {
+                            matches!(left, Type::SignedInteger(_) | Type::UnsignedInteger(_))
+                        }
                         InferredTypeConstraint::Float => {
-                            matches!(left_type_node, Type::Float(_))
+                            matches!(left, Type::Float(_))
                         }
                     };
 
@@ -231,21 +228,15 @@ impl<'a> TypeBinder<'a> {
                             .position();
 
                         return Err(CompileError::TypeConflict {
-                            expected_type: left,
+                            expected_type: left_id,
                             expected_position,
-                            found_type: right,
+                            found_type: right_id,
                             found_position,
                         });
                     }
                 }
 
-                let right_node = self.resolver.types.get_type_mut(right)?;
-
-                *right_node = Type::Inferred {
-                    inferred_id,
-                    constraint,
-                    resolved: Some(left),
-                };
+                self.resolver.types.resolve_type(right_id, left_id)?;
 
                 Ok(())
             }
@@ -272,9 +263,9 @@ impl<'a> TypeBinder<'a> {
                         .position();
 
                     return Err(CompileError::TypeConflict {
-                        expected_type: left,
+                        expected_type: left_id,
                         expected_position,
-                        found_type: right,
+                        found_type: right_id,
                         found_position,
                     });
                 }
@@ -294,11 +285,11 @@ impl<'a> TypeBinder<'a> {
             (
                 Type::Algebraic {
                     declaration_id: left_declaration_id,
-                    type_arguments: left_type_arguments,
+                    type_arguments: left_arguments,
                 },
                 Type::Algebraic {
                     declaration_id: right_declaration_id,
-                    type_arguments: right_type_arguments,
+                    type_arguments: right_arguments,
                 },
             ) => {
                 if left_declaration_id != right_declaration_id {
@@ -314,31 +305,25 @@ impl<'a> TypeBinder<'a> {
                         .position();
 
                     return Err(CompileError::TypeConflict {
-                        expected_type: left,
+                        expected_type: left_id,
                         expected_position,
-                        found_type: right,
+                        found_type: right_id,
                         found_position,
                     });
                 }
 
-                if left_type_arguments.is_empty() && !right_type_arguments.is_empty() {
-                    let left_node = self.resolver.types.get_type_mut(left)?;
-
-                    *left_node = Type::Algebraic {
-                        declaration_id: left_declaration_id,
-                        type_arguments: right_type_arguments,
-                    };
-                } else if right_type_arguments.is_empty() && !left_type_arguments.is_empty() {
-                    let right_node = self.resolver.types.get_type_mut(right)?;
-
-                    *right_node = Type::Algebraic {
-                        declaration_id: right_declaration_id,
-                        type_arguments: left_type_arguments,
-                    };
+                if left_arguments.is_empty() && !right_arguments.is_empty() {
+                    self.resolver
+                        .types
+                        .resolve_type_arguments(left_id, right_arguments)?;
+                } else if right_arguments.is_empty() && !left_arguments.is_empty() {
+                    self.resolver
+                        .types
+                        .resolve_type_arguments(right_id, left_arguments)?;
                 } else {
-                    for (left_index, right_index) in left_type_arguments
+                    for (left_index, right_index) in left_arguments
                         .as_usize_range()
-                        .zip(right_type_arguments.as_usize_range())
+                        .zip(right_arguments.as_usize_range())
                     {
                         let left_arg = *self.resolver.types.get_type_member(left_index)?;
                         let right_arg = *self.resolver.types.get_type_member(right_index)?;
@@ -372,9 +357,9 @@ impl<'a> TypeBinder<'a> {
                         .position();
 
                     return Err(CompileError::TypeConflict {
-                        expected_type: left,
+                        expected_type: left_id,
                         expected_position,
-                        found_type: right,
+                        found_type: right_id,
                         found_position,
                     });
                 }
@@ -402,9 +387,9 @@ impl<'a> TypeBinder<'a> {
                         .position();
 
                     Err(CompileError::TypeConflict {
-                        expected_type: left,
+                        expected_type: left_id,
                         expected_position,
-                        found_type: right,
+                        found_type: right_id,
                         found_position,
                     })
                 }
@@ -767,7 +752,7 @@ impl<'a> TypeBinder<'a> {
         let collection_type_id = self.bind_expression(collection)?;
         let index_type_id = self.bind_expression(index)?;
 
-        let collection_type = *self.resolver.types.get_type(collection_type_id)?;
+        let collection_type = *self.resolver.types.get_type(collection_type_id);
         let element_type_id = match collection_type {
             Type::Array {
                 element_type_id, ..
@@ -778,7 +763,7 @@ impl<'a> TypeBinder<'a> {
                 });
             }
         };
-        let index_type = *self.resolver.types.get_type(index_type_id)?;
+        let index_type = *self.resolver.types.get_type(index_type_id);
         let result_type_id = if let Type::Algebraic { declaration_id, .. } = index_type
             && matches!(
                 declaration_id,
@@ -845,7 +830,7 @@ impl<'a> TypeBinder<'a> {
             | Definition::Constant { type_id, .. }
             | Definition::InherentAssociatedConstant { type_id, .. }
             | Definition::TraitAssociatedConstant { type_id, .. } => {
-                self.resolver.resolve_type(type_id)?
+                self.resolver.get_concrete_type_id(type_id)?
             }
             Definition::Function { .. } => {
                 let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
@@ -892,7 +877,7 @@ impl<'a> TypeBinder<'a> {
                     | Definition::Constant { type_id, .. }
                     | Definition::InherentAssociatedConstant { type_id, .. }
                     | Definition::TraitAssociatedConstant { type_id, .. } => {
-                        self.resolver.resolve_type(type_id)?
+                        self.resolver.get_concrete_type_id(type_id)?
                     }
                     _ => {
                         return Err(CompileError::ExpectedValue {
@@ -912,7 +897,7 @@ impl<'a> TypeBinder<'a> {
                     | Definition::Constant { type_id, .. }
                     | Definition::InherentAssociatedConstant { type_id, .. }
                     | Definition::TraitAssociatedConstant { type_id, .. } => {
-                        self.resolver.resolve_type(type_id)?
+                        self.resolver.get_concrete_type_id(type_id)?
                     }
                     _ => {
                         let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
@@ -952,7 +937,7 @@ impl<'a> TypeBinder<'a> {
                 return Err(CompileError::ExpectedFieldDefinition(field_declaration_id));
             };
 
-            let field_type_id = self.resolver.resolve_type(type_id)?;
+            let field_type_id = self.resolver.get_concrete_type_id(type_id)?;
             let value_type_id = self.bind_expression(field_value)?;
 
             self.unify_types(field_type_id, Some(field_name), value_type_id, field_value)?;
@@ -1114,7 +1099,7 @@ impl<'a> TypeBinder<'a> {
         let CallExpression { callee, arguments } = reader.as_component()?;
 
         let callee_type_id = self.bind_expression(callee)?;
-        let callee_type = *self.resolver.types.get_type(callee_type_id)?;
+        let callee_type = *self.resolver.types.get_type(callee_type_id);
         let Type::FunctionDefinition {
             declaration_id,
             type_arguments,
@@ -1155,7 +1140,7 @@ impl<'a> TypeBinder<'a> {
         let Type::Algebraic {
             declaration_id: parent_declaration_id,
             ..
-        } = *self.resolver.types.get_type(parent_type_id)?
+        } = *self.resolver.types.get_type(parent_type_id)
         else {
             return Err(CompileError::ExpectedAlgebraicType(parent_type_id));
         };
@@ -1228,7 +1213,7 @@ impl<'a> TypeBinder<'a> {
         let Type::Algebraic {
             declaration_id: parent_declaration_id,
             ..
-        } = *self.resolver.types.get_type(parent_type_id)?
+        } = *self.resolver.types.get_type(parent_type_id)
         else {
             return Err(CompileError::ExpectedAlgebraicType(parent_type_id));
         };
@@ -1251,7 +1236,7 @@ impl<'a> TypeBinder<'a> {
         else {
             return Err(CompileError::ExpectedFieldDefinition(field_declaration_id));
         };
-        let field_type_id = self.resolver.resolve_type(field_raw_type_id)?;
+        let field_type_id = self.resolver.get_concrete_type_id(field_raw_type_id)?;
 
         self.resolver
             .add_declaration_binding(field_name.id, field_declaration_id);

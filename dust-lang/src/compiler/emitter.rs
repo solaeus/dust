@@ -102,7 +102,7 @@ impl<'a> Emitter<'a> {
                 let Definition::Local { type_id, .. } = declaration.definition else {
                     return Err(CompileError::ExpectedLocalDefinition(declaration_id));
                 };
-                let concrete_type_id = resolver.resolve_type(type_id)?;
+                let concrete_type_id = resolver.get_concrete_type_id(type_id)?;
                 let operand_types = resolver.get_operand_types(concrete_type_id)?;
                 let register_size = operand_types
                     .iter()
@@ -116,7 +116,7 @@ impl<'a> Emitter<'a> {
         } else {
             0
         };
-        let return_type_id = resolver.resolve_type(return_type_id)?;
+        let return_type_id = resolver.get_concrete_type_id(return_type_id)?;
         let return_operand_types = resolver.get_operand_types(return_type_id)?;
         let return_register_count = return_operand_types
             .iter()
@@ -163,7 +163,7 @@ impl<'a> Emitter<'a> {
                 let Definition::Local { type_id, .. } = declaration.definition else {
                     return Err(CompileError::ExpectedLocal);
                 };
-                let concrete_type_id = emitter.resolver.resolve_type(type_id)?;
+                let concrete_type_id = emitter.resolver.get_concrete_type_id(type_id)?;
                 let allocation =
                     emitter.claim_registers(concrete_type_id, RegisterKind::Reserved)?;
 
@@ -407,7 +407,7 @@ impl<'a> Emitter<'a> {
             registers: &mut RegisterClaim::SmallVec,
             emitter: &mut Emitter,
         ) -> Result<(), CompileError> {
-            let type_node = emitter.resolver.types.get_type(type_id)?;
+            let type_node = emitter.resolver.types.get_type(type_id);
 
             let operand_type = match type_node {
                 Type::Never => return Ok(()),
@@ -1572,7 +1572,7 @@ impl<'a> Emitter<'a> {
 
         let type_id = *self.resolver.get_type_binding(&reader.id)?;
         let array_length =
-            if let Type::Array { length, .. } = *self.resolver.types.get_type(type_id)? {
+            if let Type::Array { length, .. } = *self.resolver.types.get_type(type_id) {
                 length
             } else {
                 return Err(CompileError::ExpectedArrayType(type_id));
@@ -1656,7 +1656,7 @@ impl<'a> Emitter<'a> {
             };
 
         let list_type_id = *self.resolver.get_type_binding(&collection.id)?;
-        let list_type = *self.resolver.types.get_type(list_type_id)?;
+        let list_type = *self.resolver.types.get_type(list_type_id);
 
         let (element_type_id, array_length) = match list_type {
             Type::Array {
@@ -1914,7 +1914,7 @@ impl<'a> Emitter<'a> {
         match declaration.definition {
             Definition::Function { .. } => {
                 let type_id = *self.resolver.get_type_binding(&reader.id)?;
-                let callee_type = *self.resolver.types.get_type(type_id)?;
+                let callee_type = *self.resolver.types.get_type(type_id);
                 let type_arguments =
                     if let Type::FunctionDefinition { type_arguments, .. } = callee_type {
                         type_arguments
@@ -1922,7 +1922,7 @@ impl<'a> Emitter<'a> {
                             .map(|index| {
                                 let type_id = *self.resolver.types.get_type_member(index)?;
 
-                                self.resolver.resolve_type(type_id)
+                                self.resolver.get_concrete_type_id(type_id)
                             })
                             .try_collect::<TypeId::SmallVec>()?
                     } else {
@@ -2843,13 +2843,13 @@ impl<'a> Emitter<'a> {
         let parent_type_id = {
             let raw_type_id = self.resolver.get_type_binding(&method_parent.id)?;
 
-            self.resolver.resolve_type(*raw_type_id)?
+            self.resolver.get_concrete_type_id(*raw_type_id)?
         };
 
         let Type::FunctionDefinition {
             declaration_id: method_declaration_id,
             type_arguments,
-        } = *self.resolver.types.get_type(method_type_id)?
+        } = *self.resolver.types.get_type(method_type_id)
         else {
             return Err(CompileError::ExpectedFunctionDefinitionType(method_type_id));
         };
@@ -2872,7 +2872,7 @@ impl<'a> Emitter<'a> {
 
         for index in type_arguments.as_usize_range() {
             let raw_type_argument_id = *self.resolver.types.get_type_member(index)?;
-            let type_argument_id = self.resolver.resolve_type(raw_type_argument_id)?;
+            let type_argument_id = self.resolver.get_concrete_type_id(raw_type_argument_id)?;
 
             type_argument_ids.push(type_argument_id);
         }

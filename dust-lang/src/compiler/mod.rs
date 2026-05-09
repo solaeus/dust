@@ -213,8 +213,9 @@ impl<'src> Compiler<'src> {
             match self.compile_loop(prototype_id, &mut errors) {
                 Ok(type_id) => {
                     if prototype_id == PrototypeId::MAIN {
-                        main_return_type_id =
-                            Some(unwrap_or_return!(self.resolver.resolve_type(type_id)));
+                        main_return_type_id = Some(unwrap_or_return!(
+                            self.resolver.get_concrete_type_id(type_id)
+                        ));
                     }
                 }
                 Err(()) => return Err(errors),
@@ -345,7 +346,8 @@ impl<'src> Compiler<'src> {
             self.resolver.set_prototype(prototype_id, prototype);
         }
 
-        let resolved_return_type_id = unwrap_or_return!(self.resolver.resolve_type(return_type_id));
+        let resolved_return_type_id =
+            unwrap_or_return!(self.resolver.get_concrete_type_id(return_type_id));
 
         Ok(resolved_return_type_id)
     }
