@@ -89,14 +89,34 @@ impl Types {
 
     pub fn resolve_type(&mut self, id: TypeId, resolved_id: TypeId) -> Result<(), CompileError> {
         trace!(
-            "Resolving TypeId {} to {:?}",
-            id.0, &self.types[resolved_id.0 as usize]
+            "Resolving {id:?} to {:?}",
+            &self.types[resolved_id.0 as usize]
         );
 
         let r#type = self.types.get_index_mut2(id.0 as usize);
 
         if let Some(Type::Inferred { resolved, .. }) = r#type {
             *resolved = Some(resolved_id);
+        } else {
+            return Err(CompileError::ExpectedInferredType(id));
+        }
+
+        Ok(())
+    }
+
+    pub fn constrain_inferred_type(
+        &mut self,
+        id: TypeId,
+        constraint: InferredTypeConstraint,
+    ) -> Result<(), CompileError> {
+        let r#type = self.types.get_index_mut2(id.0 as usize);
+
+        if let Some(Type::Inferred {
+            constraint: old_constraint,
+            ..
+        }) = r#type
+        {
+            *old_constraint = Some(constraint);
         } else {
             return Err(CompileError::ExpectedInferredType(id));
         }

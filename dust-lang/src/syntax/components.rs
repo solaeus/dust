@@ -5,8 +5,6 @@ use crate::syntax::{
 };
 
 pub trait SyntaxComponent<'a>: Sized {
-    const SYNTAX_KIND: SyntaxKind;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError>;
 }
 
@@ -15,8 +13,6 @@ pub struct Root<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for Root<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         Ok(Self { items: reader })
     }
@@ -29,8 +25,6 @@ pub struct ModItem<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for ModItem<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::ModItem;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let mut children = reader.children();
 
@@ -48,8 +42,6 @@ pub struct UseItem<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for UseItem<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::UseItem;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let mut children = reader.children();
 
@@ -71,8 +63,6 @@ pub struct FnItem<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for FnItem<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::FunctionItem;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let mut children = reader.children();
 
@@ -117,8 +107,6 @@ pub struct ValueParameters<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for ValueParameters<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::ValueParameters;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug_assert!(reader.node.kind == SyntaxKind::ValueParameters);
 
@@ -137,8 +125,6 @@ pub struct StructItem<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for StructItem<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::StructItem;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug_assert!(reader.node.kind == SyntaxKind::StructItem);
 
@@ -173,8 +159,6 @@ pub struct TupleFields<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for TupleFields<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::TupleFields;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         Ok(Self {
             types: reader.children(),
@@ -187,8 +171,6 @@ pub struct NamedFields<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for NamedFields<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::NamedFields;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         Ok(Self {
             name_type_pairs: reader.child_pairs(),
@@ -204,8 +186,6 @@ pub struct EnumItem<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for EnumItem<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::EnumItem;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let mut children = reader.children();
 
@@ -232,8 +212,6 @@ pub struct EnumUnitVariant<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for EnumUnitVariant<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::EnumUnitVariant;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         Ok(Self { name: reader })
     }
@@ -245,8 +223,6 @@ pub struct EnumItemTupleVariant<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for EnumItemTupleVariant<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::EnumTupleFieldsVariant;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let (name, tuple_fields) = reader.binary_children()?;
 
@@ -260,8 +236,6 @@ pub struct EnumNamedFieldsVariant<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for EnumNamedFieldsVariant<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::EnumNamedFieldsVariant;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let (name, named_fields) = reader.binary_children()?;
 
@@ -277,8 +251,6 @@ pub struct LetStatement<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for LetStatement<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::LetStatement;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let mut children = reader.children();
 
@@ -296,8 +268,6 @@ pub struct ExpressionStatement<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for ExpressionStatement<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::ExpressionStatement;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         Ok(Self {
             expression: reader.single_child()?,
@@ -310,8 +280,6 @@ pub struct BlockExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for BlockExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::BlockExpression;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         Ok(Self {
             children: reader.children(),
@@ -325,8 +293,6 @@ pub struct AssignmentExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for AssignmentExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::AssignmentExpression;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let (target, value) = reader.binary_children()?;
 
@@ -343,8 +309,6 @@ pub struct MathExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for MathExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug_assert!(matches!(
             reader.node.kind,
@@ -374,8 +338,6 @@ pub struct ComparisonExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for ComparisonExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug_assert!(matches!(
             reader.node.kind,
@@ -399,8 +361,6 @@ pub struct LogicExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for LogicExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug_assert!(matches!(
             reader.node.kind,
@@ -418,8 +378,6 @@ pub struct NegationExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for NegationExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         Ok(Self {
             operand: reader.single_child()?,
@@ -432,8 +390,6 @@ pub struct NotExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for NotExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         Ok(Self {
             operand: reader.single_child()?,
@@ -446,8 +402,6 @@ pub struct ArrayExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for ArrayExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         Ok(Self {
             elements: reader.children(),
@@ -461,8 +415,6 @@ pub struct ArrayRepeatExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for ArrayRepeatExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug_assert!(matches!(
             reader.node.kind,
@@ -481,8 +433,6 @@ pub struct IndexExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for IndexExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let (collection, index) = reader.binary_children()?;
 
@@ -496,8 +446,6 @@ pub struct RangeExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for RangeExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug_assert!(matches!(
             reader.node.kind,
@@ -517,8 +465,6 @@ pub struct IfExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for IfExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let mut children = reader.children();
 
@@ -536,8 +482,6 @@ pub struct WhileExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for WhileExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let (condition, body) = reader.binary_children()?;
 
@@ -551,8 +495,6 @@ pub struct CallExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for CallExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::CallExpression;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let (callee, arguments) = reader.binary_children()?;
 
@@ -568,8 +510,6 @@ pub struct MethodCallExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for MethodCallExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::MethodCallExpression;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let mut children = reader.children();
 
@@ -601,8 +541,6 @@ pub struct StructExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for StructExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::StructExpression;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let (path, fields) = reader.binary_children()?;
 
@@ -615,8 +553,6 @@ pub struct StructExpressionStructFields<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for StructExpressionStructFields<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug_assert!(reader.node.kind == SyntaxKind::StructExpressionNamedFields);
 
@@ -631,8 +567,6 @@ pub struct GroupedExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for GroupedExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let expression = if reader.child_count() == 0 {
             None
@@ -650,8 +584,6 @@ pub struct FunctionType<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for FunctionType<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let mut children = reader.children();
 
@@ -670,8 +602,6 @@ pub struct ConstItem<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for ConstItem<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::ConstItem;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let mut children = reader.children();
 
@@ -692,8 +622,6 @@ pub struct TypeItem<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for TypeItem<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::TypeItem;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let mut children = reader.children();
 
@@ -725,8 +653,6 @@ pub struct ImplItem<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for ImplItem<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::ImplItem;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let modifier = reader.node.flags;
         let mut children = reader.children();
@@ -775,8 +701,6 @@ pub struct TraitItem<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for TraitItem<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::TraitItem;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let modifier = reader.node.flags;
         let mut children = reader.children();
@@ -816,8 +740,6 @@ pub struct TypeParameter<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for TypeParameter<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let mut children = reader.children();
 
@@ -833,8 +755,6 @@ pub struct TraitBounds<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for TraitBounds<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         Ok(Self {
             bounds: reader.children(),
@@ -848,8 +768,6 @@ pub struct WherePredicate<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for WherePredicate<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let (bounded_type, bounds) = reader.binary_children()?;
 
@@ -865,8 +783,6 @@ pub struct WhereClause<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for WhereClause<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         Ok(Self {
             predicates: reader.children(),
@@ -880,8 +796,6 @@ pub struct FieldAccessExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for FieldAccessExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug_assert!(matches!(
             reader.node.kind,
@@ -902,8 +816,6 @@ pub struct PathExpression<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for PathExpression<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         Ok(Self {
             segments: reader.children(),
@@ -916,8 +828,6 @@ pub struct PathSegment<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for PathSegment<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         if reader.has_children() {
             Ok(Self {
@@ -937,8 +847,6 @@ pub struct ArrayType<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for ArrayType<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         let (element_type, length) = reader.binary_children()?;
 
@@ -954,8 +862,6 @@ pub struct SliceType<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for SliceType<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         Ok(Self {
             element_type: reader.single_child()?,
@@ -968,8 +874,6 @@ pub struct TupleType<'a> {
 }
 
 impl<'a> SyntaxComponent<'a> for TupleType<'a> {
-    const SYNTAX_KIND: SyntaxKind = SyntaxKind::Root;
-
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         Ok(Self {
             element_types: reader.children(),

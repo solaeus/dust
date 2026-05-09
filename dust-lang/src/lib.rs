@@ -38,13 +38,12 @@ mod allocator {
 }
 
 /// Determines an optimal inline capacity for `SmallVec<T>` based on the size of `T` and the target
-/// platform's pointer size. Given a minimum capacity, it determines if an extra element can be
-/// added without increasing the stack size. If there is no desired minimum, pass 0 as the `MINIMUM`
+/// platform's pointer size. Given a minimum capacity, it determines if extra elements can be added
+/// without increasing the stack size. If there is no desired minimum, pass 0 as the `MINIMUM`
 /// parameter. The returned value is always within `2..=(MINIMUM + 16)`.
 ///
-/// For example, on 64-bit platforms, `optimal_inline_capacity!(u32, 4)` returns 5 because
-/// `SmallVec<[u32; 5]>` has the same stack size as `SmallVec<[u32; 4]>`. This is an unconditional
-/// win over hard coding 4 as the capacity.
+/// For example, on 64-bit platforms, `optimize_inline_capacity::<u32, 4>()` returns 5 because
+/// `SmallVec<[u32; 5]>` has the same stack size as `SmallVec<[u32; 4]>`.
 const fn optimize_inline_capacity<T, const MINIMUM: usize>() -> usize
 where
     [T; MINIMUM]: Array,

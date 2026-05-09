@@ -139,11 +139,19 @@ impl<'a> TypeBinder<'a> {
                             found_position,
                         });
                     }
-                    (Some(_), None) => self.resolver.types.resolve_type(right_id, left_id)?,
-                    (None, Some(_)) => self.resolver.types.resolve_type(left_id, right_id)?,
+                    (Some(bound), None) => self
+                        .resolver
+                        .types
+                        .constrain_inferred_type(left_id, bound)?,
+                    (None, Some(bound)) => self
+                        .resolver
+                        .types
+                        .constrain_inferred_type(right_id, bound)?,
 
                     _ => {}
                 }
+
+                self.resolver.types.resolve_type(left_id, right_id)?;
 
                 Ok(())
             }

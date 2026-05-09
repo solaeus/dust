@@ -401,20 +401,21 @@ impl Resolver {
             if let Some(declaration_id) = self
                 .declarations
                 .find_declaration_id(symbol_id, current_scope_id)
+                .copied()
             {
-                let declaration = self.declarations.get_declaration(*declaration_id);
+                let declaration = self.declarations.get_declaration(declaration_id);
 
                 if crossed_scope_kinds
                     .iter()
                     .any(|scope_kind| scope_kind.is_barrier(&declaration.definition))
                 {
-                    return Err(CompileError::Undeclared {
-                        symbol_id,
+                    return Err(CompileError::DeclarationOutOfScope {
+                        declaration_id,
                         usage_position: path_segment.position(),
                     });
                 }
 
-                return Ok(Some(*declaration_id));
+                return Ok(Some(declaration_id));
             }
 
             let scope = self.scopes.get_scope(current_scope_id);

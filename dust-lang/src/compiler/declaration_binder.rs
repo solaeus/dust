@@ -94,13 +94,17 @@ impl<'a> DeclarationBinder<'a> {
                         .declarations
                         .find_declaration_id(forward_reference.symbol_id, scope_id)
                         .copied()
+                        && declaration_id != forward_reference_id
                     {
-                        let declaration = self.resolver.get_defined_declaration(declaration_id)?;
+                        let declaration =
+                            self.resolver.declarations.get_declaration(declaration_id);
 
                         if crossed_scope_kinds
                             .iter()
                             .any(|scope_kind| scope_kind.is_barrier(&declaration.definition))
                         {
+                            println!("beep");
+
                             return Err(CompileError::Undeclared {
                                 symbol_id: forward_reference.symbol_id,
                                 usage_position: forward_reference.syntax.unwrap().0,
