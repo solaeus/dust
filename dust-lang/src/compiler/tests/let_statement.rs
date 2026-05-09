@@ -46,11 +46,12 @@ fn runtime() {
             },
             Prototype {
                 instructions: vec![
+                    Instruction::r#move(0, OperandType::U_8, Address::new(MemoryKind::ENCODED, 42)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::U_8],
                 register_count: 1,
-                argument_count: 0,
+                argument_count: 1,
             },
         ],
         return_type: DustType::U8
