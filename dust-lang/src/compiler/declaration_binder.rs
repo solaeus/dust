@@ -279,7 +279,7 @@ impl<'a> DeclarationBinder<'a> {
             self.resolver
                 .add_declaration_binding(name.id, module_declaration_id);
 
-            let module_root = self.syntax.get_tree(module_source_id)?.root()?;
+            let module_root = self.syntax.get_tree(module_source_id)?.read_root()?;
 
             self.bind_root(module_root)?;
             self.exit_scope();
@@ -875,7 +875,7 @@ impl<'a> DeclarationBinder<'a> {
             trait_path,
             self_name,
             type_arguments,
-            where_clause,
+            where_clause: _,
             body,
         } = reader.as_component()?;
 

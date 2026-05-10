@@ -97,6 +97,9 @@ pub enum SyntaxKind {
     RangeExpression,
     RangeInclusiveExpression,
 
+    // Other expressions
+    GroupedExpression,
+    BlockExpression,
     CallExpression,
     MethodCallExpression,
     FieldAccessExpression,
@@ -106,8 +109,6 @@ pub enum SyntaxKind {
     BreakExpression,
     AsExpression,
     StructExpression,
-    GroupedExpression,
-    BlockExpression,
 
     // Paths
     Path,
@@ -159,7 +160,6 @@ pub enum SyntaxKind {
     CharacterType,
     StringType,
     ArrayType,
-    SliceType,
     FunctionType,
     FunctionTypeValueParameterTypes,
     NeverType,
@@ -385,7 +385,6 @@ impl SyntaxKind {
             SyntaxKind::Root => "root",
             SyntaxKind::SelfType => "self type",
             SyntaxKind::SimplePath => "simple path",
-            SyntaxKind::SliceType => "slice type",
             SyntaxKind::StringExpression => "string expression",
             SyntaxKind::StringType => "string type",
             SyntaxKind::MethodCallExpression => "method call expression",

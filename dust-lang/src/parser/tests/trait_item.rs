@@ -1,7 +1,7 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{
         SyntaxId,
         node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
@@ -10,10 +10,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"trait Foo {}"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"trait Foo {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -22,7 +19,7 @@ fn empty() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 12), SyntaxId(3)),
             TraitItem.with_binary_children(Span::new(0, 12), SyntaxId(1), SyntaxId(2)),
@@ -34,10 +31,7 @@ fn empty() {
 
 #[test]
 fn with_supertraits() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"trait Foo: Bar + Baz {}"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"trait Foo: Bar + Baz {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -46,7 +40,7 @@ fn with_supertraits() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
             TraitItem
@@ -65,10 +59,9 @@ fn with_supertraits() {
 
 #[test]
 fn with_type_parameters_and_supertraits() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"trait Foo<T>: Bar + Baz {}"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"trait Foo<T>: Bar + Baz {}",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -77,7 +70,7 @@ fn with_type_parameters_and_supertraits() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(11)),
             TraitItem
@@ -99,10 +92,9 @@ fn with_type_parameters_and_supertraits() {
 
 #[test]
 fn with_where_clause() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"trait Foo<T> where T: Bar {}"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"trait Foo<T> where T: Bar {}",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -111,7 +103,7 @@ fn with_where_clause() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 28), SyntaxId(13)),
             TraitItem
@@ -135,10 +127,9 @@ fn with_where_clause() {
 
 #[test]
 fn with_const_member() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"trait Foo { const X: i64; }"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"trait Foo { const X: i64; }",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -147,7 +138,7 @@ fn with_const_member() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 27), SyntaxId(6)),
             TraitItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(5)),
@@ -162,10 +153,9 @@ fn with_const_member() {
 
 #[test]
 fn with_const_member_default() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"trait Foo { const X: i64 = 42; }"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"trait Foo { const X: i64 = 42; }",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -174,7 +164,7 @@ fn with_const_member_default() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 32), SyntaxId(7)),
             TraitItem.with_binary_children(Span::new(0, 32), SyntaxId(1), SyntaxId(6)),
@@ -190,10 +180,9 @@ fn with_const_member_default() {
 
 #[test]
 fn with_method_signature() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"trait Foo { fn bar(self); }"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"trait Foo { fn bar(self); }",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -202,7 +191,7 @@ fn with_method_signature() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 27), SyntaxId(6)),
             TraitItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(5)),
@@ -221,10 +210,9 @@ fn with_method_signature() {
 
 #[test]
 fn with_default_method() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"trait Foo { fn bar(self) {} }"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"trait Foo { fn bar(self) {} }",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -233,7 +221,7 @@ fn with_default_method() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 29), SyntaxId(7)),
             TraitItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(6)),
@@ -253,10 +241,9 @@ fn with_default_method() {
 
 #[test]
 fn with_method_signature_and_return_type() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"trait Foo { fn bar(self) -> i64; }"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"trait Foo { fn bar(self) -> i64; }",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -265,7 +252,7 @@ fn with_method_signature_and_return_type() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 34), SyntaxId(7)),
             TraitItem.with_binary_children(Span::new(0, 34), SyntaxId(1), SyntaxId(6)),
@@ -285,10 +272,7 @@ fn with_method_signature_and_return_type() {
 
 #[test]
 fn with_type_member() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"trait Foo { type Bar; }"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"trait Foo { type Bar; }"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -297,7 +281,7 @@ fn with_type_member() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(5)),
             TraitItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(4)),
@@ -311,10 +295,9 @@ fn with_type_member() {
 
 #[test]
 fn with_type_member_default() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"trait Foo { type Bar = i64; }"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"trait Foo { type Bar = i64; }",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -323,7 +306,7 @@ fn with_type_member_default() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 29), SyntaxId(6)),
             TraitItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(5)),

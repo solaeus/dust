@@ -1,7 +1,7 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{
         SyntaxId,
         node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
@@ -10,10 +10,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"struct Foo {}"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"struct Foo {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -22,7 +19,7 @@ fn empty() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 13), SyntaxId(3)),
             StructItem
@@ -36,10 +33,7 @@ fn empty() {
 
 #[test]
 fn tuple() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"struct Foo(i64, i64);"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"struct Foo(i64, i64);"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -48,7 +42,7 @@ fn tuple() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 21), SyntaxId(5)),
             StructItem
@@ -64,10 +58,9 @@ fn tuple() {
 
 #[test]
 fn fields() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"struct Foo { x: i64, y: i64 }"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"struct Foo { x: i64, y: i64 }",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -76,7 +69,7 @@ fn fields() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 29), SyntaxId(7)),
             StructItem
@@ -94,10 +87,7 @@ fn fields() {
 
 #[test]
 fn type_parameters() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"struct Foo<A, B, C> {}"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"struct Foo<A, B, C> {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -106,7 +96,7 @@ fn type_parameters() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 22), SyntaxId(10)),
             StructItem

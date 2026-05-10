@@ -18,14 +18,14 @@ use crate::{
     syntax::{
         SyntaxId,
         node::{SyntaxChildren, SyntaxChildrenKind, SyntaxFlags, SyntaxKind, SyntaxNode},
-        tree::SyntaxTree,
+        tree::{SyntaxTree, SyntaxTreeBuilder},
     },
     token::{Token, TokenKind},
 };
 
 pub fn parse(source_code: &str) -> (SyntaxTree, Vec<ParseError>) {
     let lexer = Lexer::with_validated_source(source_code);
-    let parser = Parser::new(SourceCodeId::MAIN, lexer);
+    let parser = Parser::new_standalone(lexer);
     let ParseResult {
         syntax_tree,
         errors,
@@ -41,7 +41,7 @@ pub struct Parser<'src> {
     current_token: Token,
     previous_token: Token,
 
-    tree: SyntaxTree,
+    tree: SyntaxTreeBuilder,
     child_buffer: Vec<SyntaxId>,
     file_module_names: Vec<Span>,
 
@@ -49,10 +49,10 @@ pub struct Parser<'src> {
 }
 
 impl<'src> Parser<'src> {
-    pub fn new(source_id: SourceCodeId, lexer: Lexer<'src>) -> Self {
+    pub fn new(source_id: SourceCodeId, next_syntax_id: SyntaxId, lexer: Lexer<'src>) -> Self {
         Self {
             lexer,
-            tree: SyntaxTree::new(source_id),
+            tree: SyntaxTreeBuilder::new(source_id, next_syntax_id),
             current_token: Token {
                 kind: TokenKind::Unknown,
                 span: Span::empty(),
@@ -65,6 +65,10 @@ impl<'src> Parser<'src> {
             errors: Vec::new(),
             child_buffer: Vec::with_capacity(16),
         }
+    }
+
+    pub fn new_standalone(lexer: Lexer<'src>) -> Self {
+        Self::new(SourceCodeId::MAIN, SyntaxId::ROOT, lexer)
     }
 
     pub fn parse(mut self) -> ParseResult {
@@ -82,7 +86,7 @@ impl<'src> Parser<'src> {
         }
 
         ParseResult {
-            syntax_tree: self.tree,
+            syntax_tree: self.tree.build(),
             errors: self.errors,
             file_module_names: self.file_module_names,
         }
@@ -1316,37 +1320,19 @@ impl<'src> Parser<'src> {
                 let element_type_node = self.expect_type()?;
                 let element_type_id = self.tree.add_node(element_type_node);
 
-                match self.current_token.kind {
-                    TokenKind::Semicolon => {
-                        self.advance();
-                        self.expect(TokenKind::IntegerLiteral)?;
+                self.expect(TokenKind::Semicolon)?;
+                self.expect(TokenKind::IntegerLiteral)?;
 
-                        let length_node =
-                            SyntaxKind::IntegerExpression.empty(self.previous_token.span);
-                        let length_id = self.tree.add_node(length_node);
+                let length_node = SyntaxKind::IntegerExpression.empty(self.previous_token.span);
+                let length_id = self.tree.add_node(length_node);
 
-                        self.expect(TokenKind::RightSquareBracket)?;
+                self.expect(TokenKind::RightSquareBracket)?;
 
-                        Ok(SyntaxKind::ArrayType.with_binary_children(
-                            Span::new(start, self.previous_token.span.end()),
-                            element_type_id,
-                            length_id,
-                        ))
-                    }
-                    TokenKind::RightSquareBracket => {
-                        self.advance();
-
-                        Ok(SyntaxKind::SliceType.with_single_child(
-                            Span::new(start, self.previous_token.span.end()),
-                            element_type_id,
-                        ))
-                    }
-                    _ => Err(ParseError::ExpectedMultipleTokens {
-                        expected: &[TokenKind::Semicolon, TokenKind::RightSquareBracket],
-                        found: self.current_token.kind,
-                        position: self.current_position(),
-                    }),
-                }
+                Ok(SyntaxKind::ArrayType.with_binary_children(
+                    Span::new(start, self.previous_token.span.end()),
+                    element_type_id,
+                    length_id,
+                ))
             }
             TokenKind::Fn => {
                 let start = self.current_token.span.start();

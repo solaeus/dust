@@ -1,7 +1,7 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{
         SyntaxId,
         node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
@@ -10,10 +10,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"impl Foo {}"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"impl Foo {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -22,7 +19,7 @@ fn empty() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 11), SyntaxId(4)),
             ImplItem.with_binary_children(Span::new(0, 11), SyntaxId(2), SyntaxId(3)),
@@ -35,10 +32,9 @@ fn empty() {
 
 #[test]
 fn with_function() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"impl Foo { fn bar(self) {} }"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"impl Foo { fn bar(self) {} }",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -47,7 +43,7 @@ fn with_function() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 28), SyntaxId(8)),
             ImplItem.with_binary_children(Span::new(0, 28), SyntaxId(2), SyntaxId(7)),
@@ -68,10 +64,9 @@ fn with_function() {
 
 #[test]
 fn with_pub_function() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"impl Foo { pub fn bar(self) {} }"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"impl Foo { pub fn bar(self) {} }",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -80,7 +75,7 @@ fn with_pub_function() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 32), SyntaxId(8)),
             ImplItem.with_binary_children(Span::new(0, 32), SyntaxId(2), SyntaxId(7)),
@@ -101,10 +96,7 @@ fn with_pub_function() {
 
 #[test]
 fn trait_impl() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"impl Bar for Foo {}"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"impl Bar for Foo {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -113,7 +105,7 @@ fn trait_impl() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 19), SyntaxId(6)),
             ImplItem
@@ -130,10 +122,9 @@ fn trait_impl() {
 
 #[test]
 fn with_where_clause() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"impl Foo where Foo: Bar {}"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"impl Foo where Foo: Bar {}",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -142,7 +133,7 @@ fn with_where_clause() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(11)),
             ImplItem

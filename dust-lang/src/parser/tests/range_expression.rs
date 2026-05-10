@@ -1,17 +1,14 @@
-use crate::function_wrapper;
 use crate::{
+    function_wrapper,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn exclusive() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("1..10")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("1..10")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -20,7 +17,7 @@ fn exclusive() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(6)),
             FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(5)),
@@ -35,10 +32,8 @@ fn exclusive() {
 
 #[test]
 fn inclusive() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("1..=10")),
-    );
+    let parser =
+        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("1..=10")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -47,7 +42,7 @@ fn inclusive() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(6)),
             FunctionItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(5)),

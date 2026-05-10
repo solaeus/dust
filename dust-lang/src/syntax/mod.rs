@@ -38,9 +38,10 @@ impl Syntax {
     pub fn add_tree(&mut self, tree: SyntaxTree) {
         let index = tree.source_id.inner() as usize;
 
-        while self.trees.len() <= index {
-            self.trees.push(SyntaxTree::placeholder());
-        }
+        debug_assert!(
+            index < self.trees.len(),
+            "SyntaxTrees must be added in order by SourceId"
+        );
 
         self.trees[index] = tree;
     }
@@ -62,9 +63,6 @@ impl SyntaxId {
     /// ID of the root node of a syntax tree, which is always 0 because nodes are added in lexical
     /// order.
     pub const ROOT: SyntaxId = SyntaxId(0);
-
-    /// ID representing the absence of a syntax node.
-    pub const NONE: SyntaxId = SyntaxId(u32::MAX);
 
     pub fn inner(&self) -> u32 {
         self.0

@@ -1,18 +1,19 @@
-use crate::function_wrapper;
-use crate::syntax::node::SyntaxFlags;
 use crate::{
+    function_wrapper,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
-    syntax::{SyntaxId, node::SyntaxKind::*},
+    source::Span,
+    syntax::{
+        SyntaxId,
+        node::{SyntaxFlags, SyntaxKind::*},
+    },
 };
 
 #[test]
 fn while_expression() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("while x { y }")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "while x { y }"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -21,7 +22,7 @@ fn while_expression() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 31), SyntaxId(9)),
             FunctionItem.with_binary_children(Span::new(0, 31), SyntaxId(1), SyntaxId(8)),
@@ -39,10 +40,9 @@ fn while_expression() {
 
 #[test]
 fn break_empty() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("while true { break; }")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "while true { break; }"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -51,7 +51,7 @@ fn break_empty() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 39), SyntaxId(7)),
             FunctionItem.with_binary_children(Span::new(0, 39), SyntaxId(1), SyntaxId(6)),
@@ -69,10 +69,9 @@ fn break_empty() {
 
 #[test]
 fn break_with_value() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("while true { break 42 }")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "while true { break 42 }"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -81,7 +80,7 @@ fn break_with_value() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 41), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 41), SyntaxId(1), SyntaxId(7)),

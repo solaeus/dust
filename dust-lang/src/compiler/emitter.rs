@@ -1041,8 +1041,6 @@ impl<'a> Emitter<'a> {
                 Ok(return_instructions)
             }
             Emission::Place(Place::Registers(emission_registers)) => {
-                debug_assert_eq!(emission_registers, registers);
-
                 let mut return_instructions = Instructions::new();
 
                 if emission_registers.kind != RegisterKind::Reserved {
@@ -2892,7 +2890,7 @@ impl<'a> Emitter<'a> {
         } else {
             let parent_registers = self.claim_registers(parent_type_id, RegisterKind::Temporary)?;
 
-            for (offset, register) in parent_registers.claims.iter().enumerate() {
+            for (_offset, register) in parent_registers.claims.iter().enumerate() {
                 let move_instruction =
                     Instruction::r#move(register.index, register.operand_type, parent);
 
@@ -2946,7 +2944,7 @@ impl<'a> Emitter<'a> {
                 let argument_allocation =
                     self.claim_registers(argument_type_id, RegisterKind::Temporary)?;
 
-                for (offset, register) in argument_allocation.claims.iter().enumerate() {
+                for (_offset, register) in argument_allocation.claims.iter().enumerate() {
                     let move_instruction = Instruction::r#move(
                         register.index,
                         register.operand_type,

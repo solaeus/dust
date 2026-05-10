@@ -1,17 +1,16 @@
-use crate::function_wrapper;
 use crate::{
+    function_wrapper,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn addition_and_multiplication() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("a + b * c")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "a + b * c"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -20,7 +19,7 @@ fn addition_and_multiplication() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 27), SyntaxId(11)),
             FunctionItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(10)),
@@ -44,10 +43,9 @@ fn addition_and_multiplication() {
 
 #[test]
 fn right_associative_exponentiation() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("a ^ b ^ c")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "a ^ b ^ c"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -56,7 +54,7 @@ fn right_associative_exponentiation() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 27), SyntaxId(11)),
             FunctionItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(10)),

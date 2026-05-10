@@ -2,16 +2,14 @@ use crate::{
     function_wrapper,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn assignment_expression() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x = 42;")),
-    );
+    let parser =
+        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x = 42;")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -20,7 +18,7 @@ fn assignment_expression() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 25), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 25), SyntaxId(1), SyntaxId(7)),

@@ -4,7 +4,7 @@ use crate::{
     compiler::{
         error::CompileError,
         resolver::{
-            self, Resolver,
+            Resolver,
             declarations::{DeclarationId, Definition, VariantKind},
             types::{InferredTypeConstraint, Type, TypeId, TypeMembers},
         },
@@ -201,7 +201,7 @@ impl<'a> TypeBinder<'a> {
             (
                 _,
                 Type::Inferred {
-                    inferred_id,
+                    inferred_id: _,
                     constraint,
                     resolved: None,
                 },

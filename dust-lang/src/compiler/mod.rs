@@ -31,7 +31,7 @@ use crate::{
     parser::{ParseResult, Parser},
     program::Program,
     source::{Source, SourceCodeId},
-    syntax::{Syntax, components::FnItem, node::SyntaxKind},
+    syntax::{Syntax, SyntaxId, components::FnItem, node::SyntaxKind},
 };
 
 pub struct Compiler<'src> {
@@ -130,7 +130,7 @@ impl<'src> Compiler<'src> {
                 } else {
                     Lexer::with_unvalidated_source(file.content_as_bytes())
                 };
-                let parser = Parser::new(source_id, lexer);
+                let parser = Parser::new(source_id, SyntaxId::ROOT, lexer);
                 let ParseResult {
                     syntax_tree,
                     errors: parse_errors,
@@ -153,7 +153,7 @@ impl<'src> Compiler<'src> {
             let main_file_root = unwrap_or_return!(
                 self.syntax
                     .get_tree(SourceCodeId::MAIN)
-                    .and_then(|tree| tree.root())
+                    .and_then(|tree| tree.read_root())
             );
 
             let mut declaration_binder = DeclarationBinder::new(

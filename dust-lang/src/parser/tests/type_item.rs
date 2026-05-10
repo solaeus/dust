@@ -1,7 +1,7 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{
         SyntaxId,
         node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
@@ -10,10 +10,7 @@ use crate::{
 
 #[test]
 fn simple() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"type Foo = i64;"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"type Foo = i64;"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -22,7 +19,7 @@ fn simple() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 15), SyntaxId(3)),
             TypeItem.with_binary_children(Span::new(0, 15), SyntaxId(1), SyntaxId(2)),
@@ -34,10 +31,7 @@ fn simple() {
 
 #[test]
 fn with_type_parameters() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"type Foo<T> = T;"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"type Foo<T> = T;"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -46,7 +40,7 @@ fn with_type_parameters() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 16), SyntaxId(7)),
             TypeItem

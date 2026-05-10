@@ -10,7 +10,12 @@ use crate::{
 #[test]
 fn constant() {
     assert_program_eq!(
-        "fn main() -> u8 { let x = 42; x }",
+        "
+            fn main() -> u8 {
+                let x = 42;
+                x
+            }
+        ",
         prototypes: [
             Prototype {
                 instructions: vec![
@@ -29,9 +34,12 @@ fn constant() {
 #[test]
 fn runtime() {
     assert_program_eq!(
-        r"
-            fn main() -> u8 { foo(42) }
-            fn foo(x: u8) -> u8 { let y = x; y }
+        "
+            fn main() -> u8 {
+                let mut x = 42;
+                let y = x;
+                y
+            }
         ",
         prototypes: [
             Prototype {
@@ -46,7 +54,7 @@ fn runtime() {
             },
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::U_8, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#move(0, OperandType::U_8, Address::new(MemoryKind::REGISTER, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::U_8],

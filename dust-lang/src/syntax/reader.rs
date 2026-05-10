@@ -341,7 +341,7 @@ mod tests {
 
         assert!(errors.is_empty());
 
-        let root = syntax_tree.root().unwrap();
+        let root = syntax_tree.read_root().unwrap();
         let mut forward_tree = root.children().collect::<Vec<_>>().into_iter();
         let mut backward_tree = root.children().rev().collect::<Vec<_>>().into_iter();
 

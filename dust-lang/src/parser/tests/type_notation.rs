@@ -1,7 +1,6 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::SourceCodeId,
 };
 
 #[test]
@@ -28,16 +27,12 @@ fn type_notations() {
         "type Foo = Bar;",
         "type Foo = Bar<i32>;",
         "type Foo = [i32; 3];",
-        "type Foo = [i32];",
         "type Foo = (i32, bool);",
         "type Foo = fn(i32) -> bool;",
     ];
 
     for source in cases {
-        let parser = Parser::new(
-            SourceCodeId::MAIN,
-            Lexer::with_unvalidated_source(source.as_bytes()),
-        );
+        let parser = Parser::new_standalone(Lexer::with_unvalidated_source(source.as_bytes()));
         let ParseResult { errors, .. } = parser.parse();
 
         assert!(errors.is_empty(), "{source}: {errors:#?}");

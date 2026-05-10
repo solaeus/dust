@@ -4,7 +4,6 @@ use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use dust_lang::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::SourceCodeId,
 };
 
 const BENCHES: [(&str, usize); 3] = [
@@ -14,7 +13,7 @@ const BENCHES: [(&str, usize); 3] = [
 ];
 
 const SOURCE: [u8; 1000] = *br#"
-fn foobar_foobar_foobar() {
+fn foobar_bazbuz_qux() {
     let mut i = 0;
 
     while i < 5_000 {
@@ -38,7 +37,7 @@ struct Foo<T> {
     wendy: bool,
     xavier: char,
     yvonne: str,
-    mallory: [T],
+    mallory: [T; 4],
 }
 
 enum Color {
@@ -84,7 +83,7 @@ fn main() {
 
 fn parse_bench(source: &[u8]) {
     let ParseResult { errors, .. } =
-        Parser::new(SourceCodeId::MAIN, Lexer::with_unvalidated_source(source)).parse();
+        Parser::new_standalone(Lexer::with_unvalidated_source(source)).parse();
 
     assert!(errors.is_empty(), "{errors:#?}");
 }

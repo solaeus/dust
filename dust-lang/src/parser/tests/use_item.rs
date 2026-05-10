@@ -1,16 +1,13 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn use_item() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"use foo;"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"use foo;"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -19,7 +16,7 @@ fn use_item() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 8), SyntaxId(3)),
             UseItem.with_single_child(Span::new(0, 8), SyntaxId(2)),

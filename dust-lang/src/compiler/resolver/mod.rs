@@ -1434,7 +1434,7 @@ impl Resolver {
             }
             Type::FunctionDefinition {
                 declaration_id,
-                type_arguments,
+                type_arguments: _,
             } => {
                 let declaration = self.declarations.get_declaration(*declaration_id);
 
@@ -1442,7 +1442,7 @@ impl Resolver {
                     Definition::Function {
                         value_parameters,
                         return_type_id,
-                        type_parameters,
+                        type_parameters: _,
                         ..
                     } => {
                         let value_parameters = if let Some(value_parameters) = *value_parameters {
@@ -1477,9 +1477,9 @@ impl Resolver {
                         })))
                     }
                     Definition::NativeFunction {
-                        value_parameters,
-                        return_type_id,
-                        type_parameters,
+                        value_parameters: _,
+                        return_type_id: _,
+                        type_parameters: _,
                         ..
                     } => {
                         todo!()

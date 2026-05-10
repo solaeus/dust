@@ -4,7 +4,7 @@ use dust_lang::{
     error::{Error, ErrorContext, ErrorKind},
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    syntax::tree::SyntaxTree,
+    syntax::{SyntaxId, tree::SyntaxTree},
 };
 use ron::ser::PrettyConfig;
 
@@ -30,6 +30,7 @@ pub fn handle_parse_command(command: ParseCommand) {
     let source = build_source(input);
 
     let mut parse_errors = Vec::new();
+    let mut next_syntax_id = SyntaxId::ROOT;
 
     for (source_id, file) in source.iter() {
         let lexer = if file.utf8_validated() {
@@ -37,12 +38,13 @@ pub fn handle_parse_command(command: ParseCommand) {
         } else {
             Lexer::with_unvalidated_source(file.content_as_bytes())
         };
-        let parser = Parser::new(source_id, lexer);
+        let parser = Parser::new(source_id, next_syntax_id, lexer);
         let ParseResult {
             syntax_tree,
             errors,
             ..
         } = parser.parse();
+        next_syntax_id = syntax_tree.next_syntax_id();
 
         handle_output(&syntax_tree, debug, ron, pretty_ron, postcard, trees);
         parse_errors.extend(errors.into_iter().map(ErrorKind::Parse));

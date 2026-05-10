@@ -1,21 +1,19 @@
-use crate::function_wrapper;
-use crate::syntax::node::SyntaxFlags;
 use crate::{
+    function_wrapper,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{
         SyntaxId,
-        node::{SyntaxChildren, SyntaxKind::*},
+        node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
     },
 };
 
 #[test]
 fn let_statement() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("let x = 42;")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "let x = 42;"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -24,7 +22,7 @@ fn let_statement() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 29), SyntaxId(6)),
             FunctionItem.with_binary_children(Span::new(0, 29), SyntaxId(1), SyntaxId(5)),
@@ -39,10 +37,9 @@ fn let_statement() {
 
 #[test]
 fn let_statement_with_type() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("let x: i64 = 42;")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "let x: i64 = 42;"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -51,7 +48,7 @@ fn let_statement_with_type() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 34), SyntaxId(7)),
             FunctionItem.with_binary_children(Span::new(0, 34), SyntaxId(1), SyntaxId(6)),
@@ -67,10 +64,9 @@ fn let_statement_with_type() {
 
 #[test]
 fn let_mut_statement() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("let mut x = 42;")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "let mut x = 42;"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -79,7 +75,7 @@ fn let_mut_statement() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(6)),
             FunctionItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(5)),
@@ -96,10 +92,9 @@ fn let_mut_statement() {
 
 #[test]
 fn let_mut_statement_with_type() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("let mut x: i64 = 42;")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "let mut x: i64 = 42;"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -108,7 +103,7 @@ fn let_mut_statement_with_type() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 38), SyntaxId(7)),
             FunctionItem.with_binary_children(Span::new(0, 38), SyntaxId(1), SyntaxId(6)),

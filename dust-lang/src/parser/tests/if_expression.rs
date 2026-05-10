@@ -1,8 +1,8 @@
-use crate::function_wrapper;
 use crate::{
+    function_wrapper,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{
         SyntaxId,
         node::{SyntaxChildren, SyntaxKind::*},
@@ -11,10 +11,9 @@ use crate::{
 
 #[test]
 fn r#if() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("if condition { x + y }")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "if condition { x + y }"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -23,7 +22,7 @@ fn r#if() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 40), SyntaxId(12)),
             FunctionItem.with_binary_children(Span::new(0, 40), SyntaxId(1), SyntaxId(11)),
@@ -44,10 +43,9 @@ fn r#if() {
 
 #[test]
 fn if_else() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("if condition { x + y } else { x - y }")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "if condition { x + y } else { x - y }"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -56,7 +54,7 @@ fn if_else() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 55), SyntaxId(18)),
             FunctionItem.with_binary_children(Span::new(0, 55), SyntaxId(1), SyntaxId(17)),
@@ -87,12 +85,9 @@ fn if_else() {
 
 #[test]
 fn if_else_if() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!(
-            "if left { x + y } else if right { x - y } else { x * y }"
-        )),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "if left { x + y } else if right { x - y } else { x * y }"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -101,7 +96,7 @@ fn if_else_if() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 74), SyntaxId(27)),
             FunctionItem.with_binary_children(Span::new(0, 74), SyntaxId(1), SyntaxId(26)),

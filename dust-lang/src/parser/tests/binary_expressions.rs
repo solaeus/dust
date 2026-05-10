@@ -1,17 +1,14 @@
-use crate::function_wrapper;
 use crate::{
+    function_wrapper,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn addition() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x + y")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x + y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -20,7 +17,7 @@ fn addition() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
@@ -37,10 +34,7 @@ fn addition() {
 
 #[test]
 fn subtraction() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x - y")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x - y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -49,7 +43,7 @@ fn subtraction() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
@@ -66,10 +60,7 @@ fn subtraction() {
 
 #[test]
 fn multiplication() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x * y")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x * y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -78,7 +69,7 @@ fn multiplication() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
@@ -99,10 +90,7 @@ fn multiplication() {
 
 #[test]
 fn division() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x / y")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x / y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -111,7 +99,7 @@ fn division() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
@@ -128,10 +116,7 @@ fn division() {
 
 #[test]
 fn modulo() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x % y")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x % y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -140,7 +125,7 @@ fn modulo() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
@@ -157,10 +142,7 @@ fn modulo() {
 
 #[test]
 fn power() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x ^ y")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x ^ y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -169,7 +151,7 @@ fn power() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
@@ -186,10 +168,8 @@ fn power() {
 
 #[test]
 fn equal() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x == y")),
-    );
+    let parser =
+        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x == y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -198,7 +178,7 @@ fn equal() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
@@ -215,10 +195,8 @@ fn equal() {
 
 #[test]
 fn not_equal() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x != y")),
-    );
+    let parser =
+        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x != y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -227,7 +205,7 @@ fn not_equal() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
@@ -244,10 +222,7 @@ fn not_equal() {
 
 #[test]
 fn less_than() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x < y")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x < y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -256,7 +231,7 @@ fn less_than() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
@@ -273,10 +248,8 @@ fn less_than() {
 
 #[test]
 fn less_than_or_equal() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x <= y")),
-    );
+    let parser =
+        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x <= y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -285,7 +258,7 @@ fn less_than_or_equal() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
@@ -306,10 +279,7 @@ fn less_than_or_equal() {
 
 #[test]
 fn greater_than() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x > y")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x > y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -318,7 +288,7 @@ fn greater_than() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 23), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 23), SyntaxId(1), SyntaxId(7)),
@@ -335,10 +305,8 @@ fn greater_than() {
 
 #[test]
 fn greater_than_or_equal() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x >= y")),
-    );
+    let parser =
+        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x >= y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -347,7 +315,7 @@ fn greater_than_or_equal() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
@@ -368,10 +336,8 @@ fn greater_than_or_equal() {
 
 #[test]
 fn logical_and() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x && y")),
-    );
+    let parser =
+        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x && y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -380,7 +346,7 @@ fn logical_and() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),
@@ -397,10 +363,8 @@ fn logical_and() {
 
 #[test]
 fn logical_or() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x || y")),
-    );
+    let parser =
+        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x || y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -409,7 +373,7 @@ fn logical_or() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 24), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 24), SyntaxId(1), SyntaxId(7)),

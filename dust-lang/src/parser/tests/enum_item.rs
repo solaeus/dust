@@ -1,7 +1,7 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{
         SyntaxId,
         node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
@@ -10,10 +10,7 @@ use crate::{
 
 #[test]
 fn empty_variant() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"enum Foo { Bar }"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"enum Foo { Bar }"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -22,7 +19,7 @@ fn empty_variant() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 16), SyntaxId(4)),
             EnumItem.with_binary_children(Span::new(0, 16), SyntaxId(1), SyntaxId(3)),
@@ -35,10 +32,9 @@ fn empty_variant() {
 
 #[test]
 fn tuple_variant() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"enum Foo { Bar(i64, i64) }"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"enum Foo { Bar(i64, i64) }",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -47,7 +43,7 @@ fn tuple_variant() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(8)),
             EnumItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
@@ -68,10 +64,9 @@ fn tuple_variant() {
 
 #[test]
 fn fields_variant() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"enum Foo { Bar { x: i64, y: i64 } }"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"enum Foo { Bar { x: i64, y: i64 } }",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -80,7 +75,7 @@ fn fields_variant() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 35), SyntaxId(10)),
             EnumItem.with_binary_children(Span::new(0, 35), SyntaxId(1), SyntaxId(9)),
@@ -103,10 +98,9 @@ fn fields_variant() {
 
 #[test]
 fn mixed_variants() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"enum Foo { Bar, Baz(i64), Qux { x: i64 } }"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"enum Foo { Bar, Baz(i64), Qux { x: i64 } }",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -115,7 +109,7 @@ fn mixed_variants() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 42), SyntaxId(13)),
             EnumItem.with_binary_children(Span::new(0, 42), SyntaxId(1), SyntaxId(12)),
@@ -145,10 +139,8 @@ fn mixed_variants() {
 
 #[test]
 fn type_parameters() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"enum Foo<A, B, C> { Bar }"),
-    );
+    let parser =
+        Parser::new_standalone(Lexer::with_unvalidated_source(b"enum Foo<A, B, C> { Bar }"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -157,7 +149,7 @@ fn type_parameters() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 25), SyntaxId(11)),
             EnumItem

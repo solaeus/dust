@@ -1,7 +1,7 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{
         SyntaxId,
         node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
@@ -10,10 +10,7 @@ use crate::{
 
 #[test]
 fn simple() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"const X: i64 = 42;"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"const X: i64 = 42;"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -22,7 +19,7 @@ fn simple() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 18), SyntaxId(4)),
             ConstItem.with_children(Span::new(0, 18), SyntaxChildren::new(0, 3)),
@@ -35,10 +32,7 @@ fn simple() {
 
 #[test]
 fn pub_const() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"pub const X: i64 = 42;"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"pub const X: i64 = 42;"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -47,7 +41,7 @@ fn pub_const() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 22), SyntaxId(4)),
             ConstItem

@@ -2,16 +2,15 @@ use crate::{
     function_wrapper,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn call_with_two_arguments() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("foo(1, 2)")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "foo(1, 2)"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -20,7 +19,7 @@ fn call_with_two_arguments() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 27), SyntaxId(9)),
             FunctionItem.with_binary_children(Span::new(0, 27), SyntaxId(1), SyntaxId(8)),

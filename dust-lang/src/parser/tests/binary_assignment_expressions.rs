@@ -1,17 +1,16 @@
-use crate::function_wrapper;
 use crate::{
+    function_wrapper,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn add_assign() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x += 42;")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "x += 42;"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -20,7 +19,7 @@ fn add_assign() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
@@ -41,10 +40,9 @@ fn add_assign() {
 
 #[test]
 fn subtract_assign() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x -= 42;")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "x -= 42;"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -53,7 +51,7 @@ fn subtract_assign() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
@@ -74,10 +72,9 @@ fn subtract_assign() {
 
 #[test]
 fn multiply_assign() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x *= 42;")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "x *= 42;"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -86,7 +83,7 @@ fn multiply_assign() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
@@ -107,10 +104,9 @@ fn multiply_assign() {
 
 #[test]
 fn divide_assign() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x /= 42;")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "x /= 42;"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -119,7 +115,7 @@ fn divide_assign() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
@@ -140,10 +136,9 @@ fn divide_assign() {
 
 #[test]
 fn modulo_assign() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x %= 42;")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "x %= 42;"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -152,7 +147,7 @@ fn modulo_assign() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),
@@ -173,10 +168,9 @@ fn modulo_assign() {
 
 #[test]
 fn power_assign() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("x ^= 42;")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "x ^= 42;"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -185,7 +179,7 @@ fn power_assign() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(7)),

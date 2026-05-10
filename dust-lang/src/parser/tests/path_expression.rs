@@ -1,17 +1,14 @@
-use crate::function_wrapper;
 use crate::{
+    function_wrapper,
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn simple() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("foo")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("foo")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -20,7 +17,7 @@ fn simple() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 21), SyntaxId(5)),
             FunctionItem.with_binary_children(Span::new(0, 21), SyntaxId(1), SyntaxId(4)),
@@ -34,10 +31,9 @@ fn simple() {
 
 #[test]
 fn multi_segment() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("foo::bar")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "foo::bar"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -46,7 +42,7 @@ fn multi_segment() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(6)),
             FunctionItem.with_binary_children(Span::new(0, 26), SyntaxId(1), SyntaxId(5)),
@@ -61,10 +57,9 @@ fn multi_segment() {
 
 #[test]
 fn with_type_arguments() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("foo::<Bar>")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "foo::<Bar>"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -73,7 +68,7 @@ fn with_type_arguments() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 28), SyntaxId(8)),
             FunctionItem.with_binary_children(Span::new(0, 28), SyntaxId(1), SyntaxId(7)),
@@ -90,10 +85,9 @@ fn with_type_arguments() {
 
 #[test]
 fn with_multiple_type_arguments() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("foo::<Bar, Baz>")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "foo::<Bar, Baz>"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -102,7 +96,7 @@ fn with_multiple_type_arguments() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(10)),
             FunctionItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(9)),
@@ -121,10 +115,9 @@ fn with_multiple_type_arguments() {
 
 #[test]
 fn multi_segment_with_type_arguments() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("foo::bar::<Baz>")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "foo::bar::<Baz>"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -133,7 +126,7 @@ fn multi_segment_with_type_arguments() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(9)),
             FunctionItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(8)),
@@ -151,10 +144,9 @@ fn multi_segment_with_type_arguments() {
 
 #[test]
 fn type_arguments_on_middle_segment() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(function_wrapper!("foo::<Bar>::baz")),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+        "foo::<Bar>::baz"
+    )));
     let ParseResult {
         syntax_tree,
         errors,
@@ -163,7 +155,7 @@ fn type_arguments_on_middle_segment() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 33), SyntaxId(9)),
             FunctionItem.with_binary_children(Span::new(0, 33), SyntaxId(1), SyntaxId(8)),

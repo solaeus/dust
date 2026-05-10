@@ -1,7 +1,7 @@
 use crate::{
     lexer::Lexer,
     parser::{ParseResult, Parser},
-    source::{SourceCodeId, Span},
+    source::Span,
     syntax::{
         SyntaxId,
         node::{SyntaxChildren, SyntaxFlags, SyntaxKind::*},
@@ -10,10 +10,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"fn foo() {}"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"fn foo() {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -22,7 +19,7 @@ fn empty() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 11), SyntaxId(3)),
             FunctionItem.with_binary_children(Span::new(0, 11), SyntaxId(1), SyntaxId(2)),
@@ -34,10 +31,9 @@ fn empty() {
 
 #[test]
 fn value_parameters() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"fn foo(x: i64, y: bool) {}"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"fn foo(x: i64, y: bool) {}",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -46,7 +42,7 @@ fn value_parameters() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 26), SyntaxId(8)),
             FunctionItem
@@ -65,10 +61,7 @@ fn value_parameters() {
 
 #[test]
 fn type_parameters() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"fn foo<A, B, C>() {}"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"fn foo<A, B, C>() {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -77,7 +70,7 @@ fn type_parameters() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 20), SyntaxId(10)),
             FunctionItem
@@ -98,10 +91,7 @@ fn type_parameters() {
 
 #[test]
 fn return_type() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"fn foo() -> i64 {}"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"fn foo() -> i64 {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -110,7 +100,7 @@ fn return_type() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 18), SyntaxId(4)),
             FunctionItem
@@ -125,10 +115,9 @@ fn return_type() {
 
 #[test]
 fn mixed() {
-    let parser = Parser::new(
-        SourceCodeId::MAIN,
-        Lexer::with_unvalidated_source(b"fn foo<A, B, C>(x: A, y: B) -> C {}"),
-    );
+    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+        b"fn foo<A, B, C>(x: A, y: B) -> C {}",
+    ));
     let ParseResult {
         syntax_tree,
         errors,
@@ -137,7 +126,7 @@ fn mixed() {
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
-        syntax_tree.sorted_nodes(),
+        syntax_tree.sort_nodes(),
         [
             Root.with_single_child(Span::new(0, 35), SyntaxId(19)),
             FunctionItem
