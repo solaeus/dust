@@ -37,7 +37,6 @@ fn main() {
         command,
         global,
         input,
-        output,
     } = Cli::parse();
 
     match command {
@@ -64,7 +63,6 @@ fn main() {
         Some(Command::Compile(mut command)) => {
             command.global.join(global);
             command.input.join(input);
-            command.output.join(output);
 
             handle_logging(command.global.log, start_time);
             handle_compile_command(command);

@@ -32,10 +32,13 @@ impl Declarations {
         let declaration_id = DeclarationId(self.declarations.len() as u32);
 
         self.declarations.push(declaration);
-        self.declaration_lookup.insert(
-            (declaration.symbol_id, declaration.scope_id),
-            declaration_id,
-        );
+
+        if !matches!(declaration.definition, Definition::ForwardReference { .. }) {
+            self.declaration_lookup.insert(
+                (declaration.symbol_id, declaration.scope_id),
+                declaration_id,
+            );
+        }
 
         declaration_id
     }

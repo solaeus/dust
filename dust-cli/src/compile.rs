@@ -1,25 +1,21 @@
 use std::io::{Write, stdout};
 
 use dust_lang::{compiler::Compiler, disassembler::Disassembler};
-use ron::ser::PrettyConfig;
+use ron::{
+    ser::PrettyConfig,
+    ser::{to_string, to_string_pretty},
+};
 
 use crate::{
     build_source,
-    cli::{CompileCommand, OutputOptions},
+    cli::{CompileCommand, Output},
 };
 
 pub fn handle_compile_command(command: CompileCommand) {
     let CompileCommand {
         global: _,
         input,
-        output:
-            OutputOptions {
-                debug,
-                ron,
-                pretty_ron,
-                postcard,
-            },
-        tui,
+        output,
     } = command;
 
     let source = build_source(input);
@@ -29,32 +25,22 @@ pub fn handle_compile_command(command: CompileCommand) {
         Err(errors) => errors.print_and_exit(),
     };
 
-    if debug {
-        println!("{program:#?}");
-    } else if ron {
-        let ron_string = ron::to_string(&program).expect("Failed to serialize program to RON");
+    match output {
+        Output::Tui => Disassembler::new(&program, &source, &syntax, &constants)
+            .disassemble()
+            .expect("Failed to run TUI disassembler"),
+        Output::Debug => println!("{program:?}"),
+        Output::Ron => {
+            let ron_string = to_string(&program).expect("Failed to serialize program to RON");
 
-        stdout()
-            .write_all(ron_string.as_bytes())
-            .expect("Failed to write RON output to stdout");
-    } else if pretty_ron {
-        let ron_string =
-            ron::ser::to_string_pretty(&program, PrettyConfig::default().struct_names(true))
-                .expect("Failed to serialize program to pretty RON");
+            stdout().write_all(ron_string.as_bytes()).unwrap();
+        }
+        Output::PrettyRon => {
+            let config = PrettyConfig::default().struct_names(true);
+            let ron_string =
+                to_string_pretty(&program, config).expect("Failed to serialize program to RON");
 
-        stdout()
-            .write_all(ron_string.as_bytes())
-            .expect("Failed to write pretty RON output to stdout");
-    } else if postcard {
-        let bytes = postcard::to_extend(&program, Vec::new())
-            .expect("Failed to serialize program to Postcard");
-
-        stdout()
-            .write_all(&bytes)
-            .expect("Failed to write Postcard output to stdout");
-    } else if tui {
-        let disassembler = Disassembler::new(&program, &source, &syntax, &constants);
-
-        disassembler.disassemble().unwrap();
+            stdout().write_all(ron_string.as_bytes()).unwrap();
+        }
     }
 }

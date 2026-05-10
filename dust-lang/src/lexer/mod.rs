@@ -245,7 +245,7 @@ impl<'src> Lexer<'src> {
     #[inline(always)]
     fn finish_token(&mut self) -> Option<Token> {
         #[inline(always)]
-        fn finish(kind: TokenKind, span: Span, lexer: &mut Lexer) -> Option<Token> {
+        fn finish(lexer: &mut Lexer, kind: TokenKind, span: Span) -> Option<Token> {
             lexer.token_start = None;
             lexer.token_flags = TokenFlags::default();
 
@@ -257,36 +257,36 @@ impl<'src> Lexer<'src> {
         let bytes = &self.source[span.as_usize_range()];
 
         if self.token_flags.unknown || bytes.is_empty() {
-            return finish(TokenKind::Unknown, span, self);
+            return finish(self, TokenKind::Unknown, span);
         }
 
         if self.token_flags.starts_with_digit {
             if self.token_flags.in_hexadecimal && self.token_flags.hex_digits > 0 {
-                return finish(TokenKind::HexIntegerLiteral, span, self);
+                return finish(self, TokenKind::HexIntegerLiteral, span);
             } else if self.token_flags.has_decimal {
-                return finish(TokenKind::FloatLiteral, span, self);
+                return finish(self, TokenKind::FloatLiteral, span);
             }
 
-            return finish(TokenKind::IntegerLiteral, span, self);
+            return finish(self, TokenKind::IntegerLiteral, span);
         }
 
         let class = bytes[0].class();
 
         if class.is_alphabetical() || class.is_underscore() {
             if let Some(keyword_kind) = keyword_kind(bytes) {
-                return finish(keyword_kind, span, self);
+                return finish(self, keyword_kind, span);
             }
 
-            return finish(TokenKind::Identifier, span, self);
+            return finish(self, TokenKind::Identifier, span);
         }
 
         if self.token_flags.unicode_identifier_started_non_ascii
             && self.token_flags.unicode_identifier_valid
         {
-            return finish(TokenKind::Identifier, span, self);
+            return finish(self, TokenKind::Identifier, span);
         }
 
-        finish(TokenKind::Unknown, span, self)
+        finish(self, TokenKind::Unknown, span)
     }
 
     #[inline(always)]
@@ -329,7 +329,7 @@ impl<'src> Lexer<'src> {
                     }
                 }
 
-                self.token_flags.len = self.token_flags.len.saturating_add(width);
+                self.token_flags.length = self.token_flags.length.saturating_add(width);
                 self.index += width;
 
                 if self.token_flags.unknown && self.index < self.source.len() {
@@ -648,7 +648,7 @@ impl Iterator for Lexer<'_> {
 
                 if first_byte.is_ascii_digit() && next_is_digit {
                     self.index += 1;
-                    self.token_flags.len += 1;
+                    self.token_flags.length += 1;
                     self.token_flags.has_decimal = true;
 
                     continue;
@@ -947,17 +947,17 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
 
 #[derive(Debug, Clone, Copy, Default)]
 struct TokenFlags {
+    first_byte: u8,
+    length: usize,
     starts_with_digit: bool,
     in_hexadecimal: bool,
     hex_digits: usize,
     has_decimal: bool,
     has_exponent: bool,
-    unknown: bool,
     saw_non_ascii: bool,
     unicode_identifier_valid: bool,
     unicode_identifier_started_non_ascii: bool,
-    len: usize,
-    first_byte: u8,
+    unknown: bool,
 }
 
 impl TokenFlags {
@@ -973,14 +973,14 @@ impl TokenFlags {
             saw_non_ascii: false,
             unicode_identifier_valid: true,
             unicode_identifier_started_non_ascii: false,
-            len: 1,
+            length: 1,
             first_byte,
         }
     }
 
     #[inline(always)]
     fn push(&mut self, byte: u8, next: Option<u8>) {
-        self.len += 1;
+        self.length += 1;
 
         if self.in_hexadecimal {
             if byte.is_ascii_hexdigit() {
@@ -999,7 +999,7 @@ impl TokenFlags {
         }
 
         if self.starts_with_digit {
-            if self.len == 2 && self.first_byte == b'0' && byte == b'x' {
+            if self.length == 2 && self.first_byte == b'0' && byte == b'x' {
                 self.in_hexadecimal = true;
 
                 return;

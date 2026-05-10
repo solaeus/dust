@@ -47,12 +47,40 @@ fn i8() {
 
 #[test]
 fn i16() {
-    todo!()
+    assert_program_eq!(
+        "fn main() -> i16 { -42 }",
+        prototypes: [
+            Prototype {
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::I_16, Address::new(MemoryKind::ENCODED, (-42_i16) as u16)),
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::I_16],
+                register_count: 1,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::I16
+    );
 }
 
 #[test]
 fn i32() {
-    todo!()
+    assert_program_eq!(
+        "fn main() -> i32 { -42 }",
+        prototypes: [
+            Prototype {
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, (-42_i32) as u16)),
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::I_32],
+                register_count: 1,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::I32
+    );
 }
 
 #[test]
@@ -152,45 +180,228 @@ fn u8() {
 
 #[test]
 fn u16() {
-    todo!()
+    assert_program_eq!(
+        "fn main() -> u16 { 42 }",
+        prototypes: [
+            Prototype {
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::U_16, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::U_16],
+                register_count: 1,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::U16
+    );
 }
 
 #[test]
 fn u32() {
-    todo!()
+    assert_program_eq!(
+        "fn main() -> u32 { 42 }",
+        prototypes: [
+            Prototype {
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::U_32, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::U_32],
+                register_count: 1,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::U32
+    );
 }
 
 #[test]
-fn u64() {
-    todo!()
+fn u64_encodable() {
+    assert_program_eq!(
+        "fn main() -> u64 { 42 }",
+        prototypes: [
+            Prototype {
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::U_64, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::U_64],
+                register_count: 2,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::U64
+    );
 }
 
 #[test]
-fn u128() {
-    todo!()
+fn u64_not_encodable() {
+    assert_program_eq!(
+        "fn main() -> u64 { 18446744073709551615 }",
+        prototypes: [
+            Prototype {
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::U_64, Address::new(MemoryKind::CONSTANT, 0)),
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::U_64],
+                register_count: 2,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::U64
+    );
 }
 
 #[test]
-fn f32() {
-    todo!()
+fn u128_encodable() {
+    assert_program_eq!(
+        "fn main() -> u128 { 42 }",
+        prototypes: [
+            Prototype {
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::U_128, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::U_128],
+                register_count: 4,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::U128
+    );
+}
+
+#[test]
+fn u128_not_encodable() {
+    assert_program_eq!(
+        "fn main() -> u128 { 18446744073709551615 }",
+        prototypes: [
+            Prototype {
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::U_128, Address::new(MemoryKind::CONSTANT, 0)),
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::U_128],
+                register_count: 4,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::U128
+    );
+}
+
+#[test]
+fn f32_encodable() {
+    assert_program_eq!(
+        "fn main() -> f32 { 0.0 }",
+        prototypes: [
+            Prototype {
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::F_32, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::F_32],
+                register_count: 1,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::F32
+    );
+}
+
+#[test]
+fn f32_not_encodable() {
+    assert_program_eq!(
+        "fn main() -> f32 { 3.40282347e+38 }",
+        prototypes: [
+            Prototype {
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::F_32, Address::new(MemoryKind::CONSTANT, 0)),
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::F_32],
+                register_count: 1,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::F32
+    );
 }
 
 #[test]
 fn f64_encodable() {
-    todo!()
+    assert_program_eq!(
+        "fn main() -> f64 { 0.0 }",
+        prototypes: [
+            Prototype {
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::F_64, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::F_64],
+                register_count: 2,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::F64
+    );
 }
 
 #[test]
 fn f64_not_encodable() {
-    todo!()
+    assert_program_eq!(
+        "fn main() -> f64 { 1.7976931348623157e+308_f64 }",
+        prototypes: [
+            Prototype {
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::F_64, Address::new(MemoryKind::CONSTANT, 0)),
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::F_64],
+                register_count: 2,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::F64
+    );
 }
 
 #[test]
 fn character_encodable() {
-    todo!()
+    assert_program_eq!(
+        "fn main() -> char { 'q' }",
+        prototypes: [
+            Prototype {
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::CHARACTER, Address::new(MemoryKind::ENCODED, 'q' as u16)),
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::CHARACTER],
+                register_count: 1,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::Character
+    );
 }
 
 #[test]
 fn character_not_encodable() {
-    todo!()
+    assert_program_eq!(
+        "fn main() -> char { '🦀' }",
+        prototypes: [
+            Prototype {
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::CHARACTER, Address::new(MemoryKind::CONSTANT, 0)),
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::CHARACTER],
+                register_count: 1,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::Character
+    );
 }

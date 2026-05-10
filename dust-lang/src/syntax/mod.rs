@@ -39,11 +39,11 @@ impl Syntax {
         let index = tree.source_id.inner() as usize;
 
         debug_assert!(
-            index < self.trees.len(),
+            index < self.trees.len() || self.trees.is_empty(),
             "SyntaxTrees must be added in order by SourceId"
         );
 
-        self.trees[index] = tree;
+        self.trees.push(tree);
     }
 
     pub fn get_tree(&self, source_id: SourceCodeId) -> Result<&SyntaxTree, SyntaxError> {

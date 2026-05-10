@@ -71,7 +71,7 @@ impl Scopes {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Scope {
     pub kind: ScopeKind,
     pub parent: Option<ScopeId>,

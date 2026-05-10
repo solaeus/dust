@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{
-    Args, ColorChoice, Parser, Subcommand,
+    Args, ColorChoice, Parser, Subcommand, ValueEnum,
     builder::{Styles, styling::AnsiColor},
     crate_authors, crate_description, crate_version,
 };
@@ -31,9 +31,6 @@ pub struct Cli {
 
     #[command(flatten)]
     pub input: InputOptions,
-
-    #[command(flatten)]
-    pub output: OutputOptions,
 }
 
 #[derive(Args)]
@@ -52,15 +49,15 @@ impl GlobalOptions {
 
 #[derive(Subcommand)]
 pub enum Command {
-    /// Initialize a new Dust project
+    /// Create a new Dust project
     #[command(alias = "i")]
     Init(InputOptions),
 
-    /// Parse the source code and print the syntax tree
+    /// Create syntax trees from the source code
     #[command(alias = "p")]
     Parse(ParseCommand),
 
-    /// Compile and output the compiled program
+    /// Create a Dust program from source code
     #[command(alias = "c")]
     Compile(CompileCommand),
 
@@ -74,20 +71,20 @@ pub enum Command {
 pub struct InputOptions {
     /// Evaluate source code as a command-line argument
     ///
-    /// Note: This wraps the input in a `main` function, so you can use statements and
-    /// expressions directly. You cannot define another `main` function.
+    /// This wraps the input in a `main` function, so you can use statements and expressions
+    /// directly. You cannot define another `main` function.
     #[arg(short, long, value_name = "INPUT")]
     pub eval: Option<String>,
 
     #[arg(long, value_name = "INPUT")]
     /// Evaluate source code as a command-line argument
     ///
-    /// Note: This does not modify the input in any way, so you must provide a complete program with
-    /// a `main` function.
+    /// This does not modify the input in any way, so you must provide a complete program with a
+    /// `main` function.
     pub eval_full: Option<String>,
 
     /// Read source code from stdin
-    #[arg(short, long)]
+    #[arg(long)]
     pub stdin: bool,
 
     /// Path to a source code file
@@ -103,34 +100,6 @@ impl InputOptions {
 }
 
 #[derive(Args)]
-pub struct OutputOptions {
-    /// Print output in Rust debug format
-    #[arg(long, group = "format")]
-    pub debug: bool,
-
-    /// Print output in Rusty Object Notation
-    #[arg(long, group = "format")]
-    pub ron: bool,
-
-    /// Print output in pretty Rusty Object Notation
-    #[arg(long, group = "format")]
-    pub pretty_ron: bool,
-
-    /// Print output in Postcard binary format
-    #[arg(long, group = "format")]
-    pub postcard: bool,
-}
-
-impl OutputOptions {
-    pub fn join(&mut self, other: OutputOptions) {
-        self.debug = self.debug || other.debug;
-        self.ron = self.ron || other.ron;
-        self.pretty_ron = self.pretty_ron || other.pretty_ron;
-        self.postcard = self.postcard || other.postcard;
-    }
-}
-
-#[derive(Args)]
 pub struct ParseCommand {
     #[command(flatten)]
     pub global: GlobalOptions,
@@ -138,12 +107,11 @@ pub struct ParseCommand {
     #[command(flatten)]
     pub input: InputOptions,
 
-    #[command(flatten)]
-    pub output: OutputOptions,
-
-    /// Print syntax trees as human-readable text trees (default: true)
-    #[arg(long, default_value = "true", group = "format")]
-    pub trees: bool,
+    /// Print syntax trees as pretty-printed Rusty Object Notation (.ron)
+    ///
+    /// Without this flag, syntax trees are rendered in an indented tree format.
+    #[arg(long)]
+    pub ron: bool,
 }
 
 #[derive(Args)]
@@ -154,12 +122,33 @@ pub struct CompileCommand {
     #[command(flatten)]
     pub input: InputOptions,
 
-    #[command(flatten)]
-    pub output: OutputOptions,
+    #[arg(short, long)]
+    #[arg(value_enum, default_value = "tui")]
+    pub output: Output,
+}
 
-    /// Launch the TUI disassembler (default: true)
-    #[arg(long, default_value = "true", group = "format")]
-    pub tui: bool,
+#[derive(ValueEnum, Clone, Copy)]
+pub enum Output {
+    /// Interactive TUI disassembler (default)
+    ///
+    /// Navigate with arrow keys or `hjkl` and press `q` to quit.
+    Tui,
+
+    /// Generic text format that includes instruction disassembly information
+    ///
+    /// Unlike RON, this format includes instruction disassembly information but is not a proper
+    /// serialization and cannot be parsed back into a program.
+    Debug,
+
+    /// Rusty Object Notation (.ron)
+    ///
+    /// This format can be parsed back into a program using the `ron` crate.
+    Ron,
+
+    /// Pretty-printed Rusty Object Notation (.ron)
+    ///
+    /// This format can be parsed back into a program using the `ron` crate.
+    PrettyRon,
 }
 
 #[derive(Args)]
