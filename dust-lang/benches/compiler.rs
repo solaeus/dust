@@ -25,7 +25,7 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     let mut source = Source::new();
 
-    source.add_code(SourceCode::borrowed("test", SOURCE));
+    source.add_code(SourceCode::from_bytes("test", SOURCE));
 
     group.throughput(Throughput::Elements(1000));
     group.bench_function("compile", |b| {

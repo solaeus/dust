@@ -8,26 +8,21 @@ mod let_statement;
 macro_rules! assert_program_eq {
     (
         $code: literal,
-        prototypes: [$($prototype: expr,)*],
+        prototypes: $prototypes: expr,
         return_type: $return_type: expr
     ) => {
-        use $crate::{compiler::Compiler, source::{Source, SourceCode}};
+        use $crate::{
+            compiler::Compiler,
+            source::{Source, SourceCode},
+        };
 
         let mut source = Source::new();
 
-        source.add_code(SourceCode::validated_borrowed("test", $code));
+        source.add_code(SourceCode::from_str("test", $code));
 
         let program = Compiler::new(source).compile(None).unwrap();
-        let mut prototypes = program.prototypes.iter();
 
+        assert_eq!(program.prototypes, $prototypes);
         assert_eq!(program.return_type(), &$return_type);
-
-        $(
-            let Some(next_prototype) = prototypes.next() else {
-                panic!("Fewer prototypes than expected");
-            };
-
-            assert_eq!(next_prototype, &$prototype);
-        )*
     };
 }

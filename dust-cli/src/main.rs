@@ -184,11 +184,11 @@ fn build_source<'src>(
 
     if let Some(input) = eval {
         let eval_program = format!("fn main<T>() -> T {{\n    {input}\n}}");
-        let code = SourceCode::validated_owned("CLI Input", eval_program);
+        let code = SourceCode::from_string("CLI Input", eval_program);
 
         source.add_code(code);
     } else if let Some(input) = eval_full {
-        let code = SourceCode::validated_owned("CLI Input", input);
+        let code = SourceCode::from_string("CLI Input", input);
 
         source.add_code(code);
     } else if let Some(path) = path {
@@ -243,7 +243,7 @@ fn build_source<'src>(
             .read_to_end(&mut buffer)
             .expect("Failed to read from stdin");
 
-        let code = SourceCode::owned("stdin", buffer);
+        let code = SourceCode::from_owned_bytes("stdin", buffer);
 
         source.add_code(code);
     }

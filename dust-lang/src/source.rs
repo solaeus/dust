@@ -157,7 +157,7 @@ impl<'src> SourceCode<'src> {
         })
     }
 
-    pub fn borrowed(name: &'src str, content: &'src [u8]) -> Self {
+    pub fn from_bytes(name: &'src str, content: &'src [u8]) -> Self {
         SourceCode::Borrowed {
             name,
             content,
@@ -165,15 +165,7 @@ impl<'src> SourceCode<'src> {
         }
     }
 
-    pub const fn validated_borrowed(name: &'src str, content: &'src str) -> Self {
-        SourceCode::Borrowed {
-            name,
-            content: content.as_bytes(),
-            utf8_validated: true,
-        }
-    }
-
-    pub fn owned(name: &'src str, content: Vec<u8>) -> Self {
+    pub fn from_owned_bytes(name: &'src str, content: Vec<u8>) -> Self {
         SourceCode::Owned {
             name,
             content,
@@ -181,7 +173,15 @@ impl<'src> SourceCode<'src> {
         }
     }
 
-    pub fn validated_owned(name: &'src str, content: String) -> Self {
+    pub const fn from_str(name: &'src str, content: &'src str) -> Self {
+        SourceCode::Borrowed {
+            name,
+            content: content.as_bytes(),
+            utf8_validated: true,
+        }
+    }
+
+    pub fn from_string(name: &'src str, content: String) -> Self {
         SourceCode::Owned {
             name,
             content: content.into_bytes(),
