@@ -37,7 +37,7 @@ struct Foo<T> {
     wendy: bool,
     xavier: char,
     yvonne: str,
-    mallory: [T; 4],
+    mallory: [T; 3],
 }
 
 enum Color {
