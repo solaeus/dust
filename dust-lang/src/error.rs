@@ -1,6 +1,9 @@
 //! Top-level error for the Dust language API that can create detailed reports with source code
 //! annotations.
-use std::fmt::{self, Debug, Display, Formatter};
+use std::{
+    fmt::{self, Debug, Display, Formatter},
+    io,
+};
 
 use annotate_snippets::{Group, Level, Renderer};
 

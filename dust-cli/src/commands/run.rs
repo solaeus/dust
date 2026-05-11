@@ -16,7 +16,7 @@ pub fn run<'src>(commmand: RunCommand) -> Result<(), Error<'src>> {
 
     let program = match compile_result {
         Ok(program) => program,
-        Err(error) => return Err(Error::Dust(error)),
+        Err(error) => return Result::Err(error.into()),
     };
     let jit_vm = Vm::new(
         program,

@@ -248,7 +248,7 @@ impl Resolver {
                         .insert(parameter_declaration_id, argument_type_id);
                 }
 
-                self.infer_concrete_type_id(return_type_id)?
+                self.get_resolved_type_id(return_type_id)?
             }
             Definition::Variant {
                 enum_declaration_id,
@@ -267,7 +267,7 @@ impl Resolver {
         };
 
         for type_id in value_parameter_type_ids.iter_mut() {
-            *type_id = self.infer_concrete_type_id(*type_id)?;
+            *type_id = self.get_resolved_type_id(*type_id)?;
         }
 
         Ok((value_parameter_type_ids, return_type_id))
@@ -576,7 +576,7 @@ impl Resolver {
         }
     }
 
-    pub fn infer_concrete_type_id(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
+    pub fn get_resolved_type_id(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
         let (type_id, r#type) = self.get_concrete_type(type_id)?;
 
         if let Type::Inferred {
@@ -590,7 +590,8 @@ impl Resolver {
                 InferredTypeConstraint::Float => TypeId::F_64,
             };
 
-            self.types.resolve_type(type_id, resolved_type_id)?;
+            self.types
+                .resolve_type_inference(type_id, resolved_type_id)?;
 
             Ok(resolved_type_id)
         } else {

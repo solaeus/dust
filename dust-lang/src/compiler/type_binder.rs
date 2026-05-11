@@ -79,7 +79,7 @@ impl<'a> TypeBinder<'a> {
             self.errors.push(ErrorKind::Compile(error))
         }
 
-        let _ = self.resolver.infer_concrete_type_id(return_type_id);
+        let _ = self.resolver.get_resolved_type_id(return_type_id);
     }
 
     fn unify_types<'b>(
@@ -151,7 +151,9 @@ impl<'a> TypeBinder<'a> {
                     _ => {}
                 }
 
-                self.resolver.types.resolve_type(left_id, right_id)?;
+                self.resolver
+                    .types
+                    .resolve_type_inference(left_id, right_id)?;
 
                 Ok(())
             }
@@ -194,7 +196,9 @@ impl<'a> TypeBinder<'a> {
                     }
                 }
 
-                self.resolver.types.resolve_type(left_id, right_id)?;
+                self.resolver
+                    .types
+                    .resolve_type_inference(left_id, right_id)?;
 
                 Ok(())
             }
@@ -237,7 +241,9 @@ impl<'a> TypeBinder<'a> {
                     }
                 }
 
-                self.resolver.types.resolve_type(right_id, left_id)?;
+                self.resolver
+                    .types
+                    .resolve_type_inference(right_id, left_id)?;
 
                 Ok(())
             }

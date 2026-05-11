@@ -8,13 +8,14 @@ use std::{
     fmt,
     fs::File,
     io::{self, Read},
+    process::ExitCode,
     time::Instant,
 };
 
 use clap::Parser as CliParser;
 use dust_lang::{
     project::{PROJECT_CONFIG_PATH, ProjectConfig},
-    source::{Source, SourceCode},
+    source::{Source, SourceCode, SourceError},
 };
 use tracing::{Event, Level, Subscriber, info, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -28,7 +29,7 @@ use crate::{
     error::Error,
 };
 
-fn main() -> Result<(), i32> {
+fn main() -> ExitCode {
     let start_time = Instant::now();
     let Cli {
         command,
@@ -68,8 +69,12 @@ fn main() -> Result<(), i32> {
     };
 
     match result {
-        Ok(_) => Ok(()),
-        Err(error) => Err(error.finish()),
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("{error}");
+
+            ExitCode::FAILURE
+        }
     }
 }
 
@@ -81,7 +86,7 @@ fn handle_logging(level: Option<LevelFilter>, start_time: Instant) {
         .event_format(LogFormatter { start_time })
         .init();
 
-    info!("Finished parsing CLI arguments and initializing logger");
+    info!("Finished parsing command arguments and initializing logger");
 }
 
 struct LogFormatter {
@@ -158,8 +163,7 @@ fn build_source<'src>(
         if path.is_dir() {
             let config = {
                 let config_path = path.join(PROJECT_CONFIG_PATH);
-                let mut config_file =
-                    File::open(&config_path).expect("Failed to open project config file");
+                let mut config_file = File::open(&config_path)?;
                 let mut config_contents = String::new();
 
                 config_file.read_to_string(&mut config_contents)?;
@@ -190,9 +194,7 @@ fn build_source<'src>(
     } else if stdin {
         let mut buffer = Vec::new();
 
-        io::stdin()
-            .read_to_end(&mut buffer)
-            .expect("Failed to read from stdin");
+        io::stdin().read_to_end(&mut buffer)?;
 
         let code = SourceCode::from_owned_bytes("stdin", buffer);
 

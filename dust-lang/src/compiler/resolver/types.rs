@@ -87,7 +87,11 @@ impl Types {
         &self.types[id.0 as usize]
     }
 
-    pub fn resolve_type(&mut self, id: TypeId, resolved_id: TypeId) -> Result<(), CompileError> {
+    pub fn resolve_type_inference(
+        &mut self,
+        id: TypeId,
+        resolved_id: TypeId,
+    ) -> Result<(), CompileError> {
         trace!(
             "Resolving {id:?} to {:?}",
             &self.types[resolved_id.0 as usize]

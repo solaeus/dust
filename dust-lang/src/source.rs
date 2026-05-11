@@ -485,7 +485,7 @@ impl<'src> DustError<'src> for SourceError {
     fn add_report(&self, _: Self::Context, reports: &mut Vec<Group<'src>>) {
         let group = match self {
             SourceError::CannotOpen { io_error } => {
-                let title = "Cannot open source file".to_string();
+                let title = "Cannot open source file";
                 let message = io_error.to_string();
 
                 Group::with_title(Level::ERROR.primary_title(title))
