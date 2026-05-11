@@ -1,0 +1,10 @@
+disallowed-macros = [
+    "std::panic",
+    "std::unimplemented",
+    "std::unreachable",
+    "std::todo",
+]
+disallowed-methods = [
+    "std::option::Option::unwrap",
+    "std::result::Result::unwrap",
+]

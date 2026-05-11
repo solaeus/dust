@@ -1,9 +1,6 @@
 //! Top-level error for the Dust language API that can create detailed reports with source code
 //! annotations.
-use std::{
-    fmt::{self, Debug, Display, Formatter},
-    process,
-};
+use std::fmt::{self, Debug, Display, Formatter};
 
 use annotate_snippets::{Group, Level, Renderer};
 
@@ -27,20 +24,14 @@ impl<'src> Error<'src> {
         Self { errors, context }
     }
 
-    pub fn errors(&self) -> &Vec<ErrorKind> {
-        &self.errors
+    pub fn error_count(&self) -> usize {
+        self.errors.len()
     }
+}
 
-    pub fn print_and_exit(&self) -> ! {
-        eprintln!("{self}");
-
-        if self.errors.len() == 1 {
-            eprintln!("1 error found.");
-        } else {
-            eprintln!("{} errors found.", self.errors.len());
-        }
-
-        process::exit(1);
+impl<'src> From<SourceError> for Error<'src> {
+    fn from(source_error: SourceError) -> Self {
+        Self::new(vec![ErrorKind::Source(source_error)], ErrorContext::None)
     }
 }
 
@@ -60,25 +51,6 @@ impl<'a> Display for Error<'a> {
         }
 
         Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub enum ErrorContext<'src> {
-    None,
-    Source(Source<'src>),
-    Full(Source<'src>, Syntax, Box<Resolver>),
-}
-
-impl<'src> ErrorContext<'src> {
-    pub fn parts(&self) -> (Option<&Source<'src>>, Option<&Syntax>, Option<&Resolver>) {
-        match self {
-            ErrorContext::None => (None, None, None),
-            ErrorContext::Source(source) => (Some(source), None, None),
-            ErrorContext::Full(source, syntax, resolver) => {
-                (Some(source), Some(syntax), Some(resolver))
-            }
-        }
     }
 }
 
@@ -166,6 +138,25 @@ impl<'a> DustError<'a> for ErrorKind {
             }
             ErrorKind::Meta(meta_error) => {
                 meta_error.add_report((), groups);
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ErrorContext<'src> {
+    None,
+    Source(Source<'src>),
+    Full(Source<'src>, Syntax, Box<Resolver>),
+}
+
+impl<'src> ErrorContext<'src> {
+    pub fn parts(&self) -> (Option<&Source<'src>>, Option<&Syntax>, Option<&Resolver>) {
+        match self {
+            ErrorContext::None => (None, None, None),
+            ErrorContext::Source(source) => (Some(source), None, None),
+            ErrorContext::Full(source, syntax, resolver) => {
+                (Some(source), Some(syntax), Some(resolver))
             }
         }
     }

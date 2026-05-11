@@ -42,8 +42,10 @@ pub struct GlobalOptions {
 }
 
 impl GlobalOptions {
-    pub fn join(&mut self, other: GlobalOptions) {
-        self.log = self.log.take().or(other.log);
+    pub fn join(mut self, other: GlobalOptions) -> Self {
+        self.log = self.log.or(other.log);
+
+        self
     }
 }
 
@@ -51,7 +53,7 @@ impl GlobalOptions {
 pub enum Command {
     /// Create a new Dust project
     #[command(alias = "i")]
-    Init(InputOptions),
+    Init(InitCommand),
 
     /// Create syntax trees from the source code
     #[command(alias = "p")]
@@ -67,7 +69,7 @@ pub enum Command {
 }
 
 #[derive(Args)]
-#[group()]
+#[group(multiple = false)]
 pub struct InputOptions {
     /// Evaluate source code as a command-line argument
     ///
@@ -92,10 +94,12 @@ pub struct InputOptions {
 }
 
 impl InputOptions {
-    pub fn join(&mut self, other: InputOptions) {
-        self.eval = self.eval.take().or(other.eval);
+    pub fn join(mut self, other: InputOptions) -> Self {
+        self.eval = self.eval.or(other.eval);
         self.stdin = self.stdin || other.stdin;
-        self.path = self.path.take().or(other.path);
+        self.path = self.path.or(other.path);
+
+        self
     }
 }
 
@@ -114,6 +118,15 @@ pub struct ParseCommand {
     pub ron: bool,
 }
 
+impl ParseCommand {
+    pub fn fill_arguments(mut self, global: GlobalOptions, input: InputOptions) -> Self {
+        self.global = self.global.join(global);
+        self.input = self.input.join(input);
+
+        self
+    }
+}
+
 #[derive(Args)]
 pub struct CompileCommand {
     #[command(flatten)]
@@ -124,11 +137,20 @@ pub struct CompileCommand {
 
     #[arg(short, long)]
     #[arg(value_enum, default_value = "tui")]
-    pub output: Output,
+    pub output: CompileOutput,
+}
+
+impl CompileCommand {
+    pub fn fill_arguments(mut self, global: GlobalOptions, input: InputOptions) -> Self {
+        self.global = self.global.join(global);
+        self.input = self.input.join(input);
+
+        self
+    }
 }
 
 #[derive(ValueEnum, Clone, Copy)]
-pub enum Output {
+pub enum CompileOutput {
     /// Interactive TUI disassembler (default)
     ///
     /// Navigate with arrow keys or `hjkl` and press `q` to quit.
@@ -158,4 +180,31 @@ pub struct RunCommand {
 
     #[command(flatten)]
     pub input: InputOptions,
+}
+
+impl RunCommand {
+    pub fn fill_arguments(mut self, global: GlobalOptions, input: InputOptions) -> Self {
+        self.global = self.global.join(global);
+        self.input = self.input.join(input);
+
+        self
+    }
+}
+
+#[derive(Args)]
+pub struct InitCommand {
+    #[command(flatten)]
+    pub global: GlobalOptions,
+
+    /// Directory in which to initialize the project
+    pub path: Option<PathBuf>,
+}
+
+impl InitCommand {
+    pub fn fill_arguments(mut self, global: GlobalOptions, input: InputOptions) -> Self {
+        self.global = self.global.join(global);
+        self.path = self.path.or(input.path);
+
+        self
+    }
 }

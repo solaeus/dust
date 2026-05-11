@@ -31,7 +31,7 @@ use crate::{
     parser::{ParseResult, Parser},
     program::Program,
     source::{Source, SourceCodeId},
-    syntax::{Syntax, SyntaxId, components::FnItem, node::SyntaxKind},
+    syntax::{Syntax, SyntaxId, components::FunctionItem, node::SyntaxKind},
 };
 
 pub struct Compiler<'src> {
@@ -49,10 +49,6 @@ impl<'src> Compiler<'src> {
             constants: ConstantsBuilder::new(),
             resolver: Resolver::new(),
         }
-    }
-
-    pub fn context(&self) -> &Resolver {
-        &self.resolver
     }
 
     pub fn compile(mut self, program_name: Option<String>) -> Result<Program, Error<'src>> {
@@ -209,7 +205,7 @@ impl<'src> Compiler<'src> {
 
         let mut main_return_type_id = None;
 
-        while let Some(prototype_id) = self.resolver.compilation_stack.pop() {
+        while let Some(prototype_id) = self.resolver.pop_from_compilation_stack() {
             match self.compile_loop(prototype_id, &mut errors) {
                 Ok(type_id) => {
                     if prototype_id == PrototypeId::MAIN {
@@ -289,7 +285,7 @@ impl<'src> Compiler<'src> {
                 .get_tree(position.source_id)
                 .and_then(|tree| tree.read_node(syntax_id))
         );
-        let Ok(FnItem {
+        let Ok(FunctionItem {
             body: Some(body),
             value_parameters,
             ..

@@ -40,9 +40,9 @@ pub struct Resolver {
     pub types: Types,
     pub type_parameter_map: HashMap<DeclarationId, TypeId, FxBuildHasher>,
     pub implementations: HashMap<DeclarationId, DeclarationId::SmallVec, FxBuildHasher>,
-    pub compilation_stack: Vec<PrototypeId>,
 
     prototypes: Vec<Prototype>,
+    compilation_stack: Vec<PrototypeId>,
     monomorphization_cache: IndexSet<(DeclarationId, TypeId::SmallVec), FxBuildHasher>,
 
     declaration_bindings: HashMap<SyntaxId, DeclarationId, FxBuildHasher>,
@@ -118,6 +118,10 @@ impl Resolver {
 
             prototype_id
         }
+    }
+
+    pub fn pop_from_compilation_stack(&mut self) -> Option<PrototypeId> {
+        self.compilation_stack.pop()
     }
 
     pub fn get_monomorphized_function(

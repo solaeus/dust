@@ -22,11 +22,12 @@ use crate::{
             ArrayExpression, ArrayRepeatExpression, ArrayType, AssignmentExpression,
             BlockExpression, CallExpression, ComparisonExpression, ConstItem, EnumItem,
             EnumItemTupleVariant, EnumNamedFieldsVariant, EnumUnitVariant, ExpressionStatement,
-            FieldAccessExpression, FnItem, FunctionType, GroupedExpression, IfExpression, ImplItem,
-            IndexExpression, LetStatement, LogicExpression, MathExpression, MethodCallExpression,
-            ModItem, NamedFields, NegationExpression, NotExpression, PathSegment, RangeExpression,
-            Root, StructExpression, StructExpressionStructFields, StructItem, SyntaxComponent,
-            TraitItem, TupleFields, TupleType, TypeItem, UseItem, ValueParameters, WhileExpression,
+            FieldAccessExpression, FunctionItem, FunctionType, GroupedExpression, IfExpression,
+            ImplItem, IndexExpression, LetStatement, LogicExpression, MathExpression,
+            MethodCallExpression, ModItem, NamedFields, NegationExpression, NotExpression,
+            PathSegment, RangeExpression, Root, StructExpression, StructExpressionStructFields,
+            StructItem, SyntaxComponent, TraitItem, TupleFields, TupleType, TypeItem, UseItem,
+            ValueParameters, WhileExpression,
         },
         node::{SyntaxFlags, SyntaxKind},
         reader::SyntaxReader,
@@ -94,7 +95,6 @@ impl<'a> DeclarationBinder<'a> {
                         .declarations
                         .find_declaration_id(forward_reference.symbol_id, current_scope_id)
                         .copied()
-                        && declaration_id != forward_reference_id
                     {
                         let declaration =
                             self.resolver.declarations.get_declaration(declaration_id);
@@ -355,7 +355,7 @@ impl<'a> DeclarationBinder<'a> {
     }
 
     fn bind_fn_item(&mut self, reader: SyntaxReader) -> Result<DeclarationId, CompileError> {
-        let FnItem {
+        let FunctionItem {
             public,
             name,
             type_parameters,

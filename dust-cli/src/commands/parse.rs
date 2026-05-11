@@ -1,21 +1,23 @@
+use std::io::{Write, stdout};
+
 use dust_lang::{
-    error::{Error, ErrorContext, ErrorKind},
+    error::{Error as DustError, ErrorContext, ErrorKind},
     lexer::Lexer,
     parser::{ParseResult, Parser},
     syntax::SyntaxId,
 };
 use ron::ser::{PrettyConfig, to_string_pretty};
 
-use crate::{build_source, cli::ParseCommand};
+use crate::{build_source, cli::ParseCommand, error::Error};
 
-pub fn handle_parse_command(command: ParseCommand) {
+pub fn parse<'src>(command: ParseCommand) -> Result<(), Error<'src>> {
     let ParseCommand {
         global: _,
         input,
         ron,
     } = command;
 
-    let source = build_source(input);
+    let source = build_source(input)?;
 
     let mut syntax_trees = Vec::new();
     let mut errors = Vec::new();
@@ -40,18 +42,23 @@ pub fn handle_parse_command(command: ParseCommand) {
     }
 
     if !errors.is_empty() {
-        Error::new(errors, ErrorContext::Source(source)).print_and_exit();
+        return Err(Error::Dust(DustError::new(
+            errors,
+            ErrorContext::Source(source),
+        )));
     }
 
     if ron {
         let config = PrettyConfig::new().compact_arrays(false).struct_names(true);
 
         for tree in syntax_trees {
-            println!("{}", to_string_pretty(&tree, config.clone()).unwrap());
+            stdout().write_all(to_string_pretty(&tree, config.clone())?.as_bytes())?;
         }
     } else {
         for tree in syntax_trees {
-            println!("{tree}");
+            stdout().write_all(tree.to_string().as_bytes())?;
         }
     }
+
+    Ok(())
 }

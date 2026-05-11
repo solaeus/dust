@@ -1,21 +1,19 @@
 #![feature(duration_millis_float)]
 
 mod cli;
-mod compile;
-mod parse;
-mod run;
+mod commands;
+mod error;
 
 use std::{
     fmt,
-    fs::{File, create_dir, create_dir_all},
-    io::{self, Read, Write},
-    path::PathBuf,
+    fs::File,
+    io::{self, Read},
     time::Instant,
 };
 
 use clap::Parser as CliParser;
 use dust_lang::{
-    project::{EXAMPLE_LIBRARY, EXAMPLE_PROGRAM, PROJECT_CONFIG_PATH, ProjectConfig},
+    project::{PROJECT_CONFIG_PATH, ProjectConfig},
     source::{Source, SourceCode},
 };
 use tracing::{Event, Level, Subscriber, info, level_filters::LevelFilter};
@@ -26,12 +24,11 @@ use tracing_subscriber::{
 
 use crate::{
     cli::{Cli, Command, InputOptions, RunCommand},
-    compile::handle_compile_command,
-    parse::handle_parse_command,
-    run::handle_run_command,
+    commands::{compile::compile, init::init, parse::parse, run::run},
+    error::Error,
 };
 
-fn main() {
+fn main() -> Result<(), i32> {
     let start_time = Instant::now();
     let Cli {
         command,
@@ -39,74 +36,40 @@ fn main() {
         input,
     } = Cli::parse();
 
-    match command {
+    let result = match command {
         Some(Command::Run(mut command)) => {
-            command.global.join(global);
-            command.input.join(input);
+            command = command.fill_arguments(global, input);
 
             handle_logging(command.global.log, start_time);
-            handle_run_command(command);
+            run(command)
         }
         None => {
-            let command = RunCommand { global, input };
-
-            handle_logging(command.global.log, start_time);
-            handle_run_command(command);
+            handle_logging(global.log, start_time);
+            run(RunCommand { global, input })
         }
         Some(Command::Parse(mut command)) => {
-            command.global.join(global);
-            command.input.join(input);
+            command = command.fill_arguments(global, input);
 
             handle_logging(command.global.log, start_time);
-            handle_parse_command(command);
+            parse(command)
         }
         Some(Command::Compile(mut command)) => {
-            command.global.join(global);
-            command.input.join(input);
+            command = command.fill_arguments(global, input);
 
             handle_logging(command.global.log, start_time);
-            handle_compile_command(command);
+            compile(command)
         }
-        Some(Command::Init(InputOptions { path, .. })) => {
-            let path = path.unwrap_or_else(|| PathBuf::from("."));
+        Some(Command::Init(mut command)) => {
+            command = command.fill_arguments(global, input);
 
-            if !path.exists() {
-                create_dir_all(&path).expect("Failed to create project directory");
-            } else if path.read_dir().unwrap().next().is_some() {
-                eprintln!("The directory `{}` is not empty", path.display());
-
-                return;
-            }
-
-            let example_config_path = path.join(PROJECT_CONFIG_PATH);
-            let example_project_config = toml::to_string_pretty(&ProjectConfig::example())
-                .expect("Failed to serialize example project config to TOML");
-
-            File::create(&example_config_path)
-                .expect("Failed to create project config file")
-                .write_all(example_project_config.as_bytes())
-                .expect("Failed to write to project config file");
-
-            let src_path = path.join("src");
-
-            create_dir(&src_path).expect("Failed to create `src` directory");
-
-            let example_program_path = src_path.join("main.ds");
-
-            File::create(&example_program_path)
-                .expect("Failed to create example program file")
-                .write_all(EXAMPLE_PROGRAM.as_bytes())
-                .expect("Failed to write to example program file");
-
-            let example_lib_path = src_path.join("lib.ds");
-
-            File::create(&example_lib_path)
-                .expect("Failed to create example library file")
-                .write_all(EXAMPLE_LIBRARY.as_bytes())
-                .expect("Failed to write to example library file");
-
-            println!("Initialized a new Dust project at `{}`", path.display());
+            handle_logging(command.global.log, start_time);
+            init(command)
         }
+    };
+
+    match result {
+        Ok(_) => Ok(()),
+        Err(error) => Err(error.finish()),
     }
 }
 
@@ -179,7 +142,7 @@ fn build_source<'src>(
         stdin,
         path,
     }: InputOptions,
-) -> Source<'src> {
+) -> Result<Source<'src>, Error<'src>> {
     let mut source = Source::new();
 
     if let Some(input) = eval {
@@ -193,23 +156,14 @@ fn build_source<'src>(
         source.add_code(code);
     } else if let Some(path) = path {
         if path.is_dir() {
-            let config_path = path.join(PROJECT_CONFIG_PATH);
-            let config = if config_path.exists() {
+            let config = {
+                let config_path = path.join(PROJECT_CONFIG_PATH);
                 let mut config_file =
                     File::open(&config_path).expect("Failed to open project config file");
                 let mut config_contents = String::new();
 
-                config_file
-                    .read_to_string(&mut config_contents)
-                    .expect("Failed to read project config file");
-
-                toml::from_str::<ProjectConfig>(&config_contents)
-                    .expect("Failed to parse project config file")
-            } else {
-                panic!(
-                    "No project config file found at `{}`",
-                    config_path.display()
-                );
+                config_file.read_to_string(&mut config_contents)?;
+                toml::from_str::<ProjectConfig>(&config_contents)?
             };
 
             let main_file_path = if let Some(program) = config.program {
@@ -217,22 +171,19 @@ fn build_source<'src>(
             } else {
                 path.join("src").join("main.ds")
             };
-            let code = SourceCode::file(main_file_path)
-                .unwrap_or_else(|error| error.to_full_error().print_and_exit());
+            let code = SourceCode::file(main_file_path)?;
 
             source.add_code(code);
 
             let lib_file_path = path.join("src").join("lib.ds");
 
             if lib_file_path.exists() {
-                let code = SourceCode::file(lib_file_path)
-                    .unwrap_or_else(|error| error.to_full_error().print_and_exit());
+                let code = SourceCode::file(lib_file_path)?;
 
                 source.add_code(code);
             }
         } else {
-            let code = SourceCode::file(path)
-                .unwrap_or_else(|error| error.to_full_error().print_and_exit());
+            let code = SourceCode::file(path)?;
 
             source.add_code(code);
         }
@@ -248,7 +199,7 @@ fn build_source<'src>(
         source.add_code(code);
     }
 
-    source
+    Ok(source)
 }
 
 #[cfg(test)]

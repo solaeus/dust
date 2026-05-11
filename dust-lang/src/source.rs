@@ -11,7 +11,7 @@ use annotate_snippets::{Group, Level, Renderer};
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
-use crate::error::{DustError, Error, ErrorContext, ErrorKind};
+use crate::error::DustError;
 
 #[derive(Debug, Clone)]
 pub struct Source<'src> {
@@ -464,12 +464,6 @@ pub enum SourceError {
     // Internal errors
     MissingSourceFile(SourceCodeId),
     FileContentOutOfBounds { span: Span, length: usize },
-}
-
-impl<'src> SourceError {
-    pub fn to_full_error(self) -> Error<'src> {
-        Error::new(vec![ErrorKind::Source(self)], ErrorContext::None)
-    }
 }
 
 impl Display for SourceError {
