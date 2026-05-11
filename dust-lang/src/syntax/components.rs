@@ -108,8 +108,6 @@ pub struct ValueParameters<'a> {
 
 impl<'a> SyntaxComponent<'a> for ValueParameters<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
-        debug_assert!(reader.node.kind == SyntaxKind::ValueParameters);
-
         Ok(Self {
             name_type_pairs: reader.child_pairs(),
         })
@@ -126,8 +124,6 @@ pub struct StructItem<'a> {
 
 impl<'a> SyntaxComponent<'a> for StructItem<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
-        debug_assert!(reader.node.kind == SyntaxKind::StructItem);
-
         let mut children = reader.children();
 
         let public = reader.node.flags.get_flag(SyntaxFlags::PUBLIC);

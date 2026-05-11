@@ -18,12 +18,12 @@ impl Scopes {
         }
     }
 
-    pub fn enter_scope(&mut self, kind: ScopeKind, parent: Option<ScopeId>) -> ScopeId {
+    pub fn enter_scope(&mut self, barrier: Barrier, parent: Option<ScopeId>) -> ScopeId {
         let id = ScopeId::from_index(self.scopes.len());
         let namespace_start = self.current_namespace.len() as u32;
 
         self.scopes.push(Scope {
-            kind,
+            barrier,
             parent,
             members_range: (namespace_start, u32::MAX),
         });
@@ -73,13 +73,13 @@ impl Scopes {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Scope {
-    pub kind: ScopeKind,
+    pub barrier: Barrier,
     pub parent: Option<ScopeId>,
     members_range: (u32, u32),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ScopeKind {
+pub enum Barrier {
     Module,
     Item,
     Associated,
@@ -89,15 +89,15 @@ pub enum ScopeKind {
     Members,
 }
 
-impl ScopeKind {
+impl Barrier {
     pub fn is_barrier(self, definition: &Definition) -> bool {
         matches!(
             (self, definition),
             (
-                ScopeKind::Item | ScopeKind::Associated | ScopeKind::Constant,
+                Barrier::Item | Barrier::Associated | Barrier::Constant,
                 Definition::Local { .. } | Definition::Field { .. },
             ) | (
-                ScopeKind::Item | ScopeKind::Constant,
+                Barrier::Item | Barrier::Constant,
                 Definition::TypeParameter { .. }
             )
         )

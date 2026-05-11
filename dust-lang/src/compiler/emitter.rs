@@ -79,8 +79,6 @@ pub struct Emitter<'a> {
     jump_over_branch_ids: Vec<JumpId>,
 
     next_jump_id: JumpId,
-
-    current_self_place: Option<Place>,
 }
 
 impl<'a> Emitter<'a> {
@@ -138,7 +136,6 @@ impl<'a> Emitter<'a> {
             jump_placements: HashMap::default(),
             jump_over_branch_ids: Vec::new(),
             next_jump_id: JumpId(0),
-            current_self_place: None,
         };
 
         emitter.locals.insert(

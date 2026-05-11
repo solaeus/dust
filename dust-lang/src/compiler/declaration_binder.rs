@@ -8,7 +8,7 @@ use crate::{
         resolver::{
             Resolver,
             declarations::{Declaration, DeclarationId, Definition, ModuleKind, VariantKind},
-            scopes::{ScopeId, ScopeKind},
+            scopes::{Barrier, ScopeId},
             symbols::SymbolId,
             types::{Type, TypeId, TypeMembers},
         },
@@ -85,21 +85,21 @@ impl<'a> DeclarationBinder<'a> {
                 .get_declaration(forward_reference_id);
 
             let resolved_declaration_id = {
-                let mut scope_id = forward_reference.scope_id;
-                let mut crossed_scope_kinds = SmallVec::<[ScopeKind; 7]>::new();
+                let mut crossed_barriers = SmallVec::<[Barrier; 7]>::new();
+                let mut current_scope_id = forward_reference.scope_id;
 
                 loop {
                     if let Some(declaration_id) = self
                         .resolver
                         .declarations
-                        .find_declaration_id(forward_reference.symbol_id, scope_id)
+                        .find_declaration_id(forward_reference.symbol_id, current_scope_id)
                         .copied()
                         && declaration_id != forward_reference_id
                     {
                         let declaration =
                             self.resolver.declarations.get_declaration(declaration_id);
 
-                        if crossed_scope_kinds
+                        if crossed_barriers
                             .iter()
                             .any(|scope_kind| scope_kind.is_barrier(&declaration.definition))
                         {
@@ -112,8 +112,8 @@ impl<'a> DeclarationBinder<'a> {
                         break declaration_id;
                     }
 
-                    let scope = self.resolver.scopes.get_scope(scope_id);
-                    scope_id = if let Some(parent) = scope.parent {
+                    let scope = self.resolver.scopes.get_scope(current_scope_id);
+                    current_scope_id = if let Some(parent) = scope.parent {
                         parent
                     } else {
                         return Err(CompileError::Undeclared {
@@ -122,8 +122,8 @@ impl<'a> DeclarationBinder<'a> {
                         });
                     };
 
-                    if !crossed_scope_kinds.contains(&scope.kind) {
-                        crossed_scope_kinds.push(scope.kind);
+                    if !crossed_barriers.contains(&scope.barrier) {
+                        crossed_barriers.push(scope.barrier);
                     }
                 }
             };
@@ -136,11 +136,11 @@ impl<'a> DeclarationBinder<'a> {
         Ok(())
     }
 
-    fn enter_scope(&mut self, kind: ScopeKind) {
+    fn enter_scope(&mut self, barrier: Barrier) {
         self.current_scope_id = self
             .resolver
             .scopes
-            .enter_scope(kind, Some(self.current_scope_id));
+            .enter_scope(barrier, Some(self.current_scope_id));
     }
 
     fn exit_scope(&mut self) {
@@ -231,7 +231,7 @@ impl<'a> DeclarationBinder<'a> {
         let module_declaration_id =
             self.reserve_declaration_id(module_symbol_id, Some((name.position(), reader.id)));
 
-        self.enter_scope(ScopeKind::Module);
+        self.enter_scope(Barrier::Module);
 
         let inner_scope_id = self.current_scope_id;
 
@@ -370,7 +370,7 @@ impl<'a> DeclarationBinder<'a> {
         let function_declaration_id =
             self.reserve_declaration_id(function_symbol_id, Some((reader.position(), reader.id)));
 
-        self.enter_scope(ScopeKind::Item);
+        self.enter_scope(Barrier::Item);
 
         let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
             self.bind_type_parameters(type_parameters)?
@@ -380,7 +380,7 @@ impl<'a> DeclarationBinder<'a> {
         let value_parameters_scope_id = if let Some(value_parameters) = value_parameters {
             let ValueParameters { name_type_pairs } = value_parameters.as_component()?;
 
-            self.enter_scope(ScopeKind::Members);
+            self.enter_scope(Barrier::Members);
 
             if value_parameters
                 .node
@@ -446,7 +446,7 @@ impl<'a> DeclarationBinder<'a> {
             TypeId::UNIT
         };
 
-        self.enter_scope(ScopeKind::Block);
+        self.enter_scope(Barrier::Block);
 
         if let Some(body) = body {
             for child in body.children() {
@@ -510,7 +510,7 @@ impl<'a> DeclarationBinder<'a> {
         let struct_declaration_id =
             self.reserve_declaration_id(struct_symbol_id, Some((reader.position(), reader.id)));
 
-        self.enter_scope(ScopeKind::Item);
+        self.enter_scope(Barrier::Item);
 
         let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
             self.bind_type_parameters(type_parameters)?
@@ -518,7 +518,7 @@ impl<'a> DeclarationBinder<'a> {
             None
         };
         let fields = if let Some(fields) = fields.filter(|fields| fields.child_count() > 0) {
-            self.enter_scope(ScopeKind::Members);
+            self.enter_scope(Barrier::Members);
 
             match fields.node.kind {
                 SyntaxKind::TupleFields => {
@@ -609,7 +609,7 @@ impl<'a> DeclarationBinder<'a> {
         let enum_declaration_id =
             self.reserve_declaration_id(enum_symbol_id, Some((reader.position(), reader.id)));
 
-        self.enter_scope(ScopeKind::Item);
+        self.enter_scope(Barrier::Item);
 
         let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
             self.bind_type_parameters(type_parameters)?
@@ -617,7 +617,7 @@ impl<'a> DeclarationBinder<'a> {
             None
         };
 
-        self.enter_scope(ScopeKind::Members);
+        self.enter_scope(Barrier::Members);
 
         for (index, variant) in variants.children().enumerate() {
             self.bind_enum_variant(variant, enum_declaration_id, index as u16)?;
@@ -705,7 +705,7 @@ impl<'a> DeclarationBinder<'a> {
                     Some((reader.position(), reader.id)),
                 );
 
-                self.enter_scope(ScopeKind::Members);
+                self.enter_scope(Barrier::Members);
 
                 for (index, field_type) in types.enumerate() {
                     let symbol_id = self.resolver.symbols.add_index_symbol(index as u32);
@@ -747,7 +747,7 @@ impl<'a> DeclarationBinder<'a> {
                 let variant_declaration_id = self
                     .reserve_declaration_id(variant_symbol_id, Some((name.position(), name.id)));
 
-                self.enter_scope(ScopeKind::Members);
+                self.enter_scope(Barrier::Members);
 
                 for (field_name, field_type) in name_type_pairs {
                     let field_name_str = file.get_str(field_name.node.span)?;
@@ -801,7 +801,7 @@ impl<'a> DeclarationBinder<'a> {
         } = reader.as_component()?;
 
         if let Some(value) = value {
-            self.enter_scope(ScopeKind::Constant);
+            self.enter_scope(Barrier::Constant);
             self.bind_expression(value)?;
             self.exit_scope();
         }
@@ -839,7 +839,7 @@ impl<'a> DeclarationBinder<'a> {
             });
         };
 
-        self.enter_scope(ScopeKind::Item);
+        self.enter_scope(Barrier::Item);
 
         let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
             self.bind_type_parameters(type_parameters)?
@@ -883,7 +883,7 @@ impl<'a> DeclarationBinder<'a> {
         let impl_declaration_id =
             self.reserve_declaration_id(impl_symbol_id, Some((reader.position(), reader.id)));
 
-        self.enter_scope(ScopeKind::Item);
+        self.enter_scope(Barrier::Item);
 
         let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
             self.bind_type_parameters(type_parameters)?
@@ -891,7 +891,7 @@ impl<'a> DeclarationBinder<'a> {
             None
         };
 
-        self.enter_scope(ScopeKind::Members);
+        self.enter_scope(Barrier::Members);
 
         let trait_declaration_id = if let Some(trait_path) = trait_path {
             Some(self.bind_path(trait_path)?)
@@ -1032,7 +1032,7 @@ impl<'a> DeclarationBinder<'a> {
         let trait_declaration_id =
             self.reserve_declaration_id(trait_symbol_id, Some((reader.position(), reader.id)));
 
-        self.enter_scope(ScopeKind::Item);
+        self.enter_scope(Barrier::Item);
 
         let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
             self.bind_type_parameters(type_parameters)?
@@ -1041,7 +1041,7 @@ impl<'a> DeclarationBinder<'a> {
         };
 
         let supertraits_scope_id = if let Some(supertraits) = supertraits {
-            self.enter_scope(ScopeKind::Members);
+            self.enter_scope(Barrier::Members);
 
             for supertrait in supertraits.children() {
                 let supertrait_declaration_id = self.bind_path(supertrait)?;
@@ -1056,7 +1056,7 @@ impl<'a> DeclarationBinder<'a> {
             None
         };
 
-        self.enter_scope(ScopeKind::Members);
+        self.enter_scope(Barrier::Members);
 
         let self_symbol_id = self.resolver.symbols.add_symbol("Self");
         let self_declaration_id = self.resolver.declarations.add_declaration(Declaration {
@@ -1493,7 +1493,7 @@ impl<'a> DeclarationBinder<'a> {
     fn bind_block_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let BlockExpression { children } = reader.as_component()?;
 
-        self.enter_scope(ScopeKind::Block);
+        self.enter_scope(Barrier::Block);
 
         for child in children {
             if child.node.kind.is_statement() {

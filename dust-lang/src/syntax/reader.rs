@@ -272,17 +272,6 @@ pub struct SyntaxPairIterator<'a> {
     current_index: usize,
 }
 
-impl<'a> SyntaxPairIterator<'a> {
-    pub fn expect_next_pair(
-        &mut self,
-    ) -> Result<(SyntaxReader<'a>, SyntaxReader<'a>), SyntaxError> {
-        self.next().ok_or_else(|| SyntaxError::MissingChild {
-            missing_index: self.current_index as u32,
-            total_children: self.parent.child_count() as u32,
-        })
-    }
-}
-
 impl<'a> Iterator for SyntaxPairIterator<'a> {
     type Item = (SyntaxReader<'a>, SyntaxReader<'a>);
 

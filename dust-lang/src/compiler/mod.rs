@@ -19,7 +19,7 @@ use crate::{
         emitter::Emitter,
         error::CompileError,
         resolver::{
-            PrototypeId, Resolver, declarations::Definition, scopes::ScopeKind, types::TypeId,
+            PrototypeId, Resolver, declarations::Definition, scopes::Barrier, types::TypeId,
         },
         type_binder::TypeBinder,
     },
@@ -143,7 +143,7 @@ impl<'src> Compiler<'src> {
             }
         }
 
-        let crate_scope_id = self.resolver.scopes.enter_scope(ScopeKind::Module, None);
+        let crate_scope_id = self.resolver.scopes.enter_scope(Barrier::Module, None);
 
         // Declaration binding phase
         {

@@ -17,7 +17,7 @@ use crate::{
         error::CompileError,
         resolver::{
             declarations::{Declaration, DeclarationId, Declarations, Definition, VariantKind},
-            scopes::{ScopeId, ScopeKind, Scopes},
+            scopes::{Barrier, ScopeId, Scopes},
             symbols::{SymbolId, Symbols},
             types::{
                 FloatType, InferredTypeConstraint, SignedIntegerType, Type, TypeId, TypeMembers,
@@ -395,7 +395,7 @@ impl Resolver {
         path_segment: SyntaxReader,
     ) -> Result<Option<DeclarationId>, CompileError> {
         let mut scope_id = Some(starting_scope_id);
-        let mut crossed_scope_kinds = SmallVec::<[ScopeKind; 7]>::new();
+        let mut crossed_scope_kinds = SmallVec::<[Barrier; 7]>::new();
 
         while let Some(current_scope_id) = scope_id {
             if let Some(declaration_id) = self
@@ -421,8 +421,8 @@ impl Resolver {
             let scope = self.scopes.get_scope(current_scope_id);
             scope_id = scope.parent;
 
-            if !crossed_scope_kinds.contains(&scope.kind) {
-                crossed_scope_kinds.push(scope.kind);
+            if !crossed_scope_kinds.contains(&scope.barrier) {
+                crossed_scope_kinds.push(scope.barrier);
             }
         }
 
@@ -953,7 +953,7 @@ impl Resolver {
             DustType::F32 => TypeId::F_32,
             DustType::F64 => TypeId::F_64,
             DustType::Tuple(element_types) => {
-                let type_scope_id = self.scopes.enter_scope(ScopeKind::Members, Some(scope_id));
+                let type_scope_id = self.scopes.enter_scope(Barrier::Members, Some(scope_id));
                 let element_type_ids = element_types
                     .iter()
                     .map(|element_type| self.add_external_type(element_type, type_scope_id))
@@ -990,7 +990,7 @@ impl Resolver {
             DustType::Struct(struct_type) => {
                 let DustStructType { name, value_type } = struct_type.as_ref();
                 let struct_symbol_id = self.symbols.add_symbol(name);
-                let struct_scope_id = self.scopes.enter_scope(ScopeKind::Members, None);
+                let struct_scope_id = self.scopes.enter_scope(Barrier::Members, None);
                 let struct_declaration_id = self.declarations.reserve_declaration_id(
                     struct_symbol_id,
                     struct_scope_id,
@@ -1058,7 +1058,7 @@ impl Resolver {
             DustType::Enum(enum_type) => {
                 let DustEnumType { name, variants } = enum_type.as_ref();
                 let enum_symbol_id = self.symbols.add_symbol(name);
-                let enum_scope_id = self.scopes.enter_scope(ScopeKind::Members, None);
+                let enum_scope_id = self.scopes.enter_scope(Barrier::Members, None);
                 let enum_declaration_id =
                     self.declarations
                         .reserve_declaration_id(enum_symbol_id, enum_scope_id, None);
@@ -1073,7 +1073,7 @@ impl Resolver {
                         DustStructTypeFields::Tuple(types) => {
                             let enum_variant_scope_id = self
                                 .scopes
-                                .enter_scope(ScopeKind::Members, Some(enum_scope_id));
+                                .enter_scope(Barrier::Members, Some(enum_scope_id));
 
                             let mut type_bindings = Vec::new();
 
@@ -1103,7 +1103,7 @@ impl Resolver {
                         DustStructTypeFields::Named(fields) => {
                             let enum_variant_scope_id = self
                                 .scopes
-                                .enter_scope(ScopeKind::Members, Some(enum_scope_id));
+                                .enter_scope(Barrier::Members, Some(enum_scope_id));
 
                             let mut type_bindings = Vec::new();
 
@@ -1576,7 +1576,7 @@ fn add_core(resolver: &mut Resolver) {
         },
     ];
 
-    let core_scope_id = resolver.scopes.enter_scope(ScopeKind::Module, None);
+    let core_scope_id = resolver.scopes.enter_scope(Barrier::Module, None);
 
     debug_assert_eq!(core_scope_id, ScopeId::CORE);
 
@@ -1647,7 +1647,7 @@ fn add_built_in_type_definition(
 ) {
     let item_scope_id = resolver
         .scopes
-        .enter_scope(ScopeKind::Item, Some(core_scope_id));
+        .enter_scope(Barrier::Item, Some(core_scope_id));
 
     match built_in_type {
         BuiltInType::Struct {
@@ -1755,7 +1755,7 @@ fn add_built_in_fields(
         BuiltInStructFields::Tuple(field_types) => {
             let fields_scope_id = resolver
                 .scopes
-                .enter_scope(ScopeKind::Members, Some(parent_scope_id));
+                .enter_scope(Barrier::Members, Some(parent_scope_id));
 
             for (field_index, field_type) in field_types.iter().enumerate() {
                 let field_symbol_id = resolver.symbols.add_index_symbol(field_index as u32);
@@ -1784,7 +1784,7 @@ fn add_built_in_fields(
         BuiltInStructFields::Named(field_types) => {
             let fields_scope_id = resolver
                 .scopes
-                .enter_scope(ScopeKind::Members, Some(parent_scope_id));
+                .enter_scope(Barrier::Members, Some(parent_scope_id));
 
             for (field_name, field_type) in field_types {
                 let field_symbol_id = resolver.symbols.add_symbol(field_name);
@@ -1822,7 +1822,7 @@ fn add_built_in_variants(
 ) -> ScopeId {
     let variants_scope_id = resolver
         .scopes
-        .enter_scope(ScopeKind::Members, Some(item_scope_id));
+        .enter_scope(Barrier::Members, Some(item_scope_id));
     let mut variant_namespace_entries = Vec::with_capacity(variants.len());
 
     for (variant_index, (variant_name, variant_fields)) in variants.iter().enumerate() {
