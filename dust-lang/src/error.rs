@@ -1,9 +1,6 @@
 //! Top-level error for the Dust language API that can create detailed reports with source code
 //! annotations.
-use std::{
-    fmt::{self, Debug, Display, Formatter},
-    io,
-};
+use std::fmt::{self, Debug, Display, Formatter};
 
 use annotate_snippets::{Group, Level, Renderer};
 
@@ -40,17 +37,47 @@ impl<'src> From<SourceError> for Error<'src> {
 
 impl<'a> Display for Error<'a> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let mut report = Vec::with_capacity(self.errors.len());
-        let renderer = Renderer::styled();
+        let (source, syntax, resolver) = match &self.context {
+            ErrorContext::Full(source, syntax, resolver) => {
+                (Some(source), Some(syntax), Some(resolver))
+            }
+            ErrorContext::Source(source) => (Some(source), None, None),
+            ErrorContext::None => (None, None, None),
+        };
+        let mut groups = Vec::new();
 
         for error in &self.errors {
-            error.add_report(self.context.parts(), &mut report);
+            match error {
+                ErrorKind::Source(source_error) => source_error.add_report((), &mut groups),
+                ErrorKind::Parse(parse_error) => {
+                    if let Some(source) = source {
+                        parse_error.add_report(source, &mut groups)
+                    } else {
+                        MissingErrorContext.add_report((), &mut groups);
+                    }
+                }
+                ErrorKind::Compile(compile_error) => {
+                    if let Some(source) = source
+                        && let Some(syntax) = syntax
+                        && let Some(resolver) = resolver
+                    {
+                        compile_error.add_report((source, syntax, resolver), &mut groups)
+                    } else {
+                        MissingErrorContext.add_report((), &mut groups);
+                    }
+                }
+                ErrorKind::Vm(vm_error) => {
+                    vm_error.add_report((), &mut groups);
+                }
+                ErrorKind::Meta(meta_error) => {
+                    meta_error.add_report((), &mut groups);
+                }
+            }
 
-            let display = renderer.render(&report);
+            let report_string = Renderer::styled().render(&groups);
 
-            report.clear();
-
-            writeln!(f, "{display}")?;
+            groups.clear();
+            writeln!(f, "{report_string}")?;
         }
 
         Ok(())
@@ -109,43 +136,6 @@ impl From<MissingErrorContext> for ErrorKind {
     }
 }
 
-impl<'a> DustError<'a> for ErrorKind {
-    type Context = (
-        Option<&'a Source<'a>>,
-        Option<&'a Syntax>,
-        Option<&'a Resolver>,
-    );
-
-    fn add_report(&self, (source, syntax, resolver): Self::Context, groups: &mut Vec<Group<'a>>) {
-        match self {
-            ErrorKind::Source(source_error) => source_error.add_report((), groups),
-            ErrorKind::Parse(parse_error) => {
-                if let Some(source) = source {
-                    parse_error.add_report(source, groups)
-                } else {
-                    MissingErrorContext.add_report((), groups);
-                }
-            }
-            ErrorKind::Compile(compile_error) => {
-                if let Some(source) = source
-                    && let Some(syntax) = syntax
-                    && let Some(resolver) = resolver
-                {
-                    compile_error.add_report((source, syntax, resolver), groups)
-                } else {
-                    MissingErrorContext.add_report((), groups);
-                }
-            }
-            ErrorKind::Vm(vm_error) => {
-                vm_error.add_report((), groups);
-            }
-            ErrorKind::Meta(meta_error) => {
-                meta_error.add_report((), groups);
-            }
-        }
-    }
-}
-
 #[derive(Debug)]
 pub enum ErrorContext<'src> {
     None,
@@ -170,9 +160,9 @@ impl<'src> ErrorContext<'src> {
 pub struct MissingErrorContext;
 
 impl<'a> DustError<'a> for MissingErrorContext {
-    type Context = ();
+    type Info = ();
 
-    fn add_report(&self, _: Self::Context, groups: &mut Vec<Group<'a>>) {
+    fn add_report(&self, _: Self::Info, groups: &mut Vec<Group<'a>>) {
         self.add_internal_report(groups);
     }
 }
@@ -181,9 +171,9 @@ pub trait DustError<'a>: Sized + Debug
 where
     ErrorKind: From<Self>,
 {
-    type Context;
+    type Info;
 
-    fn add_report(&self, context: Self::Context, groups: &mut Vec<Group<'a>>);
+    fn add_report(&self, context: Self::Info, groups: &mut Vec<Group<'a>>);
 
     fn to_full_error(self) -> Error<'a> {
         Error::new(vec![ErrorKind::from(self)], ErrorContext::None)

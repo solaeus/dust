@@ -480,9 +480,9 @@ impl Display for SourceError {
 }
 
 impl<'src> DustError<'src> for SourceError {
-    type Context = ();
+    type Info = ();
 
-    fn add_report(&self, _: Self::Context, reports: &mut Vec<Group<'src>>) {
+    fn add_report(&self, _: Self::Info, reports: &mut Vec<Group<'src>>) {
         let group = match self {
             SourceError::CannotOpen { io_error } => {
                 let title = "Cannot open source file";

@@ -1771,13 +1771,18 @@ impl<'a> Emitter<'a> {
     ) -> Result<Emission, CompileError> {
         let RangeExpression { start, end } = reader.as_component()?;
 
-        let type_id = *self.resolver.get_type_binding(&reader.id)?;
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
+                let type_id = *self.resolver.get_type_binding(&reader.id)?;
+
                 self.claim_registers(type_id, register_kind)?
             }
-            ExpressionTarget::Any => self.claim_registers(type_id, RegisterKind::Temporary)?,
+            ExpressionTarget::Any => {
+                let type_id = *self.resolver.get_type_binding(&reader.id)?;
+
+                self.claim_registers(type_id, RegisterKind::Temporary)?
+            }
         };
 
         let mut range_instructions = Instructions::new();
@@ -1800,6 +1805,7 @@ impl<'a> Emitter<'a> {
                 );
 
                 range_instructions.push(move_instruction);
+
                 continue;
             }
 

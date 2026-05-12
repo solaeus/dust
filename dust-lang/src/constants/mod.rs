@@ -408,9 +408,9 @@ pub enum ConstantsError {
 }
 
 impl<'a> DustError<'a> for ConstantsError {
-    type Context = ();
+    type Info = ();
 
-    fn add_report(&self, _: Self::Context, groups: &mut Vec<Group<'a>>) {
+    fn add_report(&self, _: Self::Info, groups: &mut Vec<Group<'a>>) {
         self.add_internal_report(groups);
     }
 }

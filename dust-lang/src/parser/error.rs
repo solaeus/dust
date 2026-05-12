@@ -51,9 +51,9 @@ impl From<SourceError> for ParseError {
 }
 
 impl<'src> DustError<'src> for ParseError {
-    type Context = &'src Source<'src>;
+    type Info = &'src Source<'src>;
 
-    fn add_report(&self, source: Self::Context, groups: &mut Vec<Group<'src>>) {
+    fn add_report(&self, source: Self::Info, groups: &mut Vec<Group<'src>>) {
         match self {
             ParseError::CannotResolveModule { position } => {
                 let title = "Cannot resolve module".to_string();

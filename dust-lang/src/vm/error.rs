@@ -38,9 +38,9 @@ impl From<ConstantsError> for VmError {
 }
 
 impl<'a> DustError<'a> for VmError {
-    type Context = ();
+    type Info = ();
 
-    fn add_report(&self, _: Self::Context, groups: &mut Vec<annotate_snippets::Group<'a>>) {
+    fn add_report(&self, _: Self::Info, groups: &mut Vec<annotate_snippets::Group<'a>>) {
         match self {
             VmError::ConstantList(constant_list_error) => {
                 constant_list_error.add_report((), groups);

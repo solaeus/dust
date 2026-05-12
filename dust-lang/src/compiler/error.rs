@@ -238,9 +238,9 @@ impl From<SourceError> for CompileError {
 }
 
 impl<'a> DustError<'a> for CompileError {
-    type Context = (&'a Source<'a>, &'a Syntax, &'a Resolver);
+    type Info = (&'a Source<'a>, &'a Syntax, &'a Resolver);
 
-    fn add_report(&self, (source, syntax, resolver): Self::Context, groups: &mut Vec<Group<'a>>) {
+    fn add_report(&self, (source, syntax, resolver): Self::Info, groups: &mut Vec<Group<'a>>) {
         match self {
             CompileError::DivisionByZero { position } => {
                 let title = "Division by zero";
