@@ -3197,6 +3197,7 @@ enum RegisterKind {
     Reserved,
 }
 
+#[derive(Debug)]
 enum ExpressionTarget {
     ClaimedRegister(RegisterClaims),
     UnclaimedRegister(RegisterKind),

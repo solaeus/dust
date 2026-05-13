@@ -1812,7 +1812,17 @@ impl<'src> Parser<'src> {
 
     fn parse_prefix_identifier(&mut self) -> Result<SyntaxNode, ParseError> {
         let start = self.current_token.span.start();
-        let may_be_struct = !matches!(self.previous_token.kind, TokenKind::If | TokenKind::While);
+        let may_be_struct = !matches!(
+            self.previous_token.kind,
+            TokenKind::If
+                | TokenKind::While
+                | TokenKind::For
+                | TokenKind::Equal
+                | TokenKind::Less
+                | TokenKind::LessEqual
+                | TokenKind::Greater
+                | TokenKind::GreaterEqual
+        );
 
         let mut path_node = self.expect_path()?;
 
