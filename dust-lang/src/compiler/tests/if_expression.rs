@@ -1,0 +1,82 @@
+use smallvec::smallvec;
+
+use crate::{
+    assert_program_eq,
+    dust_type::DustType,
+    instruction::{Instruction, OperandType},
+    prototype::Prototype,
+};
+
+#[test]
+fn if_branch() {
+    assert_program_eq!(
+        "fn main() -> i64 { if true { 1 } else { 0 } }",
+        prototypes: [
+            Prototype {
+                instructions: vec![],
+                return_types: smallvec![OperandType::I_64],
+                register_count: 0,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::I64
+    );
+}
+
+#[test]
+fn if_else_branch() {
+    assert_program_eq!(
+        "fn main() -> bool { if 1 < 2 { true } else { false } }",
+        prototypes: [
+            Prototype {
+                instructions: vec![],
+                return_types: smallvec![OperandType::BOOLEAN],
+                register_count: 0,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::Boolean
+    );
+}
+
+#[test]
+fn if_else_if_else() {
+    assert_program_eq!(
+        "
+            fn main() -> i64 {
+                let mut value = 2;
+                if value == 1 { 10 } else if value == 2 { 20 } else { 30 }
+            }
+        ",
+        prototypes: [
+            Prototype {
+                instructions: vec![],
+                return_types: smallvec![OperandType::I_64],
+                register_count: 0,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::I64
+    );
+}
+
+#[test]
+fn if_with_runtime_condition() {
+    assert_program_eq!(
+        "
+            fn main() -> i64 {
+                let mut condition = true;
+                if condition { 1 } else { 0 }
+            }
+        ",
+        prototypes: [
+            Prototype {
+                instructions: vec![],
+                return_types: smallvec![OperandType::I_64],
+                register_count: 0,
+                argument_count: 0,
+            },
+        ],
+        return_type: DustType::I64
+    );
+}

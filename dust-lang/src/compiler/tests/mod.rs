@@ -1,8 +1,23 @@
 #![allow(clippy::disallowed_macros)]
 #![allow(clippy::disallowed_methods)]
 
+mod array_expression;
+mod assignment_expression;
+mod block_and_grouped_expression;
+mod call_expression;
+mod comparison_expressions;
 mod constant_values;
+mod hexadecimal_expression;
+mod if_expression;
 mod let_statement;
+mod logic_expressions;
+mod math_expressions;
+mod method_call_expression;
+mod path_expression;
+mod range_expression;
+mod struct_expression;
+mod unary_expressions;
+mod while_expression;
 
 #[macro_export]
 macro_rules! assert_program_eq {
