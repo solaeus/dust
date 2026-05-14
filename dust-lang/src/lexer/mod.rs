@@ -263,7 +263,7 @@ impl<'src> Lexer<'src> {
         if self.token_flags.starts_with_digit {
             if self.token_flags.in_hexadecimal && self.token_flags.hex_digits > 0 {
                 return finish(self, TokenKind::HexIntegerLiteral, span);
-            } else if self.token_flags.has_decimal {
+            } else if self.token_flags.has_exponent || self.token_flags.has_decimal {
                 return finish(self, TokenKind::FloatLiteral, span);
             }
 
@@ -493,7 +493,7 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline(always)]
-    fn scan_chararacter(&mut self) -> Result<Option<Token>, ()> {
+    fn scan_character(&mut self) -> Result<Option<Token>, ()> {
         let start = self.index;
 
         if self.source[start] != b'\'' {
@@ -618,7 +618,7 @@ impl Iterator for Lexer<'_> {
                     return Some(token);
                 }
 
-                match self.scan_chararacter() {
+                match self.scan_character() {
                     Ok(Some(token)) => return Some(token),
                     Ok(None) => {
                         self.index += 1;
@@ -653,6 +653,17 @@ impl Iterator for Lexer<'_> {
 
                     continue;
                 }
+            }
+
+            if self.token_flags.expect_exponent_sign
+                && (current_byte == b'+' || current_byte == b'-')
+            {
+                let next_byte = self.source.get(self.index + 1).copied();
+
+                self.token_flags.push(current_byte, next_byte);
+                self.index += 1;
+
+                continue;
             }
 
             let current_class = current_byte.class();
@@ -733,12 +744,6 @@ impl Iterator for Lexer<'_> {
 
             self.index += 1;
         }
-    }
-}
-
-impl ExactSizeIterator for Lexer<'_> {
-    fn len(&self) -> usize {
-        self.source.len() - self.index
     }
 }
 
@@ -958,6 +963,8 @@ struct TokenFlags {
     unicode_identifier_valid: bool,
     unicode_identifier_started_non_ascii: bool,
     unknown: bool,
+    expect_exponent_sign: bool,
+    in_suffix: bool,
 }
 
 impl TokenFlags {
@@ -975,12 +982,36 @@ impl TokenFlags {
             unicode_identifier_started_non_ascii: false,
             length: 1,
             first_byte,
+            expect_exponent_sign: false,
+            in_suffix: false,
         }
     }
 
     #[inline(always)]
     fn push(&mut self, byte: u8, next: Option<u8>) {
         self.length += 1;
+
+        if self.in_suffix {
+            if byte.is_ascii_alphanumeric() || byte == b'_' {
+                return;
+            }
+
+            self.unknown = true;
+
+            return;
+        }
+
+        if self.expect_exponent_sign {
+            self.expect_exponent_sign = false;
+
+            if byte.is_ascii_digit() || byte == b'+' || byte == b'-' {
+                return;
+            }
+
+            self.unknown = true;
+
+            return;
+        }
 
         if self.in_hexadecimal {
             if byte.is_ascii_hexdigit() {
@@ -990,6 +1021,17 @@ impl TokenFlags {
             }
 
             if byte == b'_' {
+                if let Some(next) = next {
+                    let is_suffix_start = next.is_ascii_alphabetic()
+                        && !next.is_ascii_hexdigit();
+
+                    if is_suffix_start {
+                        self.in_suffix = true;
+
+                        return;
+                    }
+                }
+
                 return;
             }
 
@@ -1019,7 +1061,7 @@ impl TokenFlags {
                 };
                 let next_class = next.class();
 
-                if next_class.is_digit() || next_class.is_underscore() {
+                if next_class.is_digit() || next == b'_' {
                     self.has_decimal = true;
                 } else if !next_class.is_ascii() {
                     self.unknown = true;
@@ -1029,15 +1071,28 @@ impl TokenFlags {
             }
 
             if byte == b'e' || byte == b'E' {
-                if self.has_decimal && !self.has_exponent {
-                    self.has_exponent = true;
-
-                    return;
-                } else {
+                if self.has_exponent {
                     self.unknown = true;
 
                     return;
                 }
+
+                self.has_exponent = true;
+                self.expect_exponent_sign = true;
+
+                return;
+            }
+
+            if byte == b'_' {
+                if let Some(next) = next
+                    && next.is_ascii_alphabetic()
+                {
+                    self.in_suffix = true;
+
+                    return;
+                }
+
+                return;
             }
 
             let class = byte.class();

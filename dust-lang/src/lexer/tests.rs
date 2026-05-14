@@ -707,3 +707,203 @@ fn emoji_string() {
         ]
     );
 }
+
+#[test]
+fn float_with_exponent() {
+    let source = b"1e5";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::FloatLiteral,
+                span: Span::new(0, 3)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(3, 3)
+            }
+        ]
+    );
+}
+
+#[test]
+fn float_with_exponent_and_sign() {
+    let source = b"1.5e-3 2.0E+10";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::FloatLiteral,
+                span: Span::new(0, 6)
+            },
+            Token {
+                kind: TokenKind::FloatLiteral,
+                span: Span::new(7, 14)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(14, 14)
+            }
+        ]
+    );
+}
+
+#[test]
+fn integer_with_suffix() {
+    let source = b"42_u8 0_isize";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::IntegerLiteral,
+                span: Span::new(0, 5)
+            },
+            Token {
+                kind: TokenKind::IntegerLiteral,
+                span: Span::new(6, 13)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(13, 13)
+            }
+        ]
+    );
+}
+
+#[test]
+fn hex_with_suffix() {
+    let source = b"0xff_u8 0xDEAD_usize";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::HexIntegerLiteral,
+                span: Span::new(0, 7)
+            },
+            Token {
+                kind: TokenKind::HexIntegerLiteral,
+                span: Span::new(8, 20)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(20, 20)
+            }
+        ]
+    );
+}
+
+#[test]
+fn float_with_suffix() {
+    let source = b"3.14_f64";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::FloatLiteral,
+                span: Span::new(0, 8)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(8, 8)
+            }
+        ]
+    );
+}
+
+#[test]
+fn exponent_float_with_suffix() {
+    let source = b"1e5_f32";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::FloatLiteral,
+                span: Span::new(0, 7)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(7, 7)
+            }
+        ]
+    );
+}
+
+#[test]
+fn numeric_separators_with_suffix() {
+    let source = b"1_000_000_u64";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::IntegerLiteral,
+                span: Span::new(0, 13)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(13, 13)
+            }
+        ]
+    );
+}
+
+#[test]
+fn hex_separators_with_suffix() {
+    let source = b"0x_ff_u8";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::HexIntegerLiteral,
+                span: Span::new(0, 8)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(8, 8)
+            }
+        ]
+    );
+}
+
+#[test]
+fn adjacent_suffixed_literals() {
+    let source = b"42_u8+1_u8";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::IntegerLiteral,
+                span: Span::new(0, 5)
+            },
+            Token {
+                kind: TokenKind::Plus,
+                span: Span::new(5, 6)
+            },
+            Token {
+                kind: TokenKind::IntegerLiteral,
+                span: Span::new(6, 10)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(10, 10)
+            }
+        ]
+    );
+}
