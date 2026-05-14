@@ -8,19 +8,12 @@ use crate::{
 };
 
 #[test]
-fn simple_assignment() {
+fn grouped_expression() {
     assert_program_eq!(
-        "
-            fn main() -> i64 {
-                let mut destination = 0;
-                destination = 42;
-                destination
-            }
-        ",
+        "fn main() -> i64 { (42) }",
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 0)),
                     Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 42)),
                     Instruction::r#return(),
                 ],
@@ -34,26 +27,17 @@ fn simple_assignment() {
 }
 
 #[test]
-fn assignment_from_runtime() {
+fn grouped_with_operator() {
     assert_program_eq!(
-        "
-            fn main() -> i64 {
-                let mut destination = 0;
-                let mut source = 42;
-                destination = source;
-                destination
-            }
-        ",
+        "fn main() -> i64 { (1 + 2) * 3 }",
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 0)),
-                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 42)),
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 2)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 9)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 4,
+                register_count: 2,
                 argument_count: 0,
             },
         ],

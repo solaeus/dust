@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::DustType,
-    instruction::{Instruction, OperandType},
+    instruction::{Address, Instruction, MemoryKind, OperandType},
     prototype::Prototype,
 };
 
@@ -13,9 +13,15 @@ fn if_branch() {
         "fn main() -> i64 { if true { 1 } else { 0 } }",
         prototypes: [
             Prototype {
-                instructions: vec![],
+                instructions: vec![
+                    Instruction::test(true, Address::new(MemoryKind::ENCODED, 1), 2),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::jump(1, true),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::r#return(),
+                ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 0,
+                register_count: 2,
                 argument_count: 0,
             },
         ],
@@ -29,9 +35,15 @@ fn if_else_branch() {
         "fn main() -> bool { if 1 < 2 { true } else { false } }",
         prototypes: [
             Prototype {
-                instructions: vec![],
+                instructions: vec![
+                    Instruction::test(true, Address::new(MemoryKind::ENCODED, 1), 2),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::jump(1, true),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::r#return(),
+                ],
                 return_types: smallvec![OperandType::BOOLEAN],
-                register_count: 0,
+                register_count: 1,
                 argument_count: 0,
             },
         ],
@@ -71,9 +83,16 @@ fn if_with_runtime_condition() {
         ",
         prototypes: [
             Prototype {
-                instructions: vec![],
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::test(true, Address::new(MemoryKind::REGISTER, 0), 2),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::jump(1, true),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::r#return(),
+                ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 0,
+                register_count: 2,
                 argument_count: 0,
             },
         ],

@@ -3,10 +3,11 @@
 
 mod array_expression;
 mod assignment_expression;
-mod block_and_grouped_expression;
+mod block_expression;
 mod call_expression;
 mod comparison_expressions;
 mod constant_values;
+mod group_expression;
 mod hexadecimal_expression;
 mod if_expression;
 mod let_statement;
@@ -21,11 +22,7 @@ mod while_expression;
 
 #[macro_export]
 macro_rules! assert_program_eq {
-    (
-        $code: literal,
-        prototypes: $prototypes: expr,
-        return_type: $return_type: expr
-    ) => {
+    ($code: literal, prototypes: $prototypes: expr, return_type: $return_type: expr) => {
         use $crate::{
             compiler::Compiler,
             source::{Source, SourceCode},
