@@ -1382,8 +1382,11 @@ impl<'a> Emitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
-        let text = &self.source.get_content(reader.position())?[2..];
-        let byte = create_u8_from_hexadecimal(text)?;
+        let bytes = &self
+            .source
+            .get_code(reader.source_id())
+            .get_bytes(reader.node.span)?[2..];
+        let byte = create_u8_from_hexadecimal(bytes, reader)?;
 
         self.create_emission_from_value(ConstantValue::U8(byte), target)
     }
@@ -1405,15 +1408,18 @@ impl<'a> Emitter<'a> {
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         let type_id = *self.resolver.get_type_binding(&reader.id)?;
-        let text = self.source.get_content(reader.position())?;
+        let bytes = self
+            .source
+            .get_code(reader.source_id())
+            .get_bytes(reader.node.span)?;
         let value = match type_id {
             TypeId::F_32 => {
-                let float = create_f32_from_decimal(text)?;
+                let float = create_f32_from_decimal(bytes, reader)?;
 
                 ConstantValue::F32(float)
             }
             TypeId::F_64 => {
-                let float = create_f64_from_decimal(text)?;
+                let float = create_f64_from_decimal(bytes, reader)?;
 
                 ConstantValue::F64(float)
             }
@@ -1422,15 +1428,19 @@ impl<'a> Emitter<'a> {
                     let register = register_claims.expect_single()?;
 
                     match register.operand_type {
-                        OperandType::F_32 => ConstantValue::F32(create_f32_from_decimal(text)?),
-                        OperandType::F_64 => ConstantValue::F64(create_f64_from_decimal(text)?),
+                        OperandType::F_32 => {
+                            ConstantValue::F32(create_f32_from_decimal(bytes, reader)?)
+                        }
+                        OperandType::F_64 => {
+                            ConstantValue::F64(create_f64_from_decimal(bytes, reader)?)
+                        }
                         _ => {
                             return Err(CompileError::InvalidTypeBinding(type_id));
                         }
                     }
                 }
                 _ => {
-                    let float = create_f32_from_decimal(text)?;
+                    let float = create_f32_from_decimal(bytes, reader)?;
 
                     ConstantValue::F32(float)
                 }
@@ -1446,30 +1456,33 @@ impl<'a> Emitter<'a> {
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         let type_id = *self.resolver.get_type_binding(&reader.id)?;
-        let text = self.source.get_content(reader.position())?;
+        let bytes = self
+            .source
+            .get_code(reader.source_id())
+            .get_bytes(reader.node.span)?;
         let value = match type_id {
-            TypeId::I_8 => ConstantValue::I8(create_i8_from_decimal(text)?),
-            TypeId::I_16 => ConstantValue::I16(create_i16_from_decimal(text)?),
-            TypeId::I_32 => ConstantValue::I32(create_i32_from_decimal(text)?),
-            TypeId::I_64 => ConstantValue::I64(create_i64_from_decimal(text)?),
-            TypeId::I_128 => ConstantValue::I128(create_i128_from_decimal(text)?),
+            TypeId::I_8 => ConstantValue::I8(create_i8_from_decimal(bytes, reader)?),
+            TypeId::I_16 => ConstantValue::I16(create_i16_from_decimal(bytes, reader)?),
+            TypeId::I_32 => ConstantValue::I32(create_i32_from_decimal(bytes, reader)?),
+            TypeId::I_64 => ConstantValue::I64(create_i64_from_decimal(bytes, reader)?),
+            TypeId::I_128 => ConstantValue::I128(create_i128_from_decimal(bytes, reader)?),
             TypeId::I_SIZE => {
                 if cfg!(target_pointer_width = "64") {
-                    ConstantValue::I64(create_i64_from_decimal(text)?)
+                    ConstantValue::I64(create_i64_from_decimal(bytes, reader)?)
                 } else {
-                    ConstantValue::I32(create_i32_from_decimal(text)?)
+                    ConstantValue::I32(create_i32_from_decimal(bytes, reader)?)
                 }
             }
-            TypeId::U_8 => ConstantValue::U8(create_u8_from_decimal(text)?),
-            TypeId::U_16 => ConstantValue::U16(create_u16_from_decimal(text)?),
-            TypeId::U_32 => ConstantValue::U32(create_u32_from_decimal(text)?),
-            TypeId::U_64 => ConstantValue::U64(create_u64_from_decimal(text)?),
-            TypeId::U_128 => ConstantValue::U128(create_u128_from_decimal(text)?),
+            TypeId::U_8 => ConstantValue::U8(create_u8_from_decimal(bytes, reader)?),
+            TypeId::U_16 => ConstantValue::U16(create_u16_from_decimal(bytes, reader)?),
+            TypeId::U_32 => ConstantValue::U32(create_u32_from_decimal(bytes, reader)?),
+            TypeId::U_64 => ConstantValue::U64(create_u64_from_decimal(bytes, reader)?),
+            TypeId::U_128 => ConstantValue::U128(create_u128_from_decimal(bytes, reader)?),
             TypeId::U_SIZE => {
                 if cfg!(target_pointer_width = "64") {
-                    ConstantValue::U64(create_u64_from_decimal(text)?)
+                    ConstantValue::U64(create_u64_from_decimal(bytes, reader)?)
                 } else {
-                    ConstantValue::U32(create_u32_from_decimal(text)?)
+                    ConstantValue::U32(create_u32_from_decimal(bytes, reader)?)
                 }
             }
             _ => match &target {
@@ -1477,22 +1490,42 @@ impl<'a> Emitter<'a> {
                     let register = register_claims.expect_single()?;
 
                     match register.operand_type {
-                        OperandType::I_8 => ConstantValue::I8(create_i8_from_decimal(text)?),
-                        OperandType::I_16 => ConstantValue::I16(create_i16_from_decimal(text)?),
-                        OperandType::I_32 => ConstantValue::I32(create_i32_from_decimal(text)?),
-                        OperandType::I_64 => ConstantValue::I64(create_i64_from_decimal(text)?),
-                        OperandType::I_128 => ConstantValue::I128(create_i128_from_decimal(text)?),
-                        OperandType::U_8 => ConstantValue::U8(create_u8_from_decimal(text)?),
-                        OperandType::U_16 => ConstantValue::U16(create_u16_from_decimal(text)?),
-                        OperandType::U_32 => ConstantValue::U32(create_u32_from_decimal(text)?),
-                        OperandType::U_64 => ConstantValue::U64(create_u64_from_decimal(text)?),
-                        OperandType::U_128 => ConstantValue::U128(create_u128_from_decimal(text)?),
+                        OperandType::I_8 => {
+                            ConstantValue::I8(create_i8_from_decimal(bytes, reader)?)
+                        }
+                        OperandType::I_16 => {
+                            ConstantValue::I16(create_i16_from_decimal(bytes, reader)?)
+                        }
+                        OperandType::I_32 => {
+                            ConstantValue::I32(create_i32_from_decimal(bytes, reader)?)
+                        }
+                        OperandType::I_64 => {
+                            ConstantValue::I64(create_i64_from_decimal(bytes, reader)?)
+                        }
+                        OperandType::I_128 => {
+                            ConstantValue::I128(create_i128_from_decimal(bytes, reader)?)
+                        }
+                        OperandType::U_8 => {
+                            ConstantValue::U8(create_u8_from_decimal(bytes, reader)?)
+                        }
+                        OperandType::U_16 => {
+                            ConstantValue::U16(create_u16_from_decimal(bytes, reader)?)
+                        }
+                        OperandType::U_32 => {
+                            ConstantValue::U32(create_u32_from_decimal(bytes, reader)?)
+                        }
+                        OperandType::U_64 => {
+                            ConstantValue::U64(create_u64_from_decimal(bytes, reader)?)
+                        }
+                        OperandType::U_128 => {
+                            ConstantValue::U128(create_u128_from_decimal(bytes, reader)?)
+                        }
                         _ => {
                             return Err(CompileError::InvalidTypeBinding(type_id));
                         }
                     }
                 }
-                _ => ConstantValue::I32(create_i32_from_decimal(text)?),
+                _ => ConstantValue::I32(create_i32_from_decimal(bytes, reader)?),
             },
         };
 
@@ -1666,8 +1699,11 @@ impl<'a> Emitter<'a> {
         let element_register_count = element_operand_types.len();
 
         if index.node.kind == SyntaxKind::IntegerExpression {
-            let index_str = self.source.get_content(index.position())?;
-            let constant_index = create_usize_from_decimal(index_str)?;
+            let index_bytes = self
+                .source
+                .get_code(index.source_id())
+                .get_bytes(index.node.span)?;
+            let constant_index = create_usize_from_decimal(index_bytes, index)?;
 
             if constant_index >= array_length {
                 return Err(CompileError::IndexOutOfBounds {

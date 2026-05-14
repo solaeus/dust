@@ -1670,8 +1670,11 @@ impl<'a> DeclarationBinder<'a> {
                 } = reader.as_component()?;
 
                 let element_type_id = self.handle_explicit_type(element_type)?;
-                let length_str = self.source.get_content(length.position())?;
-                let length = create_usize_from_decimal(length_str)?;
+                let length_bytes = self
+                    .source
+                    .get_code(length.source_id())
+                    .get_bytes(length.node.span)?;
+                let length = create_usize_from_decimal(length_bytes, length)?;
 
                 Ok(self.resolver.types.add_type(Type::Array {
                     element_type_id,

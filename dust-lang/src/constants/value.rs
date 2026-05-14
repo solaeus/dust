@@ -693,7 +693,7 @@ impl ConstantValue {
 
     fn create_overflow_error(self, other: Self, syntax: &SyntaxReader) -> CompileError {
         match syntax.as_component() {
-            Ok(MathExpression { left, right }) => CompileError::ConstantOverflow {
+            Ok(MathExpression { left, right }) => CompileError::ConstantBinaryOverflow {
                 left_value: self,
                 left_span: left.node.span,
                 right_value: other,

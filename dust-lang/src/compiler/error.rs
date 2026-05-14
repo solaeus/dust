@@ -53,7 +53,10 @@ pub enum CompileError {
     CannotMutate {
         position: Position,
     },
-    ConstantOverflow {
+    ConstantValueOverflow {
+        position: Position,
+    },
+    ConstantBinaryOverflow {
         left_value: ConstantValue,
         left_span: Span,
         right_value: ConstantValue,
@@ -152,7 +155,6 @@ pub enum CompileError {
     },
 
     // Internal errors
-    ValueCreation(lexical_parse_integer::Error),
     Source(SourceError),
     Syntax(SyntaxError),
     ConstantList(ConstantsError),
@@ -1006,7 +1008,7 @@ impl<'a> DustError<'a> for CompileError {
 
                 groups.push(group);
             }
-            CompileError::ConstantOverflow {
+            CompileError::ConstantBinaryOverflow {
                 left_value,
                 left_span,
                 right_value,
@@ -1152,6 +1154,24 @@ impl<'a> DustError<'a> for CompileError {
 
                 groups.push(group);
             }
+            CompileError::ConstantValueOverflow { position } => {
+                let title = "Constant value overflow";
+                let file_content = match source.get_content(*position) {
+                    Ok(content) => content,
+                    Err(error) => {
+                        return error.add_report((), groups);
+                    }
+                };
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(file_content).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label("This constant value exceeds the maximum allowed for its type."),
+                    ),
+                );
+
+                groups.push(group);
+            }
             CompileError::Syntax(error) => error.add_report((), groups),
             CompileError::ConstantList(error) => error.add_report((), groups),
             CompileError::Source(error) => error.add_report((), groups),
@@ -1164,7 +1184,6 @@ impl<'a> DustError<'a> for CompileError {
             | CompileError::ExpectedLocal
             | CompileError::ExpectedFieldDefinition { .. }
             | CompileError::ExpectedAllocation
-            | CompileError::ValueCreation(_)
             | CompileError::MissingSymbol(_)
             | CompileError::MissingDeclaration(_)
             | CompileError::MissingDeclarationType(_)
