@@ -226,12 +226,20 @@ impl<'a> Emitter<'a> {
                         destination,
                         operand_type,
                         operand,
-                        jump_distance,
-                        jump_forward,
+                        jump_distance: move_jump_distance,
+                        jump_forward: move_jump_forward,
                     } = Move::from(*instruction);
 
-                    if jump_forward == forward {
-                        let total_distance = base_distance + jump_distance;
+                    if move_jump_distance == 0 {
+                        *instruction = Instruction::move_with_jump(
+                            destination,
+                            operand_type,
+                            operand,
+                            base_distance,
+                            forward,
+                        );
+                    } else if move_jump_forward == forward {
+                        let total_distance = base_distance + move_jump_distance;
 
                         *instruction = Instruction::move_with_jump(
                             destination,
@@ -240,8 +248,6 @@ impl<'a> Emitter<'a> {
                             total_distance,
                             forward,
                         );
-                    } else {
-                        *instruction = Instruction::r#move(destination, operand_type, operand);
                     }
                 }
                 _ => {}
@@ -2268,7 +2274,6 @@ impl<'a> Emitter<'a> {
 
         {
             let saved_register_tracker = self.register_tracker;
-
             let then_emission = self.emit_block_expression(
                 then_branch,
                 ExpressionTarget::ClaimedRegister(target_registers.clone()),
@@ -2281,19 +2286,30 @@ impl<'a> Emitter<'a> {
                 let jump_over_else_id = self.create_jump_id();
                 self.jump_over_branch_ids.push(jump_over_else_id);
 
-                if_instructions.push(Instruction::no_op());
                 if_instructions.push_jump_anchor(JumpAnchor::ForwardFromHere {
                     id: jump_over_else_id,
                 });
                 if_instructions.push_jump_anchor(JumpAnchor::ForwardToNext {
                     id: jump_over_then_id,
                 });
+                // if_instructions.push(Instruction::no_op());
 
                 self.register_tracker = saved_register_tracker;
-                let else_emission = self.emit_block_expression(
-                    else_branch,
-                    ExpressionTarget::ClaimedRegister(target_registers.clone()),
-                )?;
+                let else_emission = match else_branch.node.kind {
+                    SyntaxKind::BlockExpression => self.emit_block_expression(
+                        else_branch,
+                        ExpressionTarget::ClaimedRegister(target_registers.clone()),
+                    )?,
+                    SyntaxKind::IfExpression => self.emit_if_expression(
+                        else_branch,
+                        ExpressionTarget::ClaimedRegister(target_registers.clone()),
+                    )?,
+                    _ => {
+                        return Err(CompileError::ExpectedSyntax {
+                            expected: &[SyntaxKind::BlockExpression, SyntaxKind::IfExpression],
+                        });
+                    }
+                };
                 let else_register_tracker = self.register_tracker;
 
                 self.handle_branch_emission(else_emission, &mut if_instructions, &else_branch)?;

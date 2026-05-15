@@ -62,9 +62,21 @@ fn if_else_if_else() {
         ",
         prototypes: [
             Prototype {
-                instructions: vec![],
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, 2)),
+                    Instruction::equal(true, OperandType::I_32, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::jump(2, true),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 10)),
+                    Instruction::jump(5, true),
+                    Instruction::equal(true, OperandType::I_32, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 2)),
+                    Instruction::jump(2, true),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 20)),
+                    Instruction::jump(1, true),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 30)),
+                    Instruction::r#return(),
+                ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 0,
+                register_count: 2,
                 argument_count: 0,
             },
         ],

@@ -1010,7 +1010,15 @@ impl<'a> TypeBinder<'a> {
         let then_type_id = self.bind_expression(then_branch)?;
 
         if let Some(else_branch) = else_branch {
-            let else_type_id = self.bind_expression(else_branch)?;
+            let else_type_id = match else_branch.node.kind {
+                SyntaxKind::BlockExpression => self.bind_expression(else_branch)?,
+                SyntaxKind::IfExpression => self.bind_if_expression(else_branch)?,
+                _ => {
+                    return Err(CompileError::ExpectedSyntax {
+                        expected: &[SyntaxKind::BlockExpression, SyntaxKind::IfExpression],
+                    });
+                }
+            };
 
             self.unify_types(then_type_id, Some(then_branch), else_type_id, else_branch)?;
             self.resolver.add_type_binding(reader.id, then_type_id);
