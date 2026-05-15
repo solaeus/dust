@@ -10,9 +10,8 @@ env:
 jobs:
   build_and_test:
     name: Dust Build & Test
-    runs-on: ubuntu-latest
+    runs-on: bare-metal
 
     steps:
-      - uses: actions/checkout@v4
       - run: cargo build --verbose
       - run: cargo test --verbose --no-fail-fast
