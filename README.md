@@ -50,6 +50,9 @@ into design optimizations and performance improvements.
   - Tuple variants
   - Field variants
 - [X] `impl` blocks
+- [X] `trait` definitions and implementations
+- [X] Generics
+- [_] Trait constraints
 
 ## Design
 

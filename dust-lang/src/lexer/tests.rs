@@ -907,3 +907,159 @@ fn adjacent_suffixed_literals() {
         ]
     );
 }
+
+#[test]
+fn negative_integer() {
+    let source = b"-42";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::IntegerLiteral,
+                span: Span::new(0, 3)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(3, 3)
+            }
+        ]
+    );
+}
+
+#[test]
+fn negative_float() {
+    let source = b"-42.5";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::FloatLiteral,
+                span: Span::new(0, 5)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(5, 5)
+            }
+        ]
+    );
+}
+
+#[test]
+fn negative_float_with_exponent() {
+    let source = b"-42.5e-3";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::FloatLiteral,
+                span: Span::new(0, 8)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(8, 8)
+            }
+        ]
+    );
+}
+
+#[test]
+fn negative_hex() {
+    let source = b"-0x42";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::HexIntegerLiteral,
+                span: Span::new(0, 5)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(5, 5)
+            }
+        ]
+    );
+}
+
+#[test]
+fn negative_with_type_suffix() {
+    let source = b"-42u8";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::IntegerLiteral,
+                span: Span::new(0, 5)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(5, 5)
+            }
+        ]
+    );
+}
+
+#[test]
+fn identifier_minus_integer() {
+    let source = b"foo-42";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span::new(0, 3)
+            },
+            Token {
+                kind: TokenKind::Minus,
+                span: Span::new(1, 3)
+            },
+            Token {
+                kind: TokenKind::IntegerLiteral,
+                span: Span::new(2, 4)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(4, 6)
+            }
+        ]
+    );
+}
+
+#[test]
+fn integer_minus_integer() {
+    let source = b"42-42";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::IntegerLiteral,
+                span: Span::new(0, 2)
+            },
+            Token {
+                kind: TokenKind::Minus,
+                span: Span::new(1, 2)
+            },
+            Token {
+                kind: TokenKind::IntegerLiteral,
+                span: Span::new(2, 3)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(3, 5)
+            }
+        ]
+    );
+}

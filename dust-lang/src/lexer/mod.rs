@@ -629,24 +629,20 @@ impl Iterator for Lexer<'_> {
                 }
             }
 
-            if current_byte == b'.'
-                && let Some(start) = self.token_start
-            {
+            if current_byte == b'.' && self.token_start.is_some() {
                 if self.token_flags.has_decimal
                     && let Some(token) = self.finish_token()
                 {
                     return Some(token);
                 }
 
-                let first_byte = self.source[start];
-
-                let next_is_digit = (self.index + 1) < self.source.len() && {
+                let next_is_digit_or_underscore = (self.index + 1) < self.source.len() && {
                     let byte = self.source[self.index + 1];
 
                     byte.is_ascii_digit() || byte == b'_'
                 };
 
-                if first_byte.is_ascii_digit() && next_is_digit {
+                if self.token_flags.starts_with_digit && next_is_digit_or_underscore {
                     self.index += 1;
                     self.token_flags.length += 1;
                     self.token_flags.has_decimal = true;
@@ -669,6 +665,19 @@ impl Iterator for Lexer<'_> {
             let current_class = current_byte.class();
 
             if current_class.is_operator_or_punctuation() {
+                if current_byte == b'-'
+                    && self.token_start.is_none()
+                    && let Some(next_byte) = self.source.get(self.index + 1)
+                    && next_byte.is_ascii_digit()
+                {
+                    self.token_start = Some(self.index);
+                    self.token_flags = TokenFlags::new(*next_byte);
+                    self.token_flags.negative = true;
+                    self.index += 2;
+
+                    continue;
+                }
+
                 if let Some(token) = self.finish_token() {
                     return Some(token);
                 }
@@ -952,38 +961,40 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
 
 #[derive(Debug, Clone, Copy, Default)]
 struct TokenFlags {
+    expect_exponent_sign: bool,
     first_byte: u8,
-    length: usize,
-    starts_with_digit: bool,
-    in_hexadecimal: bool,
-    hex_digits: usize,
     has_decimal: bool,
     has_exponent: bool,
-    saw_non_ascii: bool,
-    unicode_identifier_valid: bool,
-    unicode_identifier_started_non_ascii: bool,
-    unknown: bool,
-    expect_exponent_sign: bool,
+    hex_digits: usize,
+    in_hexadecimal: bool,
     in_suffix: bool,
+    length: usize,
+    negative: bool,
+    saw_non_ascii: bool,
+    starts_with_digit: bool,
+    unicode_identifier_started_non_ascii: bool,
+    unicode_identifier_valid: bool,
+    unknown: bool,
 }
 
 impl TokenFlags {
     #[inline(always)]
     fn new(first_byte: u8) -> Self {
         Self {
-            starts_with_digit: first_byte.is_ascii_digit(),
-            in_hexadecimal: false,
-            hex_digits: 0,
+            expect_exponent_sign: false,
+            first_byte,
             has_decimal: false,
             has_exponent: false,
-            unknown: false,
-            saw_non_ascii: false,
-            unicode_identifier_valid: true,
-            unicode_identifier_started_non_ascii: false,
-            length: 1,
-            first_byte,
-            expect_exponent_sign: false,
+            hex_digits: 0,
+            in_hexadecimal: false,
             in_suffix: false,
+            length: 1,
+            negative: false,
+            saw_non_ascii: false,
+            starts_with_digit: first_byte.is_ascii_digit(),
+            unicode_identifier_started_non_ascii: false,
+            unicode_identifier_valid: true,
+            unknown: false,
         }
     }
 
@@ -992,7 +1003,79 @@ impl TokenFlags {
         self.length += 1;
 
         if self.in_suffix {
-            if byte.is_ascii_alphanumeric() || byte == b'_' {
+            if byte == b'_'
+                && let Some(next) = next
+                && matches!(next, b'f' | b'i' | b'u')
+            {
+                return;
+            }
+
+            if byte == b'f'
+                && let Some(next) = next
+                && matches!(next, b'3' | b'6')
+            {
+                return;
+            }
+
+            if byte == b'i'
+                && let Some(next) = next
+                && matches!(next, b'1' | b'3' | b'6' | b'8' | b'z')
+            {
+                return;
+            }
+
+            if byte == b's'
+                && let Some(next) = next
+                && next != b'i'
+            {
+                return;
+            }
+
+            if byte == b'u'
+                && let Some(next) = next
+                && matches!(next, b'1' | b'3' | b'6' | b'8')
+            {
+                return;
+            }
+
+            if byte == b'1'
+                && let Some(next) = next
+                && matches!(next, b'2' | b'6')
+            {
+                return;
+            }
+
+            if byte == b'2'
+                && let Some(next) = next
+                && matches!(next, b'8')
+            {
+                return;
+            }
+
+            if byte == b'3'
+                && let Some(next) = next
+                && matches!(next, b'2')
+            {
+                return;
+            }
+
+            if byte == b'6'
+                && let Some(next) = next
+                && matches!(next, b'4')
+            {
+                return;
+            }
+
+            if byte == b'z'
+                && let Some(next) = next
+                && matches!(next, b'e')
+            {
+                return;
+            }
+
+            if matches!(byte, b'2' | b'4' | b'6' | b'8' | b'e') {
+                self.in_suffix = false;
+
                 return;
             }
 
@@ -1022,8 +1105,7 @@ impl TokenFlags {
 
             if byte == b'_' {
                 if let Some(next) = next {
-                    let is_suffix_start = next.is_ascii_alphabetic()
-                        && !next.is_ascii_hexdigit();
+                    let is_suffix_start = next.is_ascii_alphabetic() && !next.is_ascii_hexdigit();
 
                     if is_suffix_start {
                         self.in_suffix = true;
@@ -1083,14 +1165,8 @@ impl TokenFlags {
                 return;
             }
 
-            if byte == b'_' {
-                if let Some(next) = next
-                    && next.is_ascii_alphabetic()
-                {
-                    self.in_suffix = true;
-
-                    return;
-                }
+            if byte == b'_' || byte == b'f' || byte == b'i' || byte == b'u' {
+                self.in_suffix = true;
 
                 return;
             }
