@@ -21,8 +21,6 @@ pub enum TokenKind {
     // Characters that cannot be used in Dust source code
     Unknown,
 
-    Eof,
-
     // Literals
     CharacterLiteral,
     StringLiteral,
@@ -158,7 +156,6 @@ impl Display for TokenKind {
             TokenKind::DoublePipe => write!(f, "|| symbol"),
             TokenKind::Else => write!(f, "else keyword"),
             TokenKind::Enum => write!(f, "enum keyword"),
-            TokenKind::Eof => write!(f, "end of file"),
             TokenKind::Equal => write!(f, "= symbol"),
             TokenKind::F32 => write!(f, "f32 keyword"),
             TokenKind::F64 => write!(f, "f64 keyword"),

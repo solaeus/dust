@@ -49,10 +49,10 @@ pub struct Parser<'src> {
 }
 
 impl<'src> Parser<'src> {
-    pub fn new(source_id: SourceCodeId, next_syntax_id: SyntaxId, lexer: Lexer<'src>) -> Self {
+    pub fn new(source_id: SourceCodeId, first_syntax_id: SyntaxId, lexer: Lexer<'src>) -> Self {
         Self {
             lexer,
-            tree: SyntaxTreeBuilder::new(source_id, next_syntax_id),
+            tree: SyntaxTreeBuilder::new(source_id, first_syntax_id),
             current_token: Token {
                 kind: TokenKind::Unknown,
                 span: Span::empty(),
@@ -173,6 +173,14 @@ impl<'src> Parser<'src> {
             trace!("Parsing {}", next_token.kind);
 
             self.previous_token = replace(&mut self.current_token, next_token);
+        } else {
+            self.previous_token = replace(
+                &mut self.current_token,
+                Token {
+                    kind: TokenKind::Unknown,
+                    span: Span::empty(),
+                },
+            );
         }
     }
 
@@ -186,7 +194,7 @@ impl<'src> Parser<'src> {
         self.child_buffer.truncate(children_start);
         self.advance();
 
-        loop {
+        while !self.is_eof() {
             match self.current_token.kind {
                 TokenKind::Semicolon | TokenKind::RightCurlyBrace => {
                     self.advance();
@@ -200,7 +208,6 @@ impl<'src> Parser<'src> {
                 | TokenKind::Struct
                 | TokenKind::Enum
                 | TokenKind::Let
-                | TokenKind::Eof
                 | TokenKind::Unknown => break,
                 _ => self.advance(),
             }
@@ -213,14 +220,10 @@ impl<'src> Parser<'src> {
     }
 
     fn is_eof(&self) -> bool {
-        self.current_token.kind == TokenKind::Eof
+        self.lexer.is_eof()
     }
 
     fn allow(&mut self, allowed: TokenKind) -> bool {
-        if self.is_eof() {
-            return true;
-        }
-
         let allowed = self.current_token.kind == allowed;
 
         if allowed {
@@ -1817,7 +1820,7 @@ impl<'src> Parser<'src> {
             TokenKind::If
                 | TokenKind::While
                 | TokenKind::For
-                | TokenKind::Equal
+                | TokenKind::DoubleEqual
                 | TokenKind::Less
                 | TokenKind::LessEqual
                 | TokenKind::Greater
@@ -2197,10 +2200,10 @@ impl<'src> Parser<'src> {
         let start = self.previous_token.span.start();
         let children_start = self.child_buffer.len();
 
-        loop {
+        while !self.is_eof() {
             if matches!(
                 self.current_token.kind,
-                TokenKind::LeftCurlyBrace | TokenKind::Semicolon | TokenKind::Eof
+                TokenKind::LeftCurlyBrace | TokenKind::Semicolon
             ) {
                 break;
             }

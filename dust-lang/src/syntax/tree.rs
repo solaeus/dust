@@ -105,12 +105,12 @@ pub struct SyntaxTreeBuilder {
 }
 
 impl SyntaxTreeBuilder {
-    pub fn new(source_id: SourceCodeId, next_syntax_id: SyntaxId) -> Self {
+    pub fn new(source_id: SourceCodeId, first_syntax_id: SyntaxId) -> Self {
         Self {
             source_id,
             nodes: Vec::new(),
             children: Vec::new(),
-            next_syntax_id,
+            next_syntax_id: first_syntax_id,
         }
     }
 

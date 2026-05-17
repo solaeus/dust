@@ -1,4 +1,4 @@
-use std::io::{Write, stdout};
+use std::io::{Write, stderr, stdout};
 
 use dust_lang::{
     error::{Error as DustError, ErrorContext, ErrorKind},
@@ -19,9 +19,9 @@ pub fn parse<'src>(command: ParseCommand) -> Result<(), Error<'src>> {
 
     let source = build_source(input)?;
 
-    let mut syntax_trees = Vec::new();
+    let mut syntax_trees = Vec::with_capacity(source.file_count());
     let mut errors = Vec::new();
-    let mut next_syntax_id = SyntaxId::ROOT;
+    let mut starting_syntax_id = SyntaxId::ROOT;
 
     for (source_id, file) in source.iter() {
         let lexer = if file.utf8_validated() {
@@ -29,23 +29,22 @@ pub fn parse<'src>(command: ParseCommand) -> Result<(), Error<'src>> {
         } else {
             Lexer::with_unvalidated_source(file.content_as_bytes())
         };
-        let parser = Parser::new(source_id, next_syntax_id, lexer);
+        let parser = Parser::new(source_id, starting_syntax_id, lexer);
         let ParseResult {
             syntax_tree,
             errors: parse_errors,
             ..
         } = parser.parse();
-        next_syntax_id = syntax_tree.next_syntax_id();
+        starting_syntax_id = syntax_tree.next_syntax_id();
 
         syntax_trees.push(syntax_tree);
         errors.extend(parse_errors.into_iter().map(ErrorKind::Parse));
     }
 
     if !errors.is_empty() {
-        return Err(Error::Dust(DustError::new(
-            errors,
-            ErrorContext::Source(source),
-        )));
+        let error_string = DustError::new(errors, ErrorContext::Source(source)).to_string();
+
+        stderr().write_all(error_string.as_bytes())?;
     }
 
     if ron {

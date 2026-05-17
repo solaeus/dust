@@ -13,16 +13,10 @@ fn single_identifier() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::Identifier,
-                span: Span::new(0, 3)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(3, 3)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::Identifier,
+            span: Span::new(0, 3)
+        },]
     );
 }
 
@@ -33,16 +27,10 @@ fn identifier_with_digits_and_underscores() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::Identifier,
-                span: Span::new(0, 5)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(5, 5)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::Identifier,
+            span: Span::new(0, 5)
+        },]
     );
 }
 
@@ -66,10 +54,6 @@ fn multiple_identifiers() {
                 kind: TokenKind::Identifier,
                 span: Span::new(12, 18)
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(18, 18)
-            }
         ]
     );
 }
@@ -90,10 +74,6 @@ fn booleans() {
                 kind: TokenKind::False,
                 span: Span::new(5, 10)
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(10, 10)
-            }
         ]
     );
 }
@@ -114,10 +94,6 @@ fn hex_integers() {
                 kind: TokenKind::HexIntegerLiteral,
                 span: Span::new(5, 9)
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(9, 9)
-            }
         ]
     );
 }
@@ -138,16 +114,10 @@ fn characters() {
 
         assert_eq!(
             tokens,
-            vec![
-                Token {
-                    kind: TokenKind::CharacterLiteral,
-                    span: Span::new(0, source.len() as u32)
-                },
-                Token {
-                    kind: TokenKind::Eof,
-                    span: Span::new(source.len() as u32, source.len() as u32)
-                }
-            ],
+            vec![Token {
+                kind: TokenKind::CharacterLiteral,
+                span: Span::new(0, source.len() as u32)
+            },],
             "Failed to tokenize character literal {character} (U+{codepoint:04X})"
         );
     }
@@ -157,16 +127,10 @@ fn characters() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::CharacterLiteral,
-                span: Span::new(0, 4)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(4, 4)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::CharacterLiteral,
+            span: Span::new(0, 4)
+        },]
     );
 }
 
@@ -190,10 +154,6 @@ fn floats() {
                 kind: TokenKind::FloatLiteral,
                 span: Span::new(11, 15)
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(15, 15)
-            }
         ]
     );
 }
@@ -218,10 +178,6 @@ fn integers() {
                 kind: TokenKind::IntegerLiteral,
                 span: Span::new(6, 12)
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(12, 12)
-            }
         ]
     );
 }
@@ -242,10 +198,6 @@ fn strings() {
                 kind: TokenKind::StringLiteral,
                 span: Span::new(8, 15)
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(15, 15)
-            }
         ]
     );
 }
@@ -266,6 +218,7 @@ fn keywords() {
         ("false", TokenKind::False),
         ("fn", TokenKind::Fn),
         ("for", TokenKind::For),
+        ("Infinity", TokenKind::Infinity),
         ("i8", TokenKind::I8),
         ("i16", TokenKind::I16),
         ("i32", TokenKind::I32),
@@ -309,7 +262,7 @@ fn keywords() {
         .map(|token| token.kind)
         .collect::<Vec<_>>();
 
-    assert_eq!(actual[..actual.len() - 1], expected);
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -363,7 +316,7 @@ fn operators_and_punctuation() {
         .map(|token| token.kind)
         .collect::<Vec<_>>();
 
-    assert_eq!(actual[..actual.len() - 1], expected);
+    assert_eq!(actual, expected);
 }
 
 #[test]
@@ -402,10 +355,6 @@ fn adjacent_tokens() {
                 kind: TokenKind::Semicolon,
                 span: Span::new(12, 13)
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(13, 13)
-            }
         ]
     );
 }
@@ -507,16 +456,10 @@ fn unicode_identifier() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::Identifier,
-                span: Span::new(0, 2)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(2, 2)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::Identifier,
+            span: Span::new(0, 2)
+        },]
     );
 }
 
@@ -527,16 +470,10 @@ fn multiple_unicode_identifier() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::Identifier,
-                span: Span::new(0, 6)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(6, 6)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::Identifier,
+            span: Span::new(0, 6)
+        },]
     );
 }
 
@@ -547,16 +484,10 @@ fn ascii_followed_by_unicode_identifier() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::Identifier,
-                span: Span::new(0, 5)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(5, 5)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::Identifier,
+            span: Span::new(0, 5)
+        },]
     );
 }
 
@@ -567,16 +498,10 @@ fn unicode_followed_by_ascii_identifier() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::Identifier,
-                span: Span::new(0, 5)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(5, 5)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::Identifier,
+            span: Span::new(0, 5)
+        },]
     );
 }
 
@@ -587,16 +512,10 @@ fn underscore_followed_by_unicode_identifier() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::Identifier,
-                span: Span::new(0, 3)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(3, 3)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::Identifier,
+            span: Span::new(0, 3)
+        },]
     );
 }
 
@@ -607,16 +526,10 @@ fn chinese_identifier() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::Identifier,
-                span: Span::new(0, 6)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(6, 6)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::Identifier,
+            span: Span::new(0, 6)
+        },]
     );
 }
 
@@ -627,16 +540,10 @@ fn emoji_is_not_identifier() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::Unknown,
-                span: Span::new(0, 4)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(4, 4)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::Unknown,
+            span: Span::new(0, 4)
+        },]
     );
 }
 
@@ -660,10 +567,6 @@ fn emoji_breaks_identifier() {
                 kind: TokenKind::Identifier,
                 span: Span::new(7, 10)
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(10, 10)
-            }
         ]
     );
 }
@@ -675,16 +578,10 @@ fn emoji_character() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::CharacterLiteral,
-                span: Span::new(0, 6)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(6, 6)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::CharacterLiteral,
+            span: Span::new(0, 6)
+        },]
     );
 }
 
@@ -695,16 +592,10 @@ fn emoji_string() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::StringLiteral,
-                span: Span::new(0, 6)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(6, 6)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::StringLiteral,
+            span: Span::new(0, 6)
+        },]
     );
 }
 
@@ -715,16 +606,10 @@ fn float_with_exponent() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::FloatLiteral,
-                span: Span::new(0, 3)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(3, 3)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::FloatLiteral,
+            span: Span::new(0, 3)
+        },]
     );
 }
 
@@ -744,10 +629,6 @@ fn float_with_exponent_and_sign() {
                 kind: TokenKind::FloatLiteral,
                 span: Span::new(7, 14)
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(14, 14)
-            }
         ]
     );
 }
@@ -768,10 +649,6 @@ fn integer_with_suffix() {
                 kind: TokenKind::IntegerLiteral,
                 span: Span::new(6, 13)
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(13, 13)
-            }
         ]
     );
 }
@@ -792,10 +669,6 @@ fn hex_with_suffix() {
                 kind: TokenKind::HexIntegerLiteral,
                 span: Span::new(8, 20)
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(20, 20)
-            }
         ]
     );
 }
@@ -807,16 +680,10 @@ fn float_with_suffix() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::FloatLiteral,
-                span: Span::new(0, 8)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(8, 8)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::FloatLiteral,
+            span: Span::new(0, 8)
+        },]
     );
 }
 
@@ -827,16 +694,10 @@ fn exponent_float_with_suffix() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::FloatLiteral,
-                span: Span::new(0, 7)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(7, 7)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::FloatLiteral,
+            span: Span::new(0, 7)
+        },]
     );
 }
 
@@ -847,16 +708,10 @@ fn numeric_separators_with_suffix() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::IntegerLiteral,
-                span: Span::new(0, 13)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(13, 13)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::IntegerLiteral,
+            span: Span::new(0, 13)
+        },]
     );
 }
 
@@ -867,16 +722,10 @@ fn hex_separators_with_suffix() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::HexIntegerLiteral,
-                span: Span::new(0, 8)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(8, 8)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::HexIntegerLiteral,
+            span: Span::new(0, 8)
+        },]
     );
 }
 
@@ -900,10 +749,6 @@ fn adjacent_suffixed_literals() {
                 kind: TokenKind::IntegerLiteral,
                 span: Span::new(6, 10)
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(10, 10)
-            }
         ]
     );
 }
@@ -915,16 +760,10 @@ fn negative_integer() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::IntegerLiteral,
-                span: Span::new(0, 3)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(3, 3)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::IntegerLiteral,
+            span: Span::new(0, 3)
+        },]
     );
 }
 
@@ -935,16 +774,10 @@ fn negative_float() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::FloatLiteral,
-                span: Span::new(0, 5)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(5, 5)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::FloatLiteral,
+            span: Span::new(0, 5)
+        },]
     );
 }
 
@@ -955,16 +788,10 @@ fn negative_float_with_exponent() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::FloatLiteral,
-                span: Span::new(0, 8)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(8, 8)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::FloatLiteral,
+            span: Span::new(0, 8)
+        },]
     );
 }
 
@@ -975,16 +802,10 @@ fn negative_hex() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::HexIntegerLiteral,
-                span: Span::new(0, 5)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(5, 5)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::HexIntegerLiteral,
+            span: Span::new(0, 5)
+        },]
     );
 }
 
@@ -995,16 +816,10 @@ fn negative_with_type_suffix() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::IntegerLiteral,
-                span: Span::new(0, 5)
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(5, 5)
-            }
-        ]
+        vec![Token {
+            kind: TokenKind::IntegerLiteral,
+            span: Span::new(0, 5)
+        },]
     );
 }
 
@@ -1028,10 +843,6 @@ fn identifier_minus_integer() {
                 kind: TokenKind::IntegerLiteral,
                 span: Span::new(4, 6)
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(6, 6)
-            }
         ]
     );
 }
@@ -1056,10 +867,6 @@ fn integer_minus_integer() {
                 kind: TokenKind::IntegerLiteral,
                 span: Span::new(3, 5)
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(5, 5)
-            }
         ]
     );
 }
@@ -1071,16 +878,10 @@ fn string_with_escaped_backslash() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::StringLiteral,
-                span: Span::new(0, 4),
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(4, 4),
-            },
-        ]
+        vec![Token {
+            kind: TokenKind::StringLiteral,
+            span: Span::new(0, 4),
+        },]
     );
 }
 
@@ -1091,16 +892,10 @@ fn string_with_escaped_quote() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::StringLiteral,
-                span: Span::new(0, 10),
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(10, 10),
-            },
-        ]
+        vec![Token {
+            kind: TokenKind::StringLiteral,
+            span: Span::new(0, 10),
+        },]
     );
 }
 
@@ -1111,16 +906,10 @@ fn empty_string() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::StringLiteral,
-                span: Span::new(0, 2),
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(2, 2),
-            },
-        ]
+        vec![Token {
+            kind: TokenKind::StringLiteral,
+            span: Span::new(0, 2),
+        },]
     );
 }
 
@@ -1143,10 +932,6 @@ fn integer_range() {
             Token {
                 kind: TokenKind::IntegerLiteral,
                 span: Span::new(3, 4),
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(4, 4),
             },
         ]
     );
@@ -1172,10 +957,6 @@ fn integer_range_inclusive() {
                 kind: TokenKind::IntegerLiteral,
                 span: Span::new(4, 5),
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(5, 5),
-            },
         ]
     );
 }
@@ -1187,16 +968,10 @@ fn bare_minus_at_eof() {
 
     assert_eq!(
         tokens,
-        vec![
-            Token {
-                kind: TokenKind::Minus,
-                span: Span::new(0, 1),
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(1, 1),
-            },
-        ]
+        vec![Token {
+            kind: TokenKind::Minus,
+            span: Span::new(0, 1),
+        },]
     );
 }
 
@@ -1215,10 +990,6 @@ fn lone_ampersand_and_pipe() {
             Token {
                 kind: TokenKind::Unknown,
                 span: Span::new(2, 3),
-            },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(3, 3),
             },
         ]
     );
@@ -1244,10 +1015,6 @@ fn identifier_plus_identifier() {
                 kind: TokenKind::Identifier,
                 span: Span::new(4, 7),
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(7, 7),
-            },
         ]
     );
 }
@@ -1272,10 +1039,6 @@ fn identifier_double_ampersand_identifier() {
                 kind: TokenKind::Identifier,
                 span: Span::new(5, 8),
             },
-            Token {
-                kind: TokenKind::Eof,
-                span: Span::new(8, 8),
-            },
         ]
     );
 }
@@ -1298,4 +1061,80 @@ fn truncated_utf8_3byte() {
     lexer.next();
 
     assert_eq!(lexer.error_index(), Some(0));
+}
+
+#[test]
+fn string_with_backslash_at_end_unterminated() {
+    let source = b"\"hello\\";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![Token {
+            kind: TokenKind::Unknown,
+            span: Span::new(0, 7),
+        },]
+    );
+}
+
+#[test]
+fn string_with_multiple_consecutive_escapes() {
+    let source = b"\"\\\\\\\\\\\"\"";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![Token {
+            kind: TokenKind::StringLiteral,
+            span: Span::new(0, 8),
+        },]
+    );
+}
+
+#[test]
+fn invalid_utf8_inside_string() {
+    let source = b"\"hello\xFFworld\"";
+    let mut lexer = Lexer::with_unvalidated_source(source);
+
+    lexer.next();
+
+    assert_eq!(lexer.error_index(), Some(6));
+}
+
+#[test]
+fn invalid_utf8_inside_character() {
+    let source = b"'\xFF'";
+    let mut lexer = Lexer::with_unvalidated_source(source);
+
+    lexer.next();
+
+    assert_eq!(lexer.error_index(), Some(1));
+}
+
+#[test]
+fn unterminated_string() {
+    let source = b"\"hello";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![Token {
+            kind: TokenKind::Unknown,
+            span: Span::new(0, 6),
+        },]
+    );
+}
+
+#[test]
+fn unterminated_character() {
+    let source = b"'a";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![Token {
+            kind: TokenKind::CharacterLiteral,
+            span: Span::new(0, 2),
+        },]
+    );
 }

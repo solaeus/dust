@@ -11,20 +11,14 @@ pub fn run<'src>(commmand: RunCommand) -> Result<(), Error<'src>> {
     let RunCommand { global: _, input } = commmand;
 
     let source = build_source(input)?;
-    let compiler = Compiler::new(source);
-    let compile_result = compiler.compile(None);
-
-    let program = match compile_result {
-        Ok(program) => program,
-        Err(error) => return Result::Err(error.into()),
-    };
-    let jit_vm = Vm::new(
+    let program = Compiler::new(source).compile(None)?;
+    let vm = Vm::new(
         program,
         MINIMUM_OBJECT_HEAP_DEFAULT,
         MINIMUM_OBJECT_HEAP_DEFAULT,
     );
 
-    match jit_vm.run() {
+    match vm.run() {
         Ok(Some(return_value)) => {
             stdout().write_all(return_value.to_string().as_bytes())?;
 

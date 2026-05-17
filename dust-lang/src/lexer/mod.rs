@@ -61,6 +61,10 @@ impl<'src> Lexer<'src> {
         self.source
     }
 
+    pub fn is_eof(&self) -> bool {
+        self.eof
+    }
+
     pub fn error_index(&self) -> Option<usize> {
         if self.error { Some(self.index) } else { None }
     }
@@ -87,10 +91,13 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline(always)]
-    fn operator_or_punctuation(&self, current: u8) -> (TokenKind, usize) {
+    fn scan_operator_or_punctuation(&mut self) -> Option<Token> {
+        let start = self.index;
+
+        let current = self.source.get(self.index)?;
         let next = self.next_byte();
 
-        match (current, next) {
+        let (kind, width) = match (current, next) {
             (b'*', Some(b'=')) => (TokenKind::AsteriskEqual, 2),
             (b'*', _) => (TokenKind::Asterisk, 1),
             (b'!', Some(b'=')) => (TokenKind::BangEqual, 2),
@@ -108,6 +115,8 @@ impl<'src> Lexer<'src> {
                 }
             }
             (b'.', _) => (TokenKind::Dot, 1),
+            (b'&', Some(b'&')) => (TokenKind::DoubleAmpersand, 2),
+            (b'|', Some(b'|')) => (TokenKind::DoublePipe, 2),
             (b'=', Some(b'=')) => (TokenKind::DoubleEqual, 2),
             (b'=', _) => (TokenKind::Equal, 1),
             (b'<', Some(b'=')) => (TokenKind::LessEqual, 2),
@@ -130,18 +139,15 @@ impl<'src> Lexer<'src> {
             (b';', _) => (TokenKind::Semicolon, 1),
             (b'/', Some(b'=')) => (TokenKind::SlashEqual, 2),
             (b'/', _) => (TokenKind::Slash, 1),
-            _ => {
-                let Some(next) = next else {
-                    return (TokenKind::Unknown, 1);
-                };
+            _ => (TokenKind::Unknown, 1),
+        };
 
-                match (current, next) {
-                    (b'&', b'&') => (TokenKind::DoubleAmpersand, 2),
-                    (b'|', b'|') => (TokenKind::DoublePipe, 2),
-                    _ => (TokenKind::Unknown, 1),
-                }
-            }
-        }
+        self.index += width;
+
+        Some(Token {
+            kind,
+            span: Span::new(start, self.index),
+        })
     }
 
     #[inline(always)]
@@ -264,10 +270,7 @@ impl<'src> Lexer<'src> {
                         | (0xED, 0x80..=0x9F)
                         | (0xEE..=0xEF, 0x80..=0xBF)
                 ) {
-                    self.error = true;
-                    self.index = start;
-
-                    return Err(());
+                    return_err!();
                 }
 
                 let third = self.source[start + 2];
@@ -316,7 +319,7 @@ impl<'src> Lexer<'src> {
 
             match byte {
                 b'\\' => {
-                    escaped = true;
+                    escaped = !escaped;
                     index += 1;
                 }
                 b'"' => {
@@ -338,7 +341,10 @@ impl<'src> Lexer<'src> {
                     escaped = false;
                 }
                 _ => match self.scan_utf8_sequence(index) {
-                    Ok(width) => index += width,
+                    Ok(width) => {
+                        index += width;
+                        escaped = false;
+                    }
                     Err(()) => return Err(()),
                 },
             }
@@ -438,7 +444,7 @@ impl<'src> Lexer<'src> {
 
         if byte == b'-' {
             self.index += 1;
-            byte = self.source[self.index];
+            byte = *self.source.get(self.index)?;
         }
 
         if !byte.is_ascii_digit() {
@@ -485,7 +491,11 @@ impl<'src> Lexer<'src> {
                 b'0'..=b'9' | b'_' => {
                     self.index += 1;
                 }
-                b'.' => {
+                b'.' if self
+                    .source
+                    .get(self.index + 1)
+                    .is_some_and(|next| next.is_ascii_digit()) =>
+                {
                     token_kind = TokenKind::FloatLiteral;
                     self.index += 1;
                 }
@@ -541,21 +551,22 @@ impl Iterator for Lexer<'_> {
         }
 
         loop {
-            if self.eof || self.error {
-                return None;
-            }
-
             if self.index >= self.source.len() {
                 if let Some(token) = self.finish_identifier() {
                     emit!(token);
                 }
 
+                if let Some(token) = self.scan_operator_or_punctuation() {
+                    emit!(token);
+                }
+
                 self.eof = true;
 
-                emit!(Token {
-                    kind: TokenKind::Eof,
-                    span: Span::new(self.source.len(), self.source.len()),
-                });
+                return None;
+            }
+
+            if self.error {
+                return None;
             }
 
             let current_byte = self.source[self.index];
@@ -577,18 +588,7 @@ impl Iterator for Lexer<'_> {
                     self.index += 1;
                 }
 
-                if self.index >= self.source.len() {
-                    if let Some(token) = self.finish_identifier() {
-                        emit!(token);
-                    }
-
-                    self.eof = true;
-
-                    emit!(Token {
-                        kind: TokenKind::Eof,
-                        span: Span::new(self.source.len(), self.source.len()),
-                    });
-                }
+                continue;
             }
 
             let current_byte = self.source[self.index];
@@ -654,12 +654,9 @@ impl Iterator for Lexer<'_> {
                     emit!(token);
                 }
 
-                let (kind, width) = self.operator_or_punctuation(current_byte);
-
-                let span = Span::new(self.index, self.index + width);
-                self.index += width;
-
-                emit!(Token { kind, span });
+                if let Some(token) = self.scan_operator_or_punctuation() {
+                    emit!(token);
+                }
             }
 
             if self.token_start.is_none() && current_class.is_ascii() {

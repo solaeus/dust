@@ -185,12 +185,6 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
-            TokenKind::Eof => ParseRule {
-                prefix: Parser::parse_unexpected,
-                infix: None,
-                precedence: Precedence::None,
-                associativity: Associativity::Left,
-            },
             TokenKind::Equal => ParseRule {
                 prefix: Parser::parse_unexpected,
                 infix: Some(Parser::parse_infix_assignment_operator),

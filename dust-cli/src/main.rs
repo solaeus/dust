@@ -7,7 +7,7 @@ mod error;
 use std::{
     fmt,
     fs::File,
-    io::{self, Read},
+    io::{self, Read, Write, stderr},
     process::ExitCode,
     time::Instant,
 };
@@ -15,7 +15,7 @@ use std::{
 use clap::Parser as CliParser;
 use dust_lang::{
     project::{PROJECT_CONFIG_PATH, ProjectConfig},
-    source::{Source, SourceCode, SourceError},
+    source::{Source, SourceCode},
 };
 use tracing::{Event, Level, Subscriber, info, level_filters::LevelFilter};
 use tracing_subscriber::{
@@ -71,7 +71,7 @@ fn main() -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            eprintln!("{error}");
+            let _ = stderr().write_all(error.to_string().as_bytes());
 
             ExitCode::FAILURE
         }
