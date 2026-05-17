@@ -17,16 +17,16 @@ pub mod disassembler;
 pub mod dust_type;
 pub mod dust_value;
 pub mod error;
-mod instruction;
+pub mod instruction;
 pub mod lexer;
 mod native_function;
 pub mod parser;
-mod program;
+pub mod program;
 pub mod project;
-mod prototype;
+pub mod prototype;
 pub mod source;
 pub mod syntax;
-mod token;
+pub mod token;
 pub mod vm;
 
 #[cfg(feature = "mimalloc")]

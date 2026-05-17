@@ -1063,3 +1063,239 @@ fn integer_minus_integer() {
         ]
     );
 }
+
+#[test]
+fn string_with_escaped_backslash() {
+    let source = b"\"\\\\\"";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::StringLiteral,
+                span: Span::new(0, 4),
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(4, 4),
+            },
+        ]
+    );
+}
+
+#[test]
+fn string_with_escaped_quote() {
+    let source = b"\"foo\\\"bar\"";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::StringLiteral,
+                span: Span::new(0, 10),
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(10, 10),
+            },
+        ]
+    );
+}
+
+#[test]
+fn empty_string() {
+    let source = b"\"\"";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::StringLiteral,
+                span: Span::new(0, 2),
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(2, 2),
+            },
+        ]
+    );
+}
+
+#[test]
+fn integer_range() {
+    let source = b"1..2";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::IntegerLiteral,
+                span: Span::new(0, 1),
+            },
+            Token {
+                kind: TokenKind::DoubleDot,
+                span: Span::new(1, 3),
+            },
+            Token {
+                kind: TokenKind::IntegerLiteral,
+                span: Span::new(3, 4),
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(4, 4),
+            },
+        ]
+    );
+}
+
+#[test]
+fn integer_range_inclusive() {
+    let source = b"1..=2";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::IntegerLiteral,
+                span: Span::new(0, 1),
+            },
+            Token {
+                kind: TokenKind::DoubleDotEqual,
+                span: Span::new(1, 4),
+            },
+            Token {
+                kind: TokenKind::IntegerLiteral,
+                span: Span::new(4, 5),
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(5, 5),
+            },
+        ]
+    );
+}
+
+#[test]
+fn bare_minus_at_eof() {
+    let source = b"-";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::Minus,
+                span: Span::new(0, 1),
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(1, 1),
+            },
+        ]
+    );
+}
+
+#[test]
+fn lone_ampersand_and_pipe() {
+    let source = b"& |";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::Unknown,
+                span: Span::new(0, 1),
+            },
+            Token {
+                kind: TokenKind::Unknown,
+                span: Span::new(2, 3),
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(3, 3),
+            },
+        ]
+    );
+}
+
+#[test]
+fn identifier_plus_identifier() {
+    let source = b"foo+bar";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span::new(0, 3),
+            },
+            Token {
+                kind: TokenKind::Plus,
+                span: Span::new(3, 4),
+            },
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span::new(4, 7),
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(7, 7),
+            },
+        ]
+    );
+}
+
+#[test]
+fn identifier_double_ampersand_identifier() {
+    let source = b"foo&&bar";
+    let tokens = Lexer::with_unvalidated_source(source).collect::<Vec<_>>();
+
+    assert_eq!(
+        tokens,
+        vec![
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span::new(0, 3),
+            },
+            Token {
+                kind: TokenKind::DoubleAmpersand,
+                span: Span::new(3, 5),
+            },
+            Token {
+                kind: TokenKind::Identifier,
+                span: Span::new(5, 8),
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(8, 8),
+            },
+        ]
+    );
+}
+
+#[test]
+fn truncated_utf8_2byte() {
+    let source = b"\xC2";
+    let mut lexer = Lexer::with_unvalidated_source(source);
+
+    lexer.next();
+
+    assert_eq!(lexer.error_index(), Some(0));
+}
+
+#[test]
+fn truncated_utf8_3byte() {
+    let source = b"\xE0\x80";
+    let mut lexer = Lexer::with_unvalidated_source(source);
+
+    lexer.next();
+
+    assert_eq!(lexer.error_index(), Some(0));
+}

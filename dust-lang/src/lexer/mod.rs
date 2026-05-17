@@ -4,53 +4,10 @@ mod tests;
 use std::hint::cold_path;
 
 use crate::{
-    error::ErrorKind,
-    parser::error::ParseError,
-    source::{Position, Source, SourceCode, Span},
+    source::Span,
     token::{Token, TokenKind},
 };
 use unicode_ident::{is_xid_continue, is_xid_start};
-
-pub fn tokenize_bytes(bytes: &[u8]) -> Result<Vec<Token>, ErrorKind> {
-    let mut source = Source::with_capacity(1);
-    let source_id = source.add_code(SourceCode::from_bytes("tokenize", bytes));
-
-    let mut lexer = Lexer::with_unvalidated_source(bytes);
-    let mut tokens = Vec::new();
-
-    for token in &mut lexer {
-        tokens.push(token);
-    }
-
-    if lexer.error {
-        let error_index = lexer.error_index().unwrap_or(0);
-        let position = Position::new(source_id, Span::new(error_index, error_index));
-
-        return Err(ErrorKind::Parse(ParseError::InvalidUtf8 { position }));
-    }
-
-    Ok(tokens)
-}
-
-pub fn tokenize_str(str: &str) -> Result<Vec<Token>, ErrorKind> {
-    let mut source = Source::with_capacity(1);
-    let source_id = source.add_code(SourceCode::from_str("tokenize", str));
-
-    let mut lexer = Lexer::with_validated_source(str);
-    let mut tokens = Vec::new();
-
-    for token in &mut lexer {
-        tokens.push(token);
-    }
-
-    if let Some(error_index) = lexer.error_index() {
-        let position = Position::new(source_id, Span::new(error_index, error_index));
-
-        return Err(ErrorKind::Parse(ParseError::InvalidUtf8 { position }));
-    }
-
-    Ok(tokens)
-}
 
 #[derive(Debug)]
 pub struct Lexer<'src> {
@@ -133,129 +90,46 @@ impl<'src> Lexer<'src> {
     fn operator_or_punctuation(&self, current: u8) -> (TokenKind, usize) {
         let next = self.next_byte();
 
-        match current {
-            b'*' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::AsteriskEqual, 2)
+        match (current, next) {
+            (b'*', Some(b'=')) => (TokenKind::AsteriskEqual, 2),
+            (b'*', _) => (TokenKind::Asterisk, 1),
+            (b'!', Some(b'=')) => (TokenKind::BangEqual, 2),
+            (b'!', _) => (TokenKind::Bang, 1),
+            (b'^', Some(b'=')) => (TokenKind::CaretEqual, 2),
+            (b'^', _) => (TokenKind::Caret, 1),
+            (b':', Some(b':')) => (TokenKind::DoubleColon, 2),
+            (b':', _) => (TokenKind::Colon, 1),
+            (b',', _) => (TokenKind::Comma, 1),
+            (b'.', Some(b'.')) => {
+                if self.source.get(self.index + 2) == Some(&b'=') {
+                    (TokenKind::DoubleDotEqual, 3)
                 } else {
-                    (TokenKind::Asterisk, 1)
+                    (TokenKind::DoubleDot, 2)
                 }
             }
-            b'!' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::BangEqual, 2)
-                } else {
-                    (TokenKind::Bang, 1)
-                }
-            }
-            b'^' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::CaretEqual, 2)
-                } else {
-                    (TokenKind::Caret, 1)
-                }
-            }
-            b':' => {
-                if let Some(next) = next
-                    && next == b':'
-                {
-                    (TokenKind::DoubleColon, 2)
-                } else {
-                    (TokenKind::Colon, 1)
-                }
-            }
-            b',' => (TokenKind::Comma, 1),
-            b'.' => {
-                if let Some(next) = next
-                    && next == b'.'
-                {
-                    if self.source.get(self.index + 2) == Some(&b'=') {
-                        (TokenKind::DoubleDotEqual, 3)
-                    } else {
-                        (TokenKind::DoubleDot, 2)
-                    }
-                } else {
-                    (TokenKind::Dot, 1)
-                }
-            }
-            b'=' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::DoubleEqual, 2)
-                } else {
-                    (TokenKind::Equal, 1)
-                }
-            }
-            b'>' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::GreaterEqual, 2)
-                } else {
-                    (TokenKind::Greater, 1)
-                }
-            }
-            b'{' => (TokenKind::LeftCurlyBrace, 1),
-            b'[' => (TokenKind::LeftSquareBracket, 1),
-            b'(' => (TokenKind::LeftParenthesis, 1),
-            b'<' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::LessEqual, 2)
-                } else {
-                    (TokenKind::Less, 1)
-                }
-            }
-            b'-' => {
-                if let Some(next) = next {
-                    match next {
-                        b'=' => (TokenKind::MinusEqual, 2),
-                        b'>' => (TokenKind::ArrowThin, 2),
-                        _ => (TokenKind::Minus, 1),
-                    }
-                } else {
-                    (TokenKind::Minus, 1)
-                }
-            }
-            b'%' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::PercentEqual, 2)
-                } else {
-                    (TokenKind::Percent, 1)
-                }
-            }
-            b'+' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::PlusEqual, 2)
-                } else {
-                    (TokenKind::Plus, 1)
-                }
-            }
-            b'}' => (TokenKind::RightCurlyBrace, 1),
-            b']' => (TokenKind::RightSquareBracket, 1),
-            b')' => (TokenKind::RightParenthesis, 1),
-            b';' => (TokenKind::Semicolon, 1),
-            b'/' => {
-                if let Some(next) = next
-                    && next == b'='
-                {
-                    (TokenKind::SlashEqual, 2)
-                } else {
-                    (TokenKind::Slash, 1)
-                }
-            }
+            (b'.', _) => (TokenKind::Dot, 1),
+            (b'=', Some(b'=')) => (TokenKind::DoubleEqual, 2),
+            (b'=', _) => (TokenKind::Equal, 1),
+            (b'<', Some(b'=')) => (TokenKind::LessEqual, 2),
+            (b'<', _) => (TokenKind::Less, 1),
+            (b'>', Some(b'=')) => (TokenKind::GreaterEqual, 2),
+            (b'>', _) => (TokenKind::Greater, 1),
+            (b'{', _) => (TokenKind::LeftCurlyBrace, 1),
+            (b'[', _) => (TokenKind::LeftSquareBracket, 1),
+            (b'(', _) => (TokenKind::LeftParenthesis, 1),
+            (b'-', Some(b'=')) => (TokenKind::MinusEqual, 2),
+            (b'-', Some(b'>')) => (TokenKind::ArrowThin, 2),
+            (b'-', _) => (TokenKind::Minus, 1),
+            (b'%', Some(b'=')) => (TokenKind::PercentEqual, 2),
+            (b'%', _) => (TokenKind::Percent, 1),
+            (b'+', Some(b'=')) => (TokenKind::PlusEqual, 2),
+            (b'+', _) => (TokenKind::Plus, 1),
+            (b'}', _) => (TokenKind::RightCurlyBrace, 1),
+            (b']', _) => (TokenKind::RightSquareBracket, 1),
+            (b')', _) => (TokenKind::RightParenthesis, 1),
+            (b';', _) => (TokenKind::Semicolon, 1),
+            (b'/', Some(b'=')) => (TokenKind::SlashEqual, 2),
+            (b'/', _) => (TokenKind::Slash, 1),
             _ => {
                 let Some(next) = next else {
                     return (TokenKind::Unknown, 1);
@@ -352,6 +226,15 @@ impl<'src> Lexer<'src> {
 
     #[inline(always)]
     fn scan_utf8_sequence(&mut self, start: usize) -> Result<usize, ()> {
+        macro_rules! return_err {
+            () => {{
+                self.error = true;
+                self.index = start;
+
+                return Err(());
+            }};
+        }
+
         let first_byte = self.source[start];
         let width = first_byte.utf8_width();
 
@@ -360,12 +243,7 @@ impl<'src> Lexer<'src> {
         }
 
         if width == 0 || start + width > self.source.len() {
-            {
-                self.error = true;
-                self.index = start;
-
-                return Err(());
-            }
+            return_err!();
         }
 
         match width {
@@ -373,82 +251,54 @@ impl<'src> Lexer<'src> {
                 let second = self.source[start + 1];
 
                 if (second as i8) >= -64 {
-                    {
-                        self.error = true;
-                        self.index = start;
-
-                        return Err(());
-                    }
+                    return_err!();
                 }
             }
             3 => {
                 let second = self.source[start + 1];
 
-                match (first_byte, second) {
+                if !matches!(
+                    (first_byte, second),
                     (0xE0, 0xA0..=0xBF)
-                    | (0xE1..=0xEC, 0x80..=0xBF)
-                    | (0xED, 0x80..=0x9F)
-                    | (0xEE..=0xEF, 0x80..=0xBF) => {}
-                    _ => {
-                        self.error = true;
-                        self.index = start;
+                        | (0xE1..=0xEC, 0x80..=0xBF)
+                        | (0xED, 0x80..=0x9F)
+                        | (0xEE..=0xEF, 0x80..=0xBF)
+                ) {
+                    self.error = true;
+                    self.index = start;
 
-                        return Err(());
-                    }
+                    return Err(());
                 }
 
                 let third = self.source[start + 2];
 
                 if (third as i8) >= -64 {
-                    {
-                        self.error = true;
-                        self.index = start;
-
-                        return Err(());
-                    }
+                    return_err!();
                 }
             }
             4 => {
                 let second = self.source[start + 1];
 
-                match (first_byte, second) {
-                    (0xF0, 0x90..=0xBF) | (0xF1..=0xF3, 0x80..=0xBF) | (0xF4, 0x80..=0x8F) => {}
-                    _ => {
-                        self.error = true;
-                        self.index = start;
-
-                        return Err(());
-                    }
+                if !matches!(
+                    (first_byte, second),
+                    (0xF0, 0x90..=0xBF) | (0xF1..=0xF3, 0x80..=0xBF) | (0xF4, 0x80..=0x8F)
+                ) {
+                    return_err!();
                 }
 
                 let third = self.source[start + 2];
 
                 if (third as i8) >= -64 {
-                    {
-                        self.error = true;
-                        self.index = start;
-
-                        return Err(());
-                    }
+                    return_err!();
                 }
 
                 let fourth = self.source[start + 3];
 
                 if (fourth as i8) >= -64 {
-                    {
-                        self.error = true;
-                        self.index = start;
-
-                        return Err(());
-                    }
+                    return_err!();
                 }
             }
-            _ => {
-                self.error = true;
-                self.index = start;
-
-                return Err(());
-            }
+            _ => return_err!(),
         }
 
         Ok(width)
@@ -458,41 +308,47 @@ impl<'src> Lexer<'src> {
     fn scan_string(&mut self) -> Result<Option<Token>, ()> {
         let start = self.index;
 
-        if self.source[start] != b'"' {
-            return Ok(None);
-        }
-
+        let mut escaped = false;
         let mut index = start + 1;
 
         while index < self.source.len() {
             let byte = self.source[index];
 
-            if byte == b'"' {
-                self.index = index + 1;
+            match byte {
+                b'\\' => {
+                    escaped = true;
+                    index += 1;
+                }
+                b'"' => {
+                    index += 1;
 
-                return Ok(Some(Token {
-                    kind: TokenKind::StringLiteral,
-                    span: Span::new(start, self.index),
-                }));
-            }
+                    if escaped {
+                        escaped = false;
+                    } else {
+                        self.index = index;
 
-            if byte.is_ascii() {
-                index += 1;
-            } else {
-                match self.scan_utf8_sequence(index) {
+                        return Ok(Some(Token {
+                            kind: TokenKind::StringLiteral,
+                            span: Span::new(start, self.index),
+                        }));
+                    }
+                }
+                byte if byte.is_ascii() => {
+                    index += 1;
+                    escaped = false;
+                }
+                _ => match self.scan_utf8_sequence(index) {
                     Ok(width) => index += width,
                     Err(()) => return Err(()),
-                }
+                },
             }
         }
-
-        let unknown_span = Span::new(start, self.index);
 
         self.index = self.source.len();
 
         Ok(Some(Token {
             kind: TokenKind::Unknown,
-            span: unknown_span,
+            span: Span::new(start, self.index),
         }))
     }
 
@@ -561,19 +417,14 @@ impl<'src> Lexer<'src> {
                 b'i' | b'u' => {
                     if let Some(b"size") = lexer.source.get(lexer.index + 1..lexer.index + 5) {
                         lexer.index += 5;
-                    }
-
-                    if let Some(b"128") = lexer.source.get(lexer.index + 1..lexer.index + 4) {
+                    } else if let Some(b"128") = lexer.source.get(lexer.index + 1..lexer.index + 4)
+                    {
                         lexer.index += 4;
-                    }
-
-                    if let Some(b"16" | b"32" | b"64") =
+                    } else if let Some(b"16" | b"32" | b"64") =
                         lexer.source.get(lexer.index + 1..lexer.index + 3)
                     {
                         lexer.index += 3;
-                    }
-
-                    if let Some(b'8') = lexer.next_byte() {
+                    } else if let Some(b'8') = lexer.next_byte() {
                         lexer.index += 2;
                     }
                 }
@@ -583,7 +434,7 @@ impl<'src> Lexer<'src> {
 
         let start = self.index;
 
-        let mut byte = self.source[self.index];
+        let mut byte = self.source.get(self.index).copied()?;
 
         if byte == b'-' {
             self.index += 1;
@@ -803,22 +654,6 @@ impl Iterator for Lexer<'_> {
                     emit!(token);
                 }
 
-                if current_byte == b'-' && self.index + 9 <= self.source.len() {
-                    let next_byte = self.source[self.index + 1];
-
-                    if next_byte == b'I' {
-                        let slice = &self.source[self.index..self.index + 9];
-
-                        if slice == b"-Infinity" {
-                            let span = Span::new(self.index, self.index + 9);
-                            let kind = TokenKind::FloatLiteral;
-                            self.index += 9;
-
-                            emit!(Token { kind, span });
-                        }
-                    }
-                }
-
                 let (kind, width) = self.operator_or_punctuation(current_byte);
 
                 let span = Span::new(self.index, self.index + width);
@@ -867,203 +702,59 @@ impl Iterator for Lexer<'_> {
 
 #[inline(always)]
 fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
-    match token.len() {
-        2 => match token[0] {
-            b'a' => {
-                if token[1] == b's' {
-                    Some(TokenKind::As)
-                } else {
-                    None
-                }
-            }
-            b'f' => {
-                if token[1] == b'n' {
-                    Some(TokenKind::Fn)
-                } else {
-                    None
-                }
-            }
-            b'i' => match token[1] {
-                b'f' => Some(TokenKind::If),
-                b'8' => Some(TokenKind::I8),
-                _ => None,
-            },
-            b'u' => match token[1] {
-                b'8' => Some(TokenKind::U8),
-                _ => None,
-            },
-            _ => None,
-        },
-        3 => match token[0] {
-            b'f' => match &token[1..3] {
-                b"32" => Some(TokenKind::F32),
-                b"64" => Some(TokenKind::F64),
-                b"or" => Some(TokenKind::For),
-                _ => None,
-            },
-            b'i' => match &token[1..3] {
-                b"16" => Some(TokenKind::I16),
-                b"32" => Some(TokenKind::I32),
-                b"64" => Some(TokenKind::I64),
-                _ => None,
-            },
-            b'l' => {
-                if &token[1..3] == b"et" {
-                    Some(TokenKind::Let)
-                } else {
-                    None
-                }
-            }
-            b'm' => match &token[1..3] {
-                b"ap" => Some(TokenKind::Map),
-                b"od" => Some(TokenKind::Mod),
-                b"ut" => Some(TokenKind::Mut),
-                _ => None,
-            },
-            b'p' => {
-                if &token[1..3] == b"ub" {
-                    Some(TokenKind::Pub)
-                } else {
-                    None
-                }
-            }
-            b's' => {
-                if &token[1..3] == b"tr" {
-                    Some(TokenKind::Str)
-                } else {
-                    None
-                }
-            }
-            b'u' => match &token[1..3] {
-                b"16" => Some(TokenKind::U16),
-                b"32" => Some(TokenKind::U32),
-                b"64" => Some(TokenKind::U64),
-                b"se" => Some(TokenKind::Use),
-                _ => None,
-            },
-            _ => None,
-        },
-        4 => match token[0] {
-            b'S' => match &token[1..4] {
-                b"elf" => Some(TokenKind::SelfType),
-                _ => None,
-            },
-            b'b' => match &token[1..4] {
-                b"ool" => Some(TokenKind::Bool),
-                _ => None,
-            },
-            b'c' => match &token[1..4] {
-                b"har" => Some(TokenKind::Char),
-                b"ell" => Some(TokenKind::Cell),
-                _ => None,
-            },
-            b'e' => match &token[1..4] {
-                b"lse" => Some(TokenKind::Else),
-                b"num" => Some(TokenKind::Enum),
-                _ => None,
-            },
-            b'i' => match &token[1..4] {
-                b"128" => Some(TokenKind::I128),
-                b"mpl" => Some(TokenKind::Impl),
-                _ => None,
-            },
-            b'l' => match &token[1..4] {
-                b"oop" => Some(TokenKind::Loop),
-                _ => None,
-            },
-            b's' => match &token[1..4] {
-                b"elf" => Some(TokenKind::SelfValue),
-                _ => None,
-            },
-            b't' => match &token[1..4] {
-                b"rue" => Some(TokenKind::True),
-                b"ype" => Some(TokenKind::Type),
-                _ => None,
-            },
-            b'u' => match &token[1..4] {
-                b"128" => Some(TokenKind::U128),
-                _ => None,
-            },
-            _ => None,
-        },
-        5 => match token[0] {
-            b'a' => {
-                if &token[1..5] == b"sync" {
-                    Some(TokenKind::Async)
-                } else {
-                    None
-                }
-            }
-            b'b' => {
-                if &token[1..5] == b"reak" {
-                    Some(TokenKind::Break)
-                } else {
-                    None
-                }
-            }
-            b'c' => {
-                if &token[1..5] == b"onst" {
-                    Some(TokenKind::Const)
-                } else {
-                    None
-                }
-            }
-            b'f' => match &token[1..5] {
-                b"alse" => Some(TokenKind::False),
-                _ => None,
-            },
-            b'i' => {
-                if &token[1..5] == b"size" {
-                    Some(TokenKind::ISize)
-                } else {
-                    None
-                }
-            }
-            b't' => {
-                if &token[1..5] == b"rait" {
-                    Some(TokenKind::Trait)
-                } else {
-                    None
-                }
-            }
-            b'u' => {
-                if &token[1..5] == b"size" {
-                    Some(TokenKind::USize)
-                } else {
-                    None
-                }
-            }
-            b'w' => match &token[1..5] {
-                b"here" => Some(TokenKind::Where),
-                b"hile" => Some(TokenKind::While),
-                _ => None,
-            },
-            _ => None,
-        },
-        6 => match token[0] {
-            b'r' => {
-                if &token[1..6] == b"eturn" {
-                    Some(TokenKind::Return)
-                } else {
-                    None
-                }
-            }
-            b's' => {
-                if &token[1..6] == b"truct" {
-                    Some(TokenKind::Struct)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        },
-        8 => {
-            if token == b"Infinity" {
-                Some(TokenKind::FloatLiteral)
-            } else {
-                None
-            }
-        }
+    match token {
+        b"as" => Some(TokenKind::As),
+        b"fn" => Some(TokenKind::Fn),
+        b"if" => Some(TokenKind::If),
+        b"i8" => Some(TokenKind::I8),
+        b"u8" => Some(TokenKind::U8),
+
+        b"f32" => Some(TokenKind::F32),
+        b"f64" => Some(TokenKind::F64),
+        b"for" => Some(TokenKind::For),
+        b"i16" => Some(TokenKind::I16),
+        b"i32" => Some(TokenKind::I32),
+        b"i64" => Some(TokenKind::I64),
+        b"let" => Some(TokenKind::Let),
+        b"map" => Some(TokenKind::Map),
+        b"mod" => Some(TokenKind::Mod),
+        b"mut" => Some(TokenKind::Mut),
+        b"pub" => Some(TokenKind::Pub),
+        b"str" => Some(TokenKind::Str),
+        b"u16" => Some(TokenKind::U16),
+        b"u32" => Some(TokenKind::U32),
+        b"u64" => Some(TokenKind::U64),
+        b"use" => Some(TokenKind::Use),
+
+        b"Self" => Some(TokenKind::SelfType),
+        b"bool" => Some(TokenKind::Bool),
+        b"cell" => Some(TokenKind::Cell),
+        b"char" => Some(TokenKind::Char),
+        b"else" => Some(TokenKind::Else),
+        b"enum" => Some(TokenKind::Enum),
+        b"impl" => Some(TokenKind::Impl),
+        b"i128" => Some(TokenKind::I128),
+        b"loop" => Some(TokenKind::Loop),
+        b"self" => Some(TokenKind::SelfValue),
+        b"true" => Some(TokenKind::True),
+        b"type" => Some(TokenKind::Type),
+        b"u128" => Some(TokenKind::U128),
+
+        b"async" => Some(TokenKind::Async),
+        b"break" => Some(TokenKind::Break),
+        b"const" => Some(TokenKind::Const),
+        b"false" => Some(TokenKind::False),
+        b"isize" => Some(TokenKind::ISize),
+        b"trait" => Some(TokenKind::Trait),
+        b"usize" => Some(TokenKind::USize),
+        b"where" => Some(TokenKind::Where),
+        b"while" => Some(TokenKind::While),
+
+        b"return" => Some(TokenKind::Return),
+        b"struct" => Some(TokenKind::Struct),
+
+        b"Infinity" => Some(TokenKind::Infinity),
+
         _ => None,
     }
 }
@@ -1124,7 +815,7 @@ impl Utf8Class {
     }
 
     #[inline(always)]
-    fn is_digit(&self) -> bool {
+    fn _is_digit(&self) -> bool {
         (self.0 & Self::DIGIT.0) != 0
     }
 

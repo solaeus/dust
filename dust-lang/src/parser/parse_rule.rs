@@ -305,6 +305,12 @@ impl From<TokenKind> for ParseRule<'_> {
                 precedence: Precedence::None,
                 associativity: Associativity::Left,
             },
+            TokenKind::Infinity => ParseRule {
+                prefix: Parser::parse_prefix_float,
+                infix: None,
+                precedence: Precedence::None,
+                associativity: Associativity::Left,
+            },
             TokenKind::InnerBlockDocComment => ParseRule {
                 prefix: Parser::parse_unexpected,
                 infix: None,
