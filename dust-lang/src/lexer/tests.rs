@@ -1022,15 +1022,15 @@ fn identifier_minus_integer() {
             },
             Token {
                 kind: TokenKind::Minus,
-                span: Span::new(1, 3)
+                span: Span::new(3, 4)
             },
             Token {
                 kind: TokenKind::IntegerLiteral,
-                span: Span::new(2, 4)
+                span: Span::new(4, 6)
             },
             Token {
                 kind: TokenKind::Eof,
-                span: Span::new(4, 6)
+                span: Span::new(6, 6)
             }
         ]
     );
@@ -1050,15 +1050,15 @@ fn integer_minus_integer() {
             },
             Token {
                 kind: TokenKind::Minus,
-                span: Span::new(1, 2)
-            },
-            Token {
-                kind: TokenKind::IntegerLiteral,
                 span: Span::new(2, 3)
             },
             Token {
-                kind: TokenKind::Eof,
+                kind: TokenKind::IntegerLiteral,
                 span: Span::new(3, 5)
+            },
+            Token {
+                kind: TokenKind::Eof,
+                span: Span::new(5, 5)
             }
         ]
     );

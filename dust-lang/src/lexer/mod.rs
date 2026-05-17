@@ -55,9 +55,15 @@ pub fn tokenize_str(str: &str) -> Result<Vec<Token>, ErrorKind> {
 #[derive(Debug)]
 pub struct Lexer<'src> {
     source: &'src [u8],
+
     index: usize,
     token_start: Option<usize>,
-    token_flags: TokenFlags,
+    previous_token_kind: TokenKind,
+
+    identifier_started_non_ascii: bool,
+    identifier_valid: bool,
+    unknown: bool,
+
     eof: bool,
     error: bool,
     utf8_validated: bool,
@@ -69,7 +75,10 @@ impl<'src> Lexer<'src> {
             source,
             index: 0,
             token_start: None,
-            token_flags: TokenFlags::default(),
+            previous_token_kind: TokenKind::Unknown,
+            identifier_started_non_ascii: false,
+            identifier_valid: false,
+            unknown: false,
             eof: false,
             error: false,
             utf8_validated: false,
@@ -81,7 +90,10 @@ impl<'src> Lexer<'src> {
             source: source.as_bytes(),
             index: 0,
             token_start: None,
-            token_flags: TokenFlags::default(),
+            previous_token_kind: TokenKind::Unknown,
+            identifier_started_non_ascii: false,
+            identifier_valid: false,
+            unknown: false,
             eof: false,
             error: false,
             utf8_validated: true,
@@ -99,6 +111,22 @@ impl<'src> Lexer<'src> {
     #[inline(always)]
     fn next_byte(&self) -> Option<u8> {
         self.source.get(self.index + 1).copied()
+    }
+
+    #[inline(always)]
+    fn previous_was_expression(&self) -> bool {
+        matches!(
+            self.previous_token_kind,
+            TokenKind::Identifier
+                | TokenKind::FloatLiteral
+                | TokenKind::IntegerLiteral
+                | TokenKind::HexIntegerLiteral
+                | TokenKind::True
+                | TokenKind::False
+                | TokenKind::RightCurlyBrace
+                | TokenKind::RightSquareBracket
+                | TokenKind::RightParenthesis
+        )
     }
 
     #[inline(always)]
@@ -243,11 +271,13 @@ impl<'src> Lexer<'src> {
     }
 
     #[inline(always)]
-    fn finish_token(&mut self) -> Option<Token> {
+    fn finish_identifier(&mut self) -> Option<Token> {
         #[inline(always)]
         fn finish(lexer: &mut Lexer, kind: TokenKind, span: Span) -> Option<Token> {
             lexer.token_start = None;
-            lexer.token_flags = TokenFlags::default();
+            lexer.identifier_started_non_ascii = false;
+            lexer.identifier_valid = false;
+            lexer.unknown = false;
 
             Some(Token { kind, span })
         }
@@ -256,18 +286,8 @@ impl<'src> Lexer<'src> {
         let span = Span::new(start, self.index);
         let bytes = &self.source[span.as_usize_range()];
 
-        if self.token_flags.unknown || bytes.is_empty() {
+        if self.unknown || bytes.is_empty() {
             return finish(self, TokenKind::Unknown, span);
-        }
-
-        if self.token_flags.starts_with_digit {
-            if self.token_flags.in_hexadecimal && self.token_flags.hex_digits > 0 {
-                return finish(self, TokenKind::HexIntegerLiteral, span);
-            } else if self.token_flags.has_exponent || self.token_flags.has_decimal {
-                return finish(self, TokenKind::FloatLiteral, span);
-            }
-
-            return finish(self, TokenKind::IntegerLiteral, span);
         }
 
         let class = bytes[0].class();
@@ -280,9 +300,7 @@ impl<'src> Lexer<'src> {
             return finish(self, TokenKind::Identifier, span);
         }
 
-        if self.token_flags.unicode_identifier_started_non_ascii
-            && self.token_flags.unicode_identifier_valid
-        {
+        if self.identifier_started_non_ascii && self.identifier_valid {
             return finish(self, TokenKind::Identifier, span);
         }
 
@@ -300,43 +318,29 @@ impl<'src> Lexer<'src> {
                 if self.token_start.is_none() {
                     if is_xid_start(code_point) {
                         self.token_start = Some(self.index);
-                        self.token_flags = TokenFlags::new(first_byte);
-                        self.token_flags.saw_non_ascii = true;
-                        self.token_flags.unicode_identifier_started_non_ascii = true;
-                        self.token_flags.unicode_identifier_valid = true;
+                        self.identifier_started_non_ascii = true;
+                        self.identifier_valid = true;
                     } else {
                         self.token_start = Some(self.index);
-                        self.token_flags = TokenFlags::new(first_byte);
-                        self.token_flags.saw_non_ascii = true;
-                        self.token_flags.unknown = true;
+                        self.unknown = true;
                     }
                 } else {
-                    self.token_flags.saw_non_ascii = true;
+                    let is_valid_continue = is_xid_continue(code_point);
 
-                    if self.token_flags.starts_with_digit {
-                        self.token_flags.unknown = true;
-                    } else {
-                        let is_valid_continue = is_xid_continue(code_point);
-
-                        if !is_valid_continue
-                            && !self.token_flags.unicode_identifier_started_non_ascii
-                        {
-                            return Ok(self.finish_token());
-                        }
-
-                        self.token_flags.unicode_identifier_valid =
-                            self.token_flags.unicode_identifier_valid && is_valid_continue;
+                    if !is_valid_continue && !self.identifier_started_non_ascii {
+                        return Ok(self.finish_identifier());
                     }
+
+                    self.identifier_valid = self.identifier_valid && is_valid_continue;
                 }
 
-                self.token_flags.length = self.token_flags.length.saturating_add(width);
                 self.index += width;
 
-                if self.token_flags.unknown && self.index < self.source.len() {
+                if self.unknown && self.index < self.source.len() {
                     let next_class = self.source[self.index].class();
 
                     if next_class.is_alphabetical() || next_class.is_underscore() {
-                        return Ok(self.finish_token());
+                        return Ok(self.finish_identifier());
                     }
                 }
 
@@ -529,13 +533,146 @@ impl<'src> Lexer<'src> {
         }
 
         let end = self.source.len();
-
         self.index = end;
 
         Ok(Some(Token {
             kind: TokenKind::CharacterLiteral,
             span: Span::new(start, end),
         }))
+    }
+
+    #[inline(always)]
+    fn scan_number(&mut self) -> Option<Token> {
+        #[inline(always)]
+        fn scan_type_suffix(lexer: &mut Lexer<'_>) {
+            let byte = if let Some(byte) = lexer.source.get(lexer.index) {
+                *byte
+            } else {
+                return;
+            };
+
+            match byte {
+                b'f' => {
+                    if let Some(b"32" | b"64") = lexer.source.get(lexer.index + 1..lexer.index + 3)
+                    {
+                        lexer.index += 3;
+                    }
+                }
+                b'i' | b'u' => {
+                    if let Some(b"size") = lexer.source.get(lexer.index + 1..lexer.index + 5) {
+                        lexer.index += 5;
+                    }
+
+                    if let Some(b"128") = lexer.source.get(lexer.index + 1..lexer.index + 4) {
+                        lexer.index += 4;
+                    }
+
+                    if let Some(b"16" | b"32" | b"64") =
+                        lexer.source.get(lexer.index + 1..lexer.index + 3)
+                    {
+                        lexer.index += 3;
+                    }
+
+                    if let Some(b'8') = lexer.next_byte() {
+                        lexer.index += 2;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let start = self.index;
+
+        let mut byte = self.source[self.index];
+
+        if byte == b'-' {
+            self.index += 1;
+            byte = self.source[self.index];
+        }
+
+        if !byte.is_ascii_digit() {
+            return None;
+        }
+
+        if byte == b'0' && matches!(self.next_byte(), Some(b'x' | b'X')) {
+            self.index += 2;
+            let mut hex_digits = 0;
+
+            while let Some(byte) = self.source.get(self.index).copied() {
+                if byte.is_ascii_hexdigit() {
+                    hex_digits += 1;
+                    self.index += 1;
+                } else if byte == b'_' {
+                    self.index += 1;
+                } else {
+                    break;
+                }
+            }
+
+            if hex_digits == 0 {
+                return None;
+            }
+
+            if matches!(self.source.get(self.index), Some(b'_')) {
+                self.index += 1;
+            }
+
+            scan_type_suffix(self);
+
+            return Some(Token {
+                kind: TokenKind::HexIntegerLiteral,
+                span: Span::new(start, self.index),
+            });
+        }
+
+        let mut token_kind = TokenKind::IntegerLiteral;
+
+        while self.index < self.source.len() {
+            let byte = self.source[self.index];
+
+            match byte {
+                b'0'..=b'9' | b'_' => {
+                    self.index += 1;
+                }
+                b'.' => {
+                    token_kind = TokenKind::FloatLiteral;
+                    self.index += 1;
+                }
+                b'e' | b'E' => {
+                    token_kind = TokenKind::FloatLiteral;
+
+                    if matches!(self.next_byte(), Some(b'+' | b'-')) {
+                        self.index += 2;
+                    } else {
+                        self.index += 1;
+                    }
+
+                    while let Some(byte) = self.source.get(self.index)
+                        && byte.is_ascii_digit()
+                    {
+                        self.index += 1;
+                    }
+
+                    let Some(byte) = self.source.get(self.index).copied() else {
+                        break;
+                    };
+
+                    if byte == b'_' {
+                        self.index += 1;
+                    }
+
+                    break;
+                }
+                _ => break,
+            }
+        }
+
+        scan_type_suffix(self);
+
+        Some(Token {
+            kind: token_kind,
+            span: Span::new(start, self.index),
+        })
     }
 }
 
@@ -544,19 +681,27 @@ impl Iterator for Lexer<'_> {
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
+        macro_rules! emit {
+            ($token: expr) => {{
+                self.previous_token_kind = $token.kind;
+
+                return Some($token);
+            }};
+        }
+
         loop {
             if self.eof || self.error {
                 return None;
             }
 
             if self.index >= self.source.len() {
-                if let Some(token) = self.finish_token() {
-                    return Some(token);
+                if let Some(token) = self.finish_identifier() {
+                    emit!(token);
                 }
 
                 self.eof = true;
 
-                return Some(Token {
+                emit!(Token {
                     kind: TokenKind::Eof,
                     span: Span::new(self.source.len(), self.source.len()),
                 });
@@ -565,8 +710,8 @@ impl Iterator for Lexer<'_> {
             let current_byte = self.source[self.index];
 
             if current_byte.is_ascii_whitespace() {
-                if let Some(token) = self.finish_token() {
-                    return Some(token);
+                if let Some(token) = self.finish_identifier() {
+                    emit!(token);
                 }
 
                 self.index += 1;
@@ -582,13 +727,13 @@ impl Iterator for Lexer<'_> {
                 }
 
                 if self.index >= self.source.len() {
-                    if let Some(token) = self.finish_token() {
-                        return Some(token);
+                    if let Some(token) = self.finish_identifier() {
+                        emit!(token);
                     }
 
                     self.eof = true;
 
-                    return Some(Token {
+                    emit!(Token {
                         kind: TokenKind::Eof,
                         span: Span::new(self.source.len(), self.source.len()),
                     });
@@ -598,12 +743,12 @@ impl Iterator for Lexer<'_> {
             let current_byte = self.source[self.index];
 
             if current_byte == b'"' {
-                if let Some(token) = self.finish_token() {
-                    return Some(token);
+                if let Some(token) = self.finish_identifier() {
+                    emit!(token);
                 }
 
                 match self.scan_string() {
-                    Ok(Some(token)) => return Some(token),
+                    Ok(Some(token)) => emit!(token),
                     Ok(None) => {
                         self.index += 1;
 
@@ -614,12 +759,12 @@ impl Iterator for Lexer<'_> {
             }
 
             if current_byte == b'\'' {
-                if let Some(token) = self.finish_token() {
-                    return Some(token);
+                if let Some(token) = self.finish_identifier() {
+                    emit!(token);
                 }
 
                 match self.scan_character() {
-                    Ok(Some(token)) => return Some(token),
+                    Ok(Some(token)) => emit!(token),
                     Ok(None) => {
                         self.index += 1;
 
@@ -629,57 +774,33 @@ impl Iterator for Lexer<'_> {
                 }
             }
 
-            if current_byte == b'.' && self.token_start.is_some() {
-                if self.token_flags.has_decimal
-                    && let Some(token) = self.finish_token()
-                {
-                    return Some(token);
-                }
-
-                let next_is_digit_or_underscore = (self.index + 1) < self.source.len() && {
-                    let byte = self.source[self.index + 1];
-
-                    byte.is_ascii_digit() || byte == b'_'
-                };
-
-                if self.token_flags.starts_with_digit && next_is_digit_or_underscore {
-                    self.index += 1;
-                    self.token_flags.length += 1;
-                    self.token_flags.has_decimal = true;
-
-                    continue;
-                }
-            }
-
-            if self.token_flags.expect_exponent_sign
-                && (current_byte == b'+' || current_byte == b'-')
+            if current_byte.is_ascii_digit()
+                || (current_byte == b'-'
+                    && !self.previous_was_expression()
+                    && self
+                        .source
+                        .get(self.index + 1)
+                        .is_some_and(|next_byte| next_byte.is_ascii_digit()))
             {
-                let next_byte = self.source.get(self.index + 1).copied();
+                if let Some(token) = self.finish_identifier() {
+                    emit!(token);
+                }
 
-                self.token_flags.push(current_byte, next_byte);
-                self.index += 1;
+                match self.scan_number() {
+                    Some(token) => emit!(token),
+                    None => {
+                        self.index += 1;
 
-                continue;
+                        continue;
+                    }
+                }
             }
 
             let current_class = current_byte.class();
 
             if current_class.is_operator_or_punctuation() {
-                if current_byte == b'-'
-                    && self.token_start.is_none()
-                    && let Some(next_byte) = self.source.get(self.index + 1)
-                    && next_byte.is_ascii_digit()
-                {
-                    self.token_start = Some(self.index);
-                    self.token_flags = TokenFlags::new(*next_byte);
-                    self.token_flags.negative = true;
-                    self.index += 2;
-
-                    continue;
-                }
-
-                if let Some(token) = self.finish_token() {
-                    return Some(token);
+                if let Some(token) = self.finish_identifier() {
+                    emit!(token);
                 }
 
                 if current_byte == b'-' && self.index + 9 <= self.source.len() {
@@ -693,7 +814,7 @@ impl Iterator for Lexer<'_> {
                             let kind = TokenKind::FloatLiteral;
                             self.index += 9;
 
-                            return Some(Token { kind, span });
+                            emit!(Token { kind, span });
                         }
                     }
                 }
@@ -703,49 +824,37 @@ impl Iterator for Lexer<'_> {
                 let span = Span::new(self.index, self.index + width);
                 self.index += width;
 
-                return Some(Token { kind, span });
+                emit!(Token { kind, span });
             }
 
             if self.token_start.is_none() && current_class.is_ascii() {
                 self.token_start = Some(self.index);
-                self.token_flags = TokenFlags::new(current_byte);
 
-                if !self.token_flags.starts_with_digit {
-                    let mut next_index = self.index + 1;
+                let mut next_index = self.index + 1;
 
-                    while next_index < self.source.len() {
-                        let next_class = self.source[next_index].class();
+                while next_index < self.source.len() {
+                    let next_class = self.source[next_index].class();
 
-                        if next_class.is_whitespace()
-                            || next_class.is_operator_or_punctuation()
-                            || !next_class.is_ascii()
-                        {
-                            break;
-                        }
-
-                        next_index += 1;
+                    if next_class.is_whitespace()
+                        || next_class.is_operator_or_punctuation()
+                        || !next_class.is_ascii()
+                    {
+                        break;
                     }
 
-                    self.index = next_index;
-
-                    continue;
+                    next_index += 1;
                 }
-            }
 
-            if self.token_flags.starts_with_digit
-                && let Some(start) = self.token_start
-                && self.index > start
-            {
-                let next_byte = self.next_byte();
+                self.index = next_index;
 
-                self.token_flags.push(current_byte, next_byte);
+                continue;
             }
 
             if !current_class.is_ascii() {
                 cold_path();
 
                 match self.handle_non_ascii() {
-                    Ok(Some(token)) => return Some(token),
+                    Ok(Some(token)) => emit!(token),
                     Ok(None) => continue,
                     Err(_) => return None,
                 }
@@ -956,227 +1065,6 @@ fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
             }
         }
         _ => None,
-    }
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-struct TokenFlags {
-    expect_exponent_sign: bool,
-    first_byte: u8,
-    has_decimal: bool,
-    has_exponent: bool,
-    hex_digits: usize,
-    in_hexadecimal: bool,
-    in_suffix: bool,
-    length: usize,
-    negative: bool,
-    saw_non_ascii: bool,
-    starts_with_digit: bool,
-    unicode_identifier_started_non_ascii: bool,
-    unicode_identifier_valid: bool,
-    unknown: bool,
-}
-
-impl TokenFlags {
-    #[inline(always)]
-    fn new(first_byte: u8) -> Self {
-        Self {
-            expect_exponent_sign: false,
-            first_byte,
-            has_decimal: false,
-            has_exponent: false,
-            hex_digits: 0,
-            in_hexadecimal: false,
-            in_suffix: false,
-            length: 1,
-            negative: false,
-            saw_non_ascii: false,
-            starts_with_digit: first_byte.is_ascii_digit(),
-            unicode_identifier_started_non_ascii: false,
-            unicode_identifier_valid: true,
-            unknown: false,
-        }
-    }
-
-    #[inline(always)]
-    fn push(&mut self, byte: u8, next: Option<u8>) {
-        self.length += 1;
-
-        if self.in_suffix {
-            if byte == b'_'
-                && let Some(next) = next
-                && matches!(next, b'f' | b'i' | b'u')
-            {
-                return;
-            }
-
-            if byte == b'f'
-                && let Some(next) = next
-                && matches!(next, b'3' | b'6')
-            {
-                return;
-            }
-
-            if byte == b'i'
-                && let Some(next) = next
-                && matches!(next, b'1' | b'3' | b'6' | b'8' | b'z')
-            {
-                return;
-            }
-
-            if byte == b's'
-                && let Some(next) = next
-                && next != b'i'
-            {
-                return;
-            }
-
-            if byte == b'u'
-                && let Some(next) = next
-                && matches!(next, b'1' | b'3' | b'6' | b'8')
-            {
-                return;
-            }
-
-            if byte == b'1'
-                && let Some(next) = next
-                && matches!(next, b'2' | b'6')
-            {
-                return;
-            }
-
-            if byte == b'2'
-                && let Some(next) = next
-                && matches!(next, b'8')
-            {
-                return;
-            }
-
-            if byte == b'3'
-                && let Some(next) = next
-                && matches!(next, b'2')
-            {
-                return;
-            }
-
-            if byte == b'6'
-                && let Some(next) = next
-                && matches!(next, b'4')
-            {
-                return;
-            }
-
-            if byte == b'z'
-                && let Some(next) = next
-                && matches!(next, b'e')
-            {
-                return;
-            }
-
-            if matches!(byte, b'2' | b'4' | b'6' | b'8' | b'e') {
-                self.in_suffix = false;
-
-                return;
-            }
-
-            self.unknown = true;
-
-            return;
-        }
-
-        if self.expect_exponent_sign {
-            self.expect_exponent_sign = false;
-
-            if byte.is_ascii_digit() || byte == b'+' || byte == b'-' {
-                return;
-            }
-
-            self.unknown = true;
-
-            return;
-        }
-
-        if self.in_hexadecimal {
-            if byte.is_ascii_hexdigit() {
-                self.hex_digits += 1;
-
-                return;
-            }
-
-            if byte == b'_' {
-                if let Some(next) = next {
-                    let is_suffix_start = next.is_ascii_alphabetic() && !next.is_ascii_hexdigit();
-
-                    if is_suffix_start {
-                        self.in_suffix = true;
-
-                        return;
-                    }
-                }
-
-                return;
-            }
-
-            self.unknown = true;
-
-            return;
-        }
-
-        if self.starts_with_digit {
-            if self.length == 2 && self.first_byte == b'0' && byte == b'x' {
-                self.in_hexadecimal = true;
-
-                return;
-            }
-
-            if byte == b'.' {
-                if self.has_decimal {
-                    self.unknown = true;
-
-                    return;
-                }
-
-                let Some(next) = next else {
-                    self.unknown = true;
-
-                    return;
-                };
-                let next_class = next.class();
-
-                if next_class.is_digit() || next == b'_' {
-                    self.has_decimal = true;
-                } else if !next_class.is_ascii() {
-                    self.unknown = true;
-                }
-
-                return;
-            }
-
-            if byte == b'e' || byte == b'E' {
-                if self.has_exponent {
-                    self.unknown = true;
-
-                    return;
-                }
-
-                self.has_exponent = true;
-                self.expect_exponent_sign = true;
-
-                return;
-            }
-
-            if byte == b'_' || byte == b'f' || byte == b'i' || byte == b'u' {
-                self.in_suffix = true;
-
-                return;
-            }
-
-            let class = byte.class();
-
-            if !class.is_digit() && !class.is_underscore() && class.is_ascii() {
-                self.unknown = true;
-            }
-        }
     }
 }
 
