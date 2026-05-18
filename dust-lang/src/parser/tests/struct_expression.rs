@@ -11,7 +11,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("Foo;")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("Foo;")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -35,7 +35,7 @@ fn empty() {
 
 #[test]
 fn named_fields() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "Foo { x: 42, y: 666 }"
     )));
     let ParseResult {

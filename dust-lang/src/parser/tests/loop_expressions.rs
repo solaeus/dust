@@ -11,7 +11,7 @@ use crate::{
 
 #[test]
 fn while_expression() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "while x { y }"
     )));
     let ParseResult {
@@ -40,7 +40,7 @@ fn while_expression() {
 
 #[test]
 fn break_empty() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "while true { break; }"
     )));
     let ParseResult {
@@ -69,7 +69,7 @@ fn break_empty() {
 
 #[test]
 fn break_with_value() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "while true { break 42 }"
     )));
     let ParseResult {

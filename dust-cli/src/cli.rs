@@ -78,12 +78,16 @@ pub struct InputOptions {
     #[arg(short, long, value_name = "INPUT")]
     pub eval: Option<String>,
 
-    #[arg(long, value_name = "INPUT")]
     /// Evaluate source code as a command-line argument
     ///
     /// This does not modify the input in any way, so you must provide a complete program with a
     /// `main` function.
+    #[arg(long, value_name = "INPUT")]
     pub eval_full: Option<String>,
+
+    /// Name of the program to run
+    #[arg(short, long)]
+    pub program: Option<String>,
 
     /// Read source code from stdin
     #[arg(long)]
@@ -96,6 +100,8 @@ pub struct InputOptions {
 impl InputOptions {
     pub fn join(mut self, other: InputOptions) -> Self {
         self.eval = self.eval.or(other.eval);
+        self.eval_full = self.eval_full.or(other.eval_full);
+        self.program = self.program.or(other.program);
         self.stdin = self.stdin || other.stdin;
         self.path = self.path.or(other.path);
 

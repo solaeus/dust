@@ -10,7 +10,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"fn foo() {}"));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"fn foo() {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -31,7 +31,7 @@ fn empty() {
 
 #[test]
 fn value_parameters() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+    let parser = Parser::new_standalone(Lexer::unvalidated(
         b"fn foo(x: i64, y: bool) {}",
     ));
     let ParseResult {
@@ -61,7 +61,7 @@ fn value_parameters() {
 
 #[test]
 fn type_parameters() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"fn foo<A, B, C>() {}"));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"fn foo<A, B, C>() {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -91,7 +91,7 @@ fn type_parameters() {
 
 #[test]
 fn return_type() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"fn foo() -> i64 {}"));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"fn foo() -> i64 {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -115,7 +115,7 @@ fn return_type() {
 
 #[test]
 fn mixed() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(
+    let parser = Parser::new_standalone(Lexer::unvalidated(
         b"fn foo<A, B, C>(x: A, y: B) -> C {}",
     ));
     let ParseResult {

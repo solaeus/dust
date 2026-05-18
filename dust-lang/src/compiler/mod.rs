@@ -122,9 +122,9 @@ impl<'src> Compiler<'src> {
 
             for (source_id, file) in self.source.iter_mut() {
                 let lexer = if file.utf8_validated() {
-                    Lexer::with_validated_source(file.content_as_str())
+                    Lexer::validated(file.content_as_str())
                 } else {
-                    Lexer::with_unvalidated_source(file.content_as_bytes())
+                    Lexer::unvalidated(file.content_as_bytes())
                 };
                 let parser = Parser::new(source_id, SyntaxId::ROOT, lexer);
                 let ParseResult {

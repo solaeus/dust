@@ -8,7 +8,7 @@ use crate::{
 
 #[test]
 fn index_expression() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x[0]")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x[0]")));
     let ParseResult {
         syntax_tree,
         errors,

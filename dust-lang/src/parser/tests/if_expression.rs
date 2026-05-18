@@ -11,7 +11,7 @@ use crate::{
 
 #[test]
 fn r#if() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "if condition { x + y }"
     )));
     let ParseResult {
@@ -43,7 +43,7 @@ fn r#if() {
 
 #[test]
 fn if_else() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "if condition { x + y } else { x - y }"
     )));
     let ParseResult {
@@ -85,7 +85,7 @@ fn if_else() {
 
 #[test]
 fn if_else_if() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "if left { x + y } else if right { x - y } else { x * y }"
     )));
     let ParseResult {

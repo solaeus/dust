@@ -82,8 +82,7 @@ fn main() {
 }"#;
 
 fn parse_bench(source: &[u8]) {
-    let ParseResult { errors, .. } =
-        Parser::new_standalone(Lexer::with_unvalidated_source(source)).parse();
+    let ParseResult { errors, .. } = Parser::new_standalone(Lexer::unvalidated(source)).parse();
 
     assert!(errors.is_empty(), "{errors:#?}");
 }

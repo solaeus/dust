@@ -8,7 +8,7 @@ use crate::{
 
 #[test]
 fn negation() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("-x")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("-x")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -32,7 +32,7 @@ fn negation() {
 
 #[test]
 fn logical_not() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("!x")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("!x")));
     let ParseResult {
         syntax_tree,
         errors,

@@ -11,7 +11,7 @@ use annotate_snippets::{Group, Level, Renderer};
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
-use crate::error::DustError;
+use crate::{crate_config::CrateConfig, error::DustError};
 
 #[derive(Debug, Clone)]
 pub struct Source<'src> {
@@ -47,6 +47,25 @@ impl<'src> Source<'src> {
 
     pub fn get_code(&self, source_id: SourceCodeId) -> &SourceCode<'src> {
         &self.code[source_id.0 as usize]
+    }
+
+    pub fn add_crate(
+        &mut self,
+        config: &CrateConfig,
+        crate_path: &Path,
+        target_program: Option<&str>,
+    ) -> Result<(), SourceError> {
+        let program_path = if let Some(target) = target_program
+            && let Some(program) = config.package.programs.iter().find(|p| p.name == target)
+        {
+            crate_path.join(&program.path)
+        } else {
+            crate_path.join("src").join("main.ds")
+        };
+
+        self.add_code(SourceCode::file(program_path)?);
+
+        Ok(())
     }
 
     pub fn get_content(&self, position: Position) -> Result<&str, SourceError> {
@@ -157,7 +176,7 @@ impl<'src> SourceCode<'src> {
         })
     }
 
-    pub fn from_bytes(name: &'src str, content: &'src [u8]) -> Self {
+    pub fn unvalidated(name: &'src str, content: &'src [u8]) -> Self {
         SourceCode::Borrowed {
             name,
             content,
@@ -165,7 +184,7 @@ impl<'src> SourceCode<'src> {
         }
     }
 
-    pub fn from_owned_bytes(name: &'src str, content: Vec<u8>) -> Self {
+    pub fn unvalidated_owned(name: &'src str, content: Vec<u8>) -> Self {
         SourceCode::Owned {
             name,
             content,
@@ -173,7 +192,7 @@ impl<'src> SourceCode<'src> {
         }
     }
 
-    pub const fn from_str(name: &'src str, content: &'src str) -> Self {
+    pub const fn validated(name: &'src str, content: &'src str) -> Self {
         SourceCode::Borrowed {
             name,
             content: content.as_bytes(),
@@ -181,7 +200,7 @@ impl<'src> SourceCode<'src> {
         }
     }
 
-    pub fn from_string(name: &'src str, content: String) -> Self {
+    pub fn validated_owned(name: &'src str, content: String) -> Self {
         SourceCode::Owned {
             name,
             content: content.into_bytes(),

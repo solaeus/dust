@@ -24,7 +24,7 @@ use crate::{
 };
 
 pub fn parse(source_code: &str) -> (SyntaxTree, Vec<ParseError>) {
-    let lexer = Lexer::with_validated_source(source_code);
+    let lexer = Lexer::validated(source_code);
     let parser = Parser::new_standalone(lexer);
     let ParseResult {
         syntax_tree,

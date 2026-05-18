@@ -9,7 +9,7 @@ use crate::{
 #[test]
 fn assignment_expression() {
     let parser =
-        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x = 42;")));
+        Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x = 42;")));
     let ParseResult {
         syntax_tree,
         errors,

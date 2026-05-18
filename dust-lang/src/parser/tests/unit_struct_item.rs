@@ -7,7 +7,7 @@ use crate::{
 
 #[test]
 fn unit_struct() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"struct Foo;"));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"struct Foo;"));
     let ParseResult {
         syntax_tree,
         errors,

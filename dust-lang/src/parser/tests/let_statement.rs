@@ -11,7 +11,7 @@ use crate::{
 
 #[test]
 fn let_statement() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "let x = 42;"
     )));
     let ParseResult {
@@ -37,7 +37,7 @@ fn let_statement() {
 
 #[test]
 fn let_statement_with_type() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "let x: i64 = 42;"
     )));
     let ParseResult {
@@ -64,7 +64,7 @@ fn let_statement_with_type() {
 
 #[test]
 fn let_mut_statement() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "let mut x = 42;"
     )));
     let ParseResult {
@@ -92,7 +92,7 @@ fn let_mut_statement() {
 
 #[test]
 fn let_mut_statement_with_type() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "let mut x: i64 = 42;"
     )));
     let ParseResult {

@@ -38,7 +38,7 @@ pub const MINIMUM_OBJECT_SWEEP_DEFAULT: usize = if cfg!(debug_assertions) {
 pub fn run<'src>(source_code: &'src str) -> Result<Option<DustValue>, Error<'src>> {
     let mut source = Source::new();
 
-    source.add_code(SourceCode::from_str("eval", source_code));
+    source.add_code(SourceCode::validated("eval", source_code));
 
     let compiler = Compiler::new(source);
     let program = compiler.compile(None)?;

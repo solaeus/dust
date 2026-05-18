@@ -8,7 +8,7 @@ use crate::{
 
 #[test]
 fn addition() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x + y")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x + y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -34,7 +34,7 @@ fn addition() {
 
 #[test]
 fn subtraction() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x - y")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x - y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -60,7 +60,7 @@ fn subtraction() {
 
 #[test]
 fn multiplication() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x * y")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x * y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -90,7 +90,7 @@ fn multiplication() {
 
 #[test]
 fn division() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x / y")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x / y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -116,7 +116,7 @@ fn division() {
 
 #[test]
 fn modulo() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x % y")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x % y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -142,7 +142,7 @@ fn modulo() {
 
 #[test]
 fn power() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x ^ y")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x ^ y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -169,7 +169,7 @@ fn power() {
 #[test]
 fn equal() {
     let parser =
-        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x == y")));
+        Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x == y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -196,7 +196,7 @@ fn equal() {
 #[test]
 fn not_equal() {
     let parser =
-        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x != y")));
+        Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x != y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -222,7 +222,7 @@ fn not_equal() {
 
 #[test]
 fn less_than() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x < y")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x < y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -249,7 +249,7 @@ fn less_than() {
 #[test]
 fn less_than_or_equal() {
     let parser =
-        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x <= y")));
+        Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x <= y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -279,7 +279,7 @@ fn less_than_or_equal() {
 
 #[test]
 fn greater_than() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x > y")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x > y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -306,7 +306,7 @@ fn greater_than() {
 #[test]
 fn greater_than_or_equal() {
     let parser =
-        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x >= y")));
+        Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x >= y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -337,7 +337,7 @@ fn greater_than_or_equal() {
 #[test]
 fn logical_and() {
     let parser =
-        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x && y")));
+        Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x && y")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -364,7 +364,7 @@ fn logical_and() {
 #[test]
 fn logical_or() {
     let parser =
-        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x || y")));
+        Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x || y")));
     let ParseResult {
         syntax_tree,
         errors,

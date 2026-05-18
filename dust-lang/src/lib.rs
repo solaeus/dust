@@ -13,6 +13,7 @@ use smallvec::{Array, SmallVec};
 
 pub mod compiler;
 mod constants;
+pub mod crate_config;
 pub mod disassembler;
 pub mod dust_type;
 pub mod dust_value;
@@ -22,7 +23,6 @@ pub mod lexer;
 mod native_function;
 pub mod parser;
 pub mod program;
-pub mod project;
 pub mod prototype;
 pub mod source;
 pub mod syntax;
@@ -107,6 +107,7 @@ where
 }
 
 #[cfg(test)]
+#[expect(clippy::disallowed_macros)]
 mod tests {
     use super::*;
 

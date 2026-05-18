@@ -8,7 +8,7 @@ use crate::{
 
 #[test]
 fn add_assign() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "x += 42;"
     )));
     let ParseResult {
@@ -40,7 +40,7 @@ fn add_assign() {
 
 #[test]
 fn subtract_assign() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "x -= 42;"
     )));
     let ParseResult {
@@ -72,7 +72,7 @@ fn subtract_assign() {
 
 #[test]
 fn multiply_assign() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "x *= 42;"
     )));
     let ParseResult {
@@ -104,7 +104,7 @@ fn multiply_assign() {
 
 #[test]
 fn divide_assign() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "x /= 42;"
     )));
     let ParseResult {
@@ -136,7 +136,7 @@ fn divide_assign() {
 
 #[test]
 fn modulo_assign() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "x %= 42;"
     )));
     let ParseResult {
@@ -168,7 +168,7 @@ fn modulo_assign() {
 
 #[test]
 fn power_assign() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "x ^= 42;"
     )));
     let ParseResult {

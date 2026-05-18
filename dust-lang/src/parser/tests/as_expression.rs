@@ -8,7 +8,7 @@ use crate::{
 
 #[test]
 fn as_expression() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "x as i32"
     )));
     let ParseResult {

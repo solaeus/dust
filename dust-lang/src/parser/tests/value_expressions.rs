@@ -11,7 +11,7 @@ use crate::{
 
 #[test]
 fn boolean() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("true")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("true")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -35,7 +35,7 @@ fn boolean() {
 
 #[test]
 fn byte() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("0x2A")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("0x2A")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -57,7 +57,7 @@ fn byte() {
 
 #[test]
 fn character() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("'a'")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("'a'")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -79,7 +79,7 @@ fn character() {
 
 #[test]
 fn float() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("42.0")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("42.0")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -101,7 +101,7 @@ fn float() {
 
 #[test]
 fn integer() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("42")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("42")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -123,7 +123,7 @@ fn integer() {
 
 #[test]
 fn string() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "\"Hello, world!\""
     )));
     let ParseResult {
@@ -147,7 +147,7 @@ fn string() {
 
 #[test]
 fn list() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "[1, 2, 3]"
     )));
     let ParseResult {
@@ -175,7 +175,7 @@ fn list() {
 #[test]
 fn array_repeat() {
     let parser =
-        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("[0; 3]")));
+        Parser::new_standalone(Lexer::unvalidated(function_wrapper!("[0; 3]")));
     let ParseResult {
         syntax_tree,
         errors,

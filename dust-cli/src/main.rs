@@ -6,15 +6,15 @@ mod error;
 
 use std::{
     fmt,
-    fs::File,
     io::{self, Read, Write, stderr},
+    path::Path,
     process::ExitCode,
     time::Instant,
 };
 
 use clap::Parser as CliParser;
 use dust_lang::{
-    project::{PROJECT_CONFIG_PATH, ProjectConfig},
+    crate_config::CrateConfig,
     source::{Source, SourceCode},
 };
 use tracing::{Event, Level, Subscriber, info, level_filters::LevelFilter};
@@ -144,6 +144,7 @@ fn build_source<'src>(
     InputOptions {
         eval,
         eval_full,
+        program: target_program,
         stdin,
         path,
     }: InputOptions,
@@ -152,53 +153,27 @@ fn build_source<'src>(
 
     if let Some(input) = eval {
         let eval_program = format!("fn main<T>() -> T {{\n    {input}\n}}");
-        let code = SourceCode::from_string("CLI Input", eval_program);
 
-        source.add_code(code);
+        source.add_code(SourceCode::validated_owned("cli_input", eval_program));
     } else if let Some(input) = eval_full {
-        let code = SourceCode::from_string("CLI Input", input);
-
-        source.add_code(code);
-    } else if let Some(path) = path {
-        if path.is_dir() {
-            let config = {
-                let config_path = path.join(PROJECT_CONFIG_PATH);
-                let mut config_file = File::open(&config_path)?;
-                let mut config_contents = String::new();
-
-                config_file.read_to_string(&mut config_contents)?;
-                toml::from_str::<ProjectConfig>(&config_contents)?
-            };
-
-            let main_file_path = if let Some(program) = config.program {
-                path.join(program.path)
-            } else {
-                path.join("src").join("main.ds")
-            };
-            let code = SourceCode::file(main_file_path)?;
-
-            source.add_code(code);
-
-            let lib_file_path = path.join("src").join("lib.ds");
-
-            if lib_file_path.exists() {
-                let code = SourceCode::file(lib_file_path)?;
-
-                source.add_code(code);
-            }
-        } else {
-            let code = SourceCode::file(path)?;
-
-            source.add_code(code);
-        }
+        source.add_code(SourceCode::validated_owned("cli_input", input));
     } else if stdin {
         let mut buffer = Vec::new();
 
         io::stdin().read_to_end(&mut buffer)?;
 
-        let code = SourceCode::from_owned_bytes("stdin", buffer);
+        source.add_code(SourceCode::unvalidated_owned("stdin", buffer));
+    } else {
+        let path = path.as_deref().unwrap_or(Path::new("."));
 
-        source.add_code(code);
+        if path.is_dir() {
+            let config_path = path.join("dust.toml");
+            let config = CrateConfig::read_from_path(&config_path)?;
+
+            source.add_crate(&config, path, target_program.as_deref())?;
+        } else {
+            source.add_code(SourceCode::file(path)?);
+        }
     }
 
     Ok(source)

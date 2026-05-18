@@ -10,7 +10,7 @@ use crate::{
 
 #[test]
 fn simple() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"type Foo = i64;"));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"type Foo = i64;"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -31,7 +31,7 @@ fn simple() {
 
 #[test]
 fn with_type_parameters() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"type Foo<T> = T;"));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"type Foo<T> = T;"));
     let ParseResult {
         syntax_tree,
         errors,

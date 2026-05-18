@@ -27,7 +27,7 @@ pub struct Lexer<'src> {
 }
 
 impl<'src> Lexer<'src> {
-    pub fn with_unvalidated_source(source: &'src [u8]) -> Self {
+    pub fn unvalidated(source: &'src [u8]) -> Self {
         Self {
             source,
             index: 0,
@@ -42,7 +42,7 @@ impl<'src> Lexer<'src> {
         }
     }
 
-    pub fn with_validated_source(source: &'src str) -> Self {
+    pub fn validated(source: &'src str) -> Self {
         Self {
             source: source.as_bytes(),
             index: 0,

@@ -11,7 +11,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("{}")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("{}")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -33,7 +33,7 @@ fn empty() {
 
 #[test]
 fn item() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "{ fn foo() {} }"
     )));
     let ParseResult {
@@ -60,7 +60,7 @@ fn item() {
 
 #[test]
 fn statement() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "{ let x = 42; }"
     )));
     let ParseResult {
@@ -87,7 +87,7 @@ fn statement() {
 
 #[test]
 fn expression() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "{ x + y }"
     )));
     let ParseResult {
@@ -116,7 +116,7 @@ fn expression() {
 
 #[test]
 fn mixed() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!(
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
         "{ fn foo() {} let x = 42; x + y }"
     )));
     let ParseResult {

@@ -10,7 +10,7 @@ use crate::{
 
 #[test]
 fn simple() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"const X: i64 = 42;"));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"const X: i64 = 42;"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -32,7 +32,7 @@ fn simple() {
 
 #[test]
 fn pub_const() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"pub const X: i64 = 42;"));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"pub const X: i64 = 42;"));
     let ParseResult {
         syntax_tree,
         errors,

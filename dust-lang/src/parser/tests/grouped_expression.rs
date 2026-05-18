@@ -9,7 +9,7 @@ use crate::{
 #[test]
 fn grouped_expression() {
     let parser =
-        Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("(x + y)")));
+        Parser::new_standalone(Lexer::unvalidated(function_wrapper!("(x + y)")));
     let ParseResult {
         syntax_tree,
         errors,

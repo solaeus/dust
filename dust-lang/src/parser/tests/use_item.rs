@@ -7,7 +7,7 @@ use crate::{
 
 #[test]
 fn use_item() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(b"use foo;"));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"use foo;"));
     let ParseResult {
         syntax_tree,
         errors,

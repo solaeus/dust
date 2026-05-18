@@ -11,7 +11,7 @@ use crate::{
 
 #[test]
 fn field_access() {
-    let parser = Parser::new_standalone(Lexer::with_unvalidated_source(function_wrapper!("x.y()")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x.y()")));
     let ParseResult {
         syntax_tree,
         errors,

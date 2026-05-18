@@ -25,9 +25,9 @@ pub fn parse<'src>(command: ParseCommand) -> Result<(), Error<'src>> {
 
     for (source_id, file) in source.iter() {
         let lexer = if file.utf8_validated() {
-            Lexer::with_validated_source(file.content_as_str())
+            Lexer::validated(file.content_as_str())
         } else {
-            Lexer::with_unvalidated_source(file.content_as_bytes())
+            Lexer::unvalidated(file.content_as_bytes())
         };
         let parser = Parser::new(source_id, starting_syntax_id, lexer);
         let ParseResult {
