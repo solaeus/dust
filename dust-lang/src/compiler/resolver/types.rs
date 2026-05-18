@@ -71,6 +71,10 @@ impl Types {
         types
     }
 
+    pub fn type_count(&self) -> usize {
+        self.types.len()
+    }
+
     pub fn add_type(&mut self, type_node: Type) -> TypeId {
         if let Some(existing) = self.types.get_index_of(&type_node) {
             return TypeId(existing as u32);

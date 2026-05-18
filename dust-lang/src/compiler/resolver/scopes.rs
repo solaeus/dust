@@ -18,6 +18,10 @@ impl Scopes {
         }
     }
 
+    pub fn scope_count(&self) -> usize {
+        self.scopes.len()
+    }
+
     pub fn enter_scope(&mut self, barrier: Barrier, parent: Option<ScopeId>) -> ScopeId {
         let id = ScopeId::from_index(self.scopes.len());
         let namespace_start = self.current_namespace.len() as u32;

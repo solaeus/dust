@@ -224,6 +224,10 @@ impl<'src> Parser<'src> {
     }
 
     fn allow(&mut self, allowed: TokenKind) -> bool {
+        if self.is_eof() {
+            return true;
+        }
+
         let allowed = self.current_token.kind == allowed;
 
         if allowed {
@@ -500,7 +504,7 @@ impl<'src> Parser<'src> {
             struct_flags.set_flag(SyntaxFlags::TYPE_PARAMETERS);
         }
 
-        if let Some(where_clause_node) = self.allow_where_clause()? {
+        if let Some(where_clause_node) = self.allow_where_clause(false)? {
             let where_clause_id = self.tree.add_node(where_clause_node);
 
             self.child_buffer.push(where_clause_id);
@@ -757,7 +761,7 @@ impl<'src> Parser<'src> {
 
         self.child_buffer.push(name_id);
 
-        let function_flags = self.parse_function_signature()?;
+        let function_flags = self.parse_function_signature(false)?;
         let body_node = self.parse_block_expression()?;
         let body_id = self.tree.add_node(body_node);
 
@@ -771,7 +775,10 @@ impl<'src> Parser<'src> {
         ))
     }
 
-    fn parse_function_signature(&mut self) -> Result<SyntaxFlags, ParseError> {
+    fn parse_function_signature(
+        &mut self,
+        trait_declaration: bool,
+    ) -> Result<SyntaxFlags, ParseError> {
         let mut flags = SyntaxFlags::default();
 
         if let Some(type_parameters_node) = self.allow_type_parameters()? {
@@ -796,7 +803,7 @@ impl<'src> Parser<'src> {
             flags.set_flag(SyntaxFlags::RETURN_TYPE);
         }
 
-        if let Some(where_clause_node) = self.allow_where_clause()? {
+        if let Some(where_clause_node) = self.allow_where_clause(trait_declaration)? {
             let where_clause_id = self.tree.add_node(where_clause_node);
 
             self.child_buffer.push(where_clause_id);
@@ -906,7 +913,7 @@ impl<'src> Parser<'src> {
             impl_flags.set_flag(SyntaxFlags::TYPE_ARGUMENTS);
         }
 
-        if let Some(where_clause_node) = self.allow_where_clause()? {
+        if let Some(where_clause_node) = self.allow_where_clause(false)? {
             let where_clause_id = self.tree.add_node(where_clause_node);
 
             self.child_buffer.push(where_clause_id);
@@ -975,7 +982,7 @@ impl<'src> Parser<'src> {
             None
         };
 
-        let where_clause_id = if let Some(where_clause_node) = self.allow_where_clause()? {
+        let where_clause_id = if let Some(where_clause_node) = self.allow_where_clause(false)? {
             trait_flags.set_flag(SyntaxFlags::WHERE_CLAUSE);
 
             Some(self.tree.add_node(where_clause_node))
@@ -2192,7 +2199,10 @@ impl<'src> Parser<'src> {
         ))
     }
 
-    fn allow_where_clause(&mut self) -> Result<Option<SyntaxNode>, ParseError> {
+    fn allow_where_clause(
+        &mut self,
+        semicolon_terminator: bool,
+    ) -> Result<Option<SyntaxNode>, ParseError> {
         if !self.allow(TokenKind::Where) {
             return Ok(None);
         }
@@ -2200,14 +2210,10 @@ impl<'src> Parser<'src> {
         let start = self.previous_token.span.start();
         let children_start = self.child_buffer.len();
 
-        while !self.is_eof() {
-            if matches!(
-                self.current_token.kind,
-                TokenKind::LeftCurlyBrace | TokenKind::Semicolon
-            ) {
-                break;
-            }
-
+        while !self.allow(TokenKind::LeftCurlyBrace)
+            || !semicolon_terminator
+            || !self.allow(TokenKind::RightCurlyBrace)
+        {
             let predicate_start = self.current_token.span.start();
 
             let mut type_node = self.expect_path()?;
@@ -2443,7 +2449,7 @@ impl<'src> Parser<'src> {
 
         self.child_buffer.push(name_id);
 
-        let flags = self.parse_function_signature()?;
+        let flags = self.parse_function_signature(true)?;
 
         if self.current_token.kind == TokenKind::LeftCurlyBrace {
             let body_node = self.parse_prefix_left_brace()?;

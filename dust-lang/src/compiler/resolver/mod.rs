@@ -5,7 +5,7 @@ pub mod types;
 
 use std::{
     collections::HashMap,
-    fmt::{self, Display, Formatter},
+    fmt::{self, Debug, Display, Formatter},
 };
 
 use indexmap::IndexSet;
@@ -32,7 +32,6 @@ use crate::{
     syntax::{SyntaxId, reader::SyntaxReader},
 };
 
-#[derive(Debug)]
 pub struct Resolver {
     pub symbols: Symbols,
     pub declarations: Declarations,
@@ -1516,6 +1515,27 @@ impl Resolver {
 impl Default for Resolver {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Debug for Resolver {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(
+            f,
+            "Resolver {{ symbols: {}, declarations: {}, scopes: {}, types: {}, type_parameter_map: {}, implementations: {}, prototypes: {}, compilation_stack: {}, monomorphization_cache: {}, declaration_bindings: {}, type_bindings: {}, constant_item_values: {} }}",
+            self.symbols.symbol_count(),
+            self.declarations.declaration_count(),
+            self.scopes.scope_count(),
+            self.types.type_count(),
+            self.type_parameter_map.len(),
+            self.implementations.len(),
+            self.prototypes.len(),
+            self.compilation_stack.len(),
+            self.monomorphization_cache.len(),
+            self.declaration_bindings.len(),
+            self.type_bindings.len(),
+            self.constant_item_values.len(),
+        )
     }
 }
 

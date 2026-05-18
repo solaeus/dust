@@ -879,7 +879,7 @@ impl<'a> DeclarationBinder<'a> {
             body,
         } = reader.as_component()?;
 
-        let impl_symbol_id = self.resolver.symbols.add_impl_symbol();
+        let impl_symbol_id = self.resolver.symbols.add_impl_symbol(reader.position());
         let impl_declaration_id =
             self.reserve_declaration_id(impl_symbol_id, Some((reader.position(), reader.id)));
 

@@ -76,7 +76,7 @@ impl Thread {
         self.call_stack.push(starting_call_frame);
 
         'thread: loop {
-            let current_call_frame = self.call_stack.pop().ok_or(VmError::CallStackUnderflow)?;
+            let current_call_frame = *self.call_stack.last().ok_or(VmError::CallStackUnderflow)?;
             let current_prototype = self
                 .program
                 .prototypes
@@ -85,7 +85,7 @@ impl Thread {
                 .ok_or(VmError::InvalidPrototypeIndex {
                     index: current_call_frame.prototype_id,
                 })?;
-            let mut instruction_pointer = current_call_frame.instruction_pointer;
+            let mut instruction_pointer = current_call_frame.instruction_pointer as usize;
 
             'call: loop {
                 assert!(
@@ -117,6 +117,7 @@ impl Thread {
                                         self.program.constants.get_i32(operand_index)? as u32
                                     }
                                     MemoryKind::REGISTER => self.get_register(operand_index)?.0,
+                                    MemoryKind::ENCODED => operand_index as u32,
                                     _ => {
                                         return Err(VmError::UnsupportedMemoryKind {
                                             memory: operand_memory,
@@ -173,6 +174,8 @@ impl Thread {
                         }
                     }
                     Operation::RETURN => {
+                        self.call_stack.pop();
+
                         if self.call_stack.is_empty() {
                             let return_register_range = current_call_frame.regsiter_range_start
                                 as usize

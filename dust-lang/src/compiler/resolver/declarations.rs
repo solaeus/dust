@@ -28,6 +28,10 @@ impl Declarations {
         }
     }
 
+    pub fn declaration_count(&self) -> usize {
+        self.declarations.len()
+    }
+
     pub fn add_declaration(&mut self, declaration: Declaration) -> DeclarationId {
         let declaration_id = DeclarationId(self.declarations.len() as u32);
 

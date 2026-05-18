@@ -1,10 +1,3 @@
-#[derive(Clone, Copy)]
-#[repr(C)]
-pub struct RegisterIndices {
-    pub start: u32,
-    pub end: u32,
-}
-
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct Register(pub(super) u32);

@@ -1,4 +1,4 @@
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,7 @@ use crate::{
 };
 
 /// Parsed Dust source code.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct SyntaxTree {
     pub source_id: SourceCodeId,
 
@@ -80,6 +80,18 @@ impl SyntaxTree {
 
     pub fn next_syntax_id(&self) -> SyntaxId {
         SyntaxId(self.nodes.len() as u32)
+    }
+}
+
+impl Debug for SyntaxTree {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(
+            f,
+            "SyntaxTree {{ source_id: {:?}, nodes: {}, children: {} }}",
+            self.source_id,
+            self.nodes.len(),
+            self.children.len()
+        )
     }
 }
 

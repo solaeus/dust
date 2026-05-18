@@ -7,14 +7,15 @@ use indexmap::IndexMap;
 use rustc_hash::{FxBuildHasher, FxHasher};
 use serde::{Deserialize, Serialize};
 
-use crate::{compiler::error::CompileError, source::Span};
+use crate::{
+    compiler::error::CompileError,
+    source::{Position, Span},
+};
 
 #[derive(Debug)]
 pub struct Symbols {
     pool: String,
     spans: IndexMap<u64, Span, FxBuildHasher>,
-
-    next_impl_index: u32,
 }
 
 impl Symbols {
@@ -22,8 +23,11 @@ impl Symbols {
         Self {
             pool: String::new(),
             spans: IndexMap::default(),
-            next_impl_index: 0,
         }
+    }
+
+    pub fn symbol_count(&self) -> usize {
+        self.spans.len()
     }
 
     pub fn add_symbol(&mut self, name: &str) -> SymbolId {
@@ -75,36 +79,32 @@ impl Symbols {
         id
     }
 
-    pub fn add_impl_symbol(&mut self) -> SymbolId {
+    pub fn add_impl_symbol(&mut self, position: Position) -> SymbolId {
+        let id = SymbolId(self.spans.len() as u32);
+        let start = self.pool.len();
+
+        let _ = write!(
+            &mut self.pool,
+            "impl@{}:{}",
+            position.source_id.inner(),
+            position.span
+        );
+
         let hash = {
             let mut hasher = FxHasher::default();
 
             hasher.write_u8(2);
-            self.next_impl_index.hash(&mut hasher);
+            self.pool[start..].hash(&mut hasher);
             hasher.finish()
         };
 
-        if let Some(existing_index) = self.spans.get_index_of(&hash) {
-            return SymbolId(existing_index as u32);
-        }
-
-        let id = SymbolId(self.spans.len() as u32);
-        let start = self.pool.len() as u32;
-
-        let _ = write!(&mut self.pool, "impl#{}", self.next_impl_index);
-        self.next_impl_index += 1;
-
-        self.spans
-            .insert(hash, Span::new(start, self.pool.len() as u32));
+        self.spans.insert(hash, Span::new(start, self.pool.len()));
 
         id
     }
 
     pub fn get_symbol(&self, id: &SymbolId) -> Result<&str, CompileError> {
-        let (_, span) = self
-            .spans
-            .get_index(id.0 as usize)
-            .ok_or(crate::compiler::error::CompileError::MissingSymbol(*id))?;
+        let span = self.spans[id.0 as usize];
         let symbol = &self.pool[span.as_usize_range()];
 
         Ok(symbol)
