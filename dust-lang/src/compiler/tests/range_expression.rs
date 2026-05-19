@@ -10,7 +10,7 @@ use crate::{
 #[test]
 fn exclusive_range() {
     assert_program_eq!(
-        "fn main() { 0..10 }",
+        "fn main() -> Range<i64> { 0..10 }",
         prototypes: [
             Prototype {
                 instructions: vec![],
@@ -32,7 +32,7 @@ fn exclusive_range() {
 #[test]
 fn inclusive_range() {
     assert_program_eq!(
-        "fn main() { 0..=10 }",
+        "fn main() -> RangeInclusive<i64> { 0..=10 }",
         prototypes: [
             Prototype {
                 instructions: vec![],
@@ -55,7 +55,7 @@ fn inclusive_range() {
 fn runtime_range() {
     assert_program_eq!(
         "
-            fn main() {
+            fn main() -> Range<i64> {
                 let mut start = 1;
                 let mut end = 5;
                 start..end

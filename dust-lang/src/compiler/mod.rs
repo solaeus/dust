@@ -331,7 +331,7 @@ impl<'src> Compiler<'src> {
                 declaration_id,
                 prototype_id,
                 return_type_id,
-                (&self.source, &mut self.constants, &mut self.resolver),
+                (&self.source, &self.syntax, &mut self.constants, &mut self.resolver),
                 value_parameters,
             ));
 

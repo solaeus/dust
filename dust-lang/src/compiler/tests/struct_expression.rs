@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::{DustStructType, DustStructTypeFields, DustType},
-    instruction::{Instruction, OperandType},
+    instruction::{Address, Instruction, MemoryKind, OperandType},
     prototype::Prototype,
 };
 
@@ -38,9 +38,13 @@ fn construct_named_fields() {
         ",
         prototypes: [
             Prototype {
-                instructions: vec![],
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, 10)),
+                    Instruction::r#move(2, OperandType::I_32, Address::new(MemoryKind::ENCODED, 20)),
+                    Instruction::r#return(),
+                ],
                 return_types: smallvec![OperandType::I_64, OperandType::I_64],
-                register_count: 0,
+                register_count: 4,
                 argument_count: 0,
             },
         ],
@@ -66,9 +70,13 @@ fn field_access() {
         ",
         prototypes: [
             Prototype {
-                instructions: vec![],
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, 10)),
+                    Instruction::r#move(2, OperandType::I_32, Address::new(MemoryKind::ENCODED, 20)),
+                    Instruction::r#return(),
+                ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 0,
+                register_count: 4,
                 argument_count: 0,
             },
         ],
@@ -88,9 +96,13 @@ fn field_access_runtime() {
         ",
         prototypes: [
             Prototype {
-                instructions: vec![],
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, 10)),
+                    Instruction::r#move(2, OperandType::I_32, Address::new(MemoryKind::ENCODED, 20)),
+                    Instruction::r#return(),
+                ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 0,
+                register_count: 4,
                 argument_count: 0,
             },
         ],

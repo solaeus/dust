@@ -32,6 +32,7 @@ use crate::{
     prototype::Prototype,
     source::Source,
     syntax::{
+        Syntax,
         components::{
             ArrayExpression, ArrayRepeatExpression, AssignmentExpression, BlockExpression,
             CallExpression, ComparisonExpression, ConstItem, ExpressionStatement,
@@ -48,6 +49,8 @@ use crate::{
 #[derive(Debug)]
 pub struct Emitter<'a> {
     source: &'a Source<'a>,
+
+    syntax: &'a Syntax,
 
     constants: &'a mut ConstantsBuilder,
 
@@ -86,9 +89,16 @@ impl<'a> Emitter<'a> {
         declaration_id: DeclarationId,
         prototype_id: PrototypeId,
         return_type_id: TypeId,
-        (source, constants, resolver): (&'a Source, &'a mut ConstantsBuilder, &'a mut Resolver),
+        (source, syntax, constants, resolver): (
+            &'a Source,
+            &'a Syntax,
+            &'a mut ConstantsBuilder,
+            &'a mut Resolver,
+        ),
         value_parameters: Option<SyntaxReader>,
     ) -> Result<Self, CompileError> {
+        let mut locals = HashMap::default();
+
         let argument_register_count = if let Some(value_parameters) = value_parameters {
             let ValueParameters { name_type_pairs } = value_parameters.as_component()?;
 
@@ -110,6 +120,27 @@ impl<'a> Emitter<'a> {
                 count += register_size;
             }
 
+            if value_parameters
+                .node
+                .flags
+                .get_flag(SyntaxFlags::SELF_VALUE)
+            {
+                let self_declaration_id =
+                    *resolver.get_declaration_binding(&value_parameters.id)?;
+                let self_declaration = resolver.declarations.get_declaration(self_declaration_id);
+
+                let self_type_id = *resolver.get_type_binding(&value_parameters.id)?;
+                let concrete_self_type_id = resolver.get_resolved_type_id(self_type_id)?;
+
+                let self_operand_types = resolver.get_operand_types(concrete_self_type_id)?;
+                let self_register_size = self_operand_types
+                    .iter()
+                    .map(|operand_type| operand_type.register_width().as_u16())
+                    .sum::<u16>();
+
+                count += self_register_size;
+            }
+
             count
         } else {
             0
@@ -123,10 +154,11 @@ impl<'a> Emitter<'a> {
 
         let mut emitter = Self {
             source,
+            syntax,
             constants,
             resolver,
             instructions: Vec::new(),
-            locals: HashMap::default(),
+            locals,
             pending_drops: Vec::new(),
             drop_stack: Vec::new(),
             argument_count: argument_register_count,
@@ -1976,17 +2008,50 @@ impl<'a> Emitter<'a> {
                     type_id,
                 }))
             }
-            Definition::Constant { .. } => {
-                let value = self
-                    .resolver
-                    .get_constant_item_value(&declaration_id)
-                    .ok_or_else(|| CompileError::ExpectedValue {
-                        source_id: reader.source_id(),
-                        syntax_id: reader.id,
-                    })?;
+            Definition::Constant { type_id, .. } => {
+                let value =
+                    if let Some(value) = self.resolver.get_constant_item_value(&declaration_id) {
+                        value
+                    } else {
+                        let (position, syntax_id) =
+                            declaration.syntax.ok_or(CompileError::ExpectedValue {
+                                source_id: reader.source_id(),
+                                syntax_id: reader.id,
+                            })?;
+                        let tree = self.syntax.get_tree(position.source_id)?;
+                        let const_syntax = tree.read_node(syntax_id)?;
+                        let const_reader: ConstItem = const_syntax.as_component()?;
+                        let value_expression =
+                            const_reader.value.ok_or(CompileError::ExpectedValue {
+                                source_id: reader.source_id(),
+                                syntax_id: reader.id,
+                            })?;
+
+                        self.resolver.add_type_binding(value_expression.id, type_id);
+
+                        let expression_emission = self.emit_expression(
+                            value_expression,
+                            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+                        )?;
+                        let constant_value = match expression_emission {
+                            Emission::Value(constant_value) => constant_value,
+                            _ => {
+                                return Err(CompileError::ExpectedValue {
+                                    source_id: reader.source_id(),
+                                    syntax_id: reader.id,
+                                });
+                            }
+                        };
+
+                        self.resolver
+                            .add_constant_item_value(declaration_id, constant_value);
+
+                        constant_value
+                    };
 
                 Ok(Emission::Value(value))
             }
+            Definition::StructType { fields: None, .. } => Ok(Emission::None),
             Definition::Variant {
                 discriminant,
                 fields: None,

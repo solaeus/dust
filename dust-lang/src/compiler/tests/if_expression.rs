@@ -14,9 +14,8 @@ fn if_branch() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::test(true, Address::new(MemoryKind::ENCODED, 1), 2),
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::jump(1, true),
+                    Instruction::test(true, Address::new(MemoryKind::ENCODED, 1), 1),
+                    Instruction::move_with_jump(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 1), 1, true),
                     Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 0)),
                     Instruction::r#return(),
                 ],
@@ -36,9 +35,8 @@ fn if_else_branch() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::test(true, Address::new(MemoryKind::ENCODED, 1), 2),
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::jump(1, true),
+                    Instruction::test(true, Address::new(MemoryKind::ENCODED, 1), 1),
+                    Instruction::move_with_jump(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1), 1, true),
                     Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 0)),
                     Instruction::r#return(),
                 ],
@@ -65,13 +63,11 @@ fn if_else_if_else() {
                 instructions: vec![
                     Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, 2)),
                     Instruction::equal(true, OperandType::I_32, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::jump(2, true),
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 10)),
-                    Instruction::jump(5, true),
-                    Instruction::equal(true, OperandType::I_32, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 2)),
-                    Instruction::jump(2, true),
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 20)),
                     Instruction::jump(1, true),
+                    Instruction::move_with_jump(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 10), 4, true),
+                    Instruction::equal(true, OperandType::I_32, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 2)),
+                    Instruction::jump(1, true),
+                    Instruction::move_with_jump(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 20), 1, true),
                     Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 30)),
                     Instruction::r#return(),
                 ],
@@ -97,9 +93,8 @@ fn if_with_runtime_condition() {
             Prototype {
                 instructions: vec![
                     Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::test(true, Address::new(MemoryKind::REGISTER, 0), 2),
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::jump(1, true),
+                    Instruction::test(true, Address::new(MemoryKind::REGISTER, 0), 1),
+                    Instruction::move_with_jump(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 1), 1, true),
                     Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 0)),
                     Instruction::r#return(),
                 ],

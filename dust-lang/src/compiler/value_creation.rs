@@ -3,8 +3,16 @@ use crate::{compiler::error::CompileError, syntax::reader::SyntaxReader};
 macro_rules! create_integer_from_decimal_bytes {
     ($bytes:expr, $type:ty, $reader:expr) => {{
         let mut value: $type = 0;
+        let mut negate = false;
 
-        for &byte in $bytes {
+        let digits = if $bytes.first() == Some(&b'-') {
+            negate = true;
+            &$bytes[1..]
+        } else {
+            $bytes
+        };
+
+        for &byte in digits {
             if byte == b'_' {
                 continue;
             }
@@ -19,10 +27,10 @@ macro_rules! create_integer_from_decimal_bytes {
                 })?;
         }
 
-        if value > <$type>::MAX {
-            return Err(CompileError::ConstantValueOverflow {
+        if negate {
+            value = value.checked_neg().ok_or_else(|| CompileError::ConstantValueOverflow {
                 position: $reader.position(),
-            });
+            })?;
         }
 
         Ok(value)
@@ -71,6 +79,15 @@ macro_rules! create_float_from_decimal {
             return Ok(<$type>::NEG_INFINITY);
         }
 
+        let mut negate = false;
+
+        let digits = if $bytes.first() == Some(&b'-') {
+            negate = true;
+            &$bytes[1..]
+        } else {
+            $bytes
+        };
+
         let mut mantissa = 0_u64;
 
         let mut fraction_digits = 0_i32;
@@ -81,7 +98,7 @@ macro_rules! create_float_from_decimal {
         let mut in_exponent = false;
         let mut in_negative_exponent = false;
 
-        for &byte in $bytes {
+        for &byte in digits {
             if byte == b'_' {
                 continue;
             }
@@ -135,7 +152,11 @@ macro_rules! create_float_from_decimal {
 
         exponent = exponent - fraction_digits + exponent_value;
 
-        let value = (mantissa as $type) * (10 as $type).powi(exponent);
+        let mut value = (mantissa as $type) * (10 as $type).powi(exponent);
+
+        if negate {
+            value = -value;
+        }
 
         Ok(value)
     }};

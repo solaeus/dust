@@ -1780,11 +1780,22 @@ impl<'src> Parser<'src> {
 
             Ok(SyntaxKind::BreakExpression.empty(Span::new(start, end)))
         } else {
-            let expression_node = self.parse_expression()?;
-            let expression_id = self.tree.add_node(expression_node);
-            let end = self.previous_token.span.end();
+            let expression_statement_node = self.pratt(Precedence::None)?;
 
-            Ok(SyntaxKind::BreakExpression.with_single_child(Span::new(start, end), expression_id))
+            if expression_statement_node.kind != SyntaxKind::ExpressionStatement {
+                return Err(ParseError::ExpectedToken {
+                    expected: TokenKind::Semicolon,
+                    found: self.current_token.kind,
+                    position: self.current_position(),
+                });
+            }
+
+            let expression_id = expression_statement_node.children.left_id();
+
+            Ok(SyntaxKind::BreakExpression.with_single_child(
+                Span::new(start, self.previous_token.span.end()),
+                expression_id,
+            ))
         }
     }
 

@@ -920,6 +920,14 @@ impl<'a> TypeBinder<'a> {
                     }
                 }
             }
+            Definition::StructType { .. } => {
+                let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
+
+                self.resolver.types.add_type(Type::Algebraic {
+                    declaration_id,
+                    type_arguments,
+                })
+            }
             _ => {
                 todo!("Handle {:?} {:?}", declaration.definition, declaration_id)
             }

@@ -70,7 +70,7 @@ fn break_empty() {
 #[test]
 fn break_with_value() {
     let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "while true { break 42 }"
+        "while true { break 42; }"
     )));
     let ParseResult {
         syntax_tree,
@@ -82,16 +82,16 @@ fn break_with_value() {
     assert_eq!(
         syntax_tree.sort_nodes(),
         [
-            Root.with_single_child(Span::new(0, 41), SyntaxId(8)),
-            FunctionItem.with_binary_children(Span::new(0, 41), SyntaxId(1), SyntaxId(7)),
+            Root.with_single_child(Span::new(0, 42), SyntaxId(8)),
+            FunctionItem.with_binary_children(Span::new(0, 42), SyntaxId(1), SyntaxId(7)),
             SimplePath.empty(Span::new(3, 7)),
-            BlockExpression.with_single_child(Span::new(10, 41), SyntaxId(6)),
-            WhileExpression.with_binary_children(Span::new(16, 39), SyntaxId(2), SyntaxId(5)),
+            BlockExpression.with_single_child(Span::new(10, 42), SyntaxId(6)),
+            WhileExpression.with_binary_children(Span::new(16, 40), SyntaxId(2), SyntaxId(5)),
             BooleanExpression
                 .empty(Span::new(22, 26))
                 .with_flags(SyntaxFlags::TRUE),
-            BlockExpression.with_single_child(Span::new(27, 39), SyntaxId(4)),
-            BreakExpression.with_single_child(Span::new(29, 37), SyntaxId(3)),
+            BlockExpression.with_single_child(Span::new(27, 40), SyntaxId(4)),
+            BreakExpression.with_single_child(Span::new(29, 38), SyntaxId(3)),
             IntegerExpression.empty(Span::new(35, 37)),
         ]
     );

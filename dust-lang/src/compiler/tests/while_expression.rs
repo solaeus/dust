@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::DustType,
-    instruction::{Instruction, OperandType},
+    instruction::{Address, Instruction, MemoryKind, OperandType},
     prototype::Prototype,
 };
 
@@ -23,9 +23,18 @@ fn while_loop() {
         ",
         prototypes: [
             Prototype {
-                instructions: vec![],
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::r#move(2, OperandType::I_32, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::less(true, OperandType::I_32, Address::new(MemoryKind::REGISTER, 2), Address::new(MemoryKind::ENCODED, 5)),
+                    Instruction::jump(3, true),
+                    Instruction::add(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::add(2, OperandType::I_32, Address::new(MemoryKind::REGISTER, 2), Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::jump(3, false),
+                    Instruction::r#return(),
+                ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 0,
+                register_count: 1,
                 argument_count: 0,
             },
         ],
@@ -48,9 +57,17 @@ fn while_with_runtime_condition() {
         ",
         prototypes: [
             Prototype {
-                instructions: vec![],
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 3)),
+                    Instruction::less(true, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::REGISTER, 2)),
+                    Instruction::jump(2, true),
+                    Instruction::add(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::jump(2, false),
+                    Instruction::r#return(),
+                ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 0,
+                register_count: 1,
                 argument_count: 0,
             },
         ],
@@ -73,9 +90,19 @@ fn break_without_value() {
         ",
         prototypes: [
             Prototype {
-                instructions: vec![],
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::less(true, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 10)),
+                    Instruction::jump(5, true),
+                    Instruction::equal(true, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 3)),
+                    Instruction::jump(1, true),
+                    Instruction::jump(2, true),
+                    Instruction::add(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::jump(5, false),
+                    Instruction::r#return(),
+                ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 0,
+                register_count: 1,
                 argument_count: 0,
             },
         ],
@@ -98,9 +125,19 @@ fn break_with_value() {
         ",
         prototypes: [
             Prototype {
-                instructions: vec![],
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::less(true, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 10)),
+                    Instruction::jump(5, true),
+                    Instruction::equal(true, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 5)),
+                    Instruction::jump(1, true),
+                    Instruction::jump(2, true),
+                    Instruction::add(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::jump(5, false),
+                    Instruction::r#return(),
+                ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 0,
+                register_count: 1,
                 argument_count: 0,
             },
         ],

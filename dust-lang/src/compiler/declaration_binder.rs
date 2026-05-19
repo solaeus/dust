@@ -387,35 +387,22 @@ impl<'a> DeclarationBinder<'a> {
                 .flags
                 .get_flag(SyntaxFlags::SELF_VALUE)
             {
-                let self_symbol_id = self.resolver.symbols.add_symbol("self");
-                let self_type_id = match self.context {
+                let self_declaration_id = match self.context {
                     Context::Trait {
                         self_declaration_id,
                         ..
-                    } => self.resolver.types.add_type(Type::Generic {
-                        declaration_id: self_declaration_id,
-                    }),
+                    } => self_declaration_id,
                     Context::Impl {
                         self_declaration_id,
                         ..
-                    } => self.resolver.types.add_type(Type::Algebraic {
-                        declaration_id: self_declaration_id,
-                        type_arguments: TypeMembers::default(),
-                    }),
+                    } => self_declaration_id,
                     Context::Other => {
                         return Err(CompileError::InvalidContext);
                     }
                 };
 
-                self.add_declaration(
-                    self_symbol_id,
-                    Definition::Local {
-                        mutable: false,
-                        shadowed: None,
-                        type_id: self_type_id,
-                    },
-                    Some((value_parameters.position(), value_parameters.id)),
-                );
+                self.resolver
+                    .add_declaration_binding(value_parameters.id, self_declaration_id);
             }
 
             for (parameter_name, parameter_type) in name_type_pairs {

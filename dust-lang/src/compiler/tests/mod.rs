@@ -30,7 +30,7 @@ macro_rules! assert_program_eq {
 
         let mut source = Source::new();
 
-        source.add_code(SourceCode::from_str("test", $code));
+        source.add_code(SourceCode::validated("test", $code));
 
         let program = Compiler::new(source).compile(None).unwrap();
 
