@@ -97,54 +97,6 @@ impl<'a> Emitter<'a> {
         ),
         value_parameters: Option<SyntaxReader>,
     ) -> Result<Self, CompileError> {
-        let mut locals = HashMap::default();
-
-        let argument_register_count = if let Some(value_parameters) = value_parameters {
-            let ValueParameters { name_type_pairs } = value_parameters.as_component()?;
-
-            let mut count = 0;
-
-            for (parameter_name, _) in name_type_pairs {
-                let declaration_id = *resolver.get_declaration_binding(&parameter_name.id)?;
-                let declaration = resolver.declarations.get_declaration(declaration_id);
-                let Definition::Local { type_id, .. } = declaration.definition else {
-                    return Err(CompileError::ExpectedLocalDefinition(declaration_id));
-                };
-                let concrete_type_id = resolver.get_resolved_type_id(type_id)?;
-                let operand_types = resolver.get_operand_types(concrete_type_id)?;
-                let register_size = operand_types
-                    .iter()
-                    .map(|operand_type| operand_type.register_width().as_u16())
-                    .sum::<u16>();
-
-                count += register_size;
-            }
-
-            if value_parameters
-                .node
-                .flags
-                .get_flag(SyntaxFlags::SELF_VALUE)
-            {
-                let self_declaration_id =
-                    *resolver.get_declaration_binding(&value_parameters.id)?;
-                let self_declaration = resolver.declarations.get_declaration(self_declaration_id);
-
-                let self_type_id = *resolver.get_type_binding(&value_parameters.id)?;
-                let concrete_self_type_id = resolver.get_resolved_type_id(self_type_id)?;
-
-                let self_operand_types = resolver.get_operand_types(concrete_self_type_id)?;
-                let self_register_size = self_operand_types
-                    .iter()
-                    .map(|operand_type| operand_type.register_width().as_u16())
-                    .sum::<u16>();
-
-                count += self_register_size;
-            }
-
-            count
-        } else {
-            0
-        };
         let return_type_id = resolver.get_resolved_type_id(return_type_id)?;
         let return_operand_types = resolver.get_operand_types(return_type_id)?;
         let return_register_count = return_operand_types
@@ -158,17 +110,19 @@ impl<'a> Emitter<'a> {
             constants,
             resolver,
             instructions: Vec::new(),
-            locals,
+            locals: HashMap::default(),
             pending_drops: Vec::new(),
             drop_stack: Vec::new(),
-            argument_count: argument_register_count,
-            register_tracker: RegisterTracker::new(argument_register_count, return_register_count),
+            argument_count: 0,
+            register_tracker: RegisterTracker::new(0, return_register_count),
             return_type_id,
             return_operand_types,
             jump_placements: HashMap::default(),
             jump_over_branch_ids: Vec::new(),
             next_jump_id: JumpId(0),
         };
+
+        emitter.register_tracker.reserved = u16::MAX;
 
         emitter.locals.insert(
             declaration_id,
@@ -181,6 +135,17 @@ impl<'a> Emitter<'a> {
         if let Some(value_parameters) = value_parameters {
             let ValueParameters { name_type_pairs } = value_parameters.as_component()?;
 
+            if value_parameters
+                .node
+                .flags
+                .get_flag(SyntaxFlags::SELF_VALUE)
+            {
+                let self_type_id = *emitter.resolver.get_type_binding(&value_parameters.id)?;
+                let concrete_self_type_id = emitter.resolver.get_resolved_type_id(self_type_id)?;
+
+                emitter.claim_registers(concrete_self_type_id, RegisterKind::Reserved)?;
+            }
+
             for (parameter_name, _) in name_type_pairs {
                 let declaration_id = *emitter
                     .resolver
@@ -190,7 +155,7 @@ impl<'a> Emitter<'a> {
                     .declarations
                     .get_declaration(declaration_id);
                 let Definition::Local { type_id, .. } = declaration.definition else {
-                    return Err(CompileError::ExpectedLocal);
+                    return Err(CompileError::ExpectedLocalDefinition(declaration_id));
                 };
                 let concrete_type_id = emitter.resolver.get_resolved_type_id(type_id)?;
                 let allocation =
@@ -202,7 +167,11 @@ impl<'a> Emitter<'a> {
             }
         }
 
-        emitter.register_tracker.free_reserved();
+        let argument_register_count = emitter.register_tracker.next_reserved;
+
+        emitter.argument_count = argument_register_count;
+        emitter.register_tracker =
+            RegisterTracker::new(argument_register_count, return_register_count);
 
         Ok(emitter)
     }
@@ -3006,7 +2975,7 @@ impl<'a> Emitter<'a> {
         } else {
             let parent_registers = self.claim_registers(parent_type_id, RegisterKind::Temporary)?;
 
-            for (_offset, register) in parent_registers.claims.iter().enumerate() {
+            for register in &parent_registers.claims {
                 let move_instruction =
                     Instruction::r#move(register.index, register.operand_type, parent);
 
@@ -3053,14 +3022,18 @@ impl<'a> Emitter<'a> {
             let argument_address =
                 self.handle_operand_emission(instructions, argument_emission, &argument)?;
 
-            let argument_destination = if argument_address.memory == MemoryKind::REGISTER {
-                argument_address.index
+            if arguments_start == u16::MAX && argument_address.memory == MemoryKind::REGISTER {
+                arguments_start = argument_address.index;
             } else {
                 let argument_type_id = *self.resolver.get_type_binding(&argument.id)?;
                 let argument_allocation =
                     self.claim_registers(argument_type_id, RegisterKind::Temporary)?;
 
-                for (_offset, register) in argument_allocation.claims.iter().enumerate() {
+                if arguments_start == u16::MAX {
+                    arguments_start = argument_allocation.expect_base_index()?;
+                }
+
+                for register in argument_allocation.claims {
                     let move_instruction = Instruction::r#move(
                         register.index,
                         register.operand_type,
@@ -3069,12 +3042,6 @@ impl<'a> Emitter<'a> {
 
                     instructions.push(move_instruction);
                 }
-
-                argument_allocation.expect_base_index()?
-            };
-
-            if arguments_start == u16::MAX {
-                arguments_start = argument_destination;
             }
         }
 

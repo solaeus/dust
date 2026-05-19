@@ -19,10 +19,10 @@ pub struct Lexer<'src> {
 
     identifier_started_non_ascii: bool,
     identifier_valid: bool,
-    unknown: bool,
 
     eof: bool,
     error: bool,
+    unknown: bool,
     utf8_validated: bool,
 }
 
