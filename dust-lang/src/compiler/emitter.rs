@@ -3013,6 +3013,7 @@ impl<'a> Emitter<'a> {
         instructions: &mut Instructions,
     ) -> Result<u16, CompileError> {
         let mut arguments_start = arguments_start.unwrap_or(u16::MAX);
+        let mut next_offset = 0;
 
         for argument in arguments.children() {
             let argument_emission = self.emit_expression(
@@ -3021,28 +3022,45 @@ impl<'a> Emitter<'a> {
             )?;
             let argument_address =
                 self.handle_operand_emission(instructions, argument_emission, &argument)?;
+            let argument_type_id = *self.resolver.get_type_binding(&argument.id)?;
+            let argument_operand_types = self.resolver.get_operand_types(argument_type_id)?;
+            let argument_width = argument_operand_types
+                .iter()
+                .map(|operand_type| operand_type.register_width().as_u16())
+                .sum::<u16>();
 
             if arguments_start == u16::MAX && argument_address.memory == MemoryKind::REGISTER {
                 arguments_start = argument_address.index;
-            } else {
-                let argument_type_id = *self.resolver.get_type_binding(&argument.id)?;
-                let argument_allocation =
-                    self.claim_registers(argument_type_id, RegisterKind::Temporary)?;
+                next_offset += argument_width;
 
-                if arguments_start == u16::MAX {
-                    arguments_start = argument_allocation.expect_base_index()?;
-                }
-
-                for register in argument_allocation.claims {
-                    let move_instruction = Instruction::r#move(
-                        register.index,
-                        register.operand_type,
-                        argument_address,
-                    );
-
-                    instructions.push(move_instruction);
-                }
+                continue;
             }
+
+            let already_in_register = arguments_start != u16::MAX
+                && argument_address.memory == MemoryKind::REGISTER
+                && argument_address.index == arguments_start + next_offset;
+
+            if already_in_register {
+                next_offset += argument_width;
+
+                continue;
+            }
+
+            let argument_allocation =
+                self.claim_registers(argument_type_id, RegisterKind::Temporary)?;
+
+            if arguments_start == u16::MAX {
+                arguments_start = argument_allocation.expect_base_index()?;
+            }
+
+            for register in argument_allocation.claims {
+                let move_instruction =
+                    Instruction::r#move(register.index, register.operand_type, argument_address);
+
+                instructions.push(move_instruction);
+            }
+
+            next_offset += argument_width;
         }
 
         Ok(arguments_start)

@@ -11,8 +11,8 @@ use crate::{
 fn construct_unit_struct() {
     assert_program_eq!(
         "
-            struct Unit;
-            fn main() -> Unit { Unit; }
+            struct Thing;
+            fn main() -> Thing { Thing }
         ",
         prototypes: [
             Prototype {
@@ -23,7 +23,7 @@ fn construct_unit_struct() {
             },
         ],
         return_type: DustType::Struct(Box::new(DustStructType {
-            name: "Unit".into(),
+            name: "Thing".into(),
             value_type: DustStructTypeFields::Unit,
         }))
     );
