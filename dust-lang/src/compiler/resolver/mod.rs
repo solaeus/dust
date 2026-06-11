@@ -40,6 +40,8 @@ pub struct Resolver {
     pub type_parameter_map: HashMap<DeclarationId, TypeId, FxBuildHasher>,
     pub implementations: HashMap<DeclarationId, DeclarationId::SmallVec, FxBuildHasher>,
 
+    type_projection_cache: HashMap<TypeProjectionKey, Option<TypeId>, FxBuildHasher>,
+
     prototypes: Vec<Prototype>,
     compilation_stack: Vec<PrototypeId>,
     monomorphization_cache: IndexSet<(DeclarationId, TypeId::SmallVec), FxBuildHasher>,
@@ -59,8 +61,9 @@ impl Resolver {
             types: Types::new(),
             type_parameter_map: HashMap::default(),
             implementations: HashMap::default(),
-            compilation_stack: Vec::new(),
+            type_projection_cache: HashMap::default(),
             prototypes: Vec::new(),
+            compilation_stack: Vec::new(),
             monomorphization_cache: IndexSet::default(),
             declaration_bindings: HashMap::default(),
             type_bindings: HashMap::default(),
@@ -205,7 +208,7 @@ impl Resolver {
 
                             if matches!(
                                 member_declaration.definition,
-                                Definition::TypeParameter { is_self: true }
+                                Definition::TypeParameter { is_self: true, .. }
                             ) {
                                 self.type_parameter_map.insert(member_id, self_type_id);
 
@@ -297,7 +300,7 @@ impl Resolver {
 
                         if matches!(
                             member_declaration.definition,
-                            Definition::TypeParameter { is_self: true }
+                            Definition::TypeParameter { is_self: true, .. }
                         ) {
                             type_parameter_ids.push(member_id);
 
@@ -544,6 +547,30 @@ impl Resolver {
             }
         }
 
+        if let Definition::TypeParameter {
+            bounds: Some(scope_id),
+            ..
+        } = parent_declaration.definition
+        {
+            for trait_declaration_id in self.scopes.get_members(scope_id) {
+                let trait_decl = self.declarations.get_declaration(*trait_declaration_id);
+                let Definition::Trait {
+                    declarations: Some(trait_members),
+                    ..
+                } = trait_decl.definition
+                else {
+                    continue;
+                };
+
+                if let Some(declaration_id) = self
+                    .declarations
+                    .find_declaration_id(symbol_id, trait_members)
+                {
+                    return Ok(*declaration_id);
+                }
+            }
+        }
+
         Err(CompileError::Undeclared {
             symbol_id,
             usage_position: path_segment.position(),
@@ -575,51 +602,79 @@ impl Resolver {
         }
     }
 
-    pub fn get_resolved_type_id(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
-        let (type_id, r#type) = self.get_concrete_type(type_id)?;
-
-        if let Type::Inferred {
-            constraint: Some(constraint),
-            resolved: None,
-            ..
-        } = r#type
-        {
-            let resolved_type_id = match constraint {
-                InferredTypeConstraint::Integer => TypeId::I_32,
-                InferredTypeConstraint::Float => TypeId::F_64,
-            };
-
-            self.types
-                .resolve_type_inference(type_id, resolved_type_id)?;
-
-            Ok(resolved_type_id)
-        } else {
-            Ok(type_id)
-        }
-    }
-
-    pub fn get_concrete_type(&self, type_id: TypeId) -> Result<(TypeId, &Type), CompileError> {
-        let mut current_id = type_id;
+    fn follow_type_substitutions(&self, id: TypeId) -> (TypeId, &Type) {
+        let mut current_id = id;
 
         loop {
             let current_type = self.types.get_type(current_id);
 
             match current_type {
                 Type::Inferred {
-                    resolved: Some(resolved_id),
+                    resolved_id: Some(resolved_id),
                     ..
                 } => {
                     current_id = *resolved_id;
                 }
                 Type::Generic { declaration_id } => {
-                    if let Some(argument_type_id) = self.type_parameter_map.get(declaration_id) {
-                        current_id = *argument_type_id;
+                    if let Some(type_argument_id) = self.type_parameter_map.get(&declaration_id) {
+                        current_id = *type_argument_id;
                     } else {
-                        return Err(CompileError::ExpectedConcreteType);
+                        return (id, current_type);
                     }
                 }
-                _ => return Ok((current_id, current_type)),
+                _ => {
+                    return (id, current_type);
+                }
             }
+        }
+    }
+
+    pub fn get_resolved_type_id(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
+        let (type_id, r#type) = self.follow_type_substitutions(type_id);
+
+        match r#type {
+            Type::Inferred {
+                constraint: Some(constraint),
+                resolved_id: None,
+                ..
+            } => {
+                let resolved_type_id = match constraint {
+                    InferredTypeConstraint::Integer => TypeId::I_32,
+                    InferredTypeConstraint::Float => TypeId::F_64,
+                };
+
+                self.types
+                    .resolve_type_inference(type_id, resolved_type_id)?;
+
+                Ok(resolved_type_id)
+            }
+            Type::Projection {
+                base_type_id,
+                trait_declaration_id,
+                associated_declaration_id,
+                ..
+            } => {
+                if let Some(normalized_id) = self.normalize_projection(
+                    *base_type_id,
+                    *trait_declaration_id,
+                    *associated_declaration_id,
+                )? {
+                    return Ok(normalized_id);
+                }
+                Ok(type_id)
+            }
+            _ => Ok(type_id),
+        }
+    }
+
+    pub fn get_concrete_type(&self, type_id: TypeId) -> Result<(TypeId, &Type), CompileError> {
+        let (type_id, r#type) = self.follow_type_substitutions(type_id);
+
+        match r#type {
+            Type::Inferred { .. } | Type::Generic { .. } | Type::Projection { .. } => {
+                Err(CompileError::ExpectedConcreteType)
+            }
+            _ => Ok((type_id, r#type)),
         }
     }
 
@@ -783,20 +838,22 @@ impl Resolver {
 
                                 let resolved_type_id = match self.types.get_type(type_id) {
                                     Type::Inferred {
-                                        resolved: Some(resolved),
+                                        resolved_id: Some(resolved_id),
                                         ..
-                                    } => *resolved,
+                                    } => *resolved_id,
                                     Type::Inferred {
                                         constraint: Some(InferredTypeConstraint::Integer),
-                                        resolved: None,
+                                        resolved_id: None,
                                         ..
                                     } => TypeId::I_32,
                                     Type::Inferred {
                                         constraint: Some(InferredTypeConstraint::Float),
-                                        resolved: None,
+                                        resolved_id: None,
                                         ..
                                     } => TypeId::F_64,
-                                    Type::Inferred { resolved: None, .. } => {
+                                    Type::Inferred {
+                                        resolved_id: None, ..
+                                    } => {
                                         return Err(CompileError::CannotInferType { type_id });
                                     }
                                     _ => type_id,
@@ -888,20 +945,22 @@ impl Resolver {
 
                             let resolved_type_id = match self.types.get_type(type_id) {
                                 Type::Inferred {
-                                    resolved: Some(resolved),
+                                    resolved_id: Some(resolved),
                                     ..
                                 } => *resolved,
                                 Type::Inferred {
                                     constraint: Some(InferredTypeConstraint::Integer),
-                                    resolved: None,
+                                    resolved_id: None,
                                     ..
                                 } => TypeId::I_32,
                                 Type::Inferred {
                                     constraint: Some(InferredTypeConstraint::Float),
-                                    resolved: None,
+                                    resolved_id: None,
                                     ..
                                 } => TypeId::F_64,
-                                Type::Inferred { resolved: None, .. } => continue,
+                                Type::Inferred {
+                                    resolved_id: None, ..
+                                } => continue,
                                 _ => type_id,
                             };
 
@@ -918,23 +977,175 @@ impl Resolver {
                     _ => Err(CompileError::ExpectedConcreteType),
                 }
             }
-            Type::Generic { .. } => Err(CompileError::ExpectedConcreteType),
+
             Type::Inferred {
-                resolved: Some(resolved),
+                resolved_id: Some(resolved),
                 ..
             } => self.get_operand_types(*resolved),
             Type::Inferred {
                 constraint: Some(InferredTypeConstraint::Integer),
-                resolved: None,
+                resolved_id: None,
                 ..
             } => Ok(smallvec![OperandType::I_32]),
             Type::Inferred {
                 constraint: Some(InferredTypeConstraint::Float),
-                resolved: None,
+                resolved_id: None,
                 ..
             } => Ok(smallvec![OperandType::F_64]),
-            Type::Inferred { .. } => Err(CompileError::ExpectedConcreteType),
+            Type::Generic { .. } | Type::Inferred { .. } | Type::Projection { .. } => {
+                Err(CompileError::ExpectedConcreteType)
+            }
         }
+    }
+
+    fn normalize_projection(
+        &mut self,
+        base_type_id: TypeId,
+        trait_declaration_id: DeclarationId,
+        associated_declaration_id: DeclarationId,
+    ) -> Result<Option<TypeId>, CompileError> {
+        fn type_members_equal(
+            resolver: &mut Resolver,
+            left: TypeMembers,
+            right: TypeMembers,
+        ) -> Result<bool, CompileError> {
+            let left_member_indices = left.as_usize_range();
+            let right_member_indices = right.as_usize_range();
+
+            if left_member_indices.len() != right_member_indices.len() {
+                return Ok(false);
+            }
+
+            for (left_member_index, right_member_index) in
+                left_member_indices.into_iter().zip(right_member_indices)
+            {
+                let left_id = *resolver.types.get_type_member(left_member_index)?;
+                let right_id = *resolver.types.get_type_member(right_member_index)?;
+
+                if resolver.get_resolved_type_id(left_id)?
+                    != resolver.get_resolved_type_id(right_id)?
+                {
+                    return Ok(false);
+                }
+            }
+
+            Ok(true)
+        }
+
+        let (_, concrete_base_type) = self.get_concrete_type(base_type_id)?;
+
+        let base_declaration_id = match concrete_base_type {
+            Type::Generic { .. } => todo!(),
+            Type::Projection { .. } => {
+                let resolved = self.get_resolved_type_id(base_type_id)?;
+
+                return self.normalize_projection(
+                    resolved,
+                    trait_declaration_id,
+                    associated_declaration_id,
+                );
+            }
+            Type::Algebraic { declaration_id, .. } => *declaration_id,
+            _ => return Ok(None),
+        };
+
+        let Some(impl_ids) = self.implementations.get(&base_declaration_id).cloned() else {
+            return Ok(None);
+        };
+
+        let associated_symbol_id = self
+            .declarations
+            .get_declaration(associated_declaration_id)
+            .symbol_id;
+
+        for impl_id in impl_ids {
+            let impl_decl = self.declarations.get_declaration(impl_id);
+            let (impl_scope, impl_trait_id, impl_type_parameters, impl_trait_type_arguments) =
+                match impl_decl.definition {
+                    Definition::TraitImplementation {
+                        trait_declaration_id,
+                        declarations: Some(scope_id),
+                        type_parameters,
+                        trait_type_arguments,
+                        ..
+                    } => (
+                        scope_id,
+                        trait_declaration_id,
+                        type_parameters,
+                        trait_type_arguments,
+                    ),
+                    _ => continue,
+                };
+
+            if impl_trait_id != trait_declaration_id {
+                continue;
+            }
+
+            let projection_trait_arguments = if let Type::Projection {
+                trait_type_arguments,
+                ..
+            } = self.follow_type_substitutions(base_type_id).1
+            {
+                trait_type_arguments
+            } else {
+                continue;
+            };
+
+            if !type_members_equal(self, *projection_trait_arguments, impl_trait_type_arguments)? {
+                continue;
+            }
+
+            if let Some(associated_impl_id) = self
+                .declarations
+                .find_declaration_id(associated_symbol_id, impl_scope)
+            {
+                let associated_impl_declaration =
+                    self.declarations.get_declaration(*associated_impl_id);
+
+                if let Definition::InherentAssociatedType {
+                    aliased_type_id, ..
+                } = associated_impl_declaration.definition
+                {
+                    let self_parameter_id = impl_type_parameters.and_then(|tp_scope| {
+                        for &member_id in self.scopes.get_members(tp_scope) {
+                            let decl = self.declarations.get_declaration(member_id);
+                            if matches!(
+                                decl.definition,
+                                Definition::TypeParameter { is_self: true, .. }
+                            ) {
+                                return Some(member_id);
+                            }
+                        }
+                        None
+                    });
+
+                    let old_self_mapping = self_parameter_id.and_then(|id| {
+                        let old = self.type_parameter_map.get(&id).copied();
+
+                        self.type_parameter_map.insert(id, base_type_id);
+
+                        old
+                    });
+
+                    let resolved = self.get_resolved_type_id(aliased_type_id);
+
+                    if let Some(id) = self_parameter_id {
+                        match old_self_mapping {
+                            Some(old) => {
+                                self.type_parameter_map.insert(id, old);
+                            }
+                            None => {
+                                self.type_parameter_map.remove(&id);
+                            }
+                        }
+                    }
+
+                    return resolved.map(Some);
+                }
+            }
+        }
+
+        Ok(None)
     }
 
     fn add_external_type(&mut self, new_type: &DustType, scope_id: ScopeId) -> TypeId {
@@ -1209,16 +1420,16 @@ impl Resolver {
                 }
             }
             Type::Inferred {
-                resolved: Some(resolved),
+                resolved_id: Some(resolved),
                 ..
             } => self.get_external_type(*resolved),
             Type::Inferred {
-                resolved: None,
+                resolved_id: None,
                 constraint: Some(InferredTypeConstraint::Integer),
                 ..
             } => Ok(DustType::I32),
             Type::Inferred {
-                resolved: None,
+                resolved_id: None,
                 constraint: Some(InferredTypeConstraint::Float),
                 ..
             } => Ok(DustType::F64),
@@ -1237,16 +1448,17 @@ impl Resolver {
                         let enum_name =
                             self.symbols.get_symbol(&declaration.symbol_id)?.to_string();
 
-                        let type_param_entries = (*type_parameters)
+                        let type_parameter_entries = (*type_parameters)
                             .map(|id| self.scopes.get_members(id))
                             .unwrap_or_default();
                         let type_parameter_map: SmallVec<[(DeclarationId, TypeId); 4]> =
-                            type_param_entries
+                            type_parameter_entries
                                 .iter()
                                 .zip(type_arguments.as_usize_range())
                                 .filter_map(|(parameter_declaration_id, argument_index)| {
                                     let argument_type_id =
                                         self.types.get_type_member(argument_index).ok()?;
+
                                     Some((*parameter_declaration_id, *argument_type_id))
                                 })
                                 .collect();
@@ -1306,10 +1518,12 @@ impl Resolver {
 
                                 let resolved_type_id = match self.types.get_type(concrete_type_id) {
                                     Type::Inferred {
-                                        resolved: Some(resolved),
+                                        resolved_id: Some(resolved),
                                         ..
                                     } => *resolved,
-                                    Type::Inferred { resolved: None, .. } => continue,
+                                    Type::Inferred {
+                                        resolved_id: None, ..
+                                    } => continue,
                                     _ => concrete_type_id,
                                 };
 
@@ -1344,13 +1558,32 @@ impl Resolver {
                             variants,
                         })))
                     }
-                    Definition::StructType { fields, .. } => {
+                    Definition::StructType {
+                        fields,
+                        type_parameters,
+                        ..
+                    } => {
                         let struct_name =
                             self.symbols.get_symbol(&declaration.symbol_id)?.to_string();
 
                         let field_entries = (*fields)
                             .map(|id| self.scopes.get_members(id))
                             .unwrap_or_default();
+                        let type_parameter_entries = (*type_parameters)
+                            .map(|id| self.scopes.get_members(id))
+                            .unwrap_or_default();
+                        let type_parameter_map: SmallVec<[(DeclarationId, TypeId); 4]> =
+                            type_parameter_entries
+                                .iter()
+                                .zip(type_arguments.as_usize_range())
+                                .filter_map(|(parameter_declaration_id, argument_index)| {
+                                    let argument_type_id =
+                                        self.types.get_type_member(argument_index).ok()?;
+
+                                    Some((*parameter_declaration_id, *argument_type_id))
+                                })
+                                .collect();
+
                         let mut field_types = Vec::new();
 
                         for field_declaration_id in field_entries {
@@ -1364,7 +1597,32 @@ impl Resolver {
                                 continue;
                             };
 
-                            let field_dust_type = self.get_external_type(field_type_id)?;
+                            let resolved_type = self.types.get_type(field_type_id);
+                            let concrete_type_id = if let Type::Generic {
+                                declaration_id: parameter_declaration,
+                            } = resolved_type
+                            {
+                                type_parameter_map
+                                    .iter()
+                                    .find(|(declaration, _)| declaration == parameter_declaration)
+                                    .map(|(_, type_id)| *type_id)
+                                    .unwrap_or(field_type_id)
+                            } else {
+                                field_type_id
+                            };
+
+                            let resolved_type_id = match self.types.get_type(concrete_type_id) {
+                                Type::Inferred {
+                                    resolved_id: Some(resolved),
+                                    ..
+                                } => *resolved,
+                                Type::Inferred {
+                                    resolved_id: None, ..
+                                } => continue,
+                                _ => concrete_type_id,
+                            };
+
+                            let field_dust_type = self.get_external_type(resolved_type_id)?;
                             let field_name = self
                                 .symbols
                                 .get_symbol(&field_declaration.symbol_id)?
@@ -1446,7 +1704,6 @@ impl Resolver {
                     Definition::Function {
                         value_parameters,
                         return_type_id,
-                        type_parameters: _,
                         ..
                     } => {
                         let value_parameters = if let Some(value_parameters) = *value_parameters {
@@ -1480,12 +1737,7 @@ impl Resolver {
                             return_type: return_dust_type,
                         })))
                     }
-                    Definition::NativeFunction {
-                        value_parameters: _,
-                        return_type_id: _,
-                        type_parameters: _,
-                        ..
-                    } => {
+                    Definition::NativeFunction { .. } => {
                         todo!()
                     }
                     _ => Err(CompileError::ExpectedFunctionDefinition(*declaration_id)),
@@ -1493,10 +1745,11 @@ impl Resolver {
             }
             Type::Pointer { .. } => Ok(DustType::Unit),
             Type::Inferred {
-                resolved: None,
+                resolved_id: None,
                 constraint: None,
                 ..
-            } => Err(CompileError::ExpectedConcreteType),
+            }
+            | Type::Projection { .. } => Err(CompileError::ExpectedConcreteType),
         }
     }
 
@@ -1581,22 +1834,22 @@ fn add_core(resolver: &mut Resolver) {
     const BUILT_IN_TYPES: &[BuiltInType] = &[
         BuiltInType::Enum {
             name: "Option",
-            type_parameters: &["T"],
+            type_parameters: &[("T", &[])],
             variants: OPTION_VARIANTS,
         },
         BuiltInType::Enum {
             name: "Result",
-            type_parameters: &["T", "E"],
+            type_parameters: &[("T", &[]), ("E", &[])],
             variants: RESULT_VARIANTS,
         },
         BuiltInType::Struct {
             name: "Range",
-            type_parameters: &["T"],
+            type_parameters: &[("T", &[])],
             fields: BuiltInStructFields::Named(RANGE_FIELDS),
         },
         BuiltInType::Struct {
             name: "RangeInclusive",
-            type_parameters: &["T"],
+            type_parameters: &[("T", &[])],
             fields: BuiltInStructFields::Named(RANGE_FIELDS),
         },
     ];
@@ -1637,12 +1890,12 @@ fn add_core(resolver: &mut Resolver) {
 enum BuiltInType<'a> {
     Struct {
         name: &'a str,
-        type_parameters: &'a [&'a str],
+        type_parameters: &'a [(&'a str, &'a [DeclarationId])],
         fields: BuiltInStructFields<'a>,
     },
     Enum {
         name: &'a str,
-        type_parameters: &'a [&'a str],
+        type_parameters: &'a [(&'a str, &'a [DeclarationId])],
         variants: &'a [(&'a str, BuiltInStructFields<'a>)],
     },
     Generic(&'a str),
@@ -1742,15 +1995,20 @@ fn add_built_in_type_definition(
 fn add_built_in_type_parameters<'a>(
     resolver: &mut Resolver,
     item_scope_id: ScopeId,
-    type_parameters: &'a [&'a str],
+    type_parameters: &'a [(&'a str, &'a [DeclarationId])],
 ) -> Vec<(&'a str, SymbolId, DeclarationId)> {
     let mut type_parameter_declarations = Vec::with_capacity(type_parameters.len());
 
-    for type_parameter_name in type_parameters {
+    for (type_parameter_name, bounds) in type_parameters {
+        let bounds = if !bounds.is_empty() { todo!() } else { None };
+
         let type_parameter_symbol_id = resolver.symbols.add_symbol(type_parameter_name);
         let type_parameter_declaration_id = resolver.declarations.add_declaration(Declaration {
             symbol_id: type_parameter_symbol_id,
-            definition: Definition::TypeParameter { is_self: false },
+            definition: Definition::TypeParameter {
+                is_self: false,
+                bounds,
+            },
             scope_id: item_scope_id,
             syntax: None,
         });
@@ -1950,4 +2208,11 @@ fn get_built_in_type_id(
             unreachable!("nested core algebraic types are not used")
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct TypeProjectionKey {
+    base_type_id: TypeId,
+    trait_declaration_id: DeclarationId,
+    associated_declaration_id: DeclarationId,
 }

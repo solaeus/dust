@@ -444,7 +444,7 @@ impl From<TokenKind> for ParseRule<'_> {
                 associativity: Associativity::Left,
             },
             TokenKind::Return => ParseRule {
-                prefix: Parser::parse_prefix_return_keyord,
+                prefix: Parser::parse_prefix_return_keyword,
                 infix: None,
                 precedence: Precedence::None,
                 associativity: Associativity::Left,

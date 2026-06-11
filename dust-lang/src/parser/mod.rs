@@ -890,6 +890,13 @@ impl<'src> Parser<'src> {
 
         let mut first_path_node = self.expect_path()?;
 
+        if let Some(trait_type_arguments_node) = self.allow_type_arguments()? {
+            let trait_type_arguments_id = self.tree.add_node(trait_type_arguments_node);
+
+            self.child_buffer.push(trait_type_arguments_id);
+            impl_flags.set_flag(SyntaxFlags::TRAIT_TYPE_ARGUMENTS);
+        }
+
         if self.allow(TokenKind::For) {
             let trait_path_id = self.tree.add_node(first_path_node);
             let mut self_type_node = self.expect_path()?;
@@ -1799,7 +1806,7 @@ impl<'src> Parser<'src> {
         }
     }
 
-    fn parse_prefix_return_keyord(&mut self) -> Result<SyntaxNode, ParseError> {
+    fn parse_prefix_return_keyword(&mut self) -> Result<SyntaxNode, ParseError> {
         self.advance();
 
         if self.allow(TokenKind::Semicolon) {
@@ -1825,10 +1832,7 @@ impl<'src> Parser<'src> {
     fn parse_prefix_self_keyword(&mut self) -> Result<SyntaxNode, ParseError> {
         self.advance();
 
-        let segment_node = SyntaxKind::PathSegment.empty(self.previous_token.span);
-        let segment_id = self.tree.add_node(segment_node);
-
-        Ok(SyntaxKind::PathExpression.with_single_child(segment_node.span, segment_id))
+        Ok(SyntaxKind::SelfExpression.empty(self.previous_token.span))
     }
 
     fn parse_prefix_identifier(&mut self) -> Result<SyntaxNode, ParseError> {

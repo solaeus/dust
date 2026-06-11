@@ -150,7 +150,7 @@ pub enum CompileError {
     ExpectedIndexableType {
         type_id: TypeId,
     },
-    SelfTypeOutsideOfImplOrTrait {
+    SelfTypeOutsideOfImpl {
         position: Position,
     },
 
@@ -1136,8 +1136,8 @@ impl<'a> DustError<'a> for CompileError {
 
                 groups.push(group);
             }
-            CompileError::SelfTypeOutsideOfImplOrTrait { position } => {
-                let title = "Use of `Self` type outside of impl or trait";
+            CompileError::SelfTypeOutsideOfImpl { position } => {
+                let title = "Use of `Self` type outside of impl";
                 let file_content = match source.get_content(*position) {
                     Ok(content) => content,
                     Err(error) => {

@@ -16,7 +16,7 @@ fn construct_unit_struct() {
         ",
         prototypes: [
             Prototype {
-                instructions: vec![],
+                instructions: vec![Instruction::r#return()],
                 return_types: smallvec![],
                 register_count: 0,
                 argument_count: 0,
@@ -39,8 +39,8 @@ fn construct_named_fields() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, 10)),
-                    Instruction::r#move(2, OperandType::I_32, Address::new(MemoryKind::ENCODED, 20)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 10)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 20)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64, OperandType::I_64],
@@ -71,8 +71,8 @@ fn field_access() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, 10)),
-                    Instruction::r#move(2, OperandType::I_32, Address::new(MemoryKind::ENCODED, 20)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 10)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 20)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -97,8 +97,8 @@ fn field_access_runtime() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, 10)),
-                    Instruction::r#move(2, OperandType::I_32, Address::new(MemoryKind::ENCODED, 20)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 10)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 20)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],

@@ -320,7 +320,7 @@ impl<'src> Compiler<'src> {
 
             let mut type_binder = TypeBinder::new(&mut self.resolver, &self.source, errors);
 
-            type_binder.bind_function_body(body, return_type_id);
+            unwrap_or_return!(type_binder.bind_function_body(body, return_type_id));
         }
 
         {
@@ -331,7 +331,12 @@ impl<'src> Compiler<'src> {
                 declaration_id,
                 prototype_id,
                 return_type_id,
-                (&self.source, &self.syntax, &mut self.constants, &mut self.resolver),
+                (
+                    &self.source,
+                    &self.syntax,
+                    &mut self.constants,
+                    &mut self.resolver
+                ),
                 value_parameters,
             ));
 

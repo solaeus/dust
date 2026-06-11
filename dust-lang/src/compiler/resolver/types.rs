@@ -103,7 +103,11 @@ impl Types {
 
         let r#type = self.types.get_index_mut2(id.0 as usize);
 
-        if let Some(Type::Inferred { resolved, .. }) = r#type {
+        if let Some(Type::Inferred {
+            resolved_id: resolved,
+            ..
+        }) = r#type
+        {
             *resolved = Some(resolved_id);
         } else {
             return Err(CompileError::ExpectedInferredType(id));
@@ -188,7 +192,7 @@ impl Types {
         let inferred_type = Type::Inferred {
             inferred_id: self.next_inferred_type_id,
             constraint,
-            resolved: None,
+            resolved_id: None,
         };
         self.next_inferred_type_id.0 += 1;
 
@@ -396,12 +400,19 @@ pub enum Type {
         type_arguments: TypeMembers,
     },
 
+    Projection {
+        base_type_id: TypeId,
+        trait_declaration_id: DeclarationId,
+        trait_type_arguments: TypeMembers,
+        associated_declaration_id: DeclarationId,
+    },
+
     /// A type that was not specified by the user and may be resolved to a concrete type through
     /// type unification.
     Inferred {
         inferred_id: InferredTypeId,
         constraint: Option<InferredTypeConstraint>,
-        resolved: Option<TypeId>,
+        resolved_id: Option<TypeId>,
     },
 }
 
@@ -498,15 +509,47 @@ impl PartialEq for Type {
                 },
             ) => left_declaration_id == right_declaration_id,
             (
+                Type::Pointer {
+                    declaration_id: left_declaration_id,
+                    type_arguments: left_type_arguments,
+                },
+                Type::Pointer {
+                    declaration_id: right_declaration_id,
+                    type_arguments: right_type_arguments,
+                },
+            ) => {
+                left_declaration_id == right_declaration_id
+                    && left_type_arguments == right_type_arguments
+            }
+            (
+                Type::Projection {
+                    base_type_id: left_base_type_id,
+                    trait_declaration_id: left_trait_declaration_id,
+                    trait_type_arguments: left_trait_type_arguments,
+                    associated_declaration_id: left_associated_declaration_id,
+                },
+                Type::Projection {
+                    base_type_id: right_base_type_id,
+                    trait_declaration_id: right_trait_declaration_id,
+                    trait_type_arguments: right_trait_type_arguments,
+                    associated_declaration_id: right_associated_declaration_id,
+                },
+            ) => {
+                left_base_type_id == right_base_type_id
+                    && left_trait_declaration_id == right_trait_declaration_id
+                    && left_trait_type_arguments == right_trait_type_arguments
+                    && left_associated_declaration_id == right_associated_declaration_id
+            }
+            (
                 Type::Inferred {
                     inferred_id: left_inferred_id,
                     constraint: _,
-                    resolved: _,
+                    resolved_id: _,
                 },
                 Type::Inferred {
                     inferred_id: right_inferred_id,
                     constraint: _,
-                    resolved: _,
+                    resolved_id: _,
                 },
             ) => left_inferred_id == right_inferred_id,
             _ => false,
@@ -622,19 +665,6 @@ impl Ord for Type {
             ) => left_declaration_id.cmp(right_declaration_id),
             (Type::Generic { .. }, _) => Ordering::Less,
             (
-                Type::Inferred {
-                    inferred_id: a_inferred_id,
-                    constraint: _,
-                    resolved: _,
-                },
-                Type::Inferred {
-                    inferred_id: b_inferred_id,
-                    constraint: _,
-                    resolved: _,
-                },
-            ) => a_inferred_id.cmp(b_inferred_id),
-            (Type::Inferred { .. }, _) => Ordering::Less,
-            (
                 Type::Pointer {
                     declaration_id: left_declaration_id,
                     type_arguments: left_type_arguments,
@@ -647,6 +677,38 @@ impl Ord for Type {
                 .cmp(right_declaration_id)
                 .then_with(|| left_type_arguments.cmp(right_type_arguments)),
             (Type::Pointer { .. }, _) => Ordering::Less,
+            (
+                Type::Projection {
+                    base_type_id: left_base_type_id,
+                    trait_declaration_id: left_trait_declaration_id,
+                    trait_type_arguments: left_trait_type_arguments,
+                    associated_declaration_id: left_associated_declaration_id,
+                },
+                Type::Projection {
+                    base_type_id: right_base_type_id,
+                    trait_declaration_id: right_trait_declaration_id,
+                    trait_type_arguments: right_trait_type_arguments,
+                    associated_declaration_id: right_associated_declaration_id,
+                },
+            ) => left_base_type_id
+                .cmp(right_base_type_id)
+                .then_with(|| left_trait_declaration_id.cmp(right_trait_declaration_id))
+                .then_with(|| left_trait_type_arguments.cmp(right_trait_type_arguments))
+                .then_with(|| left_associated_declaration_id.cmp(right_associated_declaration_id)),
+            (Type::Projection { .. }, _) => Ordering::Less,
+            (
+                Type::Inferred {
+                    inferred_id: a_inferred_id,
+                    constraint: _,
+                    resolved_id: _,
+                },
+                Type::Inferred {
+                    inferred_id: b_inferred_id,
+                    constraint: _,
+                    resolved_id: _,
+                },
+            ) => a_inferred_id.cmp(b_inferred_id),
+            (Type::Inferred { .. }, _) => Ordering::Less,
         }
     }
 }
@@ -756,21 +818,33 @@ impl Hash for Type {
                 state.write_u8(23);
                 declaration_id.hash(state);
             }
-            Type::Inferred {
-                inferred_id,
-                constraint: _,
-                resolved: _,
-            } => {
-                state.write_u8(24);
-                inferred_id.hash(state);
-            }
             Type::Pointer {
                 declaration_id,
                 type_arguments,
             } => {
-                state.write_u8(25);
+                state.write_u8(24);
                 declaration_id.hash(state);
                 type_arguments.hash(state);
+            }
+            Type::Projection {
+                base_type_id,
+                trait_declaration_id,
+                trait_type_arguments,
+                associated_declaration_id,
+            } => {
+                state.write_u8(25);
+                base_type_id.hash(state);
+                trait_declaration_id.hash(state);
+                trait_type_arguments.hash(state);
+                associated_declaration_id.hash(state);
+            }
+            Type::Inferred {
+                inferred_id,
+                constraint: _,
+                resolved_id: _,
+            } => {
+                state.write_u8(26);
+                inferred_id.hash(state);
             }
         }
     }
@@ -875,7 +949,7 @@ mod tests {
         Type::Inferred {
             inferred_id: InferredTypeId(id),
             constraint: None,
-            resolved,
+            resolved_id: resolved,
         }
     }
 

@@ -2,7 +2,7 @@ use smallvec::smallvec;
 
 use crate::{
     assert_program_eq,
-    dust_type::DustType,
+    dust_type::{DustStructTypeFields, DustType},
     instruction::{Address, Instruction, MemoryKind, OperandType},
     prototype::Prototype,
 };
@@ -33,22 +33,25 @@ fn const_reference() {
 fn enum_variant_unit() {
     assert_program_eq!(
         "
-            enum Option { None, Some }
-            fn main() -> Option { None }
+            enum Thing { One, Two }
+            fn main() -> Thing { Thing::One }
         ",
         prototypes: [
             Prototype {
-                instructions: vec![],
-                return_types: smallvec![OperandType::I_64],
-                register_count: 0,
+                instructions: vec![
+                    Instruction::r#move(0, OperandType::U_16, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::r#return(),
+                ],
+                return_types: smallvec![OperandType::U_16],
+                register_count: 1,
                 argument_count: 0,
             },
         ],
         return_type: DustType::Enum(Box::new(crate::dust_type::DustEnumType {
-            name: "Option".into(),
+            name: "Thing".into(),
             variants: vec![
-                ("None".into(), crate::dust_type::DustStructTypeFields::Unit),
-                ("Some".into(), crate::dust_type::DustStructTypeFields::Unit),
+                ("One".into(), DustStructTypeFields::Unit),
+                ("Two".into(), DustStructTypeFields::Unit),
             ],
         }))
     );

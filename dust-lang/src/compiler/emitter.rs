@@ -474,10 +474,10 @@ impl<'a> Emitter<'a> {
                 }
                 Type::Pointer { .. } => OperandType::POINTER,
                 Type::Inferred {
-                    resolved: Some(resolved),
+                    resolved_id: Some(resolved_id),
                     ..
                 } => {
-                    collect_registers(*resolved, kind, registers, emitter)?;
+                    collect_registers(*resolved_id, kind, registers, emitter)?;
 
                     return Ok(());
                 }
@@ -507,15 +507,15 @@ impl<'a> Emitter<'a> {
                 }
                 Type::Inferred {
                     constraint: Some(InferredTypeConstraint::Integer),
-                    resolved: None,
+                    resolved_id: None,
                     ..
                 } => OperandType::I_32,
                 Type::Inferred {
                     constraint: Some(InferredTypeConstraint::Float),
-                    resolved: None,
+                    resolved_id: None,
                     ..
                 } => OperandType::F_64,
-                Type::Inferred { .. } | Type::Generic { .. } => {
+                Type::Inferred { .. } | Type::Generic { .. } | Type::Projection { .. } => {
                     return Err(CompileError::CannotInferType { type_id });
                 }
             };
@@ -1155,6 +1155,7 @@ impl<'a> Emitter<'a> {
             | SyntaxKind::LessThanOrEqualExpression
             | SyntaxKind::EqualExpression
             | SyntaxKind::NotEqualExpression => self.emit_comparison_expression(reader, target),
+            SyntaxKind::SelfExpression => self.emit_self_expression(reader, target),
             SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
                 self.emit_logic_expression(reader, target)
             }
@@ -1414,7 +1415,11 @@ impl<'a> Emitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
-        let type_id = *self.resolver.get_type_binding(&reader.id)?;
+        let type_id = {
+            let raw = *self.resolver.get_type_binding(&reader.id)?;
+
+            self.resolver.get_resolved_type_id(raw)?
+        };
         let bytes = self
             .source
             .get_code(reader.source_id())
@@ -1462,7 +1467,11 @@ impl<'a> Emitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
-        let type_id = *self.resolver.get_type_binding(&reader.id)?;
+        let type_id = {
+            let raw = *self.resolver.get_type_binding(&reader.id)?;
+
+            self.resolver.get_resolved_type_id(raw)?
+        };
         let bytes = self
             .source
             .get_code(reader.source_id())
@@ -3166,6 +3175,14 @@ impl<'a> Emitter<'a> {
                 syntax_id: field_name.id,
             }),
         }
+    }
+
+    fn emit_self_expression(
+        &mut self,
+        reader: SyntaxReader,
+        target: ExpressionTarget,
+    ) -> Result<Emission, CompileError> {
+        todo!()
     }
 }
 

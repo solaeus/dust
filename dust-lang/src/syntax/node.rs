@@ -115,6 +115,7 @@ pub enum SyntaxKind {
     PathSegment,
     SimplePath,
     PathExpression,
+    SelfExpression,
 
     // Sub-Syntax
     ModuleBody,
@@ -296,6 +297,7 @@ impl SyntaxKind {
                 | SyntaxKind::RangeExpression
                 | SyntaxKind::RangeInclusiveExpression
                 | SyntaxKind::ReturnExpression
+                | SyntaxKind::SelfExpression
                 | SyntaxKind::StringExpression
                 | SyntaxKind::StructExpression
                 | SyntaxKind::SubtractionExpression
@@ -389,6 +391,7 @@ impl SyntaxKind {
             SyntaxKind::StringType => "string type",
             SyntaxKind::MethodCallExpression => "method call expression",
             SyntaxKind::NamedFields => "named fields",
+            SyntaxKind::SelfExpression => "self expression",
             SyntaxKind::StructExpression => "struct expression",
             SyntaxKind::StructExpressionNamedFields => "struct expression named fields",
             SyntaxKind::StructItem => "struct item",
@@ -493,9 +496,10 @@ impl SyntaxFlags {
     pub const SUPERTRAITS: Self = Self(8);
     pub const TYPE_NAME: Self = Self(8);
     pub const FIELDS: Self = Self(8);
-    pub const WHERE_CLAUSE: Self = Self(16);
+    pub const TRAIT_TYPE_ARGUMENTS: Self = Self(16);
+    pub const WHERE_CLAUSE: Self = Self(32);
 
-    const _RESERVED: [Self; 3] = [Self(32), Self(64), Self(128)];
+    const _RESERVED: [Self; 2] = [Self(64), Self(128)];
 
     pub fn new(flags: u8) -> Self {
         Self(flags)

@@ -697,8 +697,9 @@ impl<'a> SyntaxComponent<'a> for TypeItem<'a> {
 pub struct ImplItem<'a> {
     pub type_parameters: Option<SyntaxReader<'a>>,
     pub trait_path: Option<SyntaxReader<'a>>,
+    pub trait_type_arguments: Option<SyntaxReader<'a>>,
     pub self_name: SyntaxReader<'a>,
-    pub type_arguments: Option<SyntaxReader<'a>>,
+    pub self_type_arguments: Option<SyntaxReader<'a>>,
     pub where_clause: Option<SyntaxReader<'a>>,
     pub body: SyntaxReader<'a>,
 }
@@ -720,8 +721,13 @@ impl<'a> SyntaxComponent<'a> for ImplItem<'a> {
         } else {
             None
         };
+        let trait_type_arguments = if modifier.get_flag(SyntaxFlags::TRAIT_TYPE_ARGUMENTS) {
+            Some(children.expect_next()?)
+        } else {
+            None
+        };
         let self_name = children.expect_next()?;
-        let type_arguments = if modifier.get_flag(SyntaxFlags::TYPE_ARGUMENTS) {
+        let self_type_arguments = if modifier.get_flag(SyntaxFlags::TYPE_ARGUMENTS) {
             Some(children.expect_next()?)
         } else {
             None
@@ -736,9 +742,10 @@ impl<'a> SyntaxComponent<'a> for ImplItem<'a> {
         Ok(Self {
             self_name,
             trait_path,
+            trait_type_arguments,
             body,
             type_parameters,
-            type_arguments,
+            self_type_arguments,
             where_clause,
         })
     }

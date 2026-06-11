@@ -306,6 +306,7 @@ pub enum Definition {
     /// `T` in `fn foo<T>(x: T) -> T { ... }`
     TypeParameter {
         is_self: bool,
+        bounds: Option<ScopeId>,
     },
 
     TypeAlias {

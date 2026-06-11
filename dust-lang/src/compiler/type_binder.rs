@@ -14,12 +14,12 @@ use crate::{
     source::Source,
     syntax::{
         components::{
-            ArrayExpression, ArrayRepeatExpression, AssignmentExpression, CallExpression,
-            ComparisonExpression, ConstItem, ExpressionStatement, FieldAccessExpression,
-            GroupedExpression, IfExpression, ImplItem, IndexExpression, LetStatement,
-            LogicExpression, MathExpression, MethodCallExpression, NegationExpression,
-            NotExpression, PathExpression, PathSegment, RangeExpression, StructExpression,
-            StructExpressionStructFields, TraitItem, WhileExpression,
+            ArrayExpression, ArrayRepeatExpression, AssignmentExpression, BlockExpression,
+            CallExpression, ComparisonExpression, ConstItem, ExpressionStatement,
+            FieldAccessExpression, GroupedExpression, IfExpression, ImplItem, IndexExpression,
+            LetStatement, LogicExpression, MathExpression, MethodCallExpression,
+            NegationExpression, NotExpression, PathExpression, PathSegment, RangeExpression,
+            StructExpression, StructExpressionStructFields, TraitItem, WhileExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -48,12 +48,16 @@ impl<'a> TypeBinder<'a> {
         }
     }
 
-    pub fn bind_function_body(&mut self, body: SyntaxReader, return_type_id: TypeId) {
-        assert_eq!(body.node.kind, SyntaxKind::BlockExpression);
+    pub fn bind_function_body(
+        &mut self,
+        body: SyntaxReader,
+        return_type_id: TypeId,
+    ) -> Result<(), CompileError> {
+        let BlockExpression { children } = body.as_component()?;
 
         let mut body_type_id = TypeId::UNIT;
 
-        for child in body.children() {
+        for child in children {
             if child.node.kind.is_expression() {
                 body_type_id = match self.bind_expression(child) {
                     Ok(type_id) => type_id,
@@ -75,11 +79,7 @@ impl<'a> TypeBinder<'a> {
             }
         }
 
-        if let Err(error) = self.unify_types(return_type_id, None, body_type_id, body) {
-            self.errors.push(ErrorKind::Compile(error))
-        }
-
-        let _ = self.resolver.get_resolved_type_id(return_type_id);
+        self.unify_types(return_type_id, None, body_type_id, body)
     }
 
     fn unify_types<'b>(
@@ -110,12 +110,12 @@ impl<'a> TypeBinder<'a> {
             (
                 Type::Inferred {
                     constraint: left_constraint,
-                    resolved: None,
+                    resolved_id: None,
                     ..
                 },
                 Type::Inferred {
                     constraint: right_constraint,
-                    resolved: None,
+                    resolved_id: None,
                     ..
                 },
             ) => {
@@ -160,7 +160,7 @@ impl<'a> TypeBinder<'a> {
             (
                 Type::Inferred {
                     constraint,
-                    resolved: None,
+                    resolved_id: None,
                     ..
                 },
                 _,
@@ -207,7 +207,7 @@ impl<'a> TypeBinder<'a> {
                 Type::Inferred {
                     inferred_id: _,
                     constraint,
-                    resolved: None,
+                    resolved_id: None,
                 },
             ) => {
                 if let Some(constraint) = constraint {
@@ -279,6 +279,7 @@ impl<'a> TypeBinder<'a> {
 
                 for (left_index, right_index) in left_type_arguments
                     .as_usize_range()
+                    .into_iter()
                     .zip(right_type_arguments.as_usize_range())
                 {
                     let left_arg = *self.resolver.types.get_type_member(left_index)?;
@@ -330,6 +331,7 @@ impl<'a> TypeBinder<'a> {
                 } else {
                     for (left_index, right_index) in left_arguments
                         .as_usize_range()
+                        .into_iter()
                         .zip(right_arguments.as_usize_range())
                     {
                         let left_arg = *self.resolver.types.get_type_member(left_index)?;
@@ -484,6 +486,7 @@ impl<'a> TypeBinder<'a> {
             SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
                 self.bind_logic_expression(reader)
             }
+            SyntaxKind::SelfExpression => self.bind_self_expression(reader),
             _ => Err(CompileError::UnexpectedSyntax {
                 expected: &[
                     SyntaxKind::AdditionAssignmentExpression,
@@ -793,8 +796,9 @@ impl<'a> TypeBinder<'a> {
         let RangeExpression { start, end } = reader.as_component()?;
 
         let start_type_id = self.bind_expression(start)?;
+        let end_type_id = self.bind_expression(end)?;
 
-        self.bind_expression(end)?;
+        self.unify_types(start_type_id, Some(start), end_type_id, end)?;
 
         let declaration_id = *self.resolver.get_declaration_binding(&reader.id)?;
         let type_arguments = self.resolver.types.add_type_members([start_type_id]);
@@ -1272,5 +1276,9 @@ impl<'a> TypeBinder<'a> {
         self.resolver.add_type_binding(reader.id, field_type_id);
 
         Ok(field_raw_type_id)
+    }
+
+    fn bind_self_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+        self.resolver.get_type_binding(&reader.id).copied()
     }
 }

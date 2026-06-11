@@ -26,8 +26,8 @@ use crate::{
             ImplItem, IndexExpression, LetStatement, LogicExpression, MathExpression,
             MethodCallExpression, ModItem, NamedFields, NegationExpression, NotExpression,
             PathSegment, RangeExpression, Root, StructExpression, StructExpressionStructFields,
-            StructItem, SyntaxComponent, TraitItem, TupleFields, TupleType, TypeItem, UseItem,
-            ValueParameters, WhileExpression,
+            StructItem, SyntaxComponent, TraitItem, TupleFields, TupleType, TypeItem,
+            TypeParameter, UseItem, ValueParameters, WhileExpression,
         },
         node::{SyntaxFlags, SyntaxKind},
         reader::SyntaxReader,
@@ -373,7 +373,7 @@ impl<'a> DeclarationBinder<'a> {
         self.enter_scope(Barrier::Item);
 
         let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
-            self.bind_type_parameters(type_parameters)?
+            Some(self.bind_type_parameters(type_parameters)?)
         } else {
             None
         };
@@ -387,22 +387,19 @@ impl<'a> DeclarationBinder<'a> {
                 .flags
                 .get_flag(SyntaxFlags::SELF_VALUE)
             {
-                let self_declaration_id = match self.context {
-                    Context::Trait {
-                        self_declaration_id,
-                        ..
-                    } => self_declaration_id,
-                    Context::Impl {
-                        self_declaration_id,
-                        ..
-                    } => self_declaration_id,
-                    Context::Other => {
-                        return Err(CompileError::InvalidContext);
-                    }
+                let Context::Impl {
+                    self_declaration_id,
+                    self_type_id,
+                    ..
+                } = self.context
+                else {
+                    return Err(CompileError::InvalidContext);
                 };
 
                 self.resolver
                     .add_declaration_binding(value_parameters.id, self_declaration_id);
+                self.resolver
+                    .add_type_binding(value_parameters.id, self_type_id);
             }
 
             for (parameter_name, parameter_type) in name_type_pairs {
@@ -500,7 +497,7 @@ impl<'a> DeclarationBinder<'a> {
         self.enter_scope(Barrier::Item);
 
         let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
-            self.bind_type_parameters(type_parameters)?
+            Some(self.bind_type_parameters(type_parameters)?)
         } else {
             None
         };
@@ -599,7 +596,7 @@ impl<'a> DeclarationBinder<'a> {
         self.enter_scope(Barrier::Item);
 
         let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
-            self.bind_type_parameters(type_parameters)?
+            Some(self.bind_type_parameters(type_parameters)?)
         } else {
             None
         };
@@ -631,16 +628,41 @@ impl<'a> DeclarationBinder<'a> {
     fn bind_type_parameters(
         &mut self,
         type_parameters_reader: SyntaxReader,
-    ) -> Result<Option<ScopeId>, CompileError> {
+    ) -> Result<ScopeId, CompileError> {
         let type_parameters_scope_id = self.current_scope_id;
 
         for type_parameter in type_parameters_reader.children() {
-            let type_parameter_name_str = self.source.get_content(type_parameter.position())?;
+            let TypeParameter { name, bounds } = type_parameter.as_component()?;
+
+            let type_parameter_name_str = self.source.get_content(name.position())?;
             let type_parameter_symbol_id =
                 self.resolver.symbols.add_symbol(type_parameter_name_str);
+
+            let bounds_scope_id = if let Some(bounds_reader) = bounds {
+                self.enter_scope(Barrier::Members);
+
+                for bound in bounds_reader.children() {
+                    let bound_declaration_id = self.bind_path(bound)?;
+                    self.resolver
+                        .scopes
+                        .add_to_current_namespace(bound_declaration_id);
+                }
+
+                let scope_id = self.current_scope_id;
+
+                self.exit_scope();
+
+                Some(scope_id)
+            } else {
+                None
+            };
+
             let type_parameter_declaration_id = self.add_declaration(
                 type_parameter_symbol_id,
-                Definition::TypeParameter { is_self: false },
+                Definition::TypeParameter {
+                    is_self: false,
+                    bounds: bounds_scope_id,
+                },
                 Some((type_parameter.position(), type_parameter.id)),
             );
 
@@ -648,7 +670,7 @@ impl<'a> DeclarationBinder<'a> {
                 .add_declaration_binding(type_parameter.id, type_parameter_declaration_id);
         }
 
-        Ok(Some(type_parameters_scope_id))
+        Ok(type_parameters_scope_id)
     }
 
     fn bind_enum_variant(
@@ -829,7 +851,7 @@ impl<'a> DeclarationBinder<'a> {
         self.enter_scope(Barrier::Item);
 
         let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
-            self.bind_type_parameters(type_parameters)?
+            Some(self.bind_type_parameters(type_parameters)?)
         } else {
             None
         };
@@ -860,8 +882,9 @@ impl<'a> DeclarationBinder<'a> {
         let ImplItem {
             type_parameters,
             trait_path,
+            trait_type_arguments,
             self_name,
-            type_arguments,
+            self_type_arguments,
             where_clause: _,
             body,
         } = reader.as_component()?;
@@ -873,7 +896,7 @@ impl<'a> DeclarationBinder<'a> {
         self.enter_scope(Barrier::Item);
 
         let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
-            self.bind_type_parameters(type_parameters)?
+            Some(self.bind_type_parameters(type_parameters)?)
         } else {
             None
         };
@@ -887,10 +910,29 @@ impl<'a> DeclarationBinder<'a> {
         };
 
         let self_declaration_id = self.bind_path(self_name)?;
+        let self_type_arguments = if let Some(type_arguments) = self_type_arguments {
+            let mut type_argument_ids = TypeId::SmallVec::new();
+
+            for child in type_arguments.children() {
+                let type_id = self.handle_explicit_type(child)?;
+
+                type_argument_ids.push(type_id);
+            }
+
+            self.resolver.types.add_type_members(type_argument_ids)
+        } else {
+            TypeMembers::default()
+        };
+        let self_type_id = self.resolver.types.add_type(Type::Algebraic {
+            declaration_id: self_declaration_id,
+            type_arguments: self_type_arguments,
+        });
+
         let previous_context = replace(
             &mut self.context,
             Context::Impl {
                 self_declaration_id,
+                self_type_id,
                 impl_declaration_id,
             },
         );
@@ -917,7 +959,7 @@ impl<'a> DeclarationBinder<'a> {
                         });
                     };
                     let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
-                        self.bind_type_parameters(type_parameters)?
+                        Some(self.bind_type_parameters(type_parameters)?)
                     } else {
                         None
                     };
@@ -951,7 +993,7 @@ impl<'a> DeclarationBinder<'a> {
             }
         }
 
-        let trait_type_arguments = if let Some(type_arguments) = type_arguments {
+        let trait_type_arguments = if let Some(type_arguments) = trait_type_arguments {
             let mut type_argument_ids =
                 TypeId::SmallVec::with_capacity(type_arguments.child_count());
 
@@ -976,7 +1018,7 @@ impl<'a> DeclarationBinder<'a> {
             Definition::TraitImplementation {
                 type_parameters: type_parameters_scope_id,
                 self_declaration_id,
-                self_type_arguments: TypeMembers::default(),
+                self_type_arguments,
                 trait_declaration_id,
                 trait_type_arguments,
                 declarations: impl_scope_id,
@@ -985,7 +1027,7 @@ impl<'a> DeclarationBinder<'a> {
             Definition::InherentImplementation {
                 type_parameters: type_parameters_scope_id,
                 self_declaration_id,
-                self_type_arguments: TypeMembers::default(),
+                self_type_arguments,
                 declarations: impl_scope_id,
             }
         };
@@ -1022,7 +1064,7 @@ impl<'a> DeclarationBinder<'a> {
         self.enter_scope(Barrier::Item);
 
         let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
-            self.bind_type_parameters(type_parameters)?
+            Some(self.bind_type_parameters(type_parameters)?)
         } else {
             None
         };
@@ -1045,18 +1087,10 @@ impl<'a> DeclarationBinder<'a> {
 
         self.enter_scope(Barrier::Members);
 
-        let self_symbol_id = self.resolver.symbols.add_symbol("Self");
-        let self_declaration_id = self.resolver.declarations.add_declaration(Declaration {
-            symbol_id: self_symbol_id,
-            scope_id: self.current_scope_id,
-            definition: Definition::TypeParameter { is_self: true },
-            syntax: None,
-        });
         let previous_context = replace(
             &mut self.context,
             Context::Trait {
                 supertraits_scope_id,
-                self_declaration_id,
                 trait_declaration_id,
             },
         );
@@ -1075,7 +1109,7 @@ impl<'a> DeclarationBinder<'a> {
                     } = child.as_component()?;
 
                     let type_parameters_scope_id = if let Some(type_parameters) = type_parameters {
-                        self.bind_type_parameters(type_parameters)?
+                        Some(self.bind_type_parameters(type_parameters)?)
                     } else {
                         None
                     };
@@ -1288,6 +1322,7 @@ impl<'a> DeclarationBinder<'a> {
             | SyntaxKind::LessThanOrEqualExpression
             | SyntaxKind::EqualExpression
             | SyntaxKind::NotEqualExpression => self.bind_comparison_expression(reader),
+            SyntaxKind::SelfExpression => self.bind_self_expression(reader),
             _ => Err(CompileError::UnexpectedSyntax {
                 expected: &[
                     SyntaxKind::AdditionExpression,
@@ -1719,6 +1754,67 @@ impl<'a> DeclarationBinder<'a> {
                         .resolver
                         .types
                         .add_type(Type::Generic { declaration_id })),
+                    Definition::TraitAssociatedType {
+                        parent: trait_declaration_id,
+                        ..
+                    } => {
+                        let mut segments = reader.children();
+                        let first_segment =
+                            segments.next().ok_or(CompileError::ExpectedSyntax {
+                                expected: &[SyntaxKind::PathSegment],
+                            })?;
+
+                        let first_declaration_id =
+                            *self.resolver.get_declaration_binding(&first_segment.id)?;
+                        let first_declaration = self
+                            .resolver
+                            .declarations
+                            .get_declaration(first_declaration_id);
+
+                        let base_type_id = match first_declaration.definition {
+                            Definition::TypeParameter { .. } => {
+                                self.resolver.types.add_type(Type::Generic {
+                                    declaration_id: first_declaration_id,
+                                })
+                            }
+                            Definition::StructType { .. } | Definition::EnumType { .. } => {
+                                let PathSegment { type_arguments } =
+                                    first_segment.as_component()?;
+
+                                let type_arguments = if let Some(type_arguments) = type_arguments {
+                                    let mut type_ids = TypeId::SmallVec::new();
+
+                                    for argument in type_arguments.children() {
+                                        let type_id =
+                                            *self.resolver.get_type_binding(&argument.id)?;
+
+                                        type_ids.push(type_id);
+                                    }
+
+                                    self.resolver.types.add_type_members(type_ids)
+                                } else {
+                                    TypeMembers::default()
+                                };
+
+                                self.resolver.types.add_type(Type::Algebraic {
+                                    declaration_id: first_declaration_id,
+                                    type_arguments,
+                                })
+                            }
+                            _ => {
+                                return Err(CompileError::ExpectedTypeDeclaration(
+                                    first_declaration_id,
+                                ));
+                            }
+                        };
+
+                        Ok(self.resolver.types.add_type(Type::Projection {
+                            base_type_id,
+                            trait_declaration_id,
+                            associated_declaration_id: declaration_id,
+                            trait_type_arguments: TypeMembers::default(),
+                        }))
+                    }
                     _ => Err(CompileError::ExpectedTypeDeclaration(declaration_id)),
                 }
             }
@@ -1730,13 +1826,7 @@ impl<'a> DeclarationBinder<'a> {
                     declaration_id: self_declaration_id,
                     type_arguments: TypeMembers::default(),
                 })),
-                Context::Trait {
-                    self_declaration_id,
-                    ..
-                } => Ok(self.resolver.types.add_type(Type::Generic {
-                    declaration_id: self_declaration_id,
-                })),
-                _ => Err(CompileError::SelfTypeOutsideOfImplOrTrait {
+                _ => Err(CompileError::SelfTypeOutsideOfImpl {
                     position: reader.position(),
                 }),
             },
@@ -1840,6 +1930,25 @@ impl<'a> DeclarationBinder<'a> {
 
         Ok(())
     }
+
+    fn bind_self_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        let Context::Impl {
+            self_declaration_id,
+            self_type_id,
+            ..
+        } = self.context
+        else {
+            return Err(CompileError::SelfTypeOutsideOfImpl {
+                position: reader.position(),
+            });
+        };
+
+        self.resolver
+            .add_declaration_binding(reader.id, self_declaration_id);
+        self.resolver.add_type_binding(reader.id, self_type_id);
+
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -1847,11 +1956,11 @@ enum Context {
     Other,
     Impl {
         self_declaration_id: DeclarationId,
+        self_type_id: TypeId,
         impl_declaration_id: DeclarationId,
     },
     Trait {
         trait_declaration_id: DeclarationId,
-        self_declaration_id: DeclarationId,
         supertraits_scope_id: Option<ScopeId>,
     },
 }
