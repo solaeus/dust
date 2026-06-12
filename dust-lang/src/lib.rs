@@ -7,7 +7,6 @@
     iterator_try_collect,
     thread_id_value
 )]
-#![macro_use]
 
 use smallvec::{Array, SmallVec};
 

@@ -1745,9 +1745,11 @@ impl<'a> DeclarationBinder<'a> {
 
                 match declaration.definition {
                     Definition::StructType { .. } | Definition::EnumType { .. } => {
+                        let type_arguments = self.bind_path_segment_type_arguments(reader)?; // ERROR: Not a path segment
+
                         Ok(self.resolver.types.add_type(Type::Algebraic {
                             declaration_id,
-                            type_arguments: TypeMembers::default(),
+                            type_arguments,
                         }))
                     }
                     Definition::TypeParameter { .. } => Ok(self
@@ -1917,18 +1919,25 @@ impl<'a> DeclarationBinder<'a> {
     fn bind_path_segment_type_arguments(
         &mut self,
         path_segment: SyntaxReader,
-    ) -> Result<(), CompileError> {
+    ) -> Result<TypeMembers, CompileError> {
         let PathSegment { type_arguments } = path_segment.as_component()?;
 
         if let Some(type_arguments) = type_arguments {
+            let mut type_ids = TypeId::SmallVec::new();
+
             for type_argument in type_arguments.children() {
                 let type_id = self.handle_explicit_type(type_argument)?;
 
                 self.resolver.add_type_binding(type_argument.id, type_id);
+                type_ids.push(type_id);
             }
-        }
 
-        Ok(())
+            let type_members = self.resolver.types.add_type_members(type_ids);
+
+            Ok(type_members)
+        } else {
+            Ok(TypeMembers::default())
+        }
     }
 
     fn bind_self_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
