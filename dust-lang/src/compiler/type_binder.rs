@@ -93,16 +93,10 @@ impl<'a> TypeBinder<'a> {
             return Ok(());
         }
 
-        let (left_id, left) = self
-            .resolver
-            .get_concrete_type(left_id)
-            .map(|(id, r#type)| (id, *r#type))?;
-        let (right_id, right) = self
-            .resolver
-            .get_concrete_type(right_id)
-            .map(|(id, r#type)| (id, *r#type))?;
+        let (left_id, left) = self.resolver.get_normalized_type(left_id)?;
+        let (right_id, right) = self.resolver.get_normalized_type(right_id)?;
 
-        if left == right {
+        if left_id == right_id {
             return Ok(());
         }
 
@@ -844,7 +838,7 @@ impl<'a> TypeBinder<'a> {
             | Definition::Constant { type_id, .. }
             | Definition::InherentAssociatedConstant { type_id, .. }
             | Definition::TraitAssociatedConstant { type_id, .. } => {
-                self.resolver.get_concrete_type(type_id)?.0
+                self.resolver.get_normalized_type(type_id)?.0
             }
             Definition::Function { .. } => {
                 let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
@@ -891,7 +885,7 @@ impl<'a> TypeBinder<'a> {
                     | Definition::Constant { type_id, .. }
                     | Definition::InherentAssociatedConstant { type_id, .. }
                     | Definition::TraitAssociatedConstant { type_id, .. } => {
-                        self.resolver.get_concrete_type(type_id)?.0
+                        self.resolver.get_normalized_type(type_id)?.0
                     }
                     _ => {
                         return Err(CompileError::ExpectedValue {
@@ -911,7 +905,7 @@ impl<'a> TypeBinder<'a> {
                     | Definition::Constant { type_id, .. }
                     | Definition::InherentAssociatedConstant { type_id, .. }
                     | Definition::TraitAssociatedConstant { type_id, .. } => {
-                        self.resolver.get_concrete_type(type_id)?.0
+                        self.resolver.get_normalized_type(type_id)?.0
                     }
                     _ => {
                         let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
@@ -959,7 +953,7 @@ impl<'a> TypeBinder<'a> {
                 return Err(CompileError::ExpectedFieldDefinition(field_declaration_id));
             };
 
-            let field_type_id = self.resolver.get_concrete_type(type_id)?.0;
+            let field_type_id = self.resolver.get_normalized_type(type_id)?.0;
             let value_type_id = self.bind_expression(field_value)?;
 
             self.unify_types(field_type_id, Some(field_name), value_type_id, field_value)?;
@@ -1266,7 +1260,7 @@ impl<'a> TypeBinder<'a> {
         else {
             return Err(CompileError::ExpectedFieldDefinition(field_declaration_id));
         };
-        let field_type_id = self.resolver.get_concrete_type(field_raw_type_id)?.0;
+        let field_type_id = self.resolver.get_normalized_type(field_raw_type_id)?.0;
 
         self.resolver
             .add_declaration_binding(field_name.id, field_declaration_id);

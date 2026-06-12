@@ -40,8 +40,6 @@ pub struct Resolver {
     pub type_parameter_map: HashMap<DeclarationId, TypeId, FxBuildHasher>,
     pub implementations: HashMap<DeclarationId, DeclarationId::SmallVec, FxBuildHasher>,
 
-    type_projection_cache: HashMap<TypeProjectionKey, Option<TypeId>, FxBuildHasher>,
-
     prototypes: Vec<Prototype>,
     compilation_stack: Vec<PrototypeId>,
     monomorphization_cache: IndexSet<(DeclarationId, TypeId::SmallVec), FxBuildHasher>,
@@ -61,7 +59,6 @@ impl Resolver {
             types: Types::new(),
             type_parameter_map: HashMap::default(),
             implementations: HashMap::default(),
-            type_projection_cache: HashMap::default(),
             prototypes: Vec::new(),
             compilation_stack: Vec::new(),
             monomorphization_cache: IndexSet::default(),
@@ -250,7 +247,7 @@ impl Resolver {
                         .insert(parameter_declaration_id, argument_type_id);
                 }
 
-                self.get_resolved_type_id(return_type_id)?
+                self.get_inferred_type_id(return_type_id)?
             }
             Definition::Variant {
                 enum_declaration_id,
@@ -269,7 +266,7 @@ impl Resolver {
         };
 
         for type_id in value_parameter_type_ids.iter_mut() {
-            *type_id = self.get_resolved_type_id(*type_id)?;
+            *type_id = self.get_inferred_type_id(*type_id)?;
         }
 
         Ok((value_parameter_type_ids, return_type_id))
@@ -602,7 +599,7 @@ impl Resolver {
         }
     }
 
-    fn follow_type_substitutions(&self, id: TypeId) -> (TypeId, &Type) {
+    fn follow_type_substitutions(&self, id: TypeId) -> (TypeId, Type) {
         let mut current_id = id;
 
         loop {
@@ -616,21 +613,21 @@ impl Resolver {
                     current_id = *resolved_id;
                 }
                 Type::Generic { declaration_id } => {
-                    if let Some(type_argument_id) = self.type_parameter_map.get(&declaration_id) {
+                    if let Some(type_argument_id) = self.type_parameter_map.get(declaration_id) {
                         current_id = *type_argument_id;
                     } else {
-                        return (id, current_type);
+                        return (current_id, *current_type);
                     }
                 }
                 _ => {
-                    return (id, current_type);
+                    return (current_id, *current_type);
                 }
             }
         }
     }
 
-    pub fn get_resolved_type_id(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
-        let (type_id, r#type) = self.follow_type_substitutions(type_id);
+    pub fn get_inferred_type_id(&mut self, type_id: TypeId) -> Result<TypeId, CompileError> {
+        let (type_id, r#type) = self.get_normalized_type(type_id)?;
 
         match r#type {
             Type::Inferred {
@@ -648,33 +645,35 @@ impl Resolver {
 
                 Ok(resolved_type_id)
             }
-            Type::Projection {
-                base_type_id,
-                trait_declaration_id,
-                associated_declaration_id,
-                ..
-            } => {
-                if let Some(normalized_id) = self.normalize_projection(
-                    *base_type_id,
-                    *trait_declaration_id,
-                    *associated_declaration_id,
-                )? {
-                    return Ok(normalized_id);
-                }
-                Ok(type_id)
-            }
             _ => Ok(type_id),
         }
     }
 
-    pub fn get_concrete_type(&self, type_id: TypeId) -> Result<(TypeId, &Type), CompileError> {
-        let (type_id, r#type) = self.follow_type_substitutions(type_id);
+    pub fn get_normalized_type(&mut self, type_id: TypeId) -> Result<(TypeId, Type), CompileError> {
+        let mut current_id = type_id;
 
-        match r#type {
-            Type::Inferred { .. } | Type::Generic { .. } | Type::Projection { .. } => {
-                Err(CompileError::ExpectedConcreteType)
-            }
-            _ => Ok((type_id, r#type)),
+        loop {
+            let (followed_id, followed_type) = self.follow_type_substitutions(current_id);
+            let Type::Projection {
+                base_type_id,
+                trait_declaration_id,
+                trait_type_arguments,
+                associated_declaration_id,
+            } = followed_type
+            else {
+                return Ok((followed_id, followed_type));
+            };
+            let Some(normalized_id) = self.normalize_projection(
+                base_type_id,
+                trait_declaration_id,
+                trait_type_arguments,
+                associated_declaration_id,
+            )?
+            else {
+                return Ok((followed_id, followed_type));
+            };
+
+            current_id = normalized_id;
         }
     }
 
@@ -1002,6 +1001,7 @@ impl Resolver {
         &mut self,
         base_type_id: TypeId,
         trait_declaration_id: DeclarationId,
+        trait_type_arguments: TypeMembers,
         associated_declaration_id: DeclarationId,
     ) -> Result<Option<TypeId>, CompileError> {
         fn type_members_equal(
@@ -1022,8 +1022,8 @@ impl Resolver {
                 let left_id = *resolver.types.get_type_member(left_member_index)?;
                 let right_id = *resolver.types.get_type_member(right_member_index)?;
 
-                if resolver.get_resolved_type_id(left_id)?
-                    != resolver.get_resolved_type_id(right_id)?
+                if resolver.get_inferred_type_id(left_id)?
+                    != resolver.get_inferred_type_id(right_id)?
                 {
                     return Ok(false);
                 }
@@ -1032,20 +1032,31 @@ impl Resolver {
             Ok(true)
         }
 
-        let (_, concrete_base_type) = self.get_concrete_type(base_type_id)?;
-
-        let base_declaration_id = match concrete_base_type {
-            Type::Generic { .. } => todo!(),
-            Type::Projection { .. } => {
-                let resolved = self.get_resolved_type_id(base_type_id)?;
-
-                return self.normalize_projection(
-                    resolved,
+        let (base_id, base_type) = self.follow_type_substitutions(base_type_id);
+        let base_declaration_id = match base_type {
+            Type::Algebraic { declaration_id, .. } => declaration_id,
+            Type::Projection {
+                base_type_id,
+                trait_declaration_id,
+                trait_type_arguments,
+                associated_declaration_id,
+            } => {
+                if let Some(inner_normalized_id) = self.normalize_projection(
+                    base_type_id,
                     trait_declaration_id,
+                    trait_type_arguments,
                     associated_declaration_id,
-                );
+                )? {
+                    return self.normalize_projection(
+                        inner_normalized_id,
+                        trait_declaration_id,
+                        trait_type_arguments,
+                        associated_declaration_id,
+                    );
+                } else {
+                    return Ok(None);
+                }
             }
-            Type::Algebraic { declaration_id, .. } => *declaration_id,
             _ => return Ok(None),
         };
 
@@ -1081,17 +1092,7 @@ impl Resolver {
                 continue;
             }
 
-            let projection_trait_arguments = if let Type::Projection {
-                trait_type_arguments,
-                ..
-            } = self.follow_type_substitutions(base_type_id).1
-            {
-                trait_type_arguments
-            } else {
-                continue;
-            };
-
-            if !type_members_equal(self, *projection_trait_arguments, impl_trait_type_arguments)? {
+            if !type_members_equal(self, trait_type_arguments, impl_trait_type_arguments)? {
                 continue;
             }
 
@@ -1122,12 +1123,12 @@ impl Resolver {
                     let old_self_mapping = self_parameter_id.and_then(|id| {
                         let old = self.type_parameter_map.get(&id).copied();
 
-                        self.type_parameter_map.insert(id, base_type_id);
+                        self.type_parameter_map.insert(id, base_id);
 
                         old
                     });
 
-                    let resolved = self.get_resolved_type_id(aliased_type_id);
+                    let resolved = self.get_inferred_type_id(aliased_type_id);
 
                     if let Some(id) = self_parameter_id {
                         match old_self_mapping {
@@ -2208,11 +2209,4 @@ fn get_built_in_type_id(
             unreachable!("nested core algebraic types are not used")
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct TypeProjectionKey {
-    base_type_id: TypeId,
-    trait_declaration_id: DeclarationId,
-    associated_declaration_id: DeclarationId,
 }
