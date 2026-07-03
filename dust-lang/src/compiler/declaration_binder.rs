@@ -1745,7 +1745,12 @@ impl<'a> DeclarationBinder<'a> {
 
                 match declaration.definition {
                     Definition::StructType { .. } | Definition::EnumType { .. } => {
-                        let type_arguments = self.bind_path_segment_type_arguments(reader)?; // ERROR: Not a path segment
+                        let last_path_segment =
+                            reader.last_child()?.ok_or(CompileError::ExpectedSyntax {
+                                expected: &[SyntaxKind::PathSegment],
+                            })?;
+                        let type_arguments =
+                            self.bind_path_segment_type_arguments(last_path_segment)?;
 
                         Ok(self.resolver.types.add_type(Type::Algebraic {
                             declaration_id,

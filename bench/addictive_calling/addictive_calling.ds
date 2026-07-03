@@ -1,9 +1,0 @@
-fn increment(x: i64) -> i64 {
-    x + 1
-}
-
-let mut i = 0;
-
-while i < 10_000_000 {
-    i = increment(i);
-}

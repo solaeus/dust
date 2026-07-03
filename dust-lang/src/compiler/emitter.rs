@@ -1879,6 +1879,10 @@ impl<'a> Emitter<'a> {
                 }
                 Place::Registers(ref allocation) => {
                     for register in &allocation.claims {
+                        if register.index == destination.index {
+                            continue;
+                        }
+
                         let move_instruction = Instruction::r#move(
                             destination.index,
                             register.operand_type,
