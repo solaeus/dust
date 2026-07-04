@@ -1,8 +1,49 @@
 # Dust
 
-[![Build Status](https://github.com/solaeus/dust/actions/workflows/rust.yml/badge.svg)](https://github.com/solaeus/dust/actions)
+Programming language focused on correctness, performance and ease of use.
 
-**Programming language focused on correctness, performance and ease of use.**
+```rust
+enum Language {
+    C,
+    Dust,
+    JavaScript,
+    Lua,
+    Python,
+    Rust,
+}
+
+struct Coder {
+    name: String,
+    favorite_language: Language,
+}
+
+impl Coder {
+    fn say_hi(self) {
+        io::print_line(string::format(
+            "Hi! I'm {} and I love {}!",
+            self.name,
+            self.favorite_language,
+        ));
+    }
+
+    fn learn_dust(mut self) {
+        io::print_line(string::format("{} is learning Dust...", self.name));
+
+        self.favorite_language = Language::Dust;
+    }
+}
+
+fn main() {
+    let alice = Coder {
+        name: "Alice",
+        favorite_language: Language::Lua,
+    };
+
+    alice.say_hi();
+    alice.learn_dust();
+    alice.say_hi();
+}
+```
 
 > [!IMPORTANT]
 > 🧪 💡 ⚗️
@@ -14,59 +55,32 @@ into design optimizations and performance improvements.
 
 ## Overview
 
+The goal of this project is, simply put, to deliver power and safety in a language that is easy
+to learn. Source code is compiled to compact bytecode that runs in a portable and fast virtual
+machine. Built on the latest research, lessons learned from other languages and a great deal of
+experimentation, Dust offers a unique combination of features.
+
 ### Ease-of-use
 
-Dust's type system is based on Rust's, but *there are no lifetimes or borrow checker in Dust.*
-Heap-allocated values are passed by reference and garbage-collected. Statically-sized values can be
-passed by value or by reference.
-
-Unlike dynamically typed languages that ignore many details of your program until runtime, Dust's
-statically typed compiler can see every mechanical error in your code and provide helpful error
-messages. 
+Dust delivers the power of Rust's type system in a language with **no lifetimes and no borrow
+checker**. Your mental energy should be spent on the problem you're solving, not struggling to
+understand language mechanics.
 
 ### Correctness
 
-Dust has a static, nominal type system, including:
-
-- Null safety (i.e. null does not exist)
-- Abstract data types with ad-hoc polymorphism
-- Generic associated types
-- Zero-sized types
-- Dynamically-sized types
-- Hindley-Milner inference
-- Projected types
-
-No gradual typing. No duck typing. Dust uses a from-scratch reimplementation of the Rust type system
-that was largely influenced by parts of the `rustc` code, but built specifically for Dust.
+Dust has a static, nominal type system. No gradual typing. No duck typing. If a program compiles, it
+behaves as expected in every code path. Dust uses a from-scratch reimplementation of the Rust type
+system that was largely influenced by parts of the `rustc` code, but built specifically for Dust.
 
 ### Performance
 
-Thanks to a novel compiler architecture based on cache-friendly data structures, Dust can offer
-robust type solving at previously-unseen speeds. TODO
+The Dust compiler is built on cache-friendly data structures at every level. The entire compiler as
+well as individual components like the lexer and parser are benchmarked for performance to inform
+development decisions. 
 
-While Dust is a great interpreted language, when it comes to ease of distribution and raw
-performance, there is no competing with an ahead-of-time compiler that produces a native executable
-file for the target platform. Dust includes a native compiler based on [cranelift][^1] for exactly
-that reason. TODO
-
-## Inspiration
-
-[*Crafting Interpreters*][^2] by Bob Nystrom is a great resource for getting started with parsers
-and bytecode compilers. The information on Pratt parsering is especially useful.
-
-[*The Implementation of Lua 5.0*][^3] by Roberto Ierusalimschy, Luiz Henrique de Figueiredo, and
-Waldemar Celes is a great resource for understanding register-based virtual machines and their
-instructions. This paper is recommended by Bob Nystrom in *Crafting Interpreters*.
-
-[*A No-Frills Introduction to Lua 5.1 VM Instructions*][^4] by Kein-Hong Man has detailed
-information on the design of Lua's function prototypes and instruction format. Dust's compiler
-output is directly based on these. Many of Dust's bytecode instructions mirror Lua's.
-
-["A Performance Survey on Stack-based and Register-based Virtual Machines"][^5] by Ruijie Fang and
-Siqi Liu is a study with notable results that also functions as a primer on getting stack-based and
-register-based virtual machines up and running. The included code examples show how to implement
-both types of VMs in C. Some of the benchmarks described in the paper inspired benchmarks used in
-this project.
+As a bytecode-compiled language, Dust uses a custom instruction format for its register-based
+virtual machine. Register-based VMs are an emerging technology. While there are examples in
+production languages like Lua, Dust may be the first to use static data types.
 
 ## Contributing
 
@@ -78,25 +92,3 @@ is currently a solo project but any future contributors would be expected to res
 and make their edits personally. It is not a goal of the project to churn out lots of features right
 away. Good languages are built on a solid foundation and carefully maintained by the humans who know
 them best.
-
-## License
-
-Dust is licensed under the GNU General Public License v3.0. See the `LICENSE` file for details.
-
-## Refernces
-
-[^0]: Lua deserves an honorable mention for having a very fast compiler and runtime well before
-LuaJIT. Lua uses a simple C implementation, highly optimizable bytecode and a register-based VM.
-LuaJIT takes it to another level, but Lua succeeded on its own through solid research and earned a
-reputation as the performant embeddable language, and did so without native compilation. See [^3]
-and [^4] below.
-
-[^1]: [cranelift](https://cranelift.dev)
-
-[^2]: [Crafting Interpreters](https://craftinginterpreters.com/)
-
-[^3]: [The Implementation of Lua 5.0](https://www.lua.org/doc/jucs05.pdf)
-
-[^4]: [A No-Frills Introduction to Lua 5.1 VM Instructions](https://www.mcours.net/cours/pdf/hasclic3/hasssclic818.pdf)
-
-[^5]: [A Performance Survey on Stack-based and Register-based Virtual Machines](https://arxiv.org/abs/1611.00467)
