@@ -2,12 +2,12 @@ use smallvec::SmallVec;
 
 use crate::{
     compiler::{
-        error::CompileError,
-        resolver::{
-            Resolver,
+        context::{
+            Context,
             declarations::{DeclarationId, Definition, VariantKind},
             types::{InferredTypeConstraint, Type, TypeId, TypeMembers},
         },
+        error::CompileError,
         value_creation::create_usize_from_decimal,
     },
     error::ErrorKind,
@@ -27,28 +27,28 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct TypeBinder<'a> {
-    resolver: &'a mut Resolver,
+pub struct TypeResolver<'a> {
+    context: &'a mut Context,
 
     source: &'a Source<'a>,
 
     errors: &'a mut Vec<ErrorKind>,
 }
 
-impl<'a> TypeBinder<'a> {
+impl<'a> TypeResolver<'a> {
     pub fn new(
-        resolver: &'a mut Resolver,
+        context: &'a mut Context,
         source: &'a Source<'a>,
         errors: &'a mut Vec<ErrorKind>,
     ) -> Self {
         Self {
-            resolver,
+            context,
             source,
             errors,
         }
     }
 
-    pub fn bind_function_body(
+    pub fn visit_function_body(
         &mut self,
         body: SyntaxReader,
         return_type_id: TypeId,
@@ -59,7 +59,7 @@ impl<'a> TypeBinder<'a> {
 
         for child in children {
             if child.node.kind.is_expression() {
-                body_type_id = match self.bind_expression(child) {
+                body_type_id = match self.visit_expression(child) {
                     Ok(type_id) => type_id,
                     Err(error) => {
                         self.errors.push(ErrorKind::Compile(error));
@@ -68,7 +68,7 @@ impl<'a> TypeBinder<'a> {
                     }
                 };
             } else {
-                match self.bind_statement(child) {
+                match self.visit_statement(child) {
                     Ok(()) => {}
                     Err(error) => {
                         self.errors.push(ErrorKind::Compile(error));
@@ -93,8 +93,8 @@ impl<'a> TypeBinder<'a> {
             return Ok(());
         }
 
-        let (left_id, left) = self.resolver.get_normalized_type(left_id)?;
-        let (right_id, right) = self.resolver.get_normalized_type(right_id)?;
+        let (left_id, left) = self.context.get_normalized_type(left_id)?;
+        let (right_id, right) = self.context.get_normalized_type(right_id)?;
 
         if left_id == right_id {
             return Ok(());
@@ -133,19 +133,18 @@ impl<'a> TypeBinder<'a> {
                             found_position,
                         });
                     }
-                    (Some(bound), None) => self
-                        .resolver
-                        .types
-                        .constrain_inferred_type(left_id, bound)?,
+                    (Some(bound), None) => {
+                        self.context.types.constrain_inferred_type(left_id, bound)?
+                    }
                     (None, Some(bound)) => self
-                        .resolver
+                        .context
                         .types
                         .constrain_inferred_type(right_id, bound)?,
 
                     _ => {}
                 }
 
-                self.resolver
+                self.context
                     .types
                     .resolve_type_inference(left_id, right_id)?;
 
@@ -190,7 +189,7 @@ impl<'a> TypeBinder<'a> {
                     }
                 }
 
-                self.resolver
+                self.context
                     .types
                     .resolve_type_inference(left_id, right_id)?;
 
@@ -235,7 +234,7 @@ impl<'a> TypeBinder<'a> {
                     }
                 }
 
-                self.resolver
+                self.context
                     .types
                     .resolve_type_inference(right_id, left_id)?;
 
@@ -276,8 +275,8 @@ impl<'a> TypeBinder<'a> {
                     .into_iter()
                     .zip(right_type_arguments.as_usize_range())
                 {
-                    let left_arg = *self.resolver.types.get_type_member(left_index)?;
-                    let right_arg = *self.resolver.types.get_type_member(right_index)?;
+                    let left_arg = *self.context.types.get_type_member(left_index)?;
+                    let right_arg = *self.context.types.get_type_member(right_index)?;
 
                     self.unify_types(left_arg, left_syntax, right_arg, right_syntax)?;
                 }
@@ -315,11 +314,11 @@ impl<'a> TypeBinder<'a> {
                 }
 
                 if left_arguments.is_empty() && !right_arguments.is_empty() {
-                    self.resolver
+                    self.context
                         .types
                         .resolve_type_arguments(left_id, right_arguments)?;
                 } else if right_arguments.is_empty() && !left_arguments.is_empty() {
-                    self.resolver
+                    self.context
                         .types
                         .resolve_type_arguments(right_id, left_arguments)?;
                 } else {
@@ -328,8 +327,8 @@ impl<'a> TypeBinder<'a> {
                         .into_iter()
                         .zip(right_arguments.as_usize_range())
                     {
-                        let left_arg = *self.resolver.types.get_type_member(left_index)?;
-                        let right_arg = *self.resolver.types.get_type_member(right_index)?;
+                        let left_arg = *self.context.types.get_type_member(left_index)?;
+                        let right_arg = *self.context.types.get_type_member(right_index)?;
 
                         self.unify_types(left_arg, left_syntax, right_arg, right_syntax)?;
                     }
@@ -400,13 +399,13 @@ impl<'a> TypeBinder<'a> {
         }
     }
 
-    fn bind_statement(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+    fn visit_statement(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         match reader.node.kind {
-            SyntaxKind::ConstItem => self.bind_const_item(reader),
-            SyntaxKind::ImplItem => self.bind_impl_item(reader),
-            SyntaxKind::TraitItem => self.bind_trait_item(reader),
-            SyntaxKind::LetStatement => self.bind_let_statement(reader),
-            SyntaxKind::ExpressionStatement => self.bind_expression_statement(reader),
+            SyntaxKind::ConstItem => self.visit_const_item(reader),
+            SyntaxKind::ImplItem => self.visit_impl_item(reader),
+            SyntaxKind::TraitItem => self.visit_trait_item(reader),
+            SyntaxKind::LetStatement => self.visit_let_statement(reader),
+            SyntaxKind::ExpressionStatement => self.visit_expression_statement(reader),
             SyntaxKind::ModItem
             | SyntaxKind::UseItem
             | SyntaxKind::FunctionItem
@@ -432,55 +431,55 @@ impl<'a> TypeBinder<'a> {
         }
     }
 
-    fn bind_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         match reader.node.kind {
-            SyntaxKind::AssignmentExpression => self.bind_assignment_expression(reader),
-            SyntaxKind::BooleanExpression => self.bind_boolean_expression(reader),
-            SyntaxKind::HexadecimalExpression => self.bind_hexadecimal_expression(reader),
-            SyntaxKind::CharacterExpression => self.bind_character_expression(reader),
-            SyntaxKind::FloatExpression => self.bind_float_expression(reader),
-            SyntaxKind::IntegerExpression => self.bind_integer_expression(reader),
-            SyntaxKind::StringExpression => self.bind_string_expression(reader),
-            SyntaxKind::ArrayExpression => self.bind_array_expression(reader),
-            SyntaxKind::ArrayRepeatExpression => self.bind_array_repeat_expression(reader),
-            SyntaxKind::IndexExpression => self.bind_index_expression(reader),
+            SyntaxKind::AssignmentExpression => self.visit_assignment_expression(reader),
+            SyntaxKind::BooleanExpression => self.visit_boolean_expression(reader),
+            SyntaxKind::HexadecimalExpression => self.visit_hexadecimal_expression(reader),
+            SyntaxKind::CharacterExpression => self.visit_character_expression(reader),
+            SyntaxKind::FloatExpression => self.visit_float_expression(reader),
+            SyntaxKind::IntegerExpression => self.visit_integer_expression(reader),
+            SyntaxKind::StringExpression => self.visit_string_expression(reader),
+            SyntaxKind::ArrayExpression => self.visit_array_expression(reader),
+            SyntaxKind::ArrayRepeatExpression => self.visit_array_repeat_expression(reader),
+            SyntaxKind::IndexExpression => self.visit_index_expression(reader),
             SyntaxKind::RangeExpression | SyntaxKind::RangeInclusiveExpression => {
-                self.bind_range_expression(reader)
+                self.visit_range_expression(reader)
             }
-            SyntaxKind::PathExpression => self.bind_path_expression(reader),
-            SyntaxKind::StructExpression => self.bind_struct_expression(reader),
-            SyntaxKind::GroupedExpression => self.bind_grouped_expression(reader),
-            SyntaxKind::BlockExpression => self.bind_block_expression(reader),
-            SyntaxKind::IfExpression => self.bind_if_expression(reader),
-            SyntaxKind::NegationExpression => self.bind_negation_expression(reader),
-            SyntaxKind::NotExpression => self.bind_not_expression(reader),
-            SyntaxKind::WhileExpression => self.bind_while_expression(reader),
-            SyntaxKind::BreakExpression => self.bind_break_expression(reader),
-            SyntaxKind::CallExpression => self.bind_call_expression(reader),
-            SyntaxKind::MethodCallExpression => self.bind_method_call_expression(reader),
-            SyntaxKind::FieldAccessExpression => self.bind_field_access_expression(reader),
+            SyntaxKind::PathExpression => self.visit_path_expression(reader),
+            SyntaxKind::StructExpression => self.visit_struct_expression(reader),
+            SyntaxKind::GroupedExpression => self.visit_grouped_expression(reader),
+            SyntaxKind::BlockExpression => self.visit_block_expression(reader),
+            SyntaxKind::IfExpression => self.visit_if_expression(reader),
+            SyntaxKind::NegationExpression => self.visit_negation_expression(reader),
+            SyntaxKind::NotExpression => self.visit_not_expression(reader),
+            SyntaxKind::WhileExpression => self.visit_while_expression(reader),
+            SyntaxKind::BreakExpression => self.visit_break_expression(reader),
+            SyntaxKind::CallExpression => self.visit_call_expression(reader),
+            SyntaxKind::MethodCallExpression => self.visit_method_call_expression(reader),
+            SyntaxKind::FieldAccessExpression => self.visit_field_access_expression(reader),
             SyntaxKind::AdditionAssignmentExpression
             | SyntaxKind::SubtractionAssignmentExpression
             | SyntaxKind::MultiplicationAssignmentExpression
             | SyntaxKind::DivisionAssignmentExpression
             | SyntaxKind::ModuloAssignmentExpression
-            | SyntaxKind::ExponentAssignmentExpression => self.bind_math_expression(reader),
+            | SyntaxKind::ExponentAssignmentExpression => self.visit_math_expression(reader),
             SyntaxKind::AdditionExpression
             | SyntaxKind::SubtractionExpression
             | SyntaxKind::MultiplicationExpression
             | SyntaxKind::DivisionExpression
             | SyntaxKind::ModuloExpression
-            | SyntaxKind::ExponentExpression => self.bind_math_expression(reader),
+            | SyntaxKind::ExponentExpression => self.visit_math_expression(reader),
             SyntaxKind::GreaterThanExpression
             | SyntaxKind::LessThanExpression
             | SyntaxKind::GreaterThanOrEqualExpression
             | SyntaxKind::LessThanOrEqualExpression
             | SyntaxKind::EqualExpression
-            | SyntaxKind::NotEqualExpression => self.bind_comparison_expression(reader),
+            | SyntaxKind::NotEqualExpression => self.visit_comparison_expression(reader),
             SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
-                self.bind_logic_expression(reader)
+                self.visit_logic_expression(reader)
             }
-            SyntaxKind::SelfExpression => self.bind_self_expression(reader),
+            SyntaxKind::SelfExpression => self.visit_self_expression(reader),
             _ => Err(CompileError::UnexpectedSyntax {
                 expected: &[
                     SyntaxKind::AdditionAssignmentExpression,
@@ -532,7 +531,7 @@ impl<'a> TypeBinder<'a> {
         }
     }
 
-    fn bind_const_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+    fn visit_const_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let ConstItem {
             name,
             type_notation: _,
@@ -543,8 +542,8 @@ impl<'a> TypeBinder<'a> {
             return Ok(());
         };
 
-        let declaration_id = *self.resolver.get_declaration_binding(&name.id)?;
-        let declaration = self.resolver.declarations.get_declaration(declaration_id);
+        let declaration_id = *self.context.get_declaration_binding(&name.id)?;
+        let declaration = self.context.declarations.get_declaration(declaration_id);
         let Definition::Constant {
             type_id: declared_type_id,
             ..
@@ -553,19 +552,19 @@ impl<'a> TypeBinder<'a> {
             return Err(CompileError::ExpectedConstantDefinition(declaration_id));
         };
 
-        let value_type_id = self.bind_expression(value)?;
+        let value_type_id = self.visit_expression(value)?;
 
         self.unify_types(declared_type_id, Some(reader), value_type_id, value)?;
 
         Ok(())
     }
 
-    fn bind_impl_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+    fn visit_impl_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let ImplItem { body, .. } = reader.as_component()?;
 
         for child in body.children() {
             match child.node.kind {
-                SyntaxKind::ConstItem => self.bind_const_item(child)?,
+                SyntaxKind::ConstItem => self.visit_const_item(child)?,
                 SyntaxKind::FunctionItem | SyntaxKind::TypeItem => {}
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
@@ -583,12 +582,12 @@ impl<'a> TypeBinder<'a> {
         Ok(())
     }
 
-    fn bind_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+    fn visit_trait_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let TraitItem { body, .. } = reader.as_component()?;
 
         for child in body.children() {
             match child.node.kind {
-                SyntaxKind::ConstItem => self.bind_const_item(child)?,
+                SyntaxKind::ConstItem => self.visit_const_item(child)?,
                 SyntaxKind::FunctionItem | SyntaxKind::TypeItem => {}
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
@@ -606,13 +605,13 @@ impl<'a> TypeBinder<'a> {
         Ok(())
     }
 
-    fn bind_let_statement(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+    fn visit_let_statement(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let LetStatement {
             name, expression, ..
         } = reader.as_component()?;
 
-        let declaration_id = *self.resolver.get_declaration_binding(&name.id)?;
-        let declaration = self.resolver.declarations.get_declaration(declaration_id);
+        let declaration_id = *self.context.get_declaration_binding(&name.id)?;
+        let declaration = self.context.declarations.get_declaration(declaration_id);
         let Definition::Local {
             type_id: declared_type_id,
             ..
@@ -620,7 +619,7 @@ impl<'a> TypeBinder<'a> {
         else {
             return Err(CompileError::ExpectedLocalDefinition(declaration_id));
         };
-        let expression_type_id = self.bind_expression(expression)?;
+        let expression_type_id = self.visit_expression(expression)?;
 
         self.unify_types(
             declared_type_id,
@@ -632,105 +631,108 @@ impl<'a> TypeBinder<'a> {
         Ok(())
     }
 
-    fn bind_expression_statement(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+    fn visit_expression_statement(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let ExpressionStatement { expression } = reader.as_component()?;
 
-        self.bind_expression(expression)?;
+        self.visit_expression(expression)?;
 
         Ok(())
     }
 
-    fn bind_assignment_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_assignment_expression(
+        &mut self,
+        reader: SyntaxReader,
+    ) -> Result<TypeId, CompileError> {
         let AssignmentExpression { target, source } = reader.as_component()?;
 
-        let target_type_id = self.bind_expression(target)?;
-        let value_type_id = self.bind_expression(source)?;
+        let target_type_id = self.visit_expression(target)?;
+        let value_type_id = self.visit_expression(source)?;
 
         self.unify_types(target_type_id, Some(target), value_type_id, source)?;
-        self.resolver.add_type_binding(reader.id, TypeId::UNIT);
+        self.context.add_type_binding(reader.id, TypeId::UNIT);
 
         Ok(TypeId::UNIT)
     }
 
-    fn bind_boolean_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
-        self.resolver.add_type_binding(reader.id, TypeId::BOOLEAN);
+    fn visit_boolean_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+        self.context.add_type_binding(reader.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
     }
 
-    fn bind_hexadecimal_expression(
+    fn visit_hexadecimal_expression(
         &mut self,
         reader: SyntaxReader,
     ) -> Result<TypeId, CompileError> {
         let type_id = self
-            .resolver
+            .context
             .types
             .create_inferred_type(Some(InferredTypeConstraint::Integer));
 
-        self.resolver.add_type_binding(reader.id, type_id);
+        self.context.add_type_binding(reader.id, type_id);
 
         Ok(type_id)
     }
 
-    fn bind_character_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
-        self.resolver.add_type_binding(reader.id, TypeId::CHARACTER);
+    fn visit_character_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+        self.context.add_type_binding(reader.id, TypeId::CHARACTER);
 
         Ok(TypeId::CHARACTER)
     }
 
-    fn bind_float_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_float_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         let type_id = self
-            .resolver
+            .context
             .types
             .create_inferred_type(Some(InferredTypeConstraint::Float));
 
-        self.resolver.add_type_binding(reader.id, type_id);
+        self.context.add_type_binding(reader.id, type_id);
 
         Ok(type_id)
     }
 
-    fn bind_integer_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_integer_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         let type_id = self
-            .resolver
+            .context
             .types
             .create_inferred_type(Some(InferredTypeConstraint::Integer));
 
-        self.resolver.add_type_binding(reader.id, type_id);
+        self.context.add_type_binding(reader.id, type_id);
 
         Ok(type_id)
     }
 
-    fn bind_string_expression(&mut self, _: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_string_expression(&mut self, _: SyntaxReader) -> Result<TypeId, CompileError> {
         todo!()
     }
 
-    fn bind_array_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_array_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         let ArrayExpression { mut elements } = reader.as_component()?;
 
         let first_element = elements.expect_next()?;
-        let element_type_id = self.bind_expression(first_element)?;
+        let element_type_id = self.visit_expression(first_element)?;
 
         let mut length = 1;
 
         for element in elements {
-            let element_type = self.bind_expression(element)?;
+            let element_type = self.visit_expression(element)?;
 
             self.unify_types(element_type_id, Some(first_element), element_type, element)?;
 
             length += 1;
         }
 
-        let array_type_id = self.resolver.types.add_type(Type::Array {
+        let array_type_id = self.context.types.add_type(Type::Array {
             element_type_id,
             length,
         });
 
-        self.resolver.add_type_binding(reader.id, array_type_id);
+        self.context.add_type_binding(reader.id, array_type_id);
 
         Ok(array_type_id)
     }
 
-    fn bind_array_repeat_expression(
+    fn visit_array_repeat_expression(
         &mut self,
         reader: SyntaxReader,
     ) -> Result<TypeId, CompileError> {
@@ -742,24 +744,24 @@ impl<'a> TypeBinder<'a> {
             .get_bytes(length.node.span)?;
         let length = create_usize_from_decimal(length_bytes, length)?;
 
-        let element_type_id = self.bind_expression(element)?;
-        let array_type_id = self.resolver.types.add_type(Type::Array {
+        let element_type_id = self.visit_expression(element)?;
+        let array_type_id = self.context.types.add_type(Type::Array {
             element_type_id,
             length,
         });
 
-        self.resolver.add_type_binding(reader.id, array_type_id);
+        self.context.add_type_binding(reader.id, array_type_id);
 
         Ok(array_type_id)
     }
 
-    fn bind_index_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_index_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         let IndexExpression { collection, index } = reader.as_component()?;
 
-        let collection_type_id = self.bind_expression(collection)?;
-        let index_type_id = self.bind_expression(index)?;
+        let collection_type_id = self.visit_expression(collection)?;
+        let index_type_id = self.visit_expression(index)?;
 
-        let collection_type = *self.resolver.types.get_type(collection_type_id);
+        let collection_type = *self.context.types.get_type(collection_type_id);
         let element_type_id = match collection_type {
             Type::Array {
                 element_type_id, ..
@@ -770,7 +772,7 @@ impl<'a> TypeBinder<'a> {
                 });
             }
         };
-        let index_type = *self.resolver.types.get_type(index_type_id);
+        let index_type = *self.context.types.get_type(index_type_id);
         let result_type_id = if let Type::Algebraic { declaration_id, .. } = index_type
             && matches!(
                 declaration_id,
@@ -781,34 +783,34 @@ impl<'a> TypeBinder<'a> {
             element_type_id
         };
 
-        self.resolver.add_type_binding(reader.id, result_type_id);
+        self.context.add_type_binding(reader.id, result_type_id);
 
         Ok(result_type_id)
     }
 
-    fn bind_range_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_range_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         let RangeExpression { start, end } = reader.as_component()?;
 
-        let start_type_id = self.bind_expression(start)?;
-        let end_type_id = self.bind_expression(end)?;
+        let start_type_id = self.visit_expression(start)?;
+        let end_type_id = self.visit_expression(end)?;
 
         self.unify_types(start_type_id, Some(start), end_type_id, end)?;
 
-        let declaration_id = *self.resolver.get_declaration_binding(&reader.id)?;
-        let type_arguments = self.resolver.types.add_type_members([start_type_id]);
-        let range_type_id = self.resolver.types.add_type(Type::Algebraic {
+        let declaration_id = *self.context.get_declaration_binding(&reader.id)?;
+        let type_arguments = self.context.types.add_type_members([start_type_id]);
+        let range_type_id = self.context.types.add_type(Type::Algebraic {
             declaration_id,
             type_arguments,
         });
 
-        self.resolver.add_type_binding(reader.id, range_type_id);
+        self.context.add_type_binding(reader.id, range_type_id);
 
         Ok(range_type_id)
     }
 
-    fn bind_path_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_path_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         fn collect_turbofish_arguments(
-            resolver: &mut Resolver,
+            context: &mut Context,
             reader: SyntaxReader,
         ) -> Result<TypeMembers, CompileError> {
             let PathExpression { segments } = reader.as_component()?;
@@ -822,28 +824,28 @@ impl<'a> TypeBinder<'a> {
                 };
 
                 for type_argument in type_arguments.children() {
-                    let type_id = *resolver.get_type_binding(&type_argument.id)?;
+                    let type_id = *context.get_type_binding(&type_argument.id)?;
 
                     turbofish_arguments.push(type_id);
                 }
             }
 
-            Ok(resolver.types.add_type_members(turbofish_arguments))
+            Ok(context.types.add_type_members(turbofish_arguments))
         }
 
-        let declaration_id = *self.resolver.get_declaration_binding(&reader.id)?;
-        let declaration = self.resolver.declarations.get_declaration(declaration_id);
+        let declaration_id = *self.context.get_declaration_binding(&reader.id)?;
+        let declaration = self.context.declarations.get_declaration(declaration_id);
         let type_id = match declaration.definition {
             Definition::Local { type_id, .. }
             | Definition::Constant { type_id, .. }
             | Definition::InherentAssociatedConstant { type_id, .. }
             | Definition::TraitAssociatedConstant { type_id, .. } => {
-                self.resolver.get_normalized_type(type_id)?.0
+                self.context.get_normalized_type(type_id)?.0
             }
             Definition::Function { .. } => {
-                let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
+                let type_arguments = collect_turbofish_arguments(self.context, reader)?;
 
-                self.resolver.types.add_type(Type::FunctionDefinition {
+                self.context.types.add_type(Type::FunctionDefinition {
                     declaration_id,
                     type_arguments,
                 })
@@ -854,17 +856,17 @@ impl<'a> TypeBinder<'a> {
                 ..
             } => match kind {
                 VariantKind::Unit => {
-                    let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
+                    let type_arguments = collect_turbofish_arguments(self.context, reader)?;
 
-                    self.resolver.types.add_type(Type::Algebraic {
+                    self.context.types.add_type(Type::Algebraic {
                         declaration_id: enum_declaration_id,
                         type_arguments,
                     })
                 }
                 VariantKind::TupleFields => {
-                    let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
+                    let type_arguments = collect_turbofish_arguments(self.context, reader)?;
 
-                    self.resolver.types.add_type(Type::FunctionDefinition {
+                    self.context.types.add_type(Type::FunctionDefinition {
                         declaration_id,
                         type_arguments,
                     })
@@ -876,7 +878,7 @@ impl<'a> TypeBinder<'a> {
                 ..
             } => {
                 let target_declaration = self
-                    .resolver
+                    .context
                     .declarations
                     .get_declaration(source_declaration_id);
 
@@ -885,7 +887,7 @@ impl<'a> TypeBinder<'a> {
                     | Definition::Constant { type_id, .. }
                     | Definition::InherentAssociatedConstant { type_id, .. }
                     | Definition::TraitAssociatedConstant { type_id, .. } => {
-                        self.resolver.get_normalized_type(type_id)?.0
+                        self.context.get_normalized_type(type_id)?.0
                     }
                     _ => {
                         return Err(CompileError::ExpectedValue {
@@ -898,30 +900,30 @@ impl<'a> TypeBinder<'a> {
             Definition::ForwardReference {
                 resolved: Some(resolved),
             } => {
-                let resolved_declaration = self.resolver.declarations.get_declaration(resolved);
+                let resolved_declaration = self.context.declarations.get_declaration(resolved);
 
                 match resolved_declaration.definition {
                     Definition::Local { type_id, .. }
                     | Definition::Constant { type_id, .. }
                     | Definition::InherentAssociatedConstant { type_id, .. }
                     | Definition::TraitAssociatedConstant { type_id, .. } => {
-                        self.resolver.get_normalized_type(type_id)?.0
+                        self.context.get_normalized_type(type_id)?.0
                     }
                     _ => {
-                        let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
+                        let type_arguments = collect_turbofish_arguments(self.context, reader)?;
                         let algebraic_type = Type::Algebraic {
                             declaration_id: resolved,
                             type_arguments,
                         };
 
-                        self.resolver.types.add_type(algebraic_type)
+                        self.context.types.add_type(algebraic_type)
                     }
                 }
             }
             Definition::StructType { .. } => {
-                let type_arguments = collect_turbofish_arguments(self.resolver, reader)?;
+                let type_arguments = collect_turbofish_arguments(self.context, reader)?;
 
-                self.resolver.types.add_type(Type::Algebraic {
+                self.context.types.add_type(Type::Algebraic {
                     declaration_id,
                     type_arguments,
                 })
@@ -931,21 +933,21 @@ impl<'a> TypeBinder<'a> {
             }
         };
 
-        self.resolver.add_type_binding(reader.id, type_id);
+        self.context.add_type_binding(reader.id, type_id);
 
         Ok(type_id)
     }
 
-    fn bind_struct_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_struct_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         let StructExpression { path, fields } = reader.as_component()?;
         let StructExpressionStructFields {
             name_expression_pairs,
         } = fields.as_component()?;
 
         for (field_name, field_value) in name_expression_pairs {
-            let field_declaration_id = *self.resolver.get_declaration_binding(&field_name.id)?;
+            let field_declaration_id = *self.context.get_declaration_binding(&field_name.id)?;
             let field_declaration = self
-                .resolver
+                .context
                 .declarations
                 .get_declaration(field_declaration_id);
 
@@ -953,72 +955,72 @@ impl<'a> TypeBinder<'a> {
                 return Err(CompileError::ExpectedFieldDefinition(field_declaration_id));
             };
 
-            let field_type_id = self.resolver.get_normalized_type(type_id)?.0;
-            let value_type_id = self.bind_expression(field_value)?;
+            let field_type_id = self.context.get_normalized_type(type_id)?.0;
+            let value_type_id = self.visit_expression(field_value)?;
 
             self.unify_types(field_type_id, Some(field_name), value_type_id, field_value)?;
         }
 
-        let declaration_id = *self.resolver.get_declaration_binding(&path.id)?;
+        let declaration_id = *self.context.get_declaration_binding(&path.id)?;
         let struct_type = Type::Algebraic {
             declaration_id,
             type_arguments: TypeMembers::default(),
         };
-        let type_id = self.resolver.types.add_type(struct_type);
+        let type_id = self.context.types.add_type(struct_type);
 
-        self.resolver.add_type_binding(reader.id, type_id);
+        self.context.add_type_binding(reader.id, type_id);
 
         Ok(type_id)
     }
 
-    fn bind_grouped_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_grouped_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         let GroupedExpression { expression } = reader.as_component()?;
 
         let type_id = if let Some(inner) = expression {
-            self.bind_expression(inner)?
+            self.visit_expression(inner)?
         } else {
             TypeId::UNIT
         };
 
-        self.resolver.add_type_binding(reader.id, type_id);
+        self.context.add_type_binding(reader.id, type_id);
 
         Ok(type_id)
     }
 
-    fn bind_block_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_block_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         let mut block_type_id = TypeId::UNIT;
 
         for child in reader.children() {
             if child.node.kind.is_expression() {
-                block_type_id = self.bind_expression(child)?;
+                block_type_id = self.visit_expression(child)?;
             } else {
-                self.bind_statement(child)?;
+                self.visit_statement(child)?;
                 block_type_id = TypeId::UNIT;
             }
         }
 
-        self.resolver.add_type_binding(reader.id, block_type_id);
+        self.context.add_type_binding(reader.id, block_type_id);
 
         Ok(block_type_id)
     }
 
-    fn bind_if_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_if_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         let IfExpression {
             condition,
             then_branch,
             else_branch,
         } = reader.as_component()?;
 
-        let condition_type_id = self.bind_expression(condition)?;
+        let condition_type_id = self.visit_expression(condition)?;
 
         self.unify_types(TypeId::BOOLEAN, Some(reader), condition_type_id, condition)?;
 
-        let then_type_id = self.bind_expression(then_branch)?;
+        let then_type_id = self.visit_expression(then_branch)?;
 
         if let Some(else_branch) = else_branch {
             let else_type_id = match else_branch.node.kind {
-                SyntaxKind::BlockExpression => self.bind_expression(else_branch)?,
-                SyntaxKind::IfExpression => self.bind_if_expression(else_branch)?,
+                SyntaxKind::BlockExpression => self.visit_expression(else_branch)?,
+                SyntaxKind::IfExpression => self.visit_if_expression(else_branch)?,
                 _ => {
                     return Err(CompileError::ExpectedSyntax {
                         expected: &[SyntaxKind::BlockExpression, SyntaxKind::IfExpression],
@@ -1027,25 +1029,25 @@ impl<'a> TypeBinder<'a> {
             };
 
             self.unify_types(then_type_id, Some(then_branch), else_type_id, else_branch)?;
-            self.resolver.add_type_binding(reader.id, then_type_id);
+            self.context.add_type_binding(reader.id, then_type_id);
 
             Ok(then_type_id)
         } else {
-            self.resolver.add_type_binding(reader.id, TypeId::UNIT);
+            self.context.add_type_binding(reader.id, TypeId::UNIT);
 
             Ok(TypeId::UNIT)
         }
     }
 
-    fn bind_math_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_math_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         let MathExpression { left, right } = reader.as_component()?;
 
-        let left_type_id = self.bind_expression(left)?;
-        let right_type_id = self.bind_expression(right)?;
+        let left_type_id = self.visit_expression(left)?;
+        let right_type_id = self.visit_expression(right)?;
 
         self.unify_types(left_type_id, Some(reader), right_type_id, right)?;
 
-        self.resolver.add_type_binding(reader.id, left_type_id);
+        self.context.add_type_binding(reader.id, left_type_id);
 
         if matches!(reader.node.kind, SyntaxKind::AdditionAssignmentExpression) {
             Ok(TypeId::UNIT)
@@ -1054,76 +1056,79 @@ impl<'a> TypeBinder<'a> {
         }
     }
 
-    fn bind_comparison_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_comparison_expression(
+        &mut self,
+        reader: SyntaxReader,
+    ) -> Result<TypeId, CompileError> {
         let ComparisonExpression { left, right } = reader.as_component()?;
 
-        let left_type_id = self.bind_expression(left)?;
-        let right_type_id = self.bind_expression(right)?;
+        let left_type_id = self.visit_expression(left)?;
+        let right_type_id = self.visit_expression(right)?;
 
         self.unify_types(left_type_id, Some(reader), right_type_id, right)?;
 
-        self.resolver.add_type_binding(reader.id, TypeId::BOOLEAN);
+        self.context.add_type_binding(reader.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
     }
 
-    fn bind_logic_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_logic_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         let LogicExpression { left, right } = reader.as_component()?;
 
-        let left_type_id = self.bind_expression(left)?;
-        let right_type_id = self.bind_expression(right)?;
+        let left_type_id = self.visit_expression(left)?;
+        let right_type_id = self.visit_expression(right)?;
 
         self.unify_types(TypeId::BOOLEAN, Some(reader), left_type_id, left)?;
         self.unify_types(TypeId::BOOLEAN, Some(reader), right_type_id, right)?;
-        self.resolver.add_type_binding(reader.id, TypeId::BOOLEAN);
+        self.context.add_type_binding(reader.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
     }
 
-    fn bind_negation_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_negation_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         let NegationExpression { operand } = reader.as_component()?;
 
-        let operand_type_id = self.bind_expression(operand)?;
+        let operand_type_id = self.visit_expression(operand)?;
 
-        self.resolver.add_type_binding(reader.id, operand_type_id);
+        self.context.add_type_binding(reader.id, operand_type_id);
 
         Ok(operand_type_id)
     }
 
-    fn bind_not_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_not_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         let NotExpression { operand } = reader.as_component()?;
 
-        let operand_type_id = self.bind_expression(operand)?;
+        let operand_type_id = self.visit_expression(operand)?;
 
         self.unify_types(TypeId::BOOLEAN, Some(reader), operand_type_id, operand)?;
-        self.resolver.add_type_binding(reader.id, TypeId::BOOLEAN);
+        self.context.add_type_binding(reader.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
     }
 
-    fn bind_while_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_while_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         let WhileExpression { condition, body } = reader.as_component()?;
 
-        let condition_type_id = self.bind_expression(condition)?;
+        let condition_type_id = self.visit_expression(condition)?;
 
         self.unify_types(TypeId::BOOLEAN, Some(reader), condition_type_id, condition)?;
-        self.bind_expression(body)?;
-        self.resolver.add_type_binding(reader.id, TypeId::UNIT);
+        self.visit_expression(body)?;
+        self.context.add_type_binding(reader.id, TypeId::UNIT);
 
         Ok(TypeId::UNIT)
     }
 
-    fn bind_break_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
-        self.resolver.add_type_binding(reader.id, TypeId::UNIT);
+    fn visit_break_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+        self.context.add_type_binding(reader.id, TypeId::UNIT);
 
         Ok(TypeId::UNIT)
     }
 
-    fn bind_call_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+    fn visit_call_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         let CallExpression { callee, arguments } = reader.as_component()?;
 
-        let callee_type_id = self.bind_expression(callee)?;
-        let callee_type = *self.resolver.types.get_type(callee_type_id);
+        let callee_type_id = self.visit_expression(callee)?;
+        let callee_type = *self.context.types.get_type(callee_type_id);
         let Type::FunctionDefinition {
             declaration_id,
             type_arguments,
@@ -1135,21 +1140,21 @@ impl<'a> TypeBinder<'a> {
             });
         };
         let (value_parameter_type_ids, return_type_id) =
-            self.resolver
+            self.context
                 .get_signature(declaration_id, type_arguments, None)?;
 
         for (argument, expected_type_id) in arguments.children().zip(value_parameter_type_ids) {
-            let actual_type_id = self.bind_expression(argument)?;
+            let actual_type_id = self.visit_expression(argument)?;
 
             self.unify_types(expected_type_id, Some(argument), actual_type_id, argument)?;
         }
 
-        self.resolver.add_type_binding(reader.id, return_type_id);
+        self.context.add_type_binding(reader.id, return_type_id);
 
         Ok(return_type_id)
     }
 
-    fn bind_method_call_expression(
+    fn visit_method_call_expression(
         &mut self,
         reader: SyntaxReader,
     ) -> Result<TypeId, CompileError> {
@@ -1160,20 +1165,20 @@ impl<'a> TypeBinder<'a> {
             value_arguments,
         } = reader.as_component()?;
 
-        let parent_type_id = self.bind_expression(method_parent)?;
+        let parent_type_id = self.visit_expression(method_parent)?;
         let Type::Algebraic {
             declaration_id: parent_declaration_id,
             ..
-        } = *self.resolver.types.get_type(parent_type_id)
+        } = *self.context.types.get_type(parent_type_id)
         else {
             return Err(CompileError::ExpectedAlgebraicType(parent_type_id));
         };
 
         let method_symbol_str = self.source.get_content(method.position())?;
-        let method_symbol_id = self.resolver.symbols.add_symbol(method_symbol_str);
+        let method_symbol_id = self.context.symbols.add_symbol(method_symbol_str);
 
         let method_declaration_id = self
-            .resolver
+            .context
             .find_method(method_symbol_id, parent_declaration_id)
             .ok_or_else(|| CompileError::Undeclared {
                 symbol_id: method_symbol_id,
@@ -1184,21 +1189,21 @@ impl<'a> TypeBinder<'a> {
             let mut type_argument_ids = TypeId::SmallVec::new();
 
             for type_argument in type_arguments.children() {
-                let type_argument_id = *self.resolver.get_type_binding(&type_argument.id)?;
+                let type_argument_id = *self.context.get_type_binding(&type_argument.id)?;
 
                 type_argument_ids.push(type_argument_id);
             }
 
-            self.resolver.types.add_type_members(type_argument_ids)
+            self.context.types.add_type_members(type_argument_ids)
         } else {
             TypeMembers::default()
         };
-        let method_type_id = self.resolver.types.add_type(Type::FunctionDefinition {
+        let method_type_id = self.context.types.add_type(Type::FunctionDefinition {
             declaration_id: method_declaration_id,
             type_arguments: method_type_arguments,
         });
 
-        let (value_parameter_type_ids, return_type_id) = self.resolver.get_signature(
+        let (value_parameter_type_ids, return_type_id) = self.context.get_signature(
             method_declaration_id,
             method_type_arguments,
             Some(parent_type_id),
@@ -1210,21 +1215,21 @@ impl<'a> TypeBinder<'a> {
                 .children()
                 .zip(value_parameter_ids_without_self)
             {
-                let actual_type_id = self.bind_expression(argument)?;
+                let actual_type_id = self.visit_expression(argument)?;
 
                 self.unify_types(expected_type_id, Some(argument), actual_type_id, argument)?;
             }
         }
 
-        self.resolver
+        self.context
             .add_declaration_binding(method.id, method_declaration_id);
-        self.resolver.add_type_binding(method.id, method_type_id);
-        self.resolver.add_type_binding(reader.id, return_type_id);
+        self.context.add_type_binding(method.id, method_type_id);
+        self.context.add_type_binding(reader.id, return_type_id);
 
         Ok(return_type_id)
     }
 
-    fn bind_field_access_expression(
+    fn visit_field_access_expression(
         &mut self,
         reader: SyntaxReader,
     ) -> Result<TypeId, CompileError> {
@@ -1233,18 +1238,18 @@ impl<'a> TypeBinder<'a> {
             field_name,
         } = reader.as_component()?;
 
-        let parent_type_id = self.bind_expression(struct_expression)?;
+        let parent_type_id = self.visit_expression(struct_expression)?;
         let Type::Algebraic {
             declaration_id: parent_declaration_id,
             ..
-        } = *self.resolver.types.get_type(parent_type_id)
+        } = *self.context.types.get_type(parent_type_id)
         else {
             return Err(CompileError::ExpectedAlgebraicType(parent_type_id));
         };
 
         let field_symbol_str = self.source.get_content(field_name.position())?;
-        let field_symbol_id = self.resolver.symbols.add_symbol(field_symbol_str);
-        let field_declaration_id = self.resolver.find_member_declaration(
+        let field_symbol_id = self.context.symbols.add_symbol(field_symbol_str);
+        let field_declaration_id = self.context.find_member_declaration(
             field_symbol_id,
             parent_declaration_id,
             field_name,
@@ -1253,26 +1258,26 @@ impl<'a> TypeBinder<'a> {
             type_id: field_raw_type_id,
             ..
         } = self
-            .resolver
+            .context
             .declarations
             .get_declaration(field_declaration_id)
             .definition
         else {
             return Err(CompileError::ExpectedFieldDefinition(field_declaration_id));
         };
-        let field_type_id = self.resolver.get_normalized_type(field_raw_type_id)?.0;
+        let field_type_id = self.context.get_normalized_type(field_raw_type_id)?.0;
 
-        self.resolver
+        self.context
             .add_declaration_binding(field_name.id, field_declaration_id);
-        self.resolver
+        self.context
             .add_declaration_binding(reader.id, field_declaration_id);
 
-        self.resolver.add_type_binding(reader.id, field_type_id);
+        self.context.add_type_binding(reader.id, field_type_id);
 
         Ok(field_raw_type_id)
     }
 
-    fn bind_self_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
-        self.resolver.get_type_binding(&reader.id).copied()
+    fn visit_self_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+        self.context.get_type_binding(&reader.id).copied()
     }
 }

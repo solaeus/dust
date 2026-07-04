@@ -1,6 +1,6 @@
 use std::num::NonZeroU32;
 
-use crate::compiler::resolver::declarations::{DeclarationId, Definition};
+use crate::compiler::context::declarations::{DeclarationId, Definition};
 
 #[derive(Debug, Default)]
 pub struct Scopes {

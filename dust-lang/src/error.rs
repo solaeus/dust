@@ -5,7 +5,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use annotate_snippets::{Group, Level, Renderer};
 
 use crate::{
-    compiler::{error::CompileError, resolver::Resolver},
+    compiler::{context::Context, error::CompileError},
     constants::ConstantsError,
     parser::error::ParseError,
     source::{Source, SourceError},
@@ -37,9 +37,9 @@ impl<'src> From<SourceError> for Error<'src> {
 
 impl<'a> Display for Error<'a> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let (source, syntax, resolver) = match &self.context {
-            ErrorContext::Full(source, syntax, resolver) => {
-                (Some(source), Some(syntax), Some(resolver))
+        let (source, syntax, context) = match &self.context {
+            ErrorContext::Full(source, syntax, context) => {
+                (Some(source), Some(syntax), Some(context))
             }
             ErrorContext::Source(source) => (Some(source), None, None),
             ErrorContext::None => (None, None, None),
@@ -59,9 +59,9 @@ impl<'a> Display for Error<'a> {
                 ErrorKind::Compile(compile_error) => {
                     if let Some(source) = source
                         && let Some(syntax) = syntax
-                        && let Some(resolver) = resolver
+                        && let Some(context) = context
                     {
-                        compile_error.add_report((source, syntax, resolver), &mut groups)
+                        compile_error.add_report((source, syntax, context), &mut groups)
                     } else {
                         MissingErrorContext.add_report((), &mut groups);
                     }
@@ -140,16 +140,16 @@ impl From<MissingErrorContext> for ErrorKind {
 pub enum ErrorContext<'src> {
     None,
     Source(Source<'src>),
-    Full(Source<'src>, Syntax, Box<Resolver>),
+    Full(Source<'src>, Syntax, Box<Context>),
 }
 
 impl<'src> ErrorContext<'src> {
-    pub fn parts(&self) -> (Option<&Source<'src>>, Option<&Syntax>, Option<&Resolver>) {
+    pub fn parts(&self) -> (Option<&Source<'src>>, Option<&Syntax>, Option<&Context>) {
         match self {
             ErrorContext::None => (None, None, None),
             ErrorContext::Source(source) => (Some(source), None, None),
-            ErrorContext::Full(source, syntax, resolver) => {
-                (Some(source), Some(syntax), Some(resolver))
+            ErrorContext::Full(source, syntax, context) => {
+                (Some(source), Some(syntax), Some(context))
             }
         }
     }

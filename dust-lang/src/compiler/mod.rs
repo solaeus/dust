@@ -1,27 +1,25 @@
-mod declaration_binder;
-mod emitter;
+pub mod context;
+mod declaration_resolver;
 pub mod error;
-pub mod resolver;
-mod type_binder;
+mod prototype_emitter;
+mod type_resolver;
 mod value_creation;
 
 #[cfg(test)]
 pub(crate) mod tests;
 
-pub use emitter::RegisterWidth;
+pub use prototype_emitter::RegisterWidth;
 
 use smallvec::SmallVec;
 use tracing::{Level, span};
 
 use crate::{
     compiler::{
-        declaration_binder::DeclarationBinder,
-        emitter::Emitter,
+        context::{Context, PrototypeId, declarations::Definition, scopes::Barrier, types::TypeId},
+        declaration_resolver::DeclarationResolver,
         error::CompileError,
-        resolver::{
-            PrototypeId, Resolver, declarations::Definition, scopes::Barrier, types::TypeId,
-        },
-        type_binder::TypeBinder,
+        prototype_emitter::PrototypeEmitter,
+        type_resolver::TypeResolver,
     },
     constants::ConstantsBuilder,
     dust_type::DustType,
@@ -38,7 +36,7 @@ pub struct Compiler<'src> {
     syntax: Syntax,
     source: Source<'src>,
     constants: ConstantsBuilder,
-    resolver: Resolver,
+    context: Context,
 }
 
 impl<'src> Compiler<'src> {
@@ -47,7 +45,7 @@ impl<'src> Compiler<'src> {
             syntax: Syntax::with_capacity(source.file_count()),
             source,
             constants: ConstantsBuilder::new(),
-            resolver: Resolver::new(),
+            context: Context::new(),
         }
     }
 
@@ -55,13 +53,13 @@ impl<'src> Compiler<'src> {
         match self.compile_inner() {
             Ok(return_type) => {
                 let (constants, _) = self.constants.build();
-                let prototypes = self.resolver.into_prototypes();
+                let prototypes = self.context.into_prototypes();
                 let program = Program::new(program_name, return_type, constants, prototypes);
 
                 Ok(program)
             }
             Err(errors) => {
-                let context = ErrorContext::Full(self.source, self.syntax, Box::new(self.resolver));
+                let context = ErrorContext::Full(self.source, self.syntax, Box::new(self.context));
                 let errors = Error::new(errors, context);
 
                 Err(errors)
@@ -80,7 +78,7 @@ impl<'src> Compiler<'src> {
                     program_name,
                     return_type,
                     constants,
-                    self.resolver.into_prototypes(),
+                    self.context.into_prototypes(),
                 );
 
                 Ok((program, self.source, self.syntax, constant_tags))
@@ -88,7 +86,7 @@ impl<'src> Compiler<'src> {
             Err(errors) => {
                 let errors = Error::new(
                     errors,
-                    ErrorContext::Full(self.source, self.syntax, Box::new(self.resolver)),
+                    ErrorContext::Full(self.source, self.syntax, Box::new(self.context)),
                 );
 
                 Err(errors)
@@ -139,7 +137,7 @@ impl<'src> Compiler<'src> {
             }
         }
 
-        let crate_scope_id = self.resolver.scopes.enter_scope(Barrier::Module, None);
+        let crate_scope_id = self.context.scopes.enter_scope(Barrier::Module, None);
 
         // Declaration binding phase
         {
@@ -152,20 +150,20 @@ impl<'src> Compiler<'src> {
                     .and_then(|tree| tree.read_root())
             );
 
-            let mut declaration_binder = DeclarationBinder::new(
+            let mut declaration_resolver = DeclarationResolver::new(
                 &self.source,
                 &self.syntax,
-                &mut self.resolver,
+                &mut self.context,
                 &mut errors,
                 crate_scope_id,
             );
 
-            match declaration_binder.bind_root(main_file_root) {
+            match declaration_resolver.visit_root(main_file_root) {
                 Ok(()) => {}
                 Err(error) => errors.push(ErrorKind::Compile(error)),
             }
 
-            self.resolver.scopes.exit_scope(crate_scope_id);
+            self.context.scopes.exit_scope(crate_scope_id);
         }
 
         if !errors.is_empty() {
@@ -174,9 +172,9 @@ impl<'src> Compiler<'src> {
 
         // Emission phase
 
-        let main_symbol_id = self.resolver.symbols.add_symbol("main");
+        let main_symbol_id = self.context.symbols.add_symbol("main");
         let main_declaration_id = match self
-            .resolver
+            .context
             .declarations
             .find_declaration_id(main_symbol_id, crate_scope_id)
         {
@@ -188,7 +186,7 @@ impl<'src> Compiler<'src> {
             }
         };
         let main_declaration = self
-            .resolver
+            .context
             .declarations
             .get_declaration(main_declaration_id);
         let Definition::Function { .. } = main_declaration.definition else {
@@ -198,19 +196,19 @@ impl<'src> Compiler<'src> {
         };
 
         let main_prototype_id = self
-            .resolver
+            .context
             .add_monomorphized_function(main_declaration_id, SmallVec::new());
 
         debug_assert_eq!(main_prototype_id, PrototypeId::MAIN);
 
         let mut main_return_type_id = None;
 
-        while let Some(prototype_id) = self.resolver.pop_from_compilation_stack() {
+        while let Some(prototype_id) = self.context.pop_from_compilation_stack() {
             match self.compile_loop(prototype_id, &mut errors) {
                 Ok(type_id) => {
                     if prototype_id == PrototypeId::MAIN {
                         main_return_type_id = Some(unwrap_or_return!(
-                            self.resolver.get_inferred_type_id(type_id)
+                            self.context.get_inferred_type_id(type_id)
                         ));
                     }
                 }
@@ -227,10 +225,8 @@ impl<'src> Compiler<'src> {
             }
         };
 
-        let main_function_return_type = unwrap_or_return!(
-            self.resolver
-                .get_external_type(concrete_main_return_type_id)
-        );
+        let main_function_return_type =
+            unwrap_or_return!(self.context.get_external_type(concrete_main_return_type_id));
 
         if errors.is_empty() {
             Ok(main_function_return_type)
@@ -258,10 +254,10 @@ impl<'src> Compiler<'src> {
         }
 
         let (declaration_id, mut type_arguments) = self
-            .resolver
+            .context
             .get_monomorphized_function(prototype_id)
             .clone();
-        let declaration = self.resolver.declarations.get_declaration(declaration_id);
+        let declaration = self.context.declarations.get_declaration(declaration_id);
         let Definition::Function {
             parent_impl_or_trait,
             type_parameters,
@@ -299,35 +295,35 @@ impl<'src> Compiler<'src> {
         };
 
         let type_parameter_ids = unwrap_or_return!(
-            self.resolver
+            self.context
                 .get_type_parameter_ids(parent_impl_or_trait, type_parameters)
         );
 
         while type_arguments.len() < type_parameter_ids.len() {
-            let inferred_type_id = self.resolver.types.create_inferred_type(None);
+            let inferred_type_id = self.context.types.create_inferred_type(None);
 
             type_arguments.push(inferred_type_id);
         }
 
-        self.resolver.type_parameter_map.clear();
-        self.resolver
+        self.context.type_parameter_map.clear();
+        self.context
             .type_parameter_map
             .extend(type_parameter_ids.into_iter().zip(type_arguments));
 
         {
-            let span = span!(Level::INFO, "type_bind");
+            let span = span!(Level::INFO, "type_resolve");
             let _enter = span.enter();
 
-            let mut type_binder = TypeBinder::new(&mut self.resolver, &self.source, errors);
+            let mut type_resolver = TypeResolver::new(&mut self.context, &self.source, errors);
 
-            unwrap_or_return!(type_binder.bind_function_body(body, return_type_id));
+            unwrap_or_return!(type_resolver.visit_function_body(body, return_type_id));
         }
 
         {
             let span = span!(Level::INFO, "emit");
             let _enter = span.enter();
 
-            let mut emitter = unwrap_or_return!(Emitter::new(
+            let mut prototype_emitter = unwrap_or_return!(PrototypeEmitter::new(
                 declaration_id,
                 prototype_id,
                 return_type_id,
@@ -335,20 +331,20 @@ impl<'src> Compiler<'src> {
                     &self.source,
                     &self.syntax,
                     &mut self.constants,
-                    &mut self.resolver
+                    &mut self.context
                 ),
                 value_parameters,
             ));
 
-            unwrap_or_return!(emitter.emit_function_body(body));
+            unwrap_or_return!(prototype_emitter.visit_function_body(body));
 
-            let prototype = unwrap_or_return!(emitter.finish());
+            let prototype = unwrap_or_return!(prototype_emitter.finish());
 
-            self.resolver.set_prototype(prototype_id, prototype);
+            self.context.set_prototype(prototype_id, prototype);
         }
 
         let resolved_return_type_id =
-            unwrap_or_return!(self.resolver.get_inferred_type_id(return_type_id));
+            unwrap_or_return!(self.context.get_inferred_type_id(return_type_id));
 
         Ok(resolved_return_type_id)
     }

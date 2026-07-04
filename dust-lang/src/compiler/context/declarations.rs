@@ -5,8 +5,8 @@ use smallvec::SmallVec;
 
 use crate::{
     compiler::{
+        context::{TypeId, scopes::ScopeId, symbols::SymbolId, types::TypeMembers},
         error::CompileError,
-        resolver::{TypeId, scopes::ScopeId, symbols::SymbolId, types::TypeMembers},
     },
     native_function::NativeFunction,
     optimize_inline_capacity,
@@ -230,7 +230,7 @@ pub enum Definition {
         type_id: TypeId,
     },
 
-    /// Definition of a function declared within the resolver (not by the user) that stores its
+    /// Definition of a function declared within the context (not by the user) that stores its
     /// type, allowing it to be used like any other function declaration.
     ///
     /// Native functions include:

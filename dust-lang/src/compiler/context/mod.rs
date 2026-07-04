@@ -14,8 +14,7 @@ use smallvec::{SmallVec, smallvec};
 
 use crate::{
     compiler::{
-        error::CompileError,
-        resolver::{
+        context::{
             declarations::{Declaration, DeclarationId, Declarations, Definition, VariantKind},
             scopes::{Barrier, ScopeId, Scopes},
             symbols::{SymbolId, Symbols},
@@ -24,6 +23,7 @@ use crate::{
                 Types, UnsignedIntegerType,
             },
         },
+        error::CompileError,
     },
     constants::value::ConstantValue,
     dust_type::{DustEnumType, DustFunctionType, DustStructType, DustStructTypeFields, DustType},
@@ -32,7 +32,7 @@ use crate::{
     syntax::{SyntaxId, reader::SyntaxReader},
 };
 
-pub struct Resolver {
+pub struct Context {
     pub symbols: Symbols,
     pub declarations: Declarations,
     pub scopes: Scopes,
@@ -50,9 +50,9 @@ pub struct Resolver {
     constant_item_values: HashMap<DeclarationId, ConstantValue, FxBuildHasher>,
 }
 
-impl Resolver {
+impl Context {
     pub fn new() -> Self {
-        let mut resolver = Self {
+        let mut context = Self {
             symbols: Symbols::new(),
             declarations: Declarations::new(),
             scopes: Scopes::new(),
@@ -67,9 +67,9 @@ impl Resolver {
             constant_item_values: HashMap::default(),
         };
 
-        add_core(&mut resolver);
+        add_core(&mut context);
 
-        resolver
+        context
     }
 
     pub fn into_prototypes(self) -> Vec<Prototype> {
@@ -149,15 +149,15 @@ impl Resolver {
         self_type_id: Option<TypeId>,
     ) -> Result<(TypeId::SmallVec, TypeId), CompileError> {
         fn collect_value_parameter_type_ids(
-            resolver: &mut Resolver,
+            context: &mut Context,
             value_parameters: ScopeId,
             value_parameter_type_ids: &mut TypeId::SmallVec,
         ) -> Result<(), CompileError> {
-            let value_parameter_ids = resolver.scopes.get_members(value_parameters);
+            let value_parameter_ids = context.scopes.get_members(value_parameters);
 
             for value_parameter_id in value_parameter_ids {
                 let value_parameter_declaration =
-                    resolver.declarations.get_declaration(*value_parameter_id);
+                    context.declarations.get_declaration(*value_parameter_id);
                 let (Definition::Local { type_id, .. } | Definition::Field { type_id, .. }) =
                     value_parameter_declaration.definition
                 else {
@@ -1005,7 +1005,7 @@ impl Resolver {
         associated_declaration_id: DeclarationId,
     ) -> Result<Option<TypeId>, CompileError> {
         fn type_members_equal(
-            resolver: &mut Resolver,
+            context: &mut Context,
             left: TypeMembers,
             right: TypeMembers,
         ) -> Result<bool, CompileError> {
@@ -1019,11 +1019,11 @@ impl Resolver {
             for (left_member_index, right_member_index) in
                 left_member_indices.into_iter().zip(right_member_indices)
             {
-                let left_id = *resolver.types.get_type_member(left_member_index)?;
-                let right_id = *resolver.types.get_type_member(right_member_index)?;
+                let left_id = *context.types.get_type_member(left_member_index)?;
+                let right_id = *context.types.get_type_member(right_member_index)?;
 
-                if resolver.get_inferred_type_id(left_id)?
-                    != resolver.get_inferred_type_id(right_id)?
+                if context.get_inferred_type_id(left_id)?
+                    != context.get_inferred_type_id(right_id)?
                 {
                     return Ok(false);
                 }
@@ -1766,17 +1766,17 @@ impl Resolver {
     }
 }
 
-impl Default for Resolver {
+impl Default for Context {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Debug for Resolver {
+impl Debug for Context {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,
-            "Resolver {{ symbols: {}, declarations: {}, scopes: {}, types: {}, type_parameter_map: {}, implementations: {}, prototypes: {}, compilation_stack: {}, monomorphization_cache: {}, declaration_bindings: {}, type_bindings: {}, constant_item_values: {} }}",
+            "Context {{ symbols: {}, declarations: {}, scopes: {}, types: {}, type_parameter_map: {}, implementations: {}, prototypes: {}, compilation_stack: {}, monomorphization_cache: {}, declaration_bindings: {}, type_bindings: {}, constant_item_values: {} }}",
             self.symbols.symbol_count(),
             self.declarations.declaration_count(),
             self.scopes.scope_count(),
@@ -1810,7 +1810,7 @@ impl Display for PrototypeId {
     }
 }
 
-fn add_core(resolver: &mut Resolver) {
+fn add_core(context: &mut Context) {
     const OPTION_VARIANTS: &[(&str, BuiltInStructFields)] = &[
         ("None", BuiltInStructFields::Unit),
         (
@@ -1855,22 +1855,20 @@ fn add_core(resolver: &mut Resolver) {
         },
     ];
 
-    let core_scope_id = resolver.scopes.enter_scope(Barrier::Module, None);
+    let core_scope_id = context.scopes.enter_scope(Barrier::Module, None);
 
     debug_assert_eq!(core_scope_id, ScopeId::CORE);
 
     let mut type_declaration_ids = Vec::with_capacity(BUILT_IN_TYPES.len());
 
     for built_in_type in BUILT_IN_TYPES {
-        let type_symbol_id = resolver.symbols.add_symbol(built_in_type.name());
+        let type_symbol_id = context.symbols.add_symbol(built_in_type.name());
         let type_declaration_id =
-            resolver
+            context
                 .declarations
                 .reserve_declaration_id(type_symbol_id, core_scope_id, None);
 
-        resolver
-            .scopes
-            .add_to_current_namespace(type_declaration_id);
+        context.scopes.add_to_current_namespace(type_declaration_id);
         type_declaration_ids.push((*built_in_type, type_declaration_id));
     }
 
@@ -1880,11 +1878,11 @@ fn add_core(resolver: &mut Resolver) {
     debug_assert_eq!(type_declaration_ids[3].1, DeclarationId::RANGE_INCLUSIVE);
 
     for (built_in_type, type_declaration_id) in type_declaration_ids {
-        add_built_in_type_definition(resolver, built_in_type, type_declaration_id, core_scope_id);
+        add_built_in_type_definition(context, built_in_type, type_declaration_id, core_scope_id);
     }
 
-    resolver.scopes.exit_scope(core_scope_id);
-    resolver.declarations.finish_reserved_range();
+    context.scopes.exit_scope(core_scope_id);
+    context.declarations.finish_reserved_range();
 }
 
 #[derive(Clone, Copy)]
@@ -1919,12 +1917,12 @@ impl<'a> BuiltInType<'a> {
 }
 
 fn add_built_in_type_definition(
-    resolver: &mut Resolver,
+    context: &mut Context,
     built_in_type: BuiltInType,
     type_declaration_id: DeclarationId,
     core_scope_id: ScopeId,
 ) {
-    let item_scope_id = resolver
+    let item_scope_id = context
         .scopes
         .enter_scope(Barrier::Item, Some(core_scope_id));
 
@@ -1935,22 +1933,22 @@ fn add_built_in_type_definition(
             ..
         } => {
             let type_parameter_declarations =
-                add_built_in_type_parameters(resolver, item_scope_id, type_parameters);
+                add_built_in_type_parameters(context, item_scope_id, type_parameters);
             let type_parameters = if type_parameter_declarations.is_empty() {
                 None
             } else {
                 Some(item_scope_id)
             };
             let fields = add_built_in_fields(
-                resolver,
+                context,
                 fields,
                 type_declaration_id,
                 item_scope_id,
                 &type_parameter_declarations,
             );
 
-            resolver.scopes.exit_scope(item_scope_id);
-            resolver.declarations.set_reserved_declaration(
+            context.scopes.exit_scope(item_scope_id);
+            context.declarations.set_reserved_declaration(
                 type_declaration_id,
                 Definition::StructType {
                     public: true,
@@ -1965,22 +1963,22 @@ fn add_built_in_type_definition(
             ..
         } => {
             let type_parameter_declarations =
-                add_built_in_type_parameters(resolver, item_scope_id, type_parameters);
+                add_built_in_type_parameters(context, item_scope_id, type_parameters);
             let type_parameters = if type_parameter_declarations.is_empty() {
                 None
             } else {
                 Some(item_scope_id)
             };
             let variants = add_built_in_variants(
-                resolver,
+                context,
                 variants,
                 type_declaration_id,
                 item_scope_id,
                 &type_parameter_declarations,
             );
 
-            resolver.scopes.exit_scope(item_scope_id);
-            resolver.declarations.set_reserved_declaration(
+            context.scopes.exit_scope(item_scope_id);
+            context.declarations.set_reserved_declaration(
                 type_declaration_id,
                 Definition::EnumType {
                     public: true,
@@ -1994,7 +1992,7 @@ fn add_built_in_type_definition(
 }
 
 fn add_built_in_type_parameters<'a>(
-    resolver: &mut Resolver,
+    context: &mut Context,
     item_scope_id: ScopeId,
     type_parameters: &'a [(&'a str, &'a [DeclarationId])],
 ) -> Vec<(&'a str, SymbolId, DeclarationId)> {
@@ -2003,8 +2001,8 @@ fn add_built_in_type_parameters<'a>(
     for (type_parameter_name, bounds) in type_parameters {
         let bounds = if !bounds.is_empty() { todo!() } else { None };
 
-        let type_parameter_symbol_id = resolver.symbols.add_symbol(type_parameter_name);
-        let type_parameter_declaration_id = resolver.declarations.add_declaration(Declaration {
+        let type_parameter_symbol_id = context.symbols.add_symbol(type_parameter_name);
+        let type_parameter_declaration_id = context.declarations.add_declaration(Declaration {
             symbol_id: type_parameter_symbol_id,
             definition: Definition::TypeParameter {
                 is_self: false,
@@ -2019,7 +2017,7 @@ fn add_built_in_type_parameters<'a>(
             type_parameter_symbol_id,
             type_parameter_declaration_id,
         ));
-        resolver
+        context
             .scopes
             .add_to_current_namespace(type_parameter_declaration_id);
     }
@@ -2028,7 +2026,7 @@ fn add_built_in_type_parameters<'a>(
 }
 
 fn add_built_in_fields(
-    resolver: &mut Resolver,
+    context: &mut Context,
     fields: BuiltInStructFields,
     parent_declaration_id: DeclarationId,
     parent_scope_id: ScopeId,
@@ -2037,15 +2035,15 @@ fn add_built_in_fields(
     match fields {
         BuiltInStructFields::Unit => None,
         BuiltInStructFields::Tuple(field_types) => {
-            let fields_scope_id = resolver
+            let fields_scope_id = context
                 .scopes
                 .enter_scope(Barrier::Members, Some(parent_scope_id));
 
             for (field_index, field_type) in field_types.iter().enumerate() {
-                let field_symbol_id = resolver.symbols.add_index_symbol(field_index as u32);
+                let field_symbol_id = context.symbols.add_index_symbol(field_index as u32);
                 let field_type_id =
-                    get_built_in_type_id(resolver, *field_type, type_parameter_declarations);
-                let field_declaration_id = resolver.declarations.add_declaration(Declaration {
+                    get_built_in_type_id(context, *field_type, type_parameter_declarations);
+                let field_declaration_id = context.declarations.add_declaration(Declaration {
                     symbol_id: field_symbol_id,
                     definition: Definition::Field {
                         public: true,
@@ -2056,25 +2054,25 @@ fn add_built_in_fields(
                     syntax: None,
                 });
 
-                resolver
+                context
                     .scopes
                     .add_to_current_namespace(field_declaration_id);
             }
 
-            resolver.scopes.exit_scope(fields_scope_id);
+            context.scopes.exit_scope(fields_scope_id);
 
             Some(fields_scope_id)
         }
         BuiltInStructFields::Named(field_types) => {
-            let fields_scope_id = resolver
+            let fields_scope_id = context
                 .scopes
                 .enter_scope(Barrier::Members, Some(parent_scope_id));
 
             for (field_name, field_type) in field_types {
-                let field_symbol_id = resolver.symbols.add_symbol(field_name);
+                let field_symbol_id = context.symbols.add_symbol(field_name);
                 let field_type_id =
-                    get_built_in_type_id(resolver, *field_type, type_parameter_declarations);
-                let field_declaration_id = resolver.declarations.add_declaration(Declaration {
+                    get_built_in_type_id(context, *field_type, type_parameter_declarations);
+                let field_declaration_id = context.declarations.add_declaration(Declaration {
                     symbol_id: field_symbol_id,
                     definition: Definition::Field {
                         public: true,
@@ -2085,12 +2083,12 @@ fn add_built_in_fields(
                     syntax: None,
                 });
 
-                resolver
+                context
                     .scopes
                     .add_to_current_namespace(field_declaration_id);
             }
 
-            resolver.scopes.exit_scope(fields_scope_id);
+            context.scopes.exit_scope(fields_scope_id);
 
             Some(fields_scope_id)
         }
@@ -2098,21 +2096,21 @@ fn add_built_in_fields(
 }
 
 fn add_built_in_variants(
-    resolver: &mut Resolver,
+    context: &mut Context,
     variants: &[(&str, BuiltInStructFields)],
     enum_declaration_id: DeclarationId,
     item_scope_id: ScopeId,
     type_parameter_declarations: &[(&str, SymbolId, DeclarationId)],
 ) -> ScopeId {
-    let variants_scope_id = resolver
+    let variants_scope_id = context
         .scopes
         .enter_scope(Barrier::Members, Some(item_scope_id));
     let mut variant_namespace_entries = Vec::with_capacity(variants.len());
 
     for (variant_index, (variant_name, variant_fields)) in variants.iter().enumerate() {
-        let variant_symbol_id = resolver.symbols.add_symbol(variant_name);
+        let variant_symbol_id = context.symbols.add_symbol(variant_name);
         let variant_declaration_id = match variant_fields {
-            BuiltInStructFields::Unit => resolver.declarations.add_declaration(Declaration {
+            BuiltInStructFields::Unit => context.declarations.add_declaration(Declaration {
                 symbol_id: variant_symbol_id,
                 definition: Definition::Variant {
                     discriminant: variant_index as u16,
@@ -2124,20 +2122,20 @@ fn add_built_in_variants(
                 syntax: None,
             }),
             BuiltInStructFields::Tuple(_) => {
-                let variant_declaration_id = resolver.declarations.reserve_declaration_id(
+                let variant_declaration_id = context.declarations.reserve_declaration_id(
                     variant_symbol_id,
                     variants_scope_id,
                     None,
                 );
                 let fields = add_built_in_fields(
-                    resolver,
+                    context,
                     *variant_fields,
                     variant_declaration_id,
                     variants_scope_id,
                     type_parameter_declarations,
                 );
 
-                resolver.declarations.set_reserved_declaration(
+                context.declarations.set_reserved_declaration(
                     variant_declaration_id,
                     Definition::Variant {
                         discriminant: variant_index as u16,
@@ -2150,20 +2148,20 @@ fn add_built_in_variants(
                 variant_declaration_id
             }
             BuiltInStructFields::Named(_) => {
-                let variant_declaration_id = resolver.declarations.reserve_declaration_id(
+                let variant_declaration_id = context.declarations.reserve_declaration_id(
                     variant_symbol_id,
                     variants_scope_id,
                     None,
                 );
                 let fields = add_built_in_fields(
-                    resolver,
+                    context,
                     *variant_fields,
                     variant_declaration_id,
                     variants_scope_id,
                     type_parameter_declarations,
                 );
 
-                resolver.declarations.set_reserved_declaration(
+                context.declarations.set_reserved_declaration(
                     variant_declaration_id,
                     Definition::Variant {
                         discriminant: variant_index as u16,
@@ -2177,19 +2175,19 @@ fn add_built_in_variants(
             }
         };
 
-        resolver
+        context
             .scopes
             .add_to_current_namespace(variant_declaration_id);
         variant_namespace_entries.push((variant_symbol_id, variant_declaration_id));
     }
 
-    resolver.scopes.exit_scope(variants_scope_id);
+    context.scopes.exit_scope(variants_scope_id);
 
     variants_scope_id
 }
 
 fn get_built_in_type_id(
-    resolver: &mut Resolver,
+    context: &mut Context,
     built_in_type: BuiltInType,
     type_parameter_declarations: &[(&str, SymbolId, DeclarationId)],
 ) -> TypeId {
@@ -2197,7 +2195,7 @@ fn get_built_in_type_id(
         BuiltInType::Generic(type_parameter_name) => {
             for (candidate_name, _, declaration_id) in type_parameter_declarations {
                 if *candidate_name == type_parameter_name {
-                    return resolver.types.add_type(Type::Generic {
+                    return context.types.add_type(Type::Generic {
                         declaration_id: *declaration_id,
                     });
                 }

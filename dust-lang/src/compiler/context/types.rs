@@ -10,7 +10,7 @@ use smallvec::SmallVec;
 use tracing::trace;
 
 use crate::{
-    compiler::{error::CompileError, resolver::declarations::DeclarationId},
+    compiler::{context::declarations::DeclarationId, error::CompileError},
     optimize_inline_capacity,
 };
 

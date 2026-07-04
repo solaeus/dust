@@ -2,8 +2,8 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::{
     compiler::{
+        context::{PrototypeId, types::TypeId},
         error::CompileError,
-        resolver::{PrototypeId, types::TypeId},
     },
     instruction::OperandType,
     syntax::{

@@ -2,14 +2,13 @@ use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
     compiler::{
-        emitter::JumpId,
-        resolver::{
-            Resolver,
+        context::{
+            Context,
             declarations::DeclarationId,
-            scopes::ScopeId,
             symbols::SymbolId,
-            types::{Type, TypeId, TypeMembers},
+            types::{Type, TypeId},
         },
+        prototype_emitter::JumpId,
     },
     constants::{ConstantsError, value::ConstantValue},
     dust_type::DustType,
@@ -21,27 +20,10 @@ use crate::{
 #[derive(Clone, Debug)]
 pub enum CompileError {
     // User errors
-    CannotAccessField {
-        type_id: TypeId,
-        position: crate::source::Position,
-    },
     CannotApplyOperator {
         operator: SyntaxKind,
         type_id: TypeId,
         operand_position: Position,
-    },
-    CannotApplyBinaryOperator {
-        operator: SyntaxKind,
-        operand_span: Span,
-        left_type_id: TypeId,
-        left_span: Span,
-        right_type_id: TypeId,
-        right_span: Span,
-        source_id: SourceCodeId,
-    },
-    CannotImport {
-        declaration_id: DeclarationId,
-        position: Position,
     },
     CannotInferType {
         type_id: TypeId,
@@ -78,15 +60,8 @@ pub enum CompileError {
         operator: SyntaxKind,
         source_id: SourceCodeId,
     },
-    DivisionByZero {
-        position: Position,
-    },
     ExpectedIntegerIndex {
         found: TypeId,
-        position: Position,
-    },
-    ExpectedFunction {
-        node_kind: SyntaxKind,
         position: Position,
     },
     ExpectedBooleanExpression {
@@ -115,12 +90,6 @@ pub enum CompileError {
         found: TypeId,
         position: Position,
     },
-    ExpectedArguments {
-        function_type: TypeId,
-        expected_count: usize,
-        found_count: usize,
-        found_position: Position,
-    },
     ExpectedValue {
         source_id: SourceCodeId,
         syntax_id: SyntaxId,
@@ -130,23 +99,10 @@ pub enum CompileError {
         length: usize,
         position: Position,
     },
-    ExpectedNoneType {
-        node_kind: SyntaxKind,
-        position: Position,
-    },
-    CannotInstantiateType {
-        type_id: TypeId,
-        position: Option<Position>,
-    },
     ExpectedNativeFunctionCall {
         position: Position,
     },
     ExpectedMainFunction,
-    ListElementSizeOverflow {
-        size: usize,
-        type_id: TypeId,
-        position: Position,
-    },
     ExpectedIndexableType {
         type_id: TypeId,
     },
@@ -158,28 +114,11 @@ pub enum CompileError {
     Source(SourceError),
     Syntax(SyntaxError),
     ConstantList(ConstantsError),
-    ExpectedModuleDeclaration(DeclarationId),
     ExpectedTypeDeclaration(DeclarationId),
-    InvalidRegisterCount {
-        expected: usize,
-        found: usize,
-    },
     InvalidRegisterAllocation,
-    ExpectedLocal,
-    ExpectedEmissionTarget {
-        node_kind: SyntaxKind,
-    },
     ExpectedJumpPlacement(JumpId),
-    MissingSymbol(SymbolId),
-    MissingDeclaration(DeclarationId),
-    MissingDeclarationType(DeclarationId),
     MissingDeclarationBinding(SyntaxId),
-    MissingTypeDeclaration(DeclarationId),
-    MissingScope(ScopeId),
-    MissingScopeBinding(SyntaxId),
-    MissingType(TypeId),
     MissingTypeMember(u32),
-    MissingTypeMembers(TypeMembers),
     MissingTypeBinding(SyntaxId),
     ExpectedFunctionDefinition(DeclarationId),
     ExpectedAlgebraicTypeDefinition(DeclarationId),
@@ -189,7 +128,6 @@ pub enum CompileError {
     ExpectedAllocation,
     InvalidTypeBinding(TypeId),
     ExpectedConstantDefinition(DeclarationId),
-    ExpectedEnumDefinition(DeclarationId),
     ExpectedArrayType(TypeId),
     InvalidEmission,
     UnexpectedSyntax {
@@ -199,23 +137,15 @@ pub enum CompileError {
     ExpectedLocalDefinition(DeclarationId),
     ExpectedVariantDefinition(DeclarationId),
     ExpectedStructDefinition(DeclarationId),
-    ExpectedTraitAssociatedConstantDefinition(DeclarationId),
     ScopeStackUnderflow,
     ExpectedSyntax {
         expected: &'static [SyntaxKind],
     },
-    TypeArgumentCountMismatch {
-        expected: usize,
-        actual: usize,
-    },
-    ExpectedForwardReferenceDefinition(DeclarationId),
     ExpectedAlgebraicType(TypeId),
-    ExpectedTraitDefinition(DeclarationId),
     ExpectedEncodedValue {
         found: ConstantValue,
     },
     InvalidContext,
-    ExpectedImplOrTraitDefinition(DeclarationId),
     ExpectedFunctionDefinitionType(TypeId),
     ExpectedInferredType(TypeId),
     UnexpectedType(TypeId),
@@ -240,29 +170,12 @@ impl From<SourceError> for CompileError {
 }
 
 impl<'a> DustError<'a> for CompileError {
-    type Info = (&'a Source<'a>, &'a Syntax, &'a Resolver);
+    type Info = (&'a Source<'a>, &'a Syntax, &'a Context);
 
-    fn add_report(&self, (source, syntax, resolver): Self::Info, groups: &mut Vec<Group<'a>>) {
+    fn add_report(&self, (source, syntax, context): Self::Info, groups: &mut Vec<Group<'a>>) {
         match self {
-            CompileError::DivisionByZero { position } => {
-                let title = "Division by zero";
-                let file_content = match source.get_content(*position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        error.add_report((), groups);
-
-                        return;
-                    }
-                };
-                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_content)
-                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
-                );
-
-                groups.push(group);
-            }
             CompileError::ExpectedIntegerIndex { found, position } => {
-                let found_type = resolver
+                let found_type = context
                     .get_external_type(*found)
                     .map(|r#type| r#type.to_string())
                     .unwrap_or("<invalid type>".to_string());
@@ -296,10 +209,10 @@ impl<'a> DustError<'a> for CompileError {
                         return;
                     }
                 };
-                let found_type = match resolver.get_external_type(*found_type_id) {
+                let found_type = match context.get_external_type(*found_type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
+                        error.add_report((source, syntax, context), groups);
 
                         return;
                     }
@@ -313,37 +226,17 @@ impl<'a> DustError<'a> for CompileError {
 
                 groups.push(group);
             }
-            CompileError::ExpectedFunction {
-                node_kind,
-                position,
-            } => {
-                let title = format!("Expected a function, found {node_kind}");
-                let file_content = match source.get_content(*position) {
-                    Ok(file) => file,
-                    Err(error) => {
-                        error.add_report((), groups);
-
-                        return;
-                    }
-                };
-                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_content)
-                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
-                );
-
-                groups.push(group);
-            }
             CompileError::DeclarationOutOfScope {
                 declaration_id,
                 usage_position,
             } => {
                 let title = "Declaration out of scope";
 
-                let declaration = resolver.declarations.get_declaration(*declaration_id);
-                let name = match resolver.symbols.get_symbol(&declaration.symbol_id) {
+                let declaration = context.declarations.get_declaration(*declaration_id);
+                let name = match context.symbols.get_symbol(&declaration.symbol_id) {
                     Ok(name) => name,
                     Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
+                        error.add_report((source, syntax, context), groups);
 
                         return;
                     }
@@ -383,20 +276,20 @@ impl<'a> DustError<'a> for CompileError {
                 groups.push(group);
             }
             CompileError::CannotInferType { type_id } => {
-                let r#type = resolver.types.get_type(*type_id);
+                let r#type = context.types.get_type(*type_id);
                 let declaration = match r#type {
                     Type::Algebraic { declaration_id, .. }
                     | Type::FunctionDefinition { declaration_id, .. }
                     | Type::Generic { declaration_id } => {
-                        Some(resolver.declarations.get_declaration(*declaration_id))
+                        Some(context.declarations.get_declaration(*declaration_id))
                     }
                     _ => None,
                 };
                 let type_string = if let Some(declaration) = declaration {
-                    match resolver.symbols.get_symbol(&declaration.symbol_id) {
+                    match context.symbols.get_symbol(&declaration.symbol_id) {
                         Ok(symbol) => Some(symbol.to_string()),
                         Err(error) => {
-                            error.add_report((source, syntax, resolver), groups);
+                            error.add_report((source, syntax, context), groups);
 
                             return;
                         }
@@ -443,21 +336,21 @@ impl<'a> DustError<'a> for CompileError {
                 found_position,
             } => {
                 let title = "Type conflict";
-                let expected_type_string = match resolver.get_external_type(*expected_type) {
+                let expected_type_string = match context.get_external_type(*expected_type) {
                     Ok(r#type) => match r#type {
                         DustType::Struct(struct_type) => struct_type.name,
                         _ => r#type.to_string(),
                     },
                     Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
+                        error.add_report((source, syntax, context), groups);
 
                         return;
                     }
                 };
-                let found_type_string = match resolver.get_external_type(*found_type) {
+                let found_type_string = match context.get_external_type(*found_type) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
+                        error.add_report((source, syntax, context), groups);
 
                         return;
                     }
@@ -515,10 +408,10 @@ impl<'a> DustError<'a> for CompileError {
                         return;
                     }
                 };
-                let r#type = match resolver.get_external_type(*type_id) {
+                let r#type = match context.get_external_type(*type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
+                        error.add_report((source, syntax, context), groups);
 
                         return;
                     }
@@ -533,66 +426,11 @@ impl<'a> DustError<'a> for CompileError {
 
                 groups.push(group);
             }
-            CompileError::CannotApplyBinaryOperator {
-                operator,
-                operand_span,
-                left_type_id,
-                left_span,
-                right_type_id,
-                right_span,
-                source_id,
-            } => {
-                let title = "Cannot apply operator";
-                let file_content = source.get_code(*source_id).content_as_str();
-                let left_type = match resolver.get_external_type(*left_type_id) {
-                    Ok(r#type) => r#type,
-                    Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
-
-                        return;
-                    }
-                };
-                let right_type = match resolver.get_external_type(*right_type_id) {
-                    Ok(r#type) => r#type,
-                    Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
-
-                        return;
-                    }
-                };
-                let error_groups = [
-                    Group::with_title(Level::ERROR.primary_title(title)).element(
-                        Snippet::source(file_content).annotation(
-                            AnnotationKind::Primary
-                                .span(operand_span.as_usize_range())
-                                .label(format!(
-                                    "Cannot apply {operator} to `{left_type}` and `{right_type}`."
-                                )),
-                        ),
-                    ),
-                    Group::with_title(Level::ERROR.secondary_title("Left operand type")).element(
-                        Snippet::source(file_content).annotation(
-                            AnnotationKind::Primary
-                                .span(left_span.as_usize_range())
-                                .label(format!("Left operand has type `{left_type}`.")),
-                        ),
-                    ),
-                    Group::with_title(Level::ERROR.secondary_title("Right operand type")).element(
-                        Snippet::source(file_content).annotation(
-                            AnnotationKind::Primary
-                                .span(right_span.as_usize_range())
-                                .label(format!("Right operand has type `{right_type}`.")),
-                        ),
-                    ),
-                ];
-
-                groups.extend(error_groups);
-            }
             CompileError::CannotIndex { type_id, position } => {
-                let r#type = match resolver.get_external_type(*type_id) {
+                let r#type = match context.get_external_type(*type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
+                        error.add_report((source, syntax, context), groups);
 
                         return;
                     }
@@ -620,10 +458,10 @@ impl<'a> DustError<'a> for CompileError {
             } => {
                 let title = "Undeclared symbol";
                 let file_content = source.get_code(usage_position.source_id).content_as_str();
-                let name_str = match resolver.symbols.get_symbol(symbol_id) {
+                let name_str = match context.symbols.get_symbol(symbol_id) {
                     Ok(name) => name,
                     Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
+                        error.add_report((source, syntax, context), groups);
 
                         return;
                     }
@@ -640,10 +478,10 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::UnresolvedModule { symbol_id } => {
                 let title = "Unresolved module";
-                let symbol = match resolver.symbols.get_symbol(symbol_id) {
+                let symbol = match context.symbols.get_symbol(symbol_id) {
                     Ok(symbol) => symbol,
                     Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
+                        error.add_report((source, syntax, context), groups);
 
                         return;
                     }
@@ -680,10 +518,10 @@ impl<'a> DustError<'a> for CompileError {
                     }
                 };
 
-                let found_type = match resolver.get_external_type(*found) {
+                let found_type = match context.get_external_type(*found) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
+                        error.add_report((source, syntax, context), groups);
 
                         return;
                     }
@@ -694,42 +532,6 @@ impl<'a> DustError<'a> for CompileError {
                             .span(position.span.as_usize_range())
                             .label(format!(
                                 "Found {found_type}, but a function type is required."
-                            )),
-                    ),
-                );
-
-                groups.push(group);
-            }
-            CompileError::ExpectedArguments {
-                function_type,
-                found_position,
-                expected_count,
-                found_count,
-            } => {
-                let title = "Incorrect argument count";
-                let file_content = match source.get_content(*found_position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
-                let function_type = match resolver.get_external_type(*function_type) {
-                    Ok(r#type) => r#type,
-                    Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
-
-                        return;
-                    }
-                };
-                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_content).annotation(
-                        AnnotationKind::Primary
-                            .span(found_position.span.as_usize_range())
-                            .label(format!(
-                                "Expected {expected_count} arguments but found {found_count}."
-                            ))
-                            .label(format!(
-                                "Type {function_type} has {expected_count} arguments."
                             )),
                     ),
                 );
@@ -792,69 +594,6 @@ impl<'a> DustError<'a> for CompileError {
 
                 groups.push(group);
             }
-            CompileError::ExpectedNoneType {
-                node_kind,
-                position,
-            } => {
-                let title = "Expected type `none`";
-                let file_content = match source.get_content(*position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
-                let group =
-
-                Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_content).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!(
-                                "Expected type `none` here, but found {node_kind} with a different type."
-                            )),
-                    ),
-                );
-
-                groups.push(group);
-            }
-            CompileError::CannotInstantiateType { type_id, position } => {
-                let title = "Cannot instantiate type";
-                let r#type = match resolver.get_external_type(*type_id) {
-                    Ok(r#type) => r#type,
-                    Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
-
-                        return;
-                    }
-                };
-                let error_message = format!("Type {type} is an enum and cannot be instantiated.");
-                let help_message = "You must specify which variant of the enum you want to crete.";
-                let group = if let Some(position) = position {
-                    let file_content = match source.get_content(*position) {
-                        Ok(content) => content,
-                        Err(error) => {
-                            return error.add_report((), groups);
-                        }
-                    };
-
-                    Group::with_title(Level::ERROR.primary_title(title))
-                        .element(
-                            Snippet::source(file_content).annotation(
-                                AnnotationKind::Primary
-                                    .span(position.span.as_usize_range())
-                                    .label(error_message),
-                            ),
-                        )
-                        .element(Level::HELP.message(help_message))
-                } else {
-                    Group::with_title(Level::ERROR.primary_title(title)).elements([
-                        Level::ERROR.message(error_message),
-                        Level::HELP.message(help_message),
-                    ])
-                };
-
-                groups.push(group);
-            }
             CompileError::ExpectedNativeFunctionCall { position } => {
                 let title = "Expected a native function to be called";
                 let file_content = match source.get_content(*position) {
@@ -882,128 +621,6 @@ impl<'a> DustError<'a> for CompileError {
                 let title = "Expected a main function";
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Level::HELP.message("A \"main\" function is required to compile the program."),
-                );
-
-                groups.push(group);
-            }
-            CompileError::ListElementSizeOverflow {
-                size,
-                type_id,
-                position,
-            } => {
-                let title = "List element too large";
-                let file_content = match source.get_content(*position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
-                let element_type = match resolver.get_external_type(*type_id) {
-                    Ok(r#type) => r#type,
-                    Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
-
-                        return;
-                    }
-                };
-                let found_type_declaration_position = match resolver
-                    .declarations
-                    .find_type_declaration(*type_id)
-                    .map(|found| {
-                        found.and_then(|declaration| {
-                            declaration.syntax.map(|(position, _)| position)
-                        })
-                    }) {
-                    Ok(found) => found,
-                    Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
-
-                        return;
-                    }
-                };
-
-                let mut group = Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_content).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!(
-                                "Type `{element_type}` is {size} bytes, the maximum for list elements is {}.", u16::MAX - 1
-                            )),
-                    ),
-                );
-
-                if let Some(position) = found_type_declaration_position {
-                    let file_content = match source.get_content(position) {
-                        Ok(content) => content,
-                        Err(error) => {
-                            return error.add_report((), groups);
-                        }
-                    };
-
-                    group = group.element(
-                        Snippet::source(file_content).annotation(
-                            AnnotationKind::Context
-                                .span(position.span.as_usize_range())
-                                .label(format!("Type `{element_type}` was declared here.")),
-                        ),
-                    );
-                }
-
-                groups.push(group);
-            }
-            CompileError::CannotImport {
-                declaration_id,
-                position,
-            } => {
-                let title = "Cannot import";
-                let declaration = resolver.declarations.get_declaration(*declaration_id);
-                let name = match resolver.symbols.get_symbol(&declaration.symbol_id) {
-                    Ok(name) => name,
-                    Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
-
-                        return;
-                    }
-                };
-                let file_content = match source.get_content(*position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
-
-                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_content).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!("Cannot import \"{name}\" here.")),
-                    ),
-                );
-
-                groups.push(group);
-            }
-            CompileError::CannotAccessField { type_id, position } => {
-                let title = "Cannot access field";
-                let r#type = match resolver.get_external_type(*type_id) {
-                    Ok(r#type) => r#type,
-                    Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
-
-                        return;
-                    }
-                };
-                let file_content = match source.get_content(*position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
-                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_content).annotation(
-                        AnnotationKind::Primary
-                            .span(position.span.as_usize_range())
-                            .label(format!("Type {type} does not have any fields.")),
-                    ),
                 );
 
                 groups.push(group);
@@ -1097,10 +714,10 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::ExpectedIndexableType { type_id } => {
                 let title = "Expected an indexable type";
-                let r#type = match resolver.get_external_type(*type_id) {
+                let r#type = match context.get_external_type(*type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
-                        error.add_report((source, syntax, resolver), groups);
+                        error.add_report((source, syntax, context), groups);
 
                         return;
                     }
@@ -1121,16 +738,6 @@ impl<'a> DustError<'a> for CompileError {
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Level::ERROR.message(format!(
                         "Expected one of the following syntax kinds: {expected_string}, but found {found_string}."
-                    )),
-                );
-
-                groups.push(group);
-            }
-            CompileError::TypeArgumentCountMismatch { expected, actual } => {
-                let title = "Type argument count mismatch";
-                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Level::ERROR.message(format!(
-                        "Expected {expected} type arguments but found {actual}."
                     )),
                 );
 
@@ -1175,25 +782,13 @@ impl<'a> DustError<'a> for CompileError {
             CompileError::Syntax(error) => error.add_report((), groups),
             CompileError::ConstantList(error) => error.add_report((), groups),
             CompileError::Source(error) => error.add_report((), groups),
-            CompileError::ExpectedModuleDeclaration(_)
-            | CompileError::ExpectedTypeDeclaration(_)
-            | CompileError::InvalidRegisterCount { .. }
+            CompileError::ExpectedTypeDeclaration(_)
             | CompileError::InvalidRegisterAllocation
-            | CompileError::ExpectedEmissionTarget { .. }
             | CompileError::ExpectedJumpPlacement(_)
-            | CompileError::ExpectedLocal
             | CompileError::ExpectedFieldDefinition { .. }
             | CompileError::ExpectedAllocation
-            | CompileError::MissingSymbol(_)
-            | CompileError::MissingDeclaration(_)
-            | CompileError::MissingDeclarationType(_)
             | CompileError::MissingDeclarationBinding(_)
-            | CompileError::MissingTypeDeclaration(_)
-            | CompileError::MissingScope(_)
-            | CompileError::MissingScopeBinding(_)
-            | CompileError::MissingType(_)
             | CompileError::MissingTypeMember(_)
-            | CompileError::MissingTypeMembers(_)
             | CompileError::MissingTypeBinding(_)
             | CompileError::ExpectedFunctionDefinition(_)
             | CompileError::ExpectedAlgebraicTypeDefinition(_)
@@ -1201,21 +796,16 @@ impl<'a> DustError<'a> for CompileError {
             | CompileError::ExpectedConcreteType
             | CompileError::InvalidTypeBinding(_)
             | CompileError::ExpectedConstantDefinition(_)
-            | CompileError::ExpectedEnumDefinition(_)
             | CompileError::ExpectedArrayType(_)
             | CompileError::InvalidEmission
             | CompileError::ExpectedLocalDefinition(_)
             | CompileError::ExpectedVariantDefinition(_)
             | CompileError::ExpectedStructDefinition(_)
-            | CompileError::ExpectedTraitAssociatedConstantDefinition(_)
             | CompileError::ExpectedSyntax { .. }
             | CompileError::ScopeStackUnderflow
-            | CompileError::ExpectedForwardReferenceDefinition(_)
             | CompileError::ExpectedAlgebraicType(_)
-            | CompileError::ExpectedTraitDefinition(_)
             | CompileError::ExpectedEncodedValue { .. }
             | CompileError::InvalidContext
-            | CompileError::ExpectedImplOrTraitDefinition(_)
             | CompileError::ExpectedFunctionDefinitionType(_)
             | CompileError::ExpectedInferredType(_)
             | CompileError::UnexpectedType(_) => {

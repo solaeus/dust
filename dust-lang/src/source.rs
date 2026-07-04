@@ -481,7 +481,6 @@ pub enum SourceError {
     ExpectedFilePath { found: String },
 
     // Internal errors
-    MissingSourceFile(SourceCodeId),
     FileContentOutOfBounds { span: Span, length: usize },
 }
 
@@ -523,7 +522,7 @@ impl<'src> DustError<'src> for SourceError {
                     .element(Level::ERROR.message(message))
                     .element(Level::HELP.message(help))
             }
-            SourceError::MissingSourceFile(_) | SourceError::FileContentOutOfBounds { .. } => {
+            SourceError::FileContentOutOfBounds { .. } => {
                 self.add_internal_report(reports);
 
                 return;

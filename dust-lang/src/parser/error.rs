@@ -9,9 +9,6 @@ use crate::{
 
 #[derive(Debug)]
 pub enum ParseError {
-    CannotResolveModule {
-        position: Position,
-    },
     ExpectedToken {
         found: TokenKind,
         expected: TokenKind,
@@ -23,10 +20,6 @@ pub enum ParseError {
         position: Position,
     },
     ExpectedItem {
-        found: SyntaxKind,
-        position: Position,
-    },
-    ExpectedStatement {
         found: SyntaxKind,
         position: Position,
     },
@@ -55,31 +48,6 @@ impl<'src> DustError<'src> for ParseError {
 
     fn add_report(&self, source: Self::Info, groups: &mut Vec<Group<'src>>) {
         match self {
-            ParseError::CannotResolveModule { position } => {
-                let title = "Cannot resolve module".to_string();
-                let file = source.get_code(position.source_id);
-
-                let module_name = match file.get_str(position.span) {
-                    Ok(str) => str,
-                    Err(error) => {
-                        error.add_report((), groups);
-
-                        return;
-                    }
-                };
-                let group =  Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file.content_as_str())
-                        .path(file.file_name())
-                        .fold(false)
-                        .annotation(
-                            AnnotationKind::Primary
-                                .span(position.span.as_usize_range())
-                                .label(format!("Cannot find \"{module_name}.ds\" or \"{module_name}/mod.ds\" in this directory")),
-                        ),
-                );
-
-                groups.push(group);
-            }
             ParseError::InvalidUtf8 { position } => {
                 let title = "Invalid UTF-8 sequence".to_string();
                 let file = source.get_code(position.source_id);
@@ -173,23 +141,6 @@ impl<'src> DustError<'src> for ParseError {
             }
             ParseError::ExpectedItem { position, found } => {
                 let title = format!("Expected an item, but found {found}");
-                let file_content = match source.get_content(*position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        error.add_report((), groups);
-
-                        return;
-                    }
-                };
-                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_content)
-                        .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
-                );
-
-                groups.push(group);
-            }
-            ParseError::ExpectedStatement { position, found } => {
-                let title = format!("Expected a statement, but found {found}");
                 let file_content = match source.get_content(*position) {
                     Ok(content) => content,
                     Err(error) => {
