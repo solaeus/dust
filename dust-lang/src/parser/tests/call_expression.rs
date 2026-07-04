@@ -8,9 +8,7 @@ use crate::{
 
 #[test]
 fn call_with_two_arguments() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "foo(1, 2)"
-    )));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("foo(1, 2)")));
     let ParseResult {
         syntax_tree,
         errors,

@@ -32,9 +32,7 @@ fn empty_variant() {
 
 #[test]
 fn tuple_variant() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(
-        b"enum Foo { Bar(i64, i64) }",
-    ));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"enum Foo { Bar(i64, i64) }"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -64,9 +62,7 @@ fn tuple_variant() {
 
 #[test]
 fn fields_variant() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(
-        b"enum Foo { Bar { x: i64, y: i64 } }",
-    ));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"enum Foo { Bar { x: i64, y: i64 } }"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -139,8 +135,7 @@ fn mixed_variants() {
 
 #[test]
 fn type_parameters() {
-    let parser =
-        Parser::new_standalone(Lexer::unvalidated(b"enum Foo<A, B, C> { Bar }"));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"enum Foo<A, B, C> { Bar }"));
     let ParseResult {
         syntax_tree,
         errors,

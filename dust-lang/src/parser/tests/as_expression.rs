@@ -8,9 +8,7 @@ use crate::{
 
 #[test]
 fn as_expression() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "x as i32"
-    )));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x as i32")));
     let ParseResult {
         syntax_tree,
         errors,

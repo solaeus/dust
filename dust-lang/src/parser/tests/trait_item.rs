@@ -59,9 +59,7 @@ fn with_supertraits() {
 
 #[test]
 fn with_type_parameters_and_supertraits() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(
-        b"trait Foo<T>: Bar + Baz {}",
-    ));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo<T>: Bar + Baz {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -92,9 +90,7 @@ fn with_type_parameters_and_supertraits() {
 
 #[test]
 fn with_where_clause() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(
-        b"trait Foo<T> where T: Bar {}",
-    ));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo<T> where T: Bar {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -127,9 +123,7 @@ fn with_where_clause() {
 
 #[test]
 fn with_const_member() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(
-        b"trait Foo { const X: i64; }",
-    ));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo { const X: i64; }"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -153,9 +147,7 @@ fn with_const_member() {
 
 #[test]
 fn with_const_member_default() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(
-        b"trait Foo { const X: i64 = 42; }",
-    ));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo { const X: i64 = 42; }"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -180,9 +172,7 @@ fn with_const_member_default() {
 
 #[test]
 fn with_method_signature() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(
-        b"trait Foo { fn bar(self); }",
-    ));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo { fn bar(self); }"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -210,9 +200,7 @@ fn with_method_signature() {
 
 #[test]
 fn with_default_method() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(
-        b"trait Foo { fn bar(self) {} }",
-    ));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo { fn bar(self) {} }"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -241,9 +229,7 @@ fn with_default_method() {
 
 #[test]
 fn with_method_signature_and_return_type() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(
-        b"trait Foo { fn bar(self) -> i64; }",
-    ));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo { fn bar(self) -> i64; }"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -295,9 +281,7 @@ fn with_type_member() {
 
 #[test]
 fn with_type_member_default() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(
-        b"trait Foo { type Bar = i64; }",
-    ));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo { type Bar = i64; }"));
     let ParseResult {
         syntax_tree,
         errors,

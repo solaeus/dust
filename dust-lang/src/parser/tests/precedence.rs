@@ -8,9 +8,7 @@ use crate::{
 
 #[test]
 fn addition_and_multiplication() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "a + b * c"
-    )));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("a + b * c")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -43,9 +41,7 @@ fn addition_and_multiplication() {
 
 #[test]
 fn right_associative_exponentiation() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "a ^ b ^ c"
-    )));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("a ^ b ^ c")));
     let ParseResult {
         syntax_tree,
         errors,

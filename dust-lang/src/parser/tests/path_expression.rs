@@ -31,9 +31,7 @@ fn simple() {
 
 #[test]
 fn multi_segment() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "foo::bar"
-    )));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("foo::bar")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -57,9 +55,7 @@ fn multi_segment() {
 
 #[test]
 fn with_type_arguments() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "foo::<Bar>"
-    )));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("foo::<Bar>")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -85,9 +81,7 @@ fn with_type_arguments() {
 
 #[test]
 fn with_multiple_type_arguments() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "foo::<Bar, Baz>"
-    )));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("foo::<Bar, Baz>")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -115,9 +109,7 @@ fn with_multiple_type_arguments() {
 
 #[test]
 fn multi_segment_with_type_arguments() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "foo::bar::<Baz>"
-    )));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("foo::bar::<Baz>")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -144,9 +136,7 @@ fn multi_segment_with_type_arguments() {
 
 #[test]
 fn type_arguments_on_middle_segment() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "foo::<Bar>::baz"
-    )));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("foo::<Bar>::baz")));
     let ParseResult {
         syntax_tree,
         errors,

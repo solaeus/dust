@@ -31,9 +31,7 @@ fn empty() {
 
 #[test]
 fn value_parameters() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(
-        b"fn foo(x: i64, y: bool) {}",
-    ));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"fn foo(x: i64, y: bool) {}"));
     let ParseResult {
         syntax_tree,
         errors,
@@ -115,9 +113,7 @@ fn return_type() {
 
 #[test]
 fn mixed() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(
-        b"fn foo<A, B, C>(x: A, y: B) -> C {}",
-    ));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"fn foo<A, B, C>(x: A, y: B) -> C {}"));
     let ParseResult {
         syntax_tree,
         errors,

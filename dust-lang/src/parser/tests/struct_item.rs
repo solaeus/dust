@@ -58,9 +58,7 @@ fn tuple() {
 
 #[test]
 fn fields() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(
-        b"struct Foo { x: i64, y: i64 }",
-    ));
+    let parser = Parser::new_standalone(Lexer::unvalidated(b"struct Foo { x: i64, y: i64 }"));
     let ParseResult {
         syntax_tree,
         errors,

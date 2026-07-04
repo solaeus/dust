@@ -76,7 +76,6 @@ fn index_expression() {
     );
 }
 
-
 #[test]
 fn index_with_runtime_index() {
     assert_program_eq!(

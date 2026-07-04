@@ -11,9 +11,7 @@ use crate::{
 
 #[test]
 fn while_expression() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "while x { y }"
-    )));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("while x { y }")));
     let ParseResult {
         syntax_tree,
         errors,

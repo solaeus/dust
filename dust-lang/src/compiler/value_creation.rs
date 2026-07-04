@@ -28,9 +28,11 @@ macro_rules! create_integer_from_decimal_bytes {
         }
 
         if negate {
-            value = value.checked_neg().ok_or_else(|| CompileError::ConstantValueOverflow {
-                position: $reader.position(),
-            })?;
+            value = value
+                .checked_neg()
+                .ok_or_else(|| CompileError::ConstantValueOverflow {
+                    position: $reader.position(),
+                })?;
         }
 
         Ok(value)

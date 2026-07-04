@@ -32,8 +32,7 @@ fn exclusive() {
 
 #[test]
 fn inclusive() {
-    let parser =
-        Parser::new_standalone(Lexer::unvalidated(function_wrapper!("1..=10")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("1..=10")));
     let ParseResult {
         syntax_tree,
         errors,

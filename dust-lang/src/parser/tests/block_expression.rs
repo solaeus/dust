@@ -33,9 +33,7 @@ fn empty() {
 
 #[test]
 fn item() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "{ fn foo() {} }"
-    )));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("{ fn foo() {} }")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -60,9 +58,7 @@ fn item() {
 
 #[test]
 fn statement() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "{ let x = 42; }"
-    )));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("{ let x = 42; }")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -87,9 +83,7 @@ fn statement() {
 
 #[test]
 fn expression() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "{ x + y }"
-    )));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("{ x + y }")));
     let ParseResult {
         syntax_tree,
         errors,

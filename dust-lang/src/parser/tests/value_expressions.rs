@@ -123,9 +123,7 @@ fn integer() {
 
 #[test]
 fn string() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "\"Hello, world!\""
-    )));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("\"Hello, world!\"")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -147,9 +145,7 @@ fn string() {
 
 #[test]
 fn list() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "[1, 2, 3]"
-    )));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("[1, 2, 3]")));
     let ParseResult {
         syntax_tree,
         errors,
@@ -174,8 +170,7 @@ fn list() {
 
 #[test]
 fn array_repeat() {
-    let parser =
-        Parser::new_standalone(Lexer::unvalidated(function_wrapper!("[0; 3]")));
+    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("[0; 3]")));
     let ParseResult {
         syntax_tree,
         errors,
