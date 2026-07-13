@@ -1,0 +1,899 @@
+#[cfg(test)]
+mod tests;
+
+use std::hint::cold_path;
+
+use crate::{
+    source::Span,
+    token::{Token, TokenKind},
+};
+use unicode_ident::{is_xid_continue, is_xid_start};
+
+#[derive(Debug)]
+pub struct Lexer<'src> {
+    source: &'src [u8],
+
+    index: usize,
+    token_start: Option<usize>,
+    previous_token_kind: TokenKind,
+
+    identifier_started_non_ascii: bool,
+    identifier_valid: bool,
+
+    eof: bool,
+    error: bool,
+    unknown: bool,
+    utf8_validated: bool,
+}
+
+impl<'src> Lexer<'src> {
+    pub fn unvalidated(source: &'src [u8]) -> Self {
+        Self {
+            source,
+            index: 0,
+            token_start: None,
+            previous_token_kind: TokenKind::Unknown,
+            identifier_started_non_ascii: false,
+            identifier_valid: false,
+            unknown: false,
+            eof: false,
+            error: false,
+            utf8_validated: false,
+        }
+    }
+
+    pub fn validated(source: &'src str) -> Self {
+        Self {
+            source: source.as_bytes(),
+            index: 0,
+            token_start: None,
+            previous_token_kind: TokenKind::Unknown,
+            identifier_started_non_ascii: false,
+            identifier_valid: false,
+            unknown: false,
+            eof: false,
+            error: false,
+            utf8_validated: true,
+        }
+    }
+
+    pub fn source(&self) -> &'src [u8] {
+        self.source
+    }
+
+    pub fn is_eof(&self) -> bool {
+        self.eof
+    }
+
+    pub fn error_index(&self) -> Option<usize> {
+        if self.error { Some(self.index) } else { None }
+    }
+
+    #[inline(always)]
+    fn next_byte(&self) -> Option<u8> {
+        self.source.get(self.index + 1).copied()
+    }
+
+    #[inline(always)]
+    fn previous_was_expression(&self) -> bool {
+        matches!(
+            self.previous_token_kind,
+            TokenKind::Identifier
+                | TokenKind::FloatLiteral
+                | TokenKind::IntegerLiteral
+                | TokenKind::HexIntegerLiteral
+                | TokenKind::True
+                | TokenKind::False
+                | TokenKind::RightCurlyBrace
+                | TokenKind::RightSquareBracket
+                | TokenKind::RightParenthesis
+        )
+    }
+
+    #[inline(always)]
+    fn scan_operator_or_punctuation(&mut self) -> Option<Token> {
+        let start = self.index;
+
+        let current = self.source.get(self.index)?;
+        let next = self.next_byte();
+
+        let (kind, width) = match (current, next) {
+            (b'*', Some(b'=')) => (TokenKind::AsteriskEqual, 2),
+            (b'*', _) => (TokenKind::Asterisk, 1),
+            (b'!', Some(b'=')) => (TokenKind::BangEqual, 2),
+            (b'!', _) => (TokenKind::Bang, 1),
+            (b'^', Some(b'=')) => (TokenKind::CaretEqual, 2),
+            (b'^', _) => (TokenKind::Caret, 1),
+            (b':', Some(b':')) => (TokenKind::DoubleColon, 2),
+            (b':', _) => (TokenKind::Colon, 1),
+            (b',', _) => (TokenKind::Comma, 1),
+            (b'.', Some(b'.')) => {
+                if self.source.get(self.index + 2) == Some(&b'=') {
+                    (TokenKind::DoubleDotEqual, 3)
+                } else {
+                    (TokenKind::DoubleDot, 2)
+                }
+            }
+            (b'.', _) => (TokenKind::Dot, 1),
+            (b'&', Some(b'&')) => (TokenKind::DoubleAmpersand, 2),
+            (b'|', Some(b'|')) => (TokenKind::DoublePipe, 2),
+            (b'=', Some(b'=')) => (TokenKind::DoubleEqual, 2),
+            (b'=', _) => (TokenKind::Equal, 1),
+            (b'<', Some(b'=')) => (TokenKind::LessEqual, 2),
+            (b'<', _) => (TokenKind::Less, 1),
+            (b'>', Some(b'=')) => (TokenKind::GreaterEqual, 2),
+            (b'>', _) => (TokenKind::Greater, 1),
+            (b'{', _) => (TokenKind::LeftCurlyBrace, 1),
+            (b'[', _) => (TokenKind::LeftSquareBracket, 1),
+            (b'(', _) => (TokenKind::LeftParenthesis, 1),
+            (b'-', Some(b'=')) => (TokenKind::MinusEqual, 2),
+            (b'-', Some(b'>')) => (TokenKind::ArrowThin, 2),
+            (b'-', _) => (TokenKind::Minus, 1),
+            (b'%', Some(b'=')) => (TokenKind::PercentEqual, 2),
+            (b'%', _) => (TokenKind::Percent, 1),
+            (b'+', Some(b'=')) => (TokenKind::PlusEqual, 2),
+            (b'+', _) => (TokenKind::Plus, 1),
+            (b'}', _) => (TokenKind::RightCurlyBrace, 1),
+            (b']', _) => (TokenKind::RightSquareBracket, 1),
+            (b')', _) => (TokenKind::RightParenthesis, 1),
+            (b';', _) => (TokenKind::Semicolon, 1),
+            (b'/', Some(b'=')) => (TokenKind::SlashEqual, 2),
+            (b'/', _) => (TokenKind::Slash, 1),
+            _ => (TokenKind::Unknown, 1),
+        };
+
+        self.index += width;
+
+        Some(Token {
+            kind,
+            span: Span::new(start, self.index),
+        })
+    }
+
+    #[inline(always)]
+    fn finish_identifier(&mut self) -> Option<Token> {
+        #[inline(always)]
+        fn finish(lexer: &mut Lexer, kind: TokenKind, span: Span) -> Option<Token> {
+            lexer.token_start = None;
+            lexer.identifier_started_non_ascii = false;
+            lexer.identifier_valid = false;
+            lexer.unknown = false;
+
+            Some(Token { kind, span })
+        }
+
+        let start = self.token_start?;
+        let span = Span::new(start, self.index);
+        let bytes = &self.source[span.as_usize_range()];
+
+        if self.unknown || bytes.is_empty() {
+            return finish(self, TokenKind::Unknown, span);
+        }
+
+        let class = bytes[0].class();
+
+        if class.is_alphabetical() || class.is_underscore() {
+            if let Some(keyword_kind) = keyword_kind(bytes) {
+                return finish(self, keyword_kind, span);
+            }
+
+            return finish(self, TokenKind::Identifier, span);
+        }
+
+        if self.identifier_started_non_ascii && self.identifier_valid {
+            return finish(self, TokenKind::Identifier, span);
+        }
+
+        finish(self, TokenKind::Unknown, span)
+    }
+
+    #[inline(always)]
+    fn handle_non_ascii(&mut self) -> Result<Option<Token>, ()> {
+        match self.scan_utf8_sequence(self.index) {
+            Ok(width) => {
+                let first_byte = self.source[self.index];
+                let next_bytes = &self.source[self.index + 1..self.index + width];
+                let code_point = decode_utf8_code_point(first_byte, next_bytes);
+
+                if self.token_start.is_none() {
+                    if is_xid_start(code_point) {
+                        self.token_start = Some(self.index);
+                        self.identifier_started_non_ascii = true;
+                        self.identifier_valid = true;
+                    } else {
+                        self.token_start = Some(self.index);
+                        self.unknown = true;
+                    }
+                } else {
+                    let is_valid_continue = is_xid_continue(code_point);
+
+                    if !is_valid_continue && !self.identifier_started_non_ascii {
+                        return Ok(self.finish_identifier());
+                    }
+
+                    self.identifier_valid = self.identifier_valid && is_valid_continue;
+                }
+
+                self.index += width;
+
+                if self.unknown && self.index < self.source.len() {
+                    let next_class = self.source[self.index].class();
+
+                    if next_class.is_alphabetical() || next_class.is_underscore() {
+                        return Ok(self.finish_identifier());
+                    }
+                }
+
+                Ok(None)
+            }
+            Err(()) => Err(()),
+        }
+    }
+
+    #[inline(always)]
+    fn scan_utf8_sequence(&mut self, start: usize) -> Result<usize, ()> {
+        macro_rules! return_err {
+            () => {{
+                self.error = true;
+                self.index = start;
+
+                return Err(());
+            }};
+        }
+
+        let first_byte = self.source[start];
+        let width = first_byte.utf8_width();
+
+        if self.utf8_validated {
+            return Ok(width);
+        }
+
+        if width == 0 || start + width > self.source.len() {
+            return_err!();
+        }
+
+        match width {
+            2 => {
+                let second = self.source[start + 1];
+
+                if (second as i8) >= -64 {
+                    return_err!();
+                }
+            }
+            3 => {
+                let second = self.source[start + 1];
+
+                if !matches!(
+                    (first_byte, second),
+                    (0xE0, 0xA0..=0xBF)
+                        | (0xE1..=0xEC, 0x80..=0xBF)
+                        | (0xED, 0x80..=0x9F)
+                        | (0xEE..=0xEF, 0x80..=0xBF)
+                ) {
+                    return_err!();
+                }
+
+                let third = self.source[start + 2];
+
+                if (third as i8) >= -64 {
+                    return_err!();
+                }
+            }
+            4 => {
+                let second = self.source[start + 1];
+
+                if !matches!(
+                    (first_byte, second),
+                    (0xF0, 0x90..=0xBF) | (0xF1..=0xF3, 0x80..=0xBF) | (0xF4, 0x80..=0x8F)
+                ) {
+                    return_err!();
+                }
+
+                let third = self.source[start + 2];
+
+                if (third as i8) >= -64 {
+                    return_err!();
+                }
+
+                let fourth = self.source[start + 3];
+
+                if (fourth as i8) >= -64 {
+                    return_err!();
+                }
+            }
+            _ => return_err!(),
+        }
+
+        Ok(width)
+    }
+
+    #[inline(always)]
+    fn scan_string(&mut self) -> Result<Option<Token>, ()> {
+        let start = self.index;
+
+        let mut escaped = false;
+        let mut index = start + 1;
+
+        while index < self.source.len() {
+            let byte = self.source[index];
+
+            match byte {
+                b'\\' => {
+                    escaped = !escaped;
+                    index += 1;
+                }
+                b'"' => {
+                    index += 1;
+
+                    if escaped {
+                        escaped = false;
+                    } else {
+                        self.index = index;
+
+                        return Ok(Some(Token {
+                            kind: TokenKind::StringLiteral,
+                            span: Span::new(start, self.index),
+                        }));
+                    }
+                }
+                byte if byte.is_ascii() => {
+                    index += 1;
+                    escaped = false;
+                }
+                _ => match self.scan_utf8_sequence(index) {
+                    Ok(width) => {
+                        index += width;
+                        escaped = false;
+                    }
+                    Err(()) => return Err(()),
+                },
+            }
+        }
+
+        self.index = self.source.len();
+
+        Ok(Some(Token {
+            kind: TokenKind::Unknown,
+            span: Span::new(start, self.index),
+        }))
+    }
+
+    #[inline(always)]
+    fn scan_character(&mut self) -> Result<Option<Token>, ()> {
+        let start = self.index;
+
+        if self.source[start] != b'\'' {
+            return Ok(None);
+        }
+
+        let mut index = start + 1;
+
+        while index < self.source.len() {
+            let byte = self.source[index];
+
+            if byte < 0x80 {
+                if byte == b'\'' {
+                    let end = index + 1;
+
+                    self.index = end;
+
+                    return Ok(Some(Token {
+                        kind: TokenKind::CharacterLiteral,
+                        span: Span::new(start, end),
+                    }));
+                } else if byte == b'\\' {
+                    index += 2;
+                } else {
+                    index += 1;
+                }
+            } else {
+                match self.scan_utf8_sequence(index) {
+                    Ok(width) => index += width,
+                    Err(()) => return Err(()),
+                }
+            }
+        }
+
+        let end = self.source.len();
+        self.index = end;
+
+        Ok(Some(Token {
+            kind: TokenKind::CharacterLiteral,
+            span: Span::new(start, end),
+        }))
+    }
+
+    #[inline(always)]
+    fn scan_number(&mut self) -> Option<Token> {
+        #[inline(always)]
+        fn scan_type_suffix(lexer: &mut Lexer<'_>) {
+            let byte = if let Some(byte) = lexer.source.get(lexer.index) {
+                *byte
+            } else {
+                return;
+            };
+
+            match byte {
+                b'f' => {
+                    if let Some(b"32" | b"64") = lexer.source.get(lexer.index + 1..lexer.index + 3)
+                    {
+                        lexer.index += 3;
+                    }
+                }
+                b'i' | b'u' => {
+                    if let Some(b"size") = lexer.source.get(lexer.index + 1..lexer.index + 5) {
+                        lexer.index += 5;
+                    } else if let Some(b"128") = lexer.source.get(lexer.index + 1..lexer.index + 4)
+                    {
+                        lexer.index += 4;
+                    } else if let Some(b"16" | b"32" | b"64") =
+                        lexer.source.get(lexer.index + 1..lexer.index + 3)
+                    {
+                        lexer.index += 3;
+                    } else if let Some(b'8') = lexer.next_byte() {
+                        lexer.index += 2;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let start = self.index;
+
+        let mut byte = self.source.get(self.index).copied()?;
+
+        if byte == b'-' {
+            self.index += 1;
+            byte = *self.source.get(self.index)?;
+        }
+
+        if !byte.is_ascii_digit() {
+            return None;
+        }
+
+        if byte == b'0' && matches!(self.next_byte(), Some(b'x' | b'X')) {
+            self.index += 2;
+            let mut hex_digits = 0;
+
+            while let Some(byte) = self.source.get(self.index).copied() {
+                if byte.is_ascii_hexdigit() {
+                    hex_digits += 1;
+                    self.index += 1;
+                } else if byte == b'_' {
+                    self.index += 1;
+                } else {
+                    break;
+                }
+            }
+
+            if hex_digits == 0 {
+                return None;
+            }
+
+            if matches!(self.source.get(self.index), Some(b'_')) {
+                self.index += 1;
+            }
+
+            scan_type_suffix(self);
+
+            return Some(Token {
+                kind: TokenKind::HexIntegerLiteral,
+                span: Span::new(start, self.index),
+            });
+        }
+
+        let mut token_kind = TokenKind::IntegerLiteral;
+
+        while self.index < self.source.len() {
+            let byte = self.source[self.index];
+
+            match byte {
+                b'0'..=b'9' | b'_' => {
+                    self.index += 1;
+                }
+                b'.' if self
+                    .source
+                    .get(self.index + 1)
+                    .is_some_and(|next| next.is_ascii_digit()) =>
+                {
+                    token_kind = TokenKind::FloatLiteral;
+                    self.index += 1;
+                }
+                b'e' | b'E' => {
+                    token_kind = TokenKind::FloatLiteral;
+
+                    if matches!(self.next_byte(), Some(b'+' | b'-')) {
+                        self.index += 2;
+                    } else {
+                        self.index += 1;
+                    }
+
+                    while let Some(byte) = self.source.get(self.index)
+                        && byte.is_ascii_digit()
+                    {
+                        self.index += 1;
+                    }
+
+                    let Some(byte) = self.source.get(self.index).copied() else {
+                        break;
+                    };
+
+                    if byte == b'_' {
+                        self.index += 1;
+                    }
+
+                    break;
+                }
+                _ => break,
+            }
+        }
+
+        scan_type_suffix(self);
+
+        Some(Token {
+            kind: token_kind,
+            span: Span::new(start, self.index),
+        })
+    }
+}
+
+impl Iterator for Lexer<'_> {
+    type Item = Token;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<Self::Item> {
+        macro_rules! emit {
+            ($token: expr) => {{
+                self.previous_token_kind = $token.kind;
+
+                return Some($token);
+            }};
+        }
+
+        loop {
+            if self.index >= self.source.len() {
+                if let Some(token) = self.finish_identifier() {
+                    emit!(token);
+                }
+
+                if let Some(token) = self.scan_operator_or_punctuation() {
+                    emit!(token);
+                }
+
+                self.eof = true;
+
+                return None;
+            }
+
+            if self.error {
+                return None;
+            }
+
+            let current_byte = self.source[self.index];
+
+            if current_byte.is_ascii_whitespace() {
+                if let Some(token) = self.finish_identifier() {
+                    emit!(token);
+                }
+
+                self.index += 1;
+
+                while self.index < self.source.len() {
+                    let current_byte = self.source[self.index];
+
+                    if !current_byte.is_ascii_whitespace() {
+                        break;
+                    }
+
+                    self.index += 1;
+                }
+
+                continue;
+            }
+
+            let current_byte = self.source[self.index];
+
+            if current_byte == b'"' {
+                if let Some(token) = self.finish_identifier() {
+                    emit!(token);
+                }
+
+                match self.scan_string() {
+                    Ok(Some(token)) => emit!(token),
+                    Ok(None) => {
+                        self.index += 1;
+
+                        continue;
+                    }
+                    Err(()) => return None,
+                }
+            }
+
+            if current_byte == b'\'' {
+                if let Some(token) = self.finish_identifier() {
+                    emit!(token);
+                }
+
+                match self.scan_character() {
+                    Ok(Some(token)) => emit!(token),
+                    Ok(None) => {
+                        self.index += 1;
+
+                        continue;
+                    }
+                    Err(()) => return None,
+                }
+            }
+
+            if current_byte.is_ascii_digit()
+                || (current_byte == b'-'
+                    && !self.previous_was_expression()
+                    && self
+                        .source
+                        .get(self.index + 1)
+                        .is_some_and(|next_byte| next_byte.is_ascii_digit()))
+            {
+                if let Some(token) = self.finish_identifier() {
+                    emit!(token);
+                }
+
+                match self.scan_number() {
+                    Some(token) => emit!(token),
+                    None => {
+                        self.index += 1;
+
+                        continue;
+                    }
+                }
+            }
+
+            let current_class = current_byte.class();
+
+            if current_class.is_operator_or_punctuation() {
+                if let Some(token) = self.finish_identifier() {
+                    emit!(token);
+                }
+
+                if let Some(token) = self.scan_operator_or_punctuation() {
+                    emit!(token);
+                }
+            }
+
+            if self.token_start.is_none() && current_class.is_ascii() {
+                self.token_start = Some(self.index);
+
+                let mut next_index = self.index + 1;
+
+                while next_index < self.source.len() {
+                    let next_class = self.source[next_index].class();
+
+                    if next_class.is_whitespace()
+                        || next_class.is_operator_or_punctuation()
+                        || !next_class.is_ascii()
+                    {
+                        break;
+                    }
+
+                    next_index += 1;
+                }
+
+                self.index = next_index;
+
+                continue;
+            }
+
+            if !current_class.is_ascii() {
+                cold_path();
+
+                match self.handle_non_ascii() {
+                    Ok(Some(token)) => emit!(token),
+                    Ok(None) => continue,
+                    Err(_) => return None,
+                }
+            }
+
+            self.index += 1;
+        }
+    }
+}
+
+#[inline(always)]
+fn keyword_kind(token: &[u8]) -> Option<TokenKind> {
+    match token {
+        b"as" => Some(TokenKind::As),
+        b"fn" => Some(TokenKind::Fn),
+        b"if" => Some(TokenKind::If),
+        b"i8" => Some(TokenKind::I8),
+        b"u8" => Some(TokenKind::U8),
+
+        b"f32" => Some(TokenKind::F32),
+        b"f64" => Some(TokenKind::F64),
+        b"for" => Some(TokenKind::For),
+        b"i16" => Some(TokenKind::I16),
+        b"i32" => Some(TokenKind::I32),
+        b"i64" => Some(TokenKind::I64),
+        b"let" => Some(TokenKind::Let),
+        b"map" => Some(TokenKind::Map),
+        b"mod" => Some(TokenKind::Mod),
+        b"mut" => Some(TokenKind::Mut),
+        b"pub" => Some(TokenKind::Pub),
+        b"str" => Some(TokenKind::Str),
+        b"u16" => Some(TokenKind::U16),
+        b"u32" => Some(TokenKind::U32),
+        b"u64" => Some(TokenKind::U64),
+        b"use" => Some(TokenKind::Use),
+
+        b"Self" => Some(TokenKind::SelfType),
+        b"bool" => Some(TokenKind::Bool),
+        b"cell" => Some(TokenKind::Cell),
+        b"char" => Some(TokenKind::Char),
+        b"else" => Some(TokenKind::Else),
+        b"enum" => Some(TokenKind::Enum),
+        b"impl" => Some(TokenKind::Impl),
+        b"i128" => Some(TokenKind::I128),
+        b"loop" => Some(TokenKind::Loop),
+        b"self" => Some(TokenKind::SelfValue),
+        b"true" => Some(TokenKind::True),
+        b"type" => Some(TokenKind::Type),
+        b"u128" => Some(TokenKind::U128),
+
+        b"async" => Some(TokenKind::Async),
+        b"break" => Some(TokenKind::Break),
+        b"const" => Some(TokenKind::Const),
+        b"false" => Some(TokenKind::False),
+        b"isize" => Some(TokenKind::ISize),
+        b"trait" => Some(TokenKind::Trait),
+        b"usize" => Some(TokenKind::USize),
+        b"where" => Some(TokenKind::Where),
+        b"while" => Some(TokenKind::While),
+
+        b"return" => Some(TokenKind::Return),
+        b"struct" => Some(TokenKind::Struct),
+
+        b"Infinity" => Some(TokenKind::Infinity),
+
+        _ => None,
+    }
+}
+
+#[inline(always)]
+fn decode_utf8_code_point(first: u8, tail: &[u8]) -> char {
+    if first < 128 {
+        return first as char;
+    }
+
+    if first & 0xE0 == 0xC0 {
+        let bytes = ((first as u32 & 0x1F) << 6) | (tail[0] as u32 & 0x3F);
+
+        return char::from_u32(bytes).unwrap_or_default();
+    }
+
+    if first & 0xF0 == 0xE0 {
+        let bytes = ((first as u32 & 0x0F) << 12)
+            | ((tail[0] as u32 & 0x3F) << 6)
+            | (tail[1] as u32 & 0x3F);
+
+        return char::from_u32(bytes).unwrap_or_default();
+    }
+
+    let bytes = ((first as u32 & 0x07) << 18)
+        | ((tail[0] as u32 & 0x3F) << 12)
+        | ((tail[1] as u32 & 0x3F) << 6)
+        | (tail[2] as u32 & 0x3F);
+
+    char::from_u32(bytes).unwrap_or_default()
+}
+
+#[derive(Clone, Copy)]
+struct Utf8Class(u8);
+
+impl Utf8Class {
+    const CONTROL: Self = Self(0);
+    const WHITESPACE: Self = Self(1);
+    const OPERATOR_OR_PUNCTUATION: Self = Self(2);
+    const DIGIT: Self = Self(4);
+    const ALPHABETICAL: Self = Self(8);
+    const UNDERSCORE: Self = Self(16);
+    const NON_ASCII: Self = Self(32);
+
+    #[inline(always)]
+    fn is_ascii(&self) -> bool {
+        (self.0 & Self::NON_ASCII.0) == 0
+    }
+
+    #[inline(always)]
+    fn is_whitespace(&self) -> bool {
+        (self.0 & Self::WHITESPACE.0) != 0
+    }
+
+    #[inline(always)]
+    fn is_operator_or_punctuation(&self) -> bool {
+        (self.0 & Self::OPERATOR_OR_PUNCTUATION.0) != 0
+    }
+
+    #[inline(always)]
+    fn _is_digit(&self) -> bool {
+        (self.0 & Self::DIGIT.0) != 0
+    }
+
+    #[inline(always)]
+    fn is_alphabetical(&self) -> bool {
+        (self.0 & Self::ALPHABETICAL.0) != 0
+    }
+
+    #[inline(always)]
+    fn is_underscore(&self) -> bool {
+        (self.0 & Self::UNDERSCORE.0) != 0
+    }
+}
+
+const ASCII_CLASSES: [Utf8Class; 128] = {
+    let mut classes = [Utf8Class(0); 128];
+    let mut index = 0;
+
+    while index < 128 {
+        let character = index as u8 as char;
+
+        match character {
+            '0'..='9' => classes[index] = Utf8Class::DIGIT,
+            'A'..='Z' | 'a'..='z' => classes[index] = Utf8Class::ALPHABETICAL,
+            ' ' | '\t' | '\n' | '\r' => classes[index] = Utf8Class::WHITESPACE,
+            '!' | '"' | '#' | '$' | '%' | '&' | '\'' | '(' | ')' | '*' | '+' | ',' | '-' | '.'
+            | '/' | ':' | ';' | '<' | '=' | '>' | '?' | '@' | '[' | '\\' | ']' | '^' | '`'
+            | '{' | '|' | '}' | '~' => classes[index] = Utf8Class::OPERATOR_OR_PUNCTUATION,
+            '_' => classes[index] = Utf8Class::UNDERSCORE,
+            '\0'..='\u{8}'
+            | '\u{b}'
+            | '\u{c}'
+            | '\u{e}'..='\u{1f}'
+            | '\u{7f}'..='\u{d7ff}'
+            | '\u{e000}'..='\u{10ffff}' => classes[index] = Utf8Class::CONTROL,
+        }
+
+        index += 1;
+    }
+
+    classes
+};
+
+trait Utf8Byte {
+    fn utf8_width(self) -> usize;
+    fn class(self) -> Utf8Class;
+}
+
+impl Utf8Byte for u8 {
+    #[inline(always)]
+    fn utf8_width(self) -> usize {
+        UTF8_CHAR_WIDTHS[self as usize] as usize
+    }
+
+    #[inline(always)]
+    fn class(self) -> Utf8Class {
+        if self < 128 {
+            ASCII_CLASSES[self as usize]
+        } else {
+            Utf8Class::NON_ASCII
+        }
+    }
+}
+
+// https://tools.ietf.org/html/rfc3629
+const UTF8_CHAR_WIDTHS: &[u8; 256] = &[
+    // 1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 0
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 1
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 2
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 3
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 4
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 5
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 6
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, // 7
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 8
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 9
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // A
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // B
+    0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // C
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, // D
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, // E
+    4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // F
+];
