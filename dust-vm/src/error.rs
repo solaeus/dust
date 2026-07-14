@@ -42,25 +42,25 @@ impl Display for VmError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::ConstantList(constant_list_error) => write!(f, "{constant_list_error:?}"),
-            Self::InvalidPrototypeIndex { index } => write!(f, "invalid prototype index: {index}"),
+            Self::InvalidPrototypeIndex { index } => write!(f, "Invalid prototype index: {index}"),
             Self::UnsupportedOperation { operation } => {
-                write!(f, "unsupported operation: {operation:?}")
+                write!(f, "Unsupported operation: {operation:?}")
             }
             Self::UnsupportedMemoryKind { memory } => {
-                write!(f, "unsupported memory kind: {memory:?}")
+                write!(f, "Unsupported memory kind: {memory:?}")
             }
             Self::UnsupportedOperandType { operand_type } => {
-                write!(f, "unsupported operand type: {operand_type:?}")
+                write!(f, "Unsupported operand type: {operand_type:?}")
             }
-            Self::CallStackUnderflow => write!(f, "call stack underflow"),
+            Self::CallStackUnderflow => write!(f, "Call stack underflow"),
             Self::InvalidReturnValue {
                 register_count,
                 expected_type,
             } => write!(
                 f,
-                "invalid return value: register_count={register_count}, expected_type={expected_type:?}"
+                "Invalid return value: register_count={register_count}, expected_type={expected_type:?}"
             ),
-            Self::InvalidRegisterIndex { index } => write!(f, "invalid register index: {index}"),
+            Self::InvalidRegisterIndex { index } => write!(f, "Invalid register index: {index}"),
         }
     }
 }

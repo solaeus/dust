@@ -41,15 +41,12 @@ impl Constants {
     }
 
     pub fn get_u64(&self, index: u16) -> Result<u64, ConstantsError> {
-        let index = index as usize;
-
-        if index + 1 >= self.payloads.len() {
-            return Err(ConstantsError::MissingConstant(index as u16));
-        }
-
-        let low = self.payloads[index] as u64;
-        let high = self.payloads[index + 1] as u64;
-        let decoded = (high << 32) | low;
+        let payload_range = index as usize..(index + 2) as usize;
+        let payloads = self
+            .payloads
+            .get(payload_range)
+            .ok_or(ConstantsError::MissingConstant(index))?;
+        let decoded = (payloads[1] as u64) << 32 | (payloads[0] as u64);
 
         Ok(decoded)
     }

@@ -569,8 +569,8 @@ pub struct MemoryKind(pub(super) u8);
 
 impl MemoryKind {
     pub const REGISTER: MemoryKind = MemoryKind(0);
-    pub const CONSTANT: MemoryKind = MemoryKind(1);
-    pub const STATIC: MemoryKind = MemoryKind(2);
+    pub const REFERENCE: MemoryKind = MemoryKind(1);
+    pub const CONSTANT: MemoryKind = MemoryKind(2);
     pub const ENCODED: MemoryKind = MemoryKind(3);
 }
 
@@ -578,8 +578,8 @@ impl Display for MemoryKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
             Self::REGISTER => write!(f, "reg"),
+            Self::REFERENCE => write!(f, "ref"),
             Self::CONSTANT => write!(f, "const"),
-            Self::STATIC => write!(f, "static"),
             Self::ENCODED => write!(f, "enc"),
             _ => write!(f, "invalid"),
         }

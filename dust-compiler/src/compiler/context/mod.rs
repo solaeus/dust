@@ -3,12 +3,8 @@ pub mod scopes;
 pub mod symbols;
 pub mod types;
 
-use std::{
-    collections::HashMap,
-    fmt::{self, Debug, Display, Formatter},
-};
+use std::{collections::HashMap, fmt::Debug};
 
-use indexmap::IndexSet;
 use rustc_hash::FxBuildHasher;
 use smallvec::{SmallVec, smallvec};
 
@@ -28,7 +24,6 @@ use crate::{
     constants::value::ConstantValue,
     dust_type::{DustEnumType, DustFunctionType, DustStructType, DustStructTypeFields, DustType},
     instruction::OperandType,
-    prototype::Prototype,
     syntax::{SyntaxId, reader::SyntaxReader},
 };
 

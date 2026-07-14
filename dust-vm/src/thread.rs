@@ -90,7 +90,7 @@ impl Thread {
 
                 &mut self.register_stack[start..end]
             };
-            let mut call = Call::new(
+            let call = Call::new(
                 current_call_frame.instruction_pointer,
                 prototype,
                 call_frame_registers,

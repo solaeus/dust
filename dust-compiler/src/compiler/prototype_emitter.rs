@@ -3198,8 +3198,8 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn visit_self_expression(
         &mut self,
-        reader: SyntaxReader,
-        target: ExpressionTarget,
+        _reader: SyntaxReader,
+        _target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         todo!()
     }
@@ -3454,6 +3454,14 @@ pub enum RegisterWidth {
 
 impl RegisterWidth {
     pub fn as_u16(&self) -> u16 {
+        match self {
+            RegisterWidth::Single => 1,
+            RegisterWidth::Double => 2,
+            RegisterWidth::Quad => 4,
+        }
+    }
+
+    pub fn as_usize(&self) -> usize {
         match self {
             RegisterWidth::Single => 1,
             RegisterWidth::Double => 2,
