@@ -4,7 +4,7 @@
 use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use dust_lang::lexer::Lexer;
+use dust_compiler::lexer::Lexer;
 
 const SOURCE: &[u8] = br#"
 fn fib (n: i64) -> i64 {

@@ -32,9 +32,11 @@ macro_rules! assert_program_eq {
 
         source.add_code(SourceCode::validated("test", $code));
 
-        let program = Compiler::new(source).compile(None).unwrap();
+        let program = Compiler::new(source)
+            .compile("test_program".to_string())
+            .unwrap();
 
-        assert_eq!(program.prototypes, $prototypes);
+        assert_eq!(program.prototypes(), &$prototypes);
         assert_eq!(program.return_type(), &$return_type);
     };
 }

@@ -1,25 +1,18 @@
 //! The Dust programming language library.
 #![expect(incomplete_features)]
-#![feature(
-    current_thread_id,
-    generic_const_exprs,
-    inherent_associated_types,
-    iterator_try_collect,
-    thread_id_value
-)]
+#![feature(generic_const_exprs, inherent_associated_types, iterator_try_collect)]
 
 use smallvec::{Array, SmallVec};
 
 pub mod compiler;
-mod constants;
+pub mod constants;
 pub mod crate_config;
-pub mod disassembler;
 pub mod dust_type;
 pub mod dust_value;
 pub mod error;
 pub mod instruction;
 pub mod lexer;
-mod native_function;
+pub mod native_function;
 pub mod parser;
 pub mod program;
 pub mod prototype;
@@ -101,11 +94,7 @@ where
 
     let capacity = MINIMUM + index;
 
-    if capacity < 2 {
-        2
-    } else {
-        capacity
-    }
+    if capacity < 2 { 2 } else { capacity }
 }
 
 #[cfg(test)]

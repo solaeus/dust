@@ -14,14 +14,9 @@ use crate::dust_type::DustFunctionType;
 /// This type is *never* used as an internal representation of values, it is only for representing
 /// Rust values in Dust and vice versa.
 ///
-/// # Function Values
+/// # Unit value
 ///
-/// # Unit Values
-///
-/// Instances of the zero-sized "unit" type (`()`) are generally be represented as
-/// `Option::<DustValue>::None` because they are not runtime values, they are just compile-time
-/// constructs of the type system. In the very rare case that one wants to pass a unit value to the
-/// VM, use an empty tuple (`DustValue::Tuple(Vec::new())`).
+/// To represent an instance of the Unit type, use an empty tuple (`DustValue::Tuple(Vec::new())`).
 pub enum DustValue<E = ()> {
     Boolean(bool),
     I8(i8),

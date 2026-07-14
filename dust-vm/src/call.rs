@@ -1,9 +1,10 @@
-use crate::{
+use dust_compiler::{
     constants::Constants,
     instruction::{Address, Instruction, MemoryKind, Move, OperandType, Operation},
     prototype::Prototype,
-    vm::{error::VmError, register::Register},
 };
+
+use crate::{error::VmError, register::Register};
 
 pub struct Call<'a> {
     instruction_pointer: usize,

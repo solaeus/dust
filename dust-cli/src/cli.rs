@@ -85,10 +85,6 @@ pub struct InputOptions {
     #[arg(long, value_name = "INPUT")]
     pub eval_full: Option<String>,
 
-    /// Name of the program to run
-    #[arg(short, long)]
-    pub program: Option<String>,
-
     /// Read source code from stdin
     #[arg(long)]
     pub stdin: bool,
@@ -101,7 +97,6 @@ impl InputOptions {
     pub fn join(mut self, other: InputOptions) -> Self {
         self.eval = self.eval.or(other.eval);
         self.eval_full = self.eval_full.or(other.eval_full);
-        self.program = self.program.or(other.program);
         self.stdin = self.stdin || other.stdin;
         self.path = self.path.or(other.path);
 
@@ -125,7 +120,7 @@ pub struct ParseCommand {
 }
 
 impl ParseCommand {
-    pub fn fill_arguments(mut self, global: GlobalOptions, input: InputOptions) -> Self {
+    pub fn join(mut self, global: GlobalOptions, input: InputOptions) -> Self {
         self.global = self.global.join(global);
         self.input = self.input.join(input);
 
@@ -142,7 +137,10 @@ pub struct CompileCommand {
     pub input: InputOptions,
 
     #[arg(short, long)]
-    #[arg(value_enum, default_value = "tui")]
+    pub name: Option<String>,
+
+    #[arg(short, long)]
+    #[arg(value_enum, default_value = "debug")]
     pub output: CompileOutput,
 }
 
@@ -157,25 +155,16 @@ impl CompileCommand {
 
 #[derive(ValueEnum, Clone, Copy)]
 pub enum CompileOutput {
-    /// Interactive TUI disassembler (default)
-    ///
-    /// Navigate with arrow keys or `hjkl` and press `q` to quit.
-    Tui,
-
     /// Generic text format that includes instruction disassembly information
     ///
-    /// Unlike RON, this format includes instruction disassembly information but is not a proper
-    /// serialization and cannot be parsed back into a program.
+    /// Unlike RON, this format includes instruction disassembly information but it is not a proper
+    /// serialization format (i.e. it cannot be parsed back into a program).
     Debug,
 
     /// Rusty Object Notation (.ron)
-    ///
-    /// This format can be parsed back into a program using the `ron` crate.
     Ron,
 
     /// Pretty-printed Rusty Object Notation (.ron)
-    ///
-    /// This format can be parsed back into a program using the `ron` crate.
     PrettyRon,
 }
 
@@ -183,6 +172,9 @@ pub enum CompileOutput {
 pub struct RunCommand {
     #[command(flatten)]
     pub global: GlobalOptions,
+
+    #[arg(short, long)]
+    pub name: Option<String>,
 
     #[command(flatten)]
     pub input: InputOptions,

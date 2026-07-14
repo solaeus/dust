@@ -1,15 +1,13 @@
 use std::{sync::Arc, thread::current_id};
 
-use crossbeam_channel::Sender;
+use crossbeam::channel::Sender;
+use dust_compiler::program::Program;
 
 use crate::{
-    program::Program,
-    vm::{
-        call::{Call, CallFrame},
-        error::VmError,
-        register::Register,
-        thread_pool::ThreadMessage,
-    },
+    call::{Call, CallFrame},
+    error::VmError,
+    register::Register,
+    thread_pool::ThreadMessage,
 };
 
 pub struct Thread {
@@ -28,13 +26,13 @@ impl Thread {
         main_prototype_index: u16,
         message_sender: Arc<Sender<ThreadMessage>>,
     ) -> Self {
-        let call_stack_capacity = if program.prototypes.len() == 1 {
+        let call_stack_capacity = if program.prototypes().len() == 1 {
             0
         } else {
             256
         };
-        let register_count = if program.prototypes.len() == 1 {
-            program.prototypes[0].register_count as usize
+        let register_count = if program.prototypes().len() == 1 {
+            program.prototypes()[0].register_count as usize
         } else {
             1024
         };
@@ -62,7 +60,7 @@ impl Thread {
     pub fn run_inner(&mut self) -> Result<Vec<Register>, VmError> {
         let starting_prototype = self
             .program
-            .prototypes
+            .prototypes()
             .as_slice()
             .get(self.main_prototype_index as usize)
             .ok_or(VmError::InvalidPrototypeIndex {
@@ -81,7 +79,7 @@ impl Thread {
             let current_call_frame = self.call_stack.last().ok_or(VmError::CallStackUnderflow)?;
             let prototype = self
                 .program
-                .prototypes
+                .prototypes()
                 .get(current_call_frame.prototype_id as usize)
                 .ok_or(VmError::InvalidPrototypeIndex {
                     index: current_call_frame.prototype_id,
@@ -96,7 +94,7 @@ impl Thread {
                 current_call_frame.instruction_pointer,
                 prototype,
                 call_frame_registers,
-                &self.program.constants,
+                self.program.constants(),
                 &mut self.call_stack,
             )?;
 

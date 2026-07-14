@@ -1,22 +1,21 @@
 use std::io::{Write, stdout};
 
-use dust_lang::{
-    compiler::Compiler,
-    vm::{MINIMUM_OBJECT_HEAP_DEFAULT, Vm},
-};
+use dust_compiler::compiler::Compiler;
+use dust_vm::{Vm, VmConfig};
 
-use crate::{build_source, cli::RunCommand, error::Error};
+use crate::{build_source, cli::RunCommand, error::Error, get_name};
 
 pub fn run<'src>(commmand: RunCommand) -> Result<(), Error<'src>> {
-    let RunCommand { global: _, input } = commmand;
+    let RunCommand {
+        global: _,
+        input,
+        name,
+    } = commmand;
 
+    let name = get_name(name, &input);
     let source = build_source(input)?;
-    let program = Compiler::new(source).compile(None)?;
-    let vm = Vm::new(
-        program,
-        MINIMUM_OBJECT_HEAP_DEFAULT,
-        MINIMUM_OBJECT_HEAP_DEFAULT,
-    );
+    let program = Compiler::new(source).compile(name)?;
+    let vm = Vm::new(program, VmConfig::default());
 
     match vm.run() {
         Ok(Some(return_value)) => {
@@ -28,6 +27,6 @@ pub fn run<'src>(commmand: RunCommand) -> Result<(), Error<'src>> {
             Ok(())
         }
         Ok(None) => Ok(()),
-        Err(error) => Err(Error::Dust(error)),
+        Err(error) => Err(Error::DustVm(error)),
     }
 }

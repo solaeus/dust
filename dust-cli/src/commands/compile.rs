@@ -1,6 +1,6 @@
 use std::io::{Write, stdout};
 
-use dust_lang::{compiler::Compiler, disassembler::Disassembler};
+use dust_compiler::compiler::Compiler;
 use ron::{
     ser::PrettyConfig,
     ser::{to_string, to_string_pretty},
@@ -10,23 +10,23 @@ use crate::{
     build_source,
     cli::{CompileCommand, CompileOutput},
     error::Error,
+    get_name,
 };
 
 pub fn compile<'src>(command: CompileCommand) -> Result<(), Error<'src>> {
     let CompileCommand {
         global: _,
+        name,
         input,
         output,
     } = command;
 
+    let name = get_name(name, &input);
     let source = build_source(input)?;
     let compiler = Compiler::new(source);
-    let (program, source, syntax, constants) = compiler.compile_with_extras(None)?;
+    let program = compiler.compile(name)?;
 
     match output {
-        CompileOutput::Tui => {
-            Disassembler::new(&program, &source, &syntax, &constants).disassemble()?
-        }
         CompileOutput::Debug => println!("{program:?}"),
         CompileOutput::Ron => stdout().write_all(to_string(&program)?.as_bytes())?,
         CompileOutput::PrettyRon => {

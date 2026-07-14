@@ -32,6 +32,7 @@ use crate::{
     syntax::{SyntaxId, reader::SyntaxReader},
 };
 
+#[derive(Debug)]
 pub struct Context {
     pub symbols: Symbols,
     pub declarations: Declarations,
@@ -39,10 +40,6 @@ pub struct Context {
     pub types: Types,
     pub type_parameter_map: HashMap<DeclarationId, TypeId, FxBuildHasher>,
     pub implementations: HashMap<DeclarationId, DeclarationId::SmallVec, FxBuildHasher>,
-
-    prototypes: Vec<Prototype>,
-    compilation_stack: Vec<PrototypeId>,
-    monomorphization_cache: IndexSet<(DeclarationId, TypeId::SmallVec), FxBuildHasher>,
 
     declaration_bindings: HashMap<SyntaxId, DeclarationId, FxBuildHasher>,
     type_bindings: HashMap<SyntaxId, TypeId, FxBuildHasher>,
@@ -53,15 +50,12 @@ pub struct Context {
 impl Context {
     pub fn new() -> Self {
         let mut context = Self {
-            symbols: Symbols::new(),
+            symbols: Symbols::with_pool_capacity(512),
             declarations: Declarations::new(),
             scopes: Scopes::new(),
             types: Types::new(),
             type_parameter_map: HashMap::default(),
             implementations: HashMap::default(),
-            prototypes: Vec::new(),
-            compilation_stack: Vec::new(),
-            monomorphization_cache: IndexSet::default(),
             declaration_bindings: HashMap::default(),
             type_bindings: HashMap::default(),
             constant_item_values: HashMap::default(),
@@ -70,10 +64,6 @@ impl Context {
         add_core(&mut context);
 
         context
-    }
-
-    pub fn into_prototypes(self) -> Vec<Prototype> {
-        self.prototypes
     }
 
     pub fn add_declaration_binding(&mut self, syntax_id: SyntaxId, declaration_id: DeclarationId) {
@@ -97,41 +87,6 @@ impl Context {
         self.type_bindings
             .get(syntax_id)
             .ok_or(CompileError::MissingTypeBinding(*syntax_id))
-    }
-
-    pub fn add_monomorphized_function(
-        &mut self,
-        declaration_id: DeclarationId,
-        type_arguments: TypeId::SmallVec,
-    ) -> PrototypeId {
-        let cache_key = (declaration_id, type_arguments);
-
-        if let Some(index) = self.monomorphization_cache.get_index_of(&cache_key) {
-            PrototypeId(index as u16)
-        } else {
-            let prototype_id = PrototypeId(self.prototypes.len() as u16);
-
-            self.prototypes.push(Prototype::placeholder());
-            self.monomorphization_cache.insert(cache_key);
-            self.compilation_stack.push(prototype_id);
-
-            prototype_id
-        }
-    }
-
-    pub fn pop_from_compilation_stack(&mut self) -> Option<PrototypeId> {
-        self.compilation_stack.pop()
-    }
-
-    pub fn get_monomorphized_function(
-        &self,
-        prototype_id: PrototypeId,
-    ) -> &(DeclarationId, TypeId::SmallVec) {
-        &self.monomorphization_cache[prototype_id.0 as usize]
-    }
-
-    pub fn set_prototype(&mut self, prototype_id: PrototypeId, prototype: Prototype) {
-        self.prototypes[prototype_id.0 as usize] = prototype;
     }
 
     pub fn add_constant_item_value(&mut self, declaration_id: DeclarationId, value: ConstantValue) {
@@ -1766,50 +1721,6 @@ impl Context {
     }
 }
 
-impl Default for Context {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Debug for Context {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(
-            f,
-            "Context {{ symbols: {}, declarations: {}, scopes: {}, types: {}, type_parameter_map: {}, implementations: {}, prototypes: {}, compilation_stack: {}, monomorphization_cache: {}, declaration_bindings: {}, type_bindings: {}, constant_item_values: {} }}",
-            self.symbols.symbol_count(),
-            self.declarations.declaration_count(),
-            self.scopes.scope_count(),
-            self.types.type_count(),
-            self.type_parameter_map.len(),
-            self.implementations.len(),
-            self.prototypes.len(),
-            self.compilation_stack.len(),
-            self.monomorphization_cache.len(),
-            self.declaration_bindings.len(),
-            self.type_bindings.len(),
-            self.constant_item_values.len(),
-        )
-    }
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct PrototypeId(#[cfg(test)] pub(crate) u16, #[cfg(not(test))] u16);
-
-impl PrototypeId {
-    pub(crate) const MAIN: Self = Self(0);
-
-    pub fn index(self) -> u16 {
-        self.0
-    }
-}
-
-impl Display for PrototypeId {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "proto_{}", self.0)
-    }
-}
-
 fn add_core(context: &mut Context) {
     const OPTION_VARIANTS: &[(&str, BuiltInStructFields)] = &[
         ("None", BuiltInStructFields::Unit),
@@ -1883,6 +1794,12 @@ fn add_core(context: &mut Context) {
 
     context.scopes.exit_scope(core_scope_id);
     context.declarations.finish_reserved_range();
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[derive(Clone, Copy)]

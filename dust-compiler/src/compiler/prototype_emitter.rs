@@ -7,7 +7,7 @@ use tracing::trace;
 use crate::{
     compiler::{
         context::{
-            Context, PrototypeId,
+            Context,
             declarations::{DeclarationId, Definition},
             types::{
                 FloatType, InferredTypeConstraint, SignedIntegerType, Type, TypeId,
@@ -15,6 +15,7 @@ use crate::{
             },
         },
         error::CompileError,
+        prototypes::{PrototypeId, Prototypes},
         value_creation::{
             create_char, create_f32_from_decimal, create_f64_from_decimal, create_i8_from_decimal,
             create_i16_from_decimal, create_i32_from_decimal, create_i64_from_decimal,
@@ -56,6 +57,8 @@ pub struct PrototypeEmitter<'a> {
 
     context: &'a mut Context,
 
+    prototypes: &'a mut Prototypes,
+
     argument_count: u16,
 
     return_type_id: TypeId,
@@ -89,11 +92,12 @@ impl<'a> PrototypeEmitter<'a> {
         declaration_id: DeclarationId,
         prototype_id: PrototypeId,
         return_type_id: TypeId,
-        (source, syntax, constants, context): (
+        (source, syntax, constants, context, monomorphs): (
             &'a Source,
             &'a Syntax,
             &'a mut ConstantsBuilder,
             &'a mut Context,
+            &'a mut Prototypes,
         ),
         value_parameters: Option<SyntaxReader>,
     ) -> Result<Self, CompileError> {
@@ -109,6 +113,7 @@ impl<'a> PrototypeEmitter<'a> {
             syntax,
             constants,
             context,
+            prototypes: monomorphs,
             instructions: Vec::new(),
             locals: HashMap::default(),
             pending_drops: Vec::new(),
@@ -1991,8 +1996,8 @@ impl<'a> PrototypeEmitter<'a> {
                         SmallVec::new()
                     };
                 let prototype_id = self
-                    .context
-                    .add_monomorphized_function(declaration_id, type_arguments);
+                    .prototypes
+                    .monomorphize_function_to_prototype(declaration_id, type_arguments);
 
                 Ok(Emission::Value(ConstantValue::Function {
                     prototype_id,
@@ -2984,8 +2989,8 @@ impl<'a> PrototypeEmitter<'a> {
         }
 
         let prototype_id = self
-            .context
-            .add_monomorphized_function(method_declaration_id, type_argument_ids);
+            .prototypes
+            .monomorphize_function_to_prototype(method_declaration_id, type_argument_ids);
         let parent_emission = self.visit_expression(
             method_parent,
             ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),

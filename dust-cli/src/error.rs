@@ -1,9 +1,11 @@
 use std::fmt::{self, Display, Formatter};
 
-use dust_lang::{error::Error as DustError, source::SourceError};
+use dust_compiler::{error::Error as DustError, source::SourceError};
+use dust_vm::error::VmError;
 
 pub enum Error<'src> {
     Dust(DustError<'src>),
+    DustVm(VmError),
     Io(std::io::Error),
     Ron(ron::Error),
     Toml(toml::de::Error),
@@ -13,6 +15,7 @@ impl Display for Error<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Error::Dust(dust_error) => write!(f, "{dust_error}"),
+            Error::DustVm(vm_error) => write!(f, "{vm_error}"),
             Error::Io(io_error) => write!(f, "{io_error}"),
             Error::Ron(ron_error) => write!(f, "{ron_error}"),
             Error::Toml(toml_error) => write!(f, "{toml_error}"),
@@ -23,6 +26,12 @@ impl Display for Error<'_> {
 impl<'src> From<DustError<'src>> for Error<'src> {
     fn from(error: DustError<'src>) -> Self {
         Error::Dust(error)
+    }
+}
+
+impl<'src> From<VmError> for Error<'src> {
+    fn from(error: VmError) -> Self {
+        Error::DustVm(error)
     }
 }
 

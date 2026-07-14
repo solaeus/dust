@@ -6,22 +6,17 @@ use crate::{constants::Constants, dust_type::DustType, prototype::Prototype};
 pub struct Program {
     name: String,
     return_type: DustType,
-
-    pub(crate) prototypes: Vec<Prototype>,
-    pub(crate) constants: Constants,
+    prototypes: Vec<Prototype>,
+    constants: Constants,
 }
 
 impl Program {
-    const DEFAULT_NAME: &str = "dust_program";
-
     pub fn new(
-        name: Option<String>,
+        name: String,
         return_type: DustType,
         constants: Constants,
         prototypes: Vec<Prototype>,
     ) -> Self {
-        let name = name.unwrap_or_else(|| Self::DEFAULT_NAME.to_string());
-
         Self {
             name,
             return_type,
@@ -36,5 +31,13 @@ impl Program {
 
     pub fn return_type(&self) -> &DustType {
         &self.return_type
+    }
+
+    pub fn prototypes(&self) -> &Vec<Prototype> {
+        &self.prototypes
+    }
+
+    pub fn constants(&self) -> &Constants {
+        &self.constants
     }
 }

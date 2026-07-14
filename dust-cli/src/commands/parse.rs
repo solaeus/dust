@@ -1,6 +1,6 @@
 use std::io::{Write, stderr, stdout};
 
-use dust_lang::{
+use dust_compiler::{
     error::{Error as DustError, ErrorContext, ErrorKind},
     lexer::Lexer,
     parser::{ParseResult, Parser},

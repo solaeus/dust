@@ -3,20 +3,17 @@
 mod cli;
 mod commands;
 mod error;
+mod explorer;
 
 use std::{
     fmt,
     io::{self, Read, Write, stderr},
-    path::Path,
     process::ExitCode,
     time::Instant,
 };
 
 use clap::Parser as CliParser;
-use dust_lang::{
-    crate_config::CrateConfig,
-    source::{Source, SourceCode},
-};
+use dust_compiler::source::{Source, SourceCode};
 use tracing::{Event, Level, Subscriber, info, level_filters::LevelFilter};
 use tracing_subscriber::{
     fmt::{FmtContext, FormatEvent, FormatFields, format::Writer},
@@ -37,33 +34,36 @@ fn main() -> ExitCode {
         input,
     } = Cli::parse();
 
+    handle_logging(global.log, start_time);
+
     let result = match command {
         Some(Command::Run(mut command)) => {
             command = command.fill_arguments(global, input);
 
-            handle_logging(command.global.log, start_time);
             run(command)
         }
         None => {
-            handle_logging(global.log, start_time);
-            run(RunCommand { global, input })
+            let command = RunCommand {
+                global,
+                name: None,
+                input,
+            };
+
+            run(command)
         }
         Some(Command::Parse(mut command)) => {
-            command = command.fill_arguments(global, input);
+            command = command.join(global, input);
 
-            handle_logging(command.global.log, start_time);
             parse(command)
         }
         Some(Command::Compile(mut command)) => {
             command = command.fill_arguments(global, input);
 
-            handle_logging(command.global.log, start_time);
             compile(command)
         }
         Some(Command::Init(mut command)) => {
             command = command.fill_arguments(global, input);
 
-            handle_logging(command.global.log, start_time);
             init(command)
         }
     };
@@ -76,6 +76,18 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+fn get_name(name_option: Option<String>, input: &InputOptions) -> String {
+    name_option.unwrap_or_else(|| {
+        if let Some(path) = &input.path
+            && path.is_file()
+        {
+            path.file_name().unwrap().to_string_lossy().to_string()
+        } else {
+            "dust_program".to_string()
+        }
+    })
 }
 
 fn handle_logging(level: Option<LevelFilter>, start_time: Instant) {
@@ -144,7 +156,6 @@ fn build_source<'src>(
     InputOptions {
         eval,
         eval_full,
-        program: target_program,
         stdin,
         path,
     }: InputOptions,
@@ -163,17 +174,10 @@ fn build_source<'src>(
         io::stdin().read_to_end(&mut buffer)?;
 
         source.add_code(SourceCode::unvalidated_owned("stdin", buffer));
-    } else {
-        let path = path.as_deref().unwrap_or(Path::new("."));
-
-        if path.is_dir() {
-            let config_path = path.join("dust.toml");
-            let config = CrateConfig::read_from_path(&config_path)?;
-
-            source.add_crate(&config, path, target_program.as_deref())?;
-        } else {
-            source.add_code(SourceCode::file(path)?);
-        }
+    } else if let Some(path) = path
+        && path.is_file()
+    {
+        source.add_code(SourceCode::file(path)?);
     }
 
     Ok(source)

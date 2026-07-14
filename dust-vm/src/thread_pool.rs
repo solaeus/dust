@@ -4,13 +4,11 @@ use std::{
     thread::{Builder as ThreadBuilder, JoinHandle, ThreadId},
 };
 
-use crossbeam_channel::{Receiver, Sender};
+use crossbeam::channel::{self, Receiver, Sender};
+use dust_compiler::program::Program;
 use rustc_hash::FxBuildHasher;
 
-use crate::{
-    program::Program,
-    vm::{error::VmError, register::Register, thread::Thread},
-};
+use crate::{error::VmError, register::Register, thread::Thread};
 
 pub struct ThreadPool {
     spawner: Arc<Mutex<ThreadSpawner>>,
@@ -22,7 +20,7 @@ impl ThreadPool {
         minimum_object_heap: usize,
         minimum_object_sweep: usize,
     ) -> Self {
-        let (sender, receiver) = crossbeam_channel::unbounded();
+        let (sender, receiver) = channel::unbounded();
 
         ThreadPool {
             spawner: Arc::new(Mutex::new(ThreadSpawner {

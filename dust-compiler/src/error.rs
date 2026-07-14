@@ -10,7 +10,6 @@ use crate::{
     parser::error::ParseError,
     source::{Source, SourceError},
     syntax::{Syntax, error::SyntaxError},
-    vm::error::VmError,
 };
 
 #[derive(Debug)]
@@ -66,9 +65,6 @@ impl<'a> Display for Error<'a> {
                         MissingErrorContext.add_report((), &mut groups);
                     }
                 }
-                ErrorKind::Vm(vm_error) => {
-                    vm_error.add_report((), &mut groups);
-                }
                 ErrorKind::Meta(meta_error) => {
                     meta_error.add_report((), &mut groups);
                 }
@@ -90,7 +86,6 @@ pub enum ErrorKind {
     Source(SourceError),
     Parse(ParseError),
     Compile(CompileError),
-    Vm(VmError),
     Meta(MissingErrorContext),
 }
 
@@ -103,12 +98,6 @@ impl From<ParseError> for ErrorKind {
 impl From<CompileError> for ErrorKind {
     fn from(compile_error: CompileError) -> Self {
         ErrorKind::Compile(compile_error)
-    }
-}
-
-impl From<VmError> for ErrorKind {
-    fn from(vm_error: VmError) -> Self {
-        ErrorKind::Vm(vm_error)
     }
 }
 
@@ -174,10 +163,6 @@ where
     type Info;
 
     fn add_report(&self, context: Self::Info, groups: &mut Vec<Group<'a>>);
-
-    fn to_full_error(self) -> Error<'a> {
-        Error::new(vec![ErrorKind::from(self)], ErrorContext::None)
-    }
 
     fn add_internal_report(&self, groups: &mut Vec<Group<'a>>)
     where

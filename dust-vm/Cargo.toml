@@ -10,13 +10,14 @@ version.workspace = true
 
 [lib]
 
-
 [features]
-mimalloc = []
+mimalloc = ["dust-compiler/mimalloc"]
 
 [dependencies]
 bumpalo = { version = "3.20.1", features = ["boxed", "collections"] }
 crossbeam = { version = "0.8.4", features = ["crossbeam-channel", "nightly"] }
+dust-compiler = { path = "../dust-compiler" }
+rustc-hash = "2.1.1"
 tracing = "0.1.44"
 
 [dev-dependencies]

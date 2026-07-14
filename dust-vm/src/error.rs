@@ -1,7 +1,8 @@
-use crate::{
+use std::fmt::{self, Display, Formatter};
+
+use dust_compiler::{
     constants::ConstantsError,
     dust_type::DustType,
-    error::DustError,
     instruction::{MemoryKind, OperandType, Operation},
 };
 
@@ -37,21 +38,29 @@ impl From<ConstantsError> for VmError {
     }
 }
 
-impl<'a> DustError<'a> for VmError {
-    type Info = ();
-
-    fn add_report(&self, _: Self::Info, groups: &mut Vec<annotate_snippets::Group<'a>>) {
+impl Display for VmError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            VmError::ConstantList(constant_list_error) => {
-                constant_list_error.add_report((), groups);
+            Self::ConstantList(constant_list_error) => write!(f, "{constant_list_error:?}"),
+            Self::InvalidPrototypeIndex { index } => write!(f, "invalid prototype index: {index}"),
+            Self::UnsupportedOperation { operation } => {
+                write!(f, "unsupported operation: {operation:?}")
             }
-            VmError::InvalidPrototypeIndex { .. }
-            | VmError::UnsupportedMemoryKind { .. }
-            | VmError::UnsupportedOperation { .. }
-            | VmError::UnsupportedOperandType { .. }
-            | VmError::CallStackUnderflow
-            | VmError::InvalidReturnValue { .. }
-            | VmError::InvalidRegisterIndex { .. } => self.add_internal_report(groups),
+            Self::UnsupportedMemoryKind { memory } => {
+                write!(f, "unsupported memory kind: {memory:?}")
+            }
+            Self::UnsupportedOperandType { operand_type } => {
+                write!(f, "unsupported operand type: {operand_type:?}")
+            }
+            Self::CallStackUnderflow => write!(f, "call stack underflow"),
+            Self::InvalidReturnValue {
+                register_count,
+                expected_type,
+            } => write!(
+                f,
+                "invalid return value: register_count={register_count}, expected_type={expected_type:?}"
+            ),
+            Self::InvalidRegisterIndex { index } => write!(f, "invalid register index: {index}"),
         }
     }
 }

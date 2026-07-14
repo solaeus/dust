@@ -1,10 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 
 use crate::{
-    compiler::{
-        context::{PrototypeId, types::TypeId},
-        error::CompileError,
-    },
+    compiler::{context::types::TypeId, error::CompileError, prototypes::PrototypeId},
     instruction::OperandType,
     syntax::{
         components::{ComparisonExpression, LogicExpression, MathExpression},

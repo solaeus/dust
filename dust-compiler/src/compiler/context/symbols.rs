@@ -19,9 +19,9 @@ pub struct Symbols {
 }
 
 impl Symbols {
-    pub fn new() -> Self {
+    pub fn with_pool_capacity(capacity: usize) -> Self {
         Self {
-            pool: String::new(),
+            pool: String::with_capacity(capacity),
             spans: IndexMap::default(),
         }
     }
@@ -108,12 +108,6 @@ impl Symbols {
         let symbol = &self.pool[span.as_usize_range()];
 
         Ok(symbol)
-    }
-}
-
-impl Default for Symbols {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

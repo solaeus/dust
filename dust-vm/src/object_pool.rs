@@ -3,7 +3,7 @@ use std::{pin::Pin, time::Instant};
 use bumpalo::{Bump, boxed::Box as BumpBox, collections::Vec as BumpVec};
 use tracing::{debug, trace};
 
-use crate::vm::{
+use crate::{
     object::{Object, ObjectValue},
     register::{Register, RegisterTag},
 };

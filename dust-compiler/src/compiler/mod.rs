@@ -2,6 +2,7 @@ pub mod context;
 mod declaration_resolver;
 pub mod error;
 mod prototype_emitter;
+pub mod prototypes;
 mod type_resolver;
 mod value_creation;
 
@@ -15,10 +16,11 @@ use tracing::{Level, span};
 
 use crate::{
     compiler::{
-        context::{Context, PrototypeId, declarations::Definition, scopes::Barrier, types::TypeId},
+        context::{Context, declarations::Definition, scopes::Barrier, types::TypeId},
         declaration_resolver::DeclarationResolver,
         error::CompileError,
         prototype_emitter::PrototypeEmitter,
+        prototypes::{PrototypeId, Prototypes},
         type_resolver::TypeResolver,
     },
     constants::ConstantsBuilder,
@@ -37,6 +39,7 @@ pub struct Compiler<'src> {
     source: Source<'src>,
     constants: ConstantsBuilder,
     context: Context,
+    prototypes: Prototypes,
 }
 
 impl<'src> Compiler<'src> {
@@ -46,14 +49,15 @@ impl<'src> Compiler<'src> {
             source,
             constants: ConstantsBuilder::new(),
             context: Context::new(),
+            prototypes: Prototypes::default(),
         }
     }
 
-    pub fn compile(mut self, program_name: Option<String>) -> Result<Program, Error<'src>> {
+    pub fn compile(mut self, program_name: String) -> Result<Program, Error<'src>> {
         match self.compile_inner() {
             Ok(return_type) => {
                 let (constants, _) = self.constants.build();
-                let prototypes = self.context.into_prototypes();
+                let prototypes = self.prototypes.into_prototypes();
                 let program = Program::new(program_name, return_type, constants, prototypes);
 
                 Ok(program)
@@ -69,7 +73,7 @@ impl<'src> Compiler<'src> {
 
     pub fn compile_with_extras(
         mut self,
-        program_name: Option<String>,
+        program_name: String,
     ) -> Result<(Program, Source<'src>, Syntax, Vec<OperandType>), Error<'src>> {
         match self.compile_inner() {
             Ok(return_type) => {
@@ -78,7 +82,7 @@ impl<'src> Compiler<'src> {
                     program_name,
                     return_type,
                     constants,
-                    self.context.into_prototypes(),
+                    self.prototypes.into_prototypes(),
                 );
 
                 Ok((program, self.source, self.syntax, constant_tags))
@@ -196,14 +200,14 @@ impl<'src> Compiler<'src> {
         };
 
         let main_prototype_id = self
-            .context
-            .add_monomorphized_function(main_declaration_id, SmallVec::new());
+            .prototypes
+            .monomorphize_function_to_prototype(main_declaration_id, SmallVec::new());
 
         debug_assert_eq!(main_prototype_id, PrototypeId::MAIN);
 
         let mut main_return_type_id = None;
 
-        while let Some(prototype_id) = self.context.pop_from_compilation_stack() {
+        while let Some(prototype_id) = self.prototypes.pop_from_compilation_stack() {
             match self.compile_loop(prototype_id, &mut errors) {
                 Ok(type_id) => {
                     if prototype_id == PrototypeId::MAIN {
@@ -254,7 +258,7 @@ impl<'src> Compiler<'src> {
         }
 
         let (declaration_id, mut type_arguments) = self
-            .context
+            .prototypes
             .get_monomorphized_function(prototype_id)
             .clone();
         let declaration = self.context.declarations.get_declaration(declaration_id);
@@ -331,7 +335,8 @@ impl<'src> Compiler<'src> {
                     &self.source,
                     &self.syntax,
                     &mut self.constants,
-                    &mut self.context
+                    &mut self.context,
+                    &mut self.prototypes,
                 ),
                 value_parameters,
             ));
@@ -340,7 +345,7 @@ impl<'src> Compiler<'src> {
 
             let prototype = unwrap_or_return!(prototype_emitter.finish());
 
-            self.context.set_prototype(prototype_id, prototype);
+            self.prototypes.set_prototype(prototype_id, prototype);
         }
 
         let resolved_return_type_id =
