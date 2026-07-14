@@ -56,8 +56,7 @@ impl<'a> Call<'a> {
                                 .fold(0, |previous, operand_type| {
                                     previous + operand_type.register_width().as_u16()
                                 }) as usize;
-                        let return_registers_start = self.registers.len() - return_register_count;
-                        let return_registers = self.registers[return_registers_start..].to_vec();
+                        let return_registers = self.registers[..return_register_count].to_vec();
 
                         return Ok(Some(return_registers));
                     } else {
@@ -118,7 +117,7 @@ impl<'a> Call<'a> {
                 let high_mid_bits = self.registers[index as usize + 2].0 as i128;
                 let high_bits = self.registers[index as usize + 3].0 as i128;
                 let full_bits =
-                    ((high_bits) << 32) | (high_mid_bits) << 32 | (low_mid_bits) << 32 | (low_bits);
+                    high_bits << 96 | high_mid_bits << 64 | low_mid_bits << 32 | low_bits;
 
                 Ok(full_bits)
             }
@@ -174,30 +173,139 @@ impl<'a> Call<'a> {
                 let low_mid_bits = self.registers[index as usize + 1].0 as u128;
                 let high_mid_bits = self.registers[index as usize + 2].0 as u128;
                 let high_bits = self.registers[index as usize + 3].0 as u128;
+                let full_bits =
+                    high_bits << 96 | high_mid_bits << 64 | low_mid_bits << 32 | low_bits;
 
-                Ok((high_bits << 64) | (high_mid_bits << 32) | (low_mid_bits << 16) | low_bits)
+                Ok(full_bits)
             }
             _ => Err(VmError::UnsupportedMemoryKind { memory }),
         }
     }
 
-    fn get_character(&self, Address { memory, index }: Address) -> Result<char, VmError> {
+    fn get_f32(&self, Address { memory, index }: Address) -> Result<f32, VmError> {
         match memory {
-            MemoryKind::ENCODED => Ok(index as u8 as char),
-            MemoryKind::CONSTANT => Ok(self.constants.get_character(index)?),
+            MemoryKind::CONSTANT => Ok(self.constants.get_f32(index)?),
             MemoryKind::REGISTER => {
-                let low_bits = self.registers[index as usize].0 as u128;
-                let low_mid_bits = self.registers[index as usize + 1].0 as u128;
-                let high_mid_bits = self.registers[index as usize + 2].0 as u128;
-                let high_bits = self.registers[index as usize + 3].0 as u128;
+                let low_bits = self.registers[index as usize].0;
+                let high_bits = self.registers[index as usize + 1].0;
+                let full_bits = high_bits | low_bits;
 
-                let full_bits =
-                    ((high_bits << 64) | (high_mid_bits << 32) | (low_mid_bits << 16) | low_bits)
-                        as u32;
-                Ok(char::from_u32(full_bits).unwrap_or_default())
+                Ok(f32::from_bits(full_bits))
             }
             _ => Err(VmError::UnsupportedMemoryKind { memory }),
         }
+    }
+
+    fn get_f64(&self, Address { memory, index }: Address) -> Result<f64, VmError> {
+        match memory {
+            MemoryKind::CONSTANT => Ok(self.constants.get_f64(index)?),
+            MemoryKind::REGISTER => {
+                let low_bits = self.registers[index as usize].0;
+                let high_bits = self.registers[index as usize + 1].0;
+                let full_bits = (high_bits as u64) << 32 | low_bits as u64;
+
+                Ok(f64::from_bits(full_bits))
+            }
+            _ => Err(VmError::UnsupportedMemoryKind { memory }),
+        }
+    }
+
+    fn set_register(&mut self, destination: u16, register: Register) -> Result<(), VmError> {
+        if destination as usize >= self.registers.len() {
+            return Err(VmError::InvalidRegisterIndex { index: destination });
+        }
+
+        self.registers[destination as usize] = register;
+
+        Ok(())
+    }
+
+    fn set_double_registers(
+        &mut self,
+        destination: u16,
+        low: Register,
+        high: Register,
+    ) -> Result<(), VmError> {
+        if destination as usize + 1 >= self.registers.len() {
+            return Err(VmError::InvalidRegisterIndex { index: destination });
+        }
+
+        self.registers[destination as usize] = high;
+        self.registers[destination as usize + 1] = low;
+
+        Ok(())
+    }
+
+    fn set_quad_registers(
+        &mut self,
+        destination: u16,
+        low: Register,
+        low_mid: Register,
+        high_mid: Register,
+        high: Register,
+    ) -> Result<(), VmError> {
+        if destination as usize + 3 >= self.registers.len() {
+            return Err(VmError::InvalidRegisterIndex { index: destination });
+        }
+
+        self.registers[destination as usize] = high;
+        self.registers[destination as usize + 1] = high_mid;
+        self.registers[destination as usize + 2] = low_mid;
+        self.registers[destination as usize + 3] = low;
+
+        Ok(())
+    }
+
+    fn set_i64_to_registers(&mut self, value: i64, destination: u16) -> Result<(), VmError> {
+        let low_bits = (value & 0xFFFFFFFF) as u32;
+        let high_bits = ((value >> 32) & 0xFFFFFFFF) as u32;
+
+        self.set_double_registers(destination, Register(low_bits), Register(high_bits))
+    }
+
+    fn set_i128_to_registers(&mut self, value: i128, destination: u16) -> Result<(), VmError> {
+        let low_bits = (value & 0xFFFFFFFF) as u32;
+        let low_mid_bits = ((value >> 32) & 0xFFFFFFFF) as u32;
+        let high_mid_bits = ((value >> 64) & 0xFFFFFFFF) as u32;
+        let high_bits = ((value >> 96) & 0xFFFFFFFF) as u32;
+
+        self.set_quad_registers(
+            destination,
+            Register(low_bits),
+            Register(low_mid_bits),
+            Register(high_mid_bits),
+            Register(high_bits),
+        )
+    }
+
+    fn set_u64_to_registers(&mut self, value: u64, destination: u16) -> Result<(), VmError> {
+        let low_bits = (value & 0xFFFFFFFF) as u32;
+        let high_bits = ((value >> 32) & 0xFFFFFFFF) as u32;
+
+        self.set_double_registers(destination, Register(low_bits), Register(high_bits))
+    }
+
+    fn set_u128_to_registers(&mut self, value: u128, destination: u16) -> Result<(), VmError> {
+        let low_bits = (value & 0xFFFFFFFF) as u32;
+        let low_mid_bits = ((value >> 32) & 0xFFFFFFFF) as u32;
+        let high_mid_bits = ((value >> 64) & 0xFFFFFFFF) as u32;
+        let high_bits = ((value >> 96) & 0xFFFFFFFF) as u32;
+
+        self.set_quad_registers(
+            destination,
+            Register(low_bits),
+            Register(low_mid_bits),
+            Register(high_mid_bits),
+            Register(high_bits),
+        )
+    }
+
+    fn set_f64_to_registers(&mut self, value: f64, destination: u16) -> Result<(), VmError> {
+        let bits = value.to_bits();
+        let low_bits = (bits & 0xFFFFFFFF) as u32;
+        let high_bits = (bits >> 32 & 0xFFFFFFFF) as u32;
+
+        self.set_double_registers(destination, Register(low_bits), Register(high_bits))
     }
 
     fn copy_registers_to_registers(
@@ -263,76 +371,51 @@ impl<'a> Call<'a> {
         operand_type: OperandType,
         destination: u16,
     ) -> Result<(), VmError> {
-        let destination = destination as usize;
-
         match operand_type {
             OperandType::I_32 => {
                 let constant = self.constants.get_i32(operand_index)?;
 
-                self.registers[destination] = Register(constant as u32);
+                self.set_register(destination, Register(constant as u32))?;
             }
             OperandType::I_64 => {
                 let constant = self.constants.get_i64(operand_index)?;
-                let low_bits = (constant & 0xFFFFFFFF) as u32;
-                let high_bits = ((constant >> 32) & 0xFFFFFFFF) as u32;
 
-                self.registers[destination] = Register(low_bits);
-                self.registers[destination + 1] = Register(high_bits);
+                self.set_i64_to_registers(constant, destination)?;
             }
             OperandType::I_128 => {
                 let constant = self.constants.get_i128(operand_index)?;
-                let low_bits = (constant & 0xFFFFFFFF) as u32;
-                let low_mid_bits = ((constant >> 32) & 0xFFFFFFFF) as u32;
-                let high_mid_bits = ((constant >> 64) & 0xFFFFFFFF) as u32;
-                let high_bits = ((constant >> 96) & 0xFFFFFFFF) as u32;
 
-                self.registers[destination] = Register(low_bits);
-                self.registers[destination + 1] = Register(low_mid_bits);
-                self.registers[destination + 2] = Register(high_mid_bits);
-                self.registers[destination + 3] = Register(high_bits);
+                self.set_i128_to_registers(constant, destination)?;
             }
             OperandType::U_32 => {
                 let constant = self.constants.get_u32(operand_index)?;
 
-                self.registers[destination] = Register(constant);
+                self.set_register(destination, Register(constant))?;
             }
             OperandType::U_64 => {
                 let constant = self.constants.get_u64(operand_index)?;
-                let low_bits = (constant & 0xFFFFFFFF) as u32;
-                let high_bits = ((constant >> 32) & 0xFFFFFFFF) as u32;
 
-                self.registers[destination] = Register(low_bits);
-                self.registers[destination + 1] = Register(high_bits);
+                self.set_u64_to_registers(constant, destination)?;
             }
             OperandType::U_128 => {
                 let constant = self.constants.get_u128(operand_index)?;
-                let low_bits = (constant & 0xFFFFFFFF) as u32;
-                let low_mid_bits = ((constant >> 32) & 0xFFFFFFFF) as u32;
-                let high_mid_bits = ((constant >> 64) & 0xFFFFFFFF) as u32;
-                let high_bits = ((constant >> 96) & 0xFFFFFFFF) as u32;
 
-                self.registers[destination] = Register(low_bits);
-                self.registers[destination + 1] = Register(low_mid_bits);
-                self.registers[destination + 2] = Register(high_mid_bits);
-                self.registers[destination + 3] = Register(high_bits);
+                self.set_u128_to_registers(constant, destination)?;
             }
             OperandType::F_32 => {
                 let constant = self.constants.get_f32(operand_index)?;
 
-                self.registers[destination] = Register(constant as u32);
+                self.set_register(destination, Register(constant.to_bits()))?;
             }
             OperandType::F_64 => {
                 let constant = self.constants.get_f64(operand_index)?;
-                let low_bits = (constant as u64) as u32;
-                let high_bits = ((constant as u64) >> 32) as u32;
 
-                self.registers[destination] = Register(low_bits);
-                self.registers[destination + 1] = Register(high_bits);
+                self.set_f64_to_registers(constant, destination)?;
             }
             OperandType::CHARACTER => {
                 let constant = self.constants.get_character(operand_index)?;
 
-                self.registers[destination] = Register(constant as u32);
+                self.set_register(destination, Register(constant as u32))?;
             }
             _ => return Err(VmError::UnsupportedOperandType { operand_type }),
         }
@@ -393,90 +476,87 @@ impl<'a> Call<'a> {
                 let right = self.get_i8(right_address)?;
                 let sum = left + right;
 
-                self.registers[destination as usize] = Register(sum as u32);
+                self.set_register(destination, Register(sum as u32))?;
             }
             OperandType::I_16 => {
                 let left = self.get_i16(left_address)?;
                 let right = self.get_i16(right_address)?;
                 let sum = left + right;
 
-                self.registers[destination as usize] = Register(sum as u32);
+                self.set_register(destination, Register(sum as u32))?;
             }
             OperandType::I_32 => {
                 let left = self.get_i32(left_address)?;
                 let right = self.get_i32(right_address)?;
                 let sum = left + right;
 
-                self.registers[destination as usize] = Register(sum as u32);
+                self.set_register(destination, Register(sum as u32))?;
             }
             OperandType::I_64 => {
                 let left = self.get_i64(left_address)?;
                 let right = self.get_i64(right_address)?;
                 let sum = left + right;
-                let low_bits = sum as u32;
-                let high_bits = (sum >> 32) as u32;
 
-                self.registers[destination as usize] = Register(low_bits);
-                self.registers[destination as usize + 1] = Register(high_bits);
+                self.set_i64_to_registers(sum, destination)?;
             }
             OperandType::I_128 => {
                 let left = self.get_i128(left_address)?;
                 let right = self.get_i128(right_address)?;
                 let sum = left + right;
-                let low_bits = sum as u32;
-                let low_mid_bits = (sum >> 32) as u32;
-                let high_mid_bits = (sum >> 64) as u32;
-                let high_bits = (sum >> 96) as u32;
 
-                self.registers[destination as usize] = Register(low_bits);
-                self.registers[destination as usize + 1] = Register(low_mid_bits);
-                self.registers[destination as usize + 2] = Register(high_mid_bits);
-                self.registers[destination as usize + 3] = Register(high_bits);
+                self.set_i128_to_registers(sum, destination)?;
             }
             OperandType::U_8 => {
                 let left = self.get_u8(left_address)?;
                 let right = self.get_u8(right_address)?;
                 let sum = left + right;
 
-                self.registers[destination as usize] = Register(sum as u32);
+                self.set_register(destination, Register(sum as u32))?;
             }
             OperandType::U_16 => {
                 let left = self.get_u16(left_address)?;
                 let right = self.get_u16(right_address)?;
                 let sum = left + right;
 
-                self.registers[destination as usize] = Register(sum as u32);
+                self.set_register(destination, Register(sum as u32))?;
             }
             OperandType::U_32 => {
                 let left = self.get_u32(left_address)?;
                 let right = self.get_u32(right_address)?;
                 let sum = left + right;
 
-                self.registers[destination as usize] = Register(sum);
+                self.set_register(destination, Register(sum))?;
             }
             OperandType::U_64 => {
                 let left = self.get_u64(left_address)?;
                 let right = self.get_u64(right_address)?;
                 let sum = left + right;
-                let low_bits = sum as u32;
-                let high_bits = (sum >> 32) as u32;
 
-                self.registers[destination as usize] = Register(low_bits);
-                self.registers[destination as usize + 1] = Register(high_bits);
+                self.set_u64_to_registers(sum, destination)?;
             }
             OperandType::U_128 => {
                 let left = self.get_u128(left_address)?;
                 let right = self.get_u128(right_address)?;
                 let sum = left + right;
-                let low_bits = sum as u32;
-                let low_mid_bits = (sum >> 32) as u32;
-                let high_mid_bits = (sum >> 64) as u32;
-                let high_bits = (sum >> 96) as u32;
 
-                self.registers[destination as usize] = Register(low_bits);
-                self.registers[destination as usize + 1] = Register(low_mid_bits);
-                self.registers[destination as usize + 2] = Register(high_mid_bits);
-                self.registers[destination as usize + 3] = Register(high_bits);
+                self.set_u128_to_registers(sum, destination)?;
+            }
+            OperandType::F_32 => {
+                let left = self.get_f32(left_address)?;
+                let right = self.get_f32(right_address)?;
+                let sum = left + right;
+
+                self.set_register(destination, Register(sum.to_bits()))?;
+            }
+            OperandType::F_64 => {
+                let left = self.get_f64(left_address)?;
+                let right = self.get_f64(right_address)?;
+                let sum = left + right;
+                let bits = sum.to_bits();
+                let low_bits = bits as u32;
+                let high_bits = (bits >> 32) as u32;
+
+                self.set_double_registers(destination, Register(low_bits), Register(high_bits))?;
             }
             _ => return Err(VmError::UnsupportedOperandType { operand_type }),
         }
