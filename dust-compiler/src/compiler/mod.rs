@@ -99,9 +99,6 @@ impl<'src> Compiler<'src> {
     }
 
     fn compile_inner(&mut self) -> Result<DustType, Vec<ErrorKind>> {
-        let span = span!(Level::INFO, "compile");
-        let _enter = span.enter();
-
         let mut errors = Vec::new();
 
         macro_rules! unwrap_or_return {
@@ -117,9 +114,8 @@ impl<'src> Compiler<'src> {
             };
         }
 
-        // Parsing phase
         {
-            let span = span!(Level::INFO, "parse");
+            let span = span!(Level::INFO, "parsing");
             let _enter = span.enter();
 
             for (source_id, file) in self.source.iter_mut() {
@@ -143,9 +139,8 @@ impl<'src> Compiler<'src> {
 
         let crate_scope_id = self.context.scopes.enter_scope(Barrier::Module, None);
 
-        // Declaration binding phase
         {
-            let span = span!(Level::INFO, "declare");
+            let span = span!(Level::INFO, "declaration_resolution");
             let _enter = span.enter();
 
             let main_file_root = unwrap_or_return!(
@@ -208,15 +203,13 @@ impl<'src> Compiler<'src> {
         let mut main_return_type_id = None;
 
         while let Some(prototype_id) = self.prototypes.pop_from_compilation_stack() {
-            match self.compile_loop(prototype_id, &mut errors) {
-                Ok(type_id) => {
-                    if prototype_id == PrototypeId::MAIN {
-                        main_return_type_id = Some(unwrap_or_return!(
-                            self.context.get_inferred_type_id(type_id)
-                        ));
-                    }
-                }
-                Err(()) => return Err(errors),
+            let type_id = unwrap_or_return!(self.compile_loop(prototype_id, &mut errors));
+
+            if prototype_id == PrototypeId::MAIN {
+                let inferred_type_id =
+                    unwrap_or_return!(self.context.get_inferred_type_id(type_id));
+
+                main_return_type_id = Some(inferred_type_id);
             }
         }
 
@@ -243,20 +236,7 @@ impl<'src> Compiler<'src> {
         &mut self,
         prototype_id: PrototypeId,
         errors: &mut Vec<ErrorKind>,
-    ) -> Result<TypeId, ()> {
-        macro_rules! unwrap_or_return {
-            ($result: expr) => {
-                match $result {
-                    Ok(value) => value,
-                    Err(error) => {
-                        errors.push(error.into());
-
-                        return Err(());
-                    }
-                }
-            };
-        }
-
+    ) -> Result<TypeId, ErrorKind> {
         let (declaration_id, mut type_arguments) = self
             .prototypes
             .get_monomorphized_function(prototype_id)
@@ -269,39 +249,34 @@ impl<'src> Compiler<'src> {
             ..
         } = declaration.definition
         else {
-            errors.push(ErrorKind::Compile(
+            return Err(ErrorKind::Compile(
                 CompileError::ExpectedFunctionDefinition(declaration_id),
             ));
-
-            return Err(());
         };
-        let (position, syntax_id) = unwrap_or_return!(declaration.syntax.ok_or(
-            ErrorKind::Compile(CompileError::ExpectedSyntax {
-                expected: &[SyntaxKind::BlockExpression],
-            })
-        ));
-        let function_syntax = unwrap_or_return!(
-            self.syntax
-                .get_tree(position.source_id)
-                .and_then(|tree| tree.read_node(syntax_id))
-        );
+        let (position, syntax_id) =
+            declaration
+                .syntax
+                .ok_or(ErrorKind::Compile(CompileError::ExpectedSyntax {
+                    expected: &[SyntaxKind::BlockExpression],
+                }))?;
+        let function_syntax = self
+            .syntax
+            .get_tree(position.source_id)
+            .and_then(|tree| tree.read_node(syntax_id))?;
         let Ok(FunctionItem {
             body: Some(body),
             value_parameters,
             ..
         }) = function_syntax.as_component()
         else {
-            errors.push(ErrorKind::Compile(CompileError::ExpectedSyntax {
+            return Err(ErrorKind::Compile(CompileError::ExpectedSyntax {
                 expected: &[SyntaxKind::BlockExpression],
             }));
-
-            return Err(());
         };
 
-        let type_parameter_ids = unwrap_or_return!(
-            self.context
-                .get_type_parameter_ids(parent_impl_or_trait, type_parameters)
-        );
+        let type_parameter_ids = self
+            .context
+            .get_type_parameter_ids(parent_impl_or_trait, type_parameters)?;
 
         while type_arguments.len() < type_parameter_ids.len() {
             let inferred_type_id = self.context.types.create_inferred_type(None);
@@ -320,17 +295,41 @@ impl<'src> Compiler<'src> {
 
             let mut type_resolver = TypeResolver::new(&mut self.context, &self.source, errors);
 
-            unwrap_or_return!(type_resolver.visit_function_body(body, return_type_id));
+            type_resolver.visit_function_body(body, return_type_id)?;
         }
 
         {
             let span = span!(Level::INFO, "emit");
             let _enter = span.enter();
 
-            let mut prototype_emitter = unwrap_or_return!(PrototypeEmitter::new(
+            let self_id = if let Some(parent_id) = parent_impl_or_trait {
+                let parent_declaration = self.context.declarations.get_declaration(parent_id);
+                let self_id = match parent_declaration.definition {
+                    Definition::InherentImplementation {
+                        self_declaration_id,
+                        ..
+                    } => self_declaration_id,
+                    Definition::TraitImplementation {
+                        self_declaration_id,
+                        ..
+                    } => self_declaration_id,
+                    _ => {
+                        return Err(ErrorKind::Compile(
+                            CompileError::ExpectedImplementationDefinition(parent_id),
+                        ));
+                    }
+                };
+
+                Some(self_id)
+            } else {
+                None
+            };
+
+            let mut prototype_emitter = PrototypeEmitter::new(
                 declaration_id,
                 prototype_id,
                 return_type_id,
+                value_parameters,
                 (
                     &self.source,
                     &self.syntax,
@@ -338,18 +337,16 @@ impl<'src> Compiler<'src> {
                     &mut self.context,
                     &mut self.prototypes,
                 ),
-                value_parameters,
-            ));
+            )?;
 
-            unwrap_or_return!(prototype_emitter.visit_function_body(body));
+            prototype_emitter.visit_function_body(body)?;
 
-            let prototype = unwrap_or_return!(prototype_emitter.finish());
+            let prototype = prototype_emitter.finish()?;
 
             self.prototypes.set_prototype(prototype_id, prototype);
         }
 
-        let resolved_return_type_id =
-            unwrap_or_return!(self.context.get_inferred_type_id(return_type_id));
+        let resolved_return_type_id = self.context.get_inferred_type_id(return_type_id)?;
 
         Ok(resolved_return_type_id)
     }

@@ -115,7 +115,7 @@ pub enum ThreadMessage {
     },
     RemoveThread {
         thread_id: ThreadId,
-        result: Result<Vec<Register>, VmError>,
+        return_registers: Vec<Register>,
     },
 }
 

@@ -130,19 +130,15 @@ impl ConstantValue {
                 }
             }
             ConstantValue::F32(float) => {
-                let bits = float.to_bits();
-
-                if bits <= u16::MAX as u32 {
-                    Some(bits as u16)
+                if float % 1.0 == 0.0 && float <= u16::MAX as f32 {
+                    Some(float as u16)
                 } else {
                     None
                 }
             }
             ConstantValue::F64(float) => {
-                let bits = float.to_bits();
-
-                if bits <= u16::MAX as u64 {
-                    Some(bits as u16)
+                if float % 1.0 == 0.0 && float <= u16::MAX as f64 {
+                    Some(float as u16)
                 } else {
                     None
                 }

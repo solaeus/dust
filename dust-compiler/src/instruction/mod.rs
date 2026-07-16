@@ -5,6 +5,7 @@ mod call_native;
 mod divide;
 mod drop;
 mod equal;
+mod exponent;
 mod get_index;
 mod jump;
 mod less;
@@ -15,7 +16,6 @@ mod multiply;
 mod negate;
 mod operand_type;
 mod operation;
-mod power;
 mod r#return;
 mod set_index;
 mod subtract;
@@ -27,6 +27,7 @@ pub use call_native::CallNative;
 pub use divide::Divide;
 pub use drop::Drop;
 pub use equal::Equal;
+pub use exponent::Exponent;
 pub use get_index::GetIndex;
 pub use jump::Jump;
 pub use less::Less;
@@ -37,7 +38,6 @@ pub use multiply::Multiply;
 pub use negate::Negate;
 pub use operand_type::OperandType;
 pub use operation::Operation;
-pub use power::Power;
 pub use r#return::Return;
 pub use set_index::SetIndex;
 pub use subtract::Subtract;
@@ -65,12 +65,10 @@ use crate::native_function::NativeFunction;
 /// 48..=63 | C field
 ///
 /// - Operation: The opcode of the instruction, which determines how the other fields are interpreted
-/// - Memory kinds: Whether each operand refers to a register, constant, static or encoded value
-/// - Operand type: Used by most instructions to indicate the type of the operand(s)
+/// - Memory kinds: Whether each operand refers to a register, constant or encoded value
+/// - The type of the operand(s)
 /// - A field: Usually the destination register index
-/// - B and C fields: Usually operands: indices for registers, constants, statics or encoded values
-///
-/// * These fields can also be used for booleans
+/// - B and C fields: Operands, i.e. indices for registers and constants or encoded values
 #[derive(Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(C)]
 pub struct Instruction(u64);
@@ -189,7 +187,7 @@ impl Instruction {
         base_address: Address,
         exponent_address: Address,
     ) -> Instruction {
-        Instruction::from(Power {
+        Instruction::from(Exponent {
             destination,
             operand_type,
             base_address,
@@ -255,29 +253,6 @@ impl Instruction {
         })
     }
 
-    pub fn jump(offset: u16, is_positive: bool) -> Instruction {
-        Instruction::from(Jump {
-            offset,
-            is_positive,
-            drop_register_start: 0,
-            drop_list_end: 0,
-        })
-    }
-
-    pub fn jump_with_drops(
-        offset: u16,
-        is_positive: bool,
-        drop_register_start: u16,
-        drop_list_end: u16,
-    ) -> Instruction {
-        Instruction::from(Jump {
-            offset,
-            is_positive,
-            drop_register_start,
-            drop_list_end,
-        })
-    }
-
     pub fn call(destination: u16, callee: Address, arguments_start: u16) -> Instruction {
         Instruction::from(Call {
             destination,
@@ -289,19 +264,13 @@ impl Instruction {
     pub fn call_native(
         destination: u16,
         function: NativeFunction,
-        argument_type: Option<OperandType>,
         arguments_start: u16,
     ) -> Instruction {
         Instruction::from(CallNative {
             destination,
             function,
-            argument_type: argument_type.unwrap_or(OperandType::BOOLEAN),
             arguments_start,
         })
-    }
-
-    pub fn r#return() -> Instruction {
-        Instruction::from(Return)
     }
 
     pub fn get_index(
@@ -336,6 +305,33 @@ impl Instruction {
             source_memory,
             source_index,
         })
+    }
+
+    pub fn jump(offset: u16, is_positive: bool) -> Instruction {
+        Instruction::from(Jump {
+            offset,
+            is_positive,
+            drop_register_start: 0,
+            drop_list_end: 0,
+        })
+    }
+
+    pub fn jump_with_drops(
+        offset: u16,
+        is_positive: bool,
+        drop_register_start: u16,
+        drop_list_end: u16,
+    ) -> Instruction {
+        Instruction::from(Jump {
+            offset,
+            is_positive,
+            drop_register_start,
+            drop_list_end,
+        })
+    }
+
+    pub fn r#return() -> Instruction {
+        Instruction::from(Return)
     }
 
     pub fn operation(self) -> Operation {
@@ -418,7 +414,7 @@ impl Instruction {
             Operation::MULTIPLY => Multiply::from(self).to_string(),
             Operation::DIVIDE => Divide::from(self).to_string(),
             Operation::MODULO => Modulo::from(self).to_string(),
-            Operation::POWER => Power::from(self).to_string(),
+            Operation::EXPONENT => Exponent::from(self).to_string(),
             Operation::NEGATE => Negate::from(self).to_string(),
             Operation::EQUAL => Equal::from(self).to_string(),
             Operation::LESS => Less::from(self).to_string(),
@@ -565,20 +561,18 @@ impl InstructionBuilder {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct MemoryKind(pub(super) u8);
+pub struct MemoryKind(u8);
 
 impl MemoryKind {
     pub const REGISTER: MemoryKind = MemoryKind(0);
-    pub const REFERENCE: MemoryKind = MemoryKind(1);
-    pub const CONSTANT: MemoryKind = MemoryKind(2);
-    pub const ENCODED: MemoryKind = MemoryKind(3);
+    pub const CONSTANT: MemoryKind = MemoryKind(1);
+    pub const ENCODED: MemoryKind = MemoryKind(2);
 }
 
 impl Display for MemoryKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
             Self::REGISTER => write!(f, "reg"),
-            Self::REFERENCE => write!(f, "ref"),
             Self::CONSTANT => write!(f, "const"),
             Self::ENCODED => write!(f, "enc"),
             _ => write!(f, "invalid"),

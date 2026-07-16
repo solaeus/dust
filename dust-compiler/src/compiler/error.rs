@@ -149,6 +149,7 @@ pub enum CompileError {
     ExpectedFunctionDefinitionType(TypeId),
     ExpectedInferredType(TypeId),
     UnexpectedType(TypeId),
+    ExpectedImplementationDefinition(DeclarationId),
 }
 
 impl From<SyntaxError> for CompileError {
@@ -808,7 +809,8 @@ impl<'a> DustError<'a> for CompileError {
             | CompileError::InvalidContext
             | CompileError::ExpectedFunctionDefinitionType(_)
             | CompileError::ExpectedInferredType(_)
-            | CompileError::UnexpectedType(_) => {
+            | CompileError::UnexpectedType(_)
+            | CompileError::ExpectedImplementationDefinition(_) => {
                 self.add_internal_report(groups);
             }
         }

@@ -3,7 +3,7 @@ pub mod scopes;
 pub mod symbols;
 pub mod types;
 
-use std::{collections::HashMap, fmt::Debug};
+use std::{collections::HashMap, fmt::Debug, thread::scope};
 
 use rustc_hash::FxBuildHasher;
 use smallvec::{SmallVec, smallvec};
@@ -12,7 +12,7 @@ use crate::{
     compiler::{
         context::{
             declarations::{Declaration, DeclarationId, Declarations, Definition, VariantKind},
-            scopes::{Barrier, ScopeId, Scopes},
+            scopes::{Barrier, BarrierTracker, ScopeId, Scopes},
             symbols::{SymbolId, Symbols},
             types::{
                 FloatType, InferredTypeConstraint, SignedIntegerType, Type, TypeId, TypeMembers,
@@ -348,7 +348,7 @@ impl Context {
         path_segment: SyntaxReader,
     ) -> Result<Option<DeclarationId>, CompileError> {
         let mut scope_id = Some(starting_scope_id);
-        let mut crossed_scope_kinds = SmallVec::<[Barrier; 7]>::new();
+        let mut crossed_barriers = BarrierTracker::default();
 
         while let Some(current_scope_id) = scope_id {
             if let Some(declaration_id) = self
@@ -358,10 +358,7 @@ impl Context {
             {
                 let declaration = self.declarations.get_declaration(declaration_id);
 
-                if crossed_scope_kinds
-                    .iter()
-                    .any(|scope_kind| scope_kind.is_barrier(&declaration.definition))
-                {
+                if crossed_barriers.should_block(&declaration.definition) {
                     return Err(CompileError::DeclarationOutOfScope {
                         declaration_id,
                         usage_position: path_segment.position(),
@@ -374,9 +371,7 @@ impl Context {
             let scope = self.scopes.get_scope(current_scope_id);
             scope_id = scope.parent;
 
-            if !crossed_scope_kinds.contains(&scope.barrier) {
-                crossed_scope_kinds.push(scope.barrier);
-            }
+            crossed_barriers.add(scope.barrier);
         }
 
         if let Some(declaration_id) = self

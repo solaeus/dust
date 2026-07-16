@@ -14,7 +14,7 @@ use crate::{
     optimize_inline_capacity,
 };
 
-/// Type instance collection that stores every type known to the `Compiler`.
+/// Collection that stores every type instance known to the `Compiler`.
 #[derive(Debug)]
 pub struct Types {
     types: IndexSet<Type>,
@@ -267,12 +267,12 @@ impl TypeId {
 ///
 /// - `bool`, `char`, all numeric types and the special pointer type are always concrete. The never
 ///   type is non-concrete because it does not represent any values.
-/// - Composite types whose type members are all concrete are also concrete. `Option<i32>` is
-///   concrete because `i32` is concrete, but `Option<T>`, which uses a generic type parameter, will
-///   not be concrete until `T` is resolved to a concrete type.
 /// - Generics are used by [`Definitions`][]s to represent type parameters that are part of a type
 ///   definition. They are not used on type instances, so they are never inside of other `Type`
 ///   variants. Generics are non-concrete by definition.
+/// - Composite types whose type members are all concrete are also concrete. `Option<i32>` is
+///   concrete because `i32` is concrete, but `Option<T>`, which uses a generic type parameter,
+///   is non-concrete.
 /// - Inferred types start as non-concrete but may become concrete through type unification. For
 ///   example, the type of `x` in `let x = 5;` is initially an inferred type, but it becomes concrete
 ///   when it is unified with an explicit type written elsewhere or the default `i32`.

@@ -11,9 +11,10 @@ pub enum NativeFunction {
     // Vec
     VecWithCapacity = 1,
     VecLength = 2,
-    VecInsert = 3,
-    VecRemove = 4,
-    VecClear = 5,
+    VecGet = 3,
+    VecInsert = 4,
+    VecRemove = 5,
+    VecClear = 6,
 
     // I/O
     ReadLine = 100,
@@ -41,35 +42,21 @@ impl NativeFunction {
     pub fn id(self) -> u16 {
         self as u16
     }
-
-    pub fn symbol(self) -> &'static str {
-        match self {
-            NativeFunction::NoOp => "no_op",
-            NativeFunction::VecWithCapacity => "with_capacity",
-            NativeFunction::VecLength => "length",
-            NativeFunction::VecInsert => "insert",
-            NativeFunction::VecRemove => "remove",
-            NativeFunction::VecClear => "clear",
-            NativeFunction::ReadLine => "read_line",
-            NativeFunction::WriteLine => "write_line",
-            NativeFunction::SpawnThread => "spawn_thread",
-        }
-    }
 }
 
 impl Display for NativeFunction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let type_or_module_str = match *self {
-            NativeFunction::NoOp => "",
-            NativeFunction::VecWithCapacity
-            | NativeFunction::VecLength
-            | NativeFunction::VecInsert
-            | NativeFunction::VecRemove
-            | NativeFunction::VecClear => "Vec",
-            NativeFunction::ReadLine | NativeFunction::WriteLine => "io",
-            NativeFunction::SpawnThread => "thread",
-        };
-
-        write!(f, "{type_or_module_str}::{}", self.symbol())
+        match self {
+            Self::NoOp => write!(f, "no_op"),
+            Self::VecWithCapacity => write!(f, "Vec::with_capacity"),
+            Self::VecLength => write!(f, "Vec::length"),
+            Self::VecGet => write!(f, "Vec::get"),
+            Self::VecInsert => write!(f, "Vec::insert"),
+            Self::VecRemove => write!(f, "Vec::remove"),
+            Self::VecClear => write!(f, "Vec::clear"),
+            Self::ReadLine => write!(f, "io::read_line"),
+            Self::WriteLine => write!(f, "io::write_line"),
+            Self::SpawnThread => write!(f, "thread::spawn_thread"),
+        }
     }
 }

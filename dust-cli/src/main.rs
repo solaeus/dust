@@ -80,10 +80,13 @@ fn main() -> ExitCode {
 
 fn get_name(name_option: Option<String>, input: &InputOptions) -> String {
     name_option.unwrap_or_else(|| {
-        if let Some(path) = &input.path
-            && path.is_file()
+        if let Some(file_name) = input
+            .path
+            .as_ref()
+            .and_then(|path| path.file_name())
+            .map(|name| name.to_string_lossy().to_string())
         {
-            path.file_name().unwrap().to_string_lossy().to_string()
+            file_name
         } else {
             "dust_program".to_string()
         }

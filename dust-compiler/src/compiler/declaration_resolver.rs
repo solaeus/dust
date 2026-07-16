@@ -1,13 +1,11 @@
 use std::mem::replace;
 
-use smallvec::SmallVec;
-
 use crate::{
     compiler::{
         context::{
             Context,
             declarations::{Declaration, DeclarationId, Definition, ModuleKind, VariantKind},
-            scopes::{Barrier, ScopeId},
+            scopes::{Barrier, BarrierTracker, ScopeId},
             symbols::SymbolId,
             types::{Type, TypeId, TypeMembers},
         },
@@ -86,7 +84,7 @@ impl<'a> DeclarationResolver<'a> {
                 .get_declaration(forward_reference_id);
 
             let resolved_declaration_id = {
-                let mut crossed_barriers = SmallVec::<[Barrier; 7]>::new();
+                let mut crossed_barriers = BarrierTracker::default();
                 let mut current_scope_id = forward_reference.scope_id;
 
                 loop {
@@ -98,10 +96,7 @@ impl<'a> DeclarationResolver<'a> {
                     {
                         let declaration = self.context.declarations.get_declaration(declaration_id);
 
-                        if crossed_barriers
-                            .iter()
-                            .any(|scope_kind| scope_kind.is_barrier(&declaration.definition))
-                        {
+                        if crossed_barriers.should_block(&declaration.definition) {
                             return Err(CompileError::Undeclared {
                                 symbol_id: forward_reference.symbol_id,
                                 usage_position: forward_reference.syntax.unwrap().0,
@@ -121,9 +116,7 @@ impl<'a> DeclarationResolver<'a> {
                         });
                     };
 
-                    if !crossed_barriers.contains(&scope.barrier) {
-                        crossed_barriers.push(scope.barrier);
-                    }
+                    crossed_barriers.add(scope.barrier);
                 }
             };
 

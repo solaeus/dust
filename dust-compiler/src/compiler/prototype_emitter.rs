@@ -61,6 +61,8 @@ pub struct PrototypeEmitter<'a> {
 
     argument_count: u16,
 
+    self_registers: Option<RegisterClaims>,
+
     return_type_id: TypeId,
 
     return_operand_types: OperandType::SmallVec,
@@ -92,6 +94,7 @@ impl<'a> PrototypeEmitter<'a> {
         declaration_id: DeclarationId,
         prototype_id: PrototypeId,
         return_type_id: TypeId,
+        value_parameters: Option<SyntaxReader>,
         (source, syntax, constants, context, monomorphs): (
             &'a Source,
             &'a Syntax,
@@ -99,7 +102,6 @@ impl<'a> PrototypeEmitter<'a> {
             &'a mut Context,
             &'a mut Prototypes,
         ),
-        value_parameters: Option<SyntaxReader>,
     ) -> Result<Self, CompileError> {
         let return_type_id = context.get_inferred_type_id(return_type_id)?;
         let return_operand_types = context.get_operand_types(return_type_id)?;
@@ -121,6 +123,7 @@ impl<'a> PrototypeEmitter<'a> {
             argument_count: 0,
             register_tracker: RegisterTracker::new(0, return_register_count),
             return_type_id,
+            self_registers: None,
             return_operand_types,
             jump_placements: HashMap::default(),
             jump_over_branch_ids: Vec::new(),
@@ -151,8 +154,10 @@ impl<'a> PrototypeEmitter<'a> {
                 let concrete_self_type_id = prototype_emitter
                     .context
                     .get_inferred_type_id(self_type_id)?;
+                let self_registers = prototype_emitter
+                    .claim_registers(concrete_self_type_id, RegisterKind::Reserved)?;
 
-                prototype_emitter.claim_registers(concrete_self_type_id, RegisterKind::Reserved)?;
+                prototype_emitter.self_registers = Some(self_registers);
             }
 
             for (parameter_name, _) in name_type_pairs {
@@ -3199,9 +3204,13 @@ impl<'a> PrototypeEmitter<'a> {
     fn visit_self_expression(
         &mut self,
         _reader: SyntaxReader,
-        _target: ExpressionTarget,
+        target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
-        todo!()
+        let Some(self_registers) = &self.self_registers else {
+            return Err(CompileError::ExpectedAllocation);
+        };
+
+        self.create_emission_from_registers(self_registers.clone(), target)
     }
 }
 

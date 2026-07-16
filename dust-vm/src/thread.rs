@@ -41,23 +41,12 @@ impl Thread {
             program,
             main_prototype_index,
             call_stack: Vec::with_capacity(call_stack_capacity),
-            register_stack: vec![Register(0); register_count],
+            register_stack: vec![Register::new(0); register_count],
             message_sender,
         }
     }
 
-    pub fn run(mut self) {
-        let result = self.run_inner();
-
-        self.message_sender
-            .send(ThreadMessage::RemoveThread {
-                thread_id: current_id(),
-                result,
-            })
-            .expect("Failed to send thread finished message");
-    }
-
-    pub fn run_inner(&mut self) -> Result<Vec<Register>, VmError> {
+    pub fn run(mut self) -> Result<(), VmError> {
         let starting_prototype = self
             .program
             .prototypes()
@@ -75,7 +64,7 @@ impl Thread {
 
         self.call_stack.push(starting_call_frame);
 
-        loop {
+        let return_registers = loop {
             let current_call_frame = self.call_stack.last().ok_or(VmError::CallStackUnderflow)?;
             let prototype = self
                 .program
@@ -84,23 +73,24 @@ impl Thread {
                 .ok_or(VmError::InvalidPrototypeIndex {
                     index: current_call_frame.prototype_id,
                 })?;
-            let call_frame_registers = {
-                let start = current_call_frame.regsiter_range_start as usize;
-                let end = current_call_frame.register_range_end as usize;
-
-                &mut self.register_stack[start..end]
-            };
             let call = Call::new(
                 current_call_frame.instruction_pointer,
                 prototype,
-                call_frame_registers,
+                &mut self.register_stack,
                 self.program.constants(),
                 &mut self.call_stack,
             )?;
 
-            if let Some(result) = call.run()? {
-                return Ok(result);
+            if let Some(return_registers) = call.run()? {
+                break return_registers;
             }
-        }
+        };
+
+        self.message_sender.send(ThreadMessage::RemoveThread {
+            thread_id: current_id(),
+            return_registers,
+        })?;
+
+        Ok(())
     }
 }

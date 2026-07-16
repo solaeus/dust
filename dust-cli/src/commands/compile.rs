@@ -27,7 +27,7 @@ pub fn compile<'src>(command: CompileCommand) -> Result<(), Error<'src>> {
     let program = compiler.compile(name)?;
 
     match output {
-        CompileOutput::Debug => println!("{program:?}"),
+        CompileOutput::Debug => println!("{program:#?}"),
         CompileOutput::Ron => stdout().write_all(to_string(&program)?.as_bytes())?,
         CompileOutput::PrettyRon => {
             let config = PrettyConfig::default().struct_names(true);

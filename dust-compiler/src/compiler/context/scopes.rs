@@ -108,6 +108,37 @@ impl Barrier {
     }
 }
 
+#[derive(Default)]
+pub struct BarrierTracker {
+    item: bool,
+    associated: bool,
+    constant: bool,
+}
+
+impl BarrierTracker {
+    pub fn should_block(&mut self, definition: &Definition) -> bool {
+        if (self.item || self.associated || self.constant)
+            && matches!(
+                definition,
+                Definition::Local { .. } | Definition::Field { .. }
+            )
+        {
+            return true;
+        }
+
+        (self.item || self.constant) && matches!(definition, Definition::TypeParameter { .. })
+    }
+
+    pub fn add(&mut self, barrier: Barrier) {
+        match barrier {
+            Barrier::Item => self.item = true,
+            Barrier::Associated => self.associated = true,
+            Barrier::Constant => self.constant = true,
+            _ => {}
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ScopeId(NonZeroU32);
 
