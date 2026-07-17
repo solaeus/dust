@@ -59,7 +59,7 @@ impl Vm {
                         .lock_spawner()
                         .spawn_named_thread(thread_name, prototype_index)?;
                 }
-                Ok(ThreadMessage::RemoveThread {
+                Ok(ThreadMessage::ThreadFinished {
                     thread_id,
                     return_registers,
                 }) => {
@@ -100,8 +100,17 @@ impl Vm {
                         break;
                     }
                 }
+                Ok(ThreadMessage::ThreadError { thread_id, error }) => {
+                    error!(
+                        "VM thread encountered an error: Thread ID: {}, Error: {}",
+                        thread_id.as_u64(),
+                        error
+                    );
+
+                    break;
+                }
                 Err(error) => {
-                    error!("VM Error: {}", error);
+                    error!("VM main thread encountered an error: {}", error);
 
                     break;
                 }

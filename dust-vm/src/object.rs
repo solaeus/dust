@@ -100,7 +100,7 @@ impl Object {
         }
     }
 
-    pub fn size(&self) -> usize {
+    pub fn value_size(&self) -> usize {
         match &self.value {
             ObjectValue::Empty => 0,
             ObjectValue::BooleanList(booleans) => booleans.capacity() * size_of::<bool>(),

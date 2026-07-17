@@ -56,7 +56,7 @@ impl Thread {
                 index: self.main_prototype_index,
             })?;
         let starting_call_frame = CallFrame {
-            prototype_id: self.main_prototype_index,
+            prototype_index: self.main_prototype_index,
             regsiter_range_start: 0,
             register_range_end: starting_prototype.register_count,
             instruction_pointer: 0,
@@ -69,9 +69,9 @@ impl Thread {
             let prototype = self
                 .program
                 .prototypes()
-                .get(current_call_frame.prototype_id as usize)
+                .get(current_call_frame.prototype_index as usize)
                 .ok_or(VmError::InvalidPrototypeIndex {
-                    index: current_call_frame.prototype_id,
+                    index: current_call_frame.prototype_index,
                 })?;
             let call = Call::new(
                 current_call_frame.instruction_pointer,
@@ -86,7 +86,7 @@ impl Thread {
             }
         };
 
-        self.message_sender.send(ThreadMessage::RemoveThread {
+        self.message_sender.send(ThreadMessage::ThreadFinished {
             thread_id: current_id(),
             return_registers,
         })?;

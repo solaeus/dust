@@ -45,7 +45,7 @@ pub struct Context {
 impl Context {
     pub fn new() -> Self {
         let mut context = Self {
-            symbols: Symbols::with_pool_capacity(512),
+            symbols: Symbols::new(),
             declarations: Declarations::new(),
             scopes: Scopes::new(),
             types: Types::new(),

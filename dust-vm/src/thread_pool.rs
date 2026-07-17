@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex, MutexGuard},
-    thread::{Builder as ThreadBuilder, JoinHandle, ThreadId},
+    thread::{Builder as ThreadBuilder, JoinHandle, ThreadId, current_id as current_thread_id},
 };
 
 use crossbeam::channel::{self, Receiver, Sender};
@@ -65,9 +65,15 @@ impl ThreadSpawner {
         let _minimum_object_sweep = self.minimum_object_sweep;
         let join_handle = ThreadBuilder::new()
             .spawn(move || {
-                let thread = Thread::new(program, prototype_id, message_sender);
+                let thread = Thread::new(program, prototype_id, Arc::clone(&message_sender));
+                let result = thread.run();
 
-                thread.run();
+                if let Err(error) = result {
+                    message_sender.send(ThreadMessage::ThreadError {
+                        thread_id: current_thread_id(),
+                        error,
+                    });
+                }
             })
             .expect("Failed to spawn thread");
 
@@ -88,9 +94,15 @@ impl ThreadSpawner {
         let join_handle = ThreadBuilder::new()
             .name(thread_name)
             .spawn(move || {
-                let thread = Thread::new(program, prototype_id, message_sender);
+                let thread = Thread::new(program, prototype_id, Arc::clone(&message_sender));
+                let result = thread.run();
 
-                thread.run();
+                if let Err(error) = result {
+                    message_sender.send(ThreadMessage::ThreadError {
+                        thread_id: current_thread_id(),
+                        error,
+                    });
+                }
             })
             .expect("Failed to spawn thread");
 
@@ -113,9 +125,13 @@ pub enum ThreadMessage {
         thread_name: String,
         prototype_id: u16,
     },
-    RemoveThread {
+    ThreadFinished {
         thread_id: ThreadId,
         return_registers: Vec<Register>,
+    },
+    ThreadError {
+        thread_id: ThreadId,
+        error: VmError,
     },
 }
 

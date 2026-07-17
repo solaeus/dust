@@ -19,9 +19,9 @@ pub struct Symbols {
 }
 
 impl Symbols {
-    pub fn with_pool_capacity(capacity: usize) -> Self {
+    pub fn new() -> Self {
         Self {
-            pool: String::with_capacity(capacity),
+            pool: String::new(),
             spans: IndexMap::default(),
         }
     }

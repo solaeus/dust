@@ -75,7 +75,7 @@ impl<'a> ObjectPool<'a> {
             self.total_collections += 1;
         }
 
-        let size = object.size();
+        let size = object.value_size();
         self.allocated += size;
         self.total_bytes_allocated += size;
         self.total_objects_allocated += 1;
@@ -105,7 +105,7 @@ impl<'a> ObjectPool<'a> {
             let keep = object.mark;
 
             if keep {
-                self.allocated += object.size();
+                self.allocated += object.value_size();
                 object.mark = false;
             }
 

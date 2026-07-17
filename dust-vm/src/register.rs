@@ -16,7 +16,7 @@ impl Register {
     }
 }
 
-trait RegisterValue {
+pub trait RegisterValue {
     fn from_u32(value: u32) -> Self;
     fn to_u32(self) -> u32;
 }

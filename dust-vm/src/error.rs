@@ -12,7 +12,7 @@ use crate::thread_pool::ThreadMessage;
 #[derive(Debug)]
 pub enum VmError {
     ConstantList(ConstantsError),
-    ChannelSend(SendError<ThreadMessage>),
+    ChannelSendError,
 
     InvalidPrototypeIndex {
         index: u16,
@@ -43,8 +43,8 @@ impl From<ConstantsError> for VmError {
 }
 
 impl From<SendError<ThreadMessage>> for VmError {
-    fn from(send_error: SendError<ThreadMessage>) -> Self {
-        Self::ChannelSend(send_error)
+    fn from(_: SendError<ThreadMessage>) -> Self {
+        Self::ChannelSendError
     }
 }
 
@@ -52,7 +52,7 @@ impl Display for VmError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::ConstantList(constant_list_error) => write!(f, "{constant_list_error:?}"),
-            Self::ChannelSend(send_error) => write!(f, "{send_error}"),
+            Self::ChannelSendError => write!(f, "Error sending message to thread pool"),
             Self::InvalidPrototypeIndex { index } => write!(f, "Invalid prototype index: {index}"),
             Self::UnsupportedOperation { operation } => {
                 write!(f, "Unsupported operation: {operation:?}")
