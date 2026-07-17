@@ -34,7 +34,7 @@ fn while_loop() {
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 1,
+                register_count: 3,
                 argument_count: 0,
             },
         ],
@@ -67,7 +67,7 @@ fn while_with_runtime_condition() {
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 1,
+                register_count: 4,
                 argument_count: 0,
             },
         ],
@@ -102,7 +102,7 @@ fn break_without_value() {
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 1,
+                register_count: 2,
                 argument_count: 0,
             },
         ],
@@ -117,7 +117,7 @@ fn break_with_value() {
             fn main() -> i64 {
                 let mut count = 0;
                 while count < 10 {
-                    if count == 5 { break count; }
+                    if count == 5 { break; }
                     count += 1;
                 }
                 count
@@ -137,7 +137,7 @@ fn break_with_value() {
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
-                register_count: 1,
+                register_count: 2,
                 argument_count: 0,
             },
         ],

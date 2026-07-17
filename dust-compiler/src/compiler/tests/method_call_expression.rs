@@ -25,7 +25,7 @@ fn method_call() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 42)),
                     Instruction::call(0, Address::new(MemoryKind::CONSTANT, 1), 0),
                     Instruction::r#return(),
                 ],
@@ -65,7 +65,7 @@ fn method_call_runtime() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 42)),
                     Instruction::call(0, Address::new(MemoryKind::CONSTANT, 1), 0),
                     Instruction::r#return(),
                 ],

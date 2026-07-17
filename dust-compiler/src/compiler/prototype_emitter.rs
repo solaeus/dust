@@ -272,7 +272,7 @@ impl<'a> PrototypeEmitter<'a> {
         Ok(Prototype {
             instructions: self.instructions,
             return_types: self.return_operand_types,
-            register_count: self.register_tracker.max.saturating_sub(1),
+            register_count: self.register_tracker.max,
             argument_count: self.argument_count,
         })
     }
@@ -3421,6 +3421,10 @@ pub struct RegisterClaim {
 impl RegisterClaim {
     type SmallVec = SmallVec<[Self; optimize_inline_capacity::<Self, 4>()]>;
 
+    fn end(&self) -> u16 {
+        self.index + self.operand_type.register_width().as_u16()
+    }
+
     fn address(self) -> Address {
         Address::new(MemoryKind::REGISTER, self.index)
     }
@@ -3514,7 +3518,7 @@ impl RegisterTracker {
     }
 
     fn allocate_next_reserved(&mut self, operand_type: OperandType) -> u16 {
-        let next = self.next_reserved.min(self.reserved);
+        let next = self.next_reserved;
         self.next_reserved += operand_type.register_width().as_u16();
 
         next
@@ -3525,14 +3529,22 @@ impl RegisterTracker {
     }
 
     fn deallocate(&mut self, allocation: &RegisterClaims) {
+        let (Some(first_claim), Some(last_claim)) =
+            (allocation.claims.first(), allocation.claims.last())
+        else {
+            return;
+        };
+
+        if self.max == last_claim.end() {
+            self.max = first_claim.index;
+        }
+
         match allocation.kind {
             RegisterKind::Local => {
-                self.next_local = self.next_local.saturating_sub(allocation.claims[0].index);
+                self.next_local = self.next_local.min(last_claim.index);
             }
             RegisterKind::Temporary => {
-                self.next_temporary = self
-                    .next_temporary
-                    .saturating_sub(allocation.claims[allocation.claims.len() - 1].index);
+                self.next_temporary = self.next_temporary.min(last_claim.index);
             }
             RegisterKind::Reserved => {
                 self.next_reserved = 0;
