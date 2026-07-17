@@ -7,7 +7,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::source::{Source, SourceCode, SourceError};
+use crate::source::{Code, Source, SourceError};
 
 pub const PROJECT_CONFIG_PATH: &str = "dust.toml";
 pub const DEFAULT_PROGRAM_PATH: &str = "src/main.ds";
@@ -95,7 +95,7 @@ impl ProgramConfig {
 
     pub fn read_code(&self, source: &mut Source, crate_path: &Path) -> Result<(), SourceError> {
         let program_path = crate_path.join("src").join(&self.path);
-        let code = SourceCode::file(program_path)?;
+        let code = Code::file(program_path)?;
 
         source.add_code(code);
 

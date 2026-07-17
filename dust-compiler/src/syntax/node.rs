@@ -318,7 +318,7 @@ impl SyntaxKind {
             SyntaxKind::AdditionExpression => "addition expression",
             SyntaxKind::AndExpression => "and expression",
             SyntaxKind::AsExpression => "as expression",
-            SyntaxKind::AssignmentExpression => "reassignment expression",
+            SyntaxKind::AssignmentExpression => "assignment expression",
             SyntaxKind::ArrayExpression => "array expression",
             SyntaxKind::ArrayType => "array type",
             SyntaxKind::ArrayRepeatExpression => "array repeat expression",

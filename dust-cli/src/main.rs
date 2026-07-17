@@ -13,7 +13,7 @@ use std::{
 };
 
 use clap::Parser as CliParser;
-use dust_compiler::source::{Source, SourceCode};
+use dust_compiler::source::{Code, Source};
 use tracing::{Event, Level, Subscriber, info, level_filters::LevelFilter};
 use tracing_subscriber::{
     fmt::{FmtContext, FormatEvent, FormatFields, format::Writer},
@@ -168,19 +168,19 @@ fn build_source<'src>(
     if let Some(input) = eval {
         let eval_program = format!("fn main<T>() -> T {{\n    {input}\n}}");
 
-        source.add_code(SourceCode::validated_owned("cli_input", eval_program));
+        source.add_code(Code::validated_owned("cli_input", eval_program));
     } else if let Some(input) = eval_full {
-        source.add_code(SourceCode::validated_owned("cli_input", input));
+        source.add_code(Code::validated_owned("cli_input", input));
     } else if stdin {
         let mut buffer = Vec::new();
 
         io::stdin().read_to_end(&mut buffer)?;
 
-        source.add_code(SourceCode::unvalidated_owned("stdin", buffer));
+        source.add_code(Code::unvalidated_owned("stdin", buffer));
     } else if let Some(path) = path
         && path.is_file()
     {
-        source.add_code(SourceCode::file(path)?);
+        source.add_code(Code::file(path)?);
     }
 
     Ok(source)

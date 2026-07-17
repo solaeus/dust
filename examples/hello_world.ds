@@ -1,8 +1,0 @@
-fn main() {
-    write_line("Hello, world!");
-    write_line("Enter your name...");
-
-    let name = read_line();
-
-    write_line("Hello " + name + "!");
-}

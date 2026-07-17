@@ -2060,6 +2060,12 @@ impl<'src> Parser<'src> {
         )))
     }
 
+    fn expect_simple_path(&mut self) -> Result<SyntaxNode, ParseError> {
+        self.expect(TokenKind::Identifier)?;
+
+        Ok(SyntaxKind::SimplePath.empty(self.previous_token.span))
+    }
+
     fn expect_path(&mut self) -> Result<SyntaxNode, ParseError> {
         let start = self.current_token.span.start();
 
@@ -2128,12 +2134,6 @@ impl<'src> Parser<'src> {
 
         Ok(SyntaxKind::ExpressionStatement
             .with_single_child(Span::new(start, self.previous_token.span.end()), left_id))
-    }
-
-    fn expect_simple_path(&mut self) -> Result<SyntaxNode, ParseError> {
-        self.expect(TokenKind::Identifier)?;
-
-        Ok(SyntaxKind::SimplePath.empty(self.previous_token.span))
     }
 
     fn allow_type_parameters(&mut self) -> Result<Option<SyntaxNode>, ParseError> {

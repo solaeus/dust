@@ -1,0 +1,31 @@
+fn main() -> i32 {
+    let target = 50;
+    let mut is_composite = [false; 50];
+    let mut factor = 2;
+
+    while factor * factor < target {
+        if !is_composite[factor] {
+            let mut multiple = factor * factor;
+
+            while multiple < target {
+                is_composite[multiple] = true;
+                multiple += factor;
+            }
+        }
+
+        factor += 1;
+    }
+
+    let mut count = 0;
+    let mut candidate = 2;
+
+    while candidate < target {
+        if !is_composite[candidate] {
+            count += 1;
+        }
+
+        candidate += 1;
+    }
+
+    count
+}

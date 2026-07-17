@@ -15,7 +15,7 @@ use crate::{crate_config::CrateConfig, error::DustError};
 
 #[derive(Debug, Clone)]
 pub struct Source<'src> {
-    code: Vec<SourceCode<'src>>,
+    code: Vec<Code<'src>>,
 }
 
 impl<'src> Source<'src> {
@@ -33,11 +33,11 @@ impl<'src> Source<'src> {
         self.code.len()
     }
 
-    pub fn code(&self) -> &[SourceCode<'src>] {
+    pub fn code(&self) -> &[Code<'src>] {
         &self.code
     }
 
-    pub fn add_code(&mut self, file: SourceCode<'src>) -> SourceCodeId {
+    pub fn add_code(&mut self, file: Code<'src>) -> SourceCodeId {
         let id = SourceCodeId(self.code.len() as u32);
 
         self.code.push(file);
@@ -45,7 +45,7 @@ impl<'src> Source<'src> {
         id
     }
 
-    pub fn get_code(&self, source_id: SourceCodeId) -> &SourceCode<'src> {
+    pub fn get_code(&self, source_id: SourceCodeId) -> &Code<'src> {
         &self.code[source_id.0 as usize]
     }
 
@@ -63,7 +63,7 @@ impl<'src> Source<'src> {
             crate_path.join("src").join("main.ds")
         };
 
-        self.add_code(SourceCode::file(program_path)?);
+        self.add_code(Code::file(program_path)?);
 
         Ok(())
     }
@@ -74,9 +74,9 @@ impl<'src> Source<'src> {
 
     pub fn set_utf8_validated(&mut self, source_id: SourceCodeId) {
         if let Some(
-            SourceCode::File { utf8_validated, .. }
-            | SourceCode::Borrowed { utf8_validated, .. }
-            | SourceCode::Owned { utf8_validated, .. },
+            Code::File { utf8_validated, .. }
+            | Code::Borrowed { utf8_validated, .. }
+            | Code::Owned { utf8_validated, .. },
         ) = self.code.get_mut(source_id.0 as usize)
         {
             *utf8_validated = true;
@@ -87,14 +87,14 @@ impl<'src> Source<'src> {
         (0..self.code.len() as u32).map(SourceCodeId)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (SourceCodeId, &SourceCode<'src>)> {
+    pub fn iter(&self) -> impl Iterator<Item = (SourceCodeId, &Code<'src>)> {
         self.code
             .iter()
             .enumerate()
             .map(|(index, file)| (SourceCodeId(index as u32), file))
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (SourceCodeId, &mut SourceCode<'src>)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (SourceCodeId, &mut Code<'src>)> {
         self.code
             .iter_mut()
             .enumerate()
@@ -120,7 +120,7 @@ impl SourceCodeId {
 }
 
 #[derive(Clone)]
-pub enum SourceCode<'src> {
+pub enum Code<'src> {
     File {
         path: PathBuf,
         content: Vec<u8>,
@@ -138,7 +138,7 @@ pub enum SourceCode<'src> {
     },
 }
 
-impl<'src> SourceCode<'src> {
+impl<'src> Code<'src> {
     pub fn file<P: AsRef<Path>>(path: P) -> Result<Self, SourceError> {
         let path = path
             .as_ref()
@@ -169,7 +169,7 @@ impl<'src> SourceCode<'src> {
                 io_error: error.kind(),
             })?;
 
-        Ok(SourceCode::File {
+        Ok(Code::File {
             path,
             content,
             utf8_validated: false,
@@ -177,7 +177,7 @@ impl<'src> SourceCode<'src> {
     }
 
     pub fn unvalidated(name: &'src str, content: &'src [u8]) -> Self {
-        SourceCode::Borrowed {
+        Code::Borrowed {
             name,
             content,
             utf8_validated: false,
@@ -185,7 +185,7 @@ impl<'src> SourceCode<'src> {
     }
 
     pub fn unvalidated_owned(name: &'src str, content: Vec<u8>) -> Self {
-        SourceCode::Owned {
+        Code::Owned {
             name,
             content,
             utf8_validated: false,
@@ -193,7 +193,7 @@ impl<'src> SourceCode<'src> {
     }
 
     pub const fn validated(name: &'src str, content: &'src str) -> Self {
-        SourceCode::Borrowed {
+        Code::Borrowed {
             name,
             content: content.as_bytes(),
             utf8_validated: true,
@@ -201,7 +201,7 @@ impl<'src> SourceCode<'src> {
     }
 
     pub fn validated_owned(name: &'src str, content: String) -> Self {
-        SourceCode::Owned {
+        Code::Owned {
             name,
             content: content.into_bytes(),
             utf8_validated: true,
@@ -339,7 +339,7 @@ impl<'src> SourceCode<'src> {
     }
 }
 
-impl Debug for SourceCode<'_> {
+impl Debug for Code<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::File {

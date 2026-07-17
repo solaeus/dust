@@ -39,8 +39,8 @@ use crate::{
             CallExpression, ComparisonExpression, ConstItem, ExpressionStatement,
             FieldAccessExpression, GroupedExpression, IfExpression, IndexExpression, LetStatement,
             LogicExpression, MathExpression, MethodCallExpression, NegationExpression,
-            NotExpression, RangeExpression, StructExpression, StructExpressionStructFields,
-            ValueParameters, WhileExpression,
+            NotExpression, PathExpression, RangeExpression, StructExpression,
+            StructExpressionStructFields, ValueParameters, WhileExpression,
         },
         node::{SyntaxFlags, SyntaxKind},
         reader::SyntaxReader,
@@ -272,12 +272,14 @@ impl<'a> PrototypeEmitter<'a> {
         Ok(Prototype {
             instructions: self.instructions,
             return_types: self.return_operand_types,
-            register_count: self.register_tracker.max,
+            register_count: self.register_tracker.max.saturating_sub(1),
             argument_count: self.argument_count,
         })
     }
 
     pub fn visit_function_body(&mut self, body: SyntaxReader) -> Result<(), CompileError> {
+        trace!("Visiting function body");
+
         let children = body.children();
         let child_count = children.len();
 
@@ -1186,6 +1188,8 @@ impl<'a> PrototypeEmitter<'a> {
     }
 
     fn visit_const_item(&mut self, syntax: SyntaxReader) -> Result<(), CompileError> {
+        trace!("Visiting const item");
+
         let ConstItem { name, value, .. } = syntax.as_component()?;
 
         let Some(value) = value else {
@@ -1217,6 +1221,8 @@ impl<'a> PrototypeEmitter<'a> {
         &mut self,
         syntax: SyntaxReader,
     ) -> Result<Option<Instructions>, CompileError> {
+        trace!("Visiting let statement");
+
         let LetStatement {
             mutable,
             name,
@@ -1281,25 +1287,54 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader<'_>,
         _: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting assignment expression");
+
         let AssignmentExpression { target, source } = reader.as_component()?;
 
         let mut assignment_instructions = Instructions::new();
 
-        let declaration_id = self.context.get_declaration_binding(&target.id)?;
-        let local =
-            self.locals
-                .get(declaration_id)
-                .ok_or_else(|| CompileError::DeclarationOutOfScope {
-                    declaration_id: *declaration_id,
-                    usage_position: target.position(),
+        let target_registers = match target.node.kind {
+            SyntaxKind::PathExpression => {
+                let declaration_id = self.context.get_declaration_binding(&target.id)?;
+                let local = self.locals.get(declaration_id).ok_or_else(|| {
+                    CompileError::DeclarationOutOfScope {
+                        declaration_id: *declaration_id,
+                        usage_position: target.position(),
+                    }
                 })?;
 
-        let Local::Place(Place::Registers(target_registers)) = local.clone() else {
-            return Err(CompileError::CannotMutate {
-                position: target.position(),
-            });
-        };
+                if let Local::Place(Place::Registers(registers)) = local {
+                    registers.clone()
+                } else {
+                    return Err(CompileError::CannotMutate {
+                        position: target.position(),
+                    });
+                }
+            }
+            _ => {
+                let target_emission = self.visit_expression(
+                    target,
+                    ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+                )?;
 
+                match target_emission {
+                    Emission::Place(Place::Registers(registers)) => registers,
+                    Emission::Instructions(instructions) => assignment_instructions
+                        .extend(instructions)
+                        .ok_or_else(|| CompileError::ExpectedValue {
+                            source_id: target.source_id(),
+                            syntax_id: target.id,
+                        })?,
+                    _ => {
+                        return Err(CompileError::CannotApplyOperator {
+                            operator: SyntaxKind::AssignmentExpression,
+                            type_id: *self.context.get_type_binding(&target.id)?,
+                            operand_position: target.position(),
+                        });
+                    }
+                }
+            }
+        };
         let source_emission = self.visit_expression(
             source,
             ExpressionTarget::ClaimedRegister(target_registers.clone()),
@@ -1378,6 +1413,8 @@ impl<'a> PrototypeEmitter<'a> {
         &mut self,
         syntax: SyntaxReader<'_>,
     ) -> Result<Option<Instructions>, CompileError> {
+        trace!("Visiting expression statement");
+
         let ExpressionStatement { expression } = syntax.as_component()?;
 
         let expression_emission = self.visit_expression(
@@ -1399,6 +1436,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting boolean expression");
+
         let boolean = reader.node.flags.get_flag(SyntaxFlags::TRUE);
 
         self.create_emission_from_value(ConstantValue::Boolean(boolean), target)
@@ -1409,6 +1448,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting hexadecimal expression");
+
         let bytes = &self
             .source
             .get_code(reader.source_id())
@@ -1423,6 +1464,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting character expression");
+
         let text = self.source.get_content(reader.position().shrink(1))?;
         let character = create_char(text)?;
 
@@ -1434,6 +1477,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting float expression");
+
         let type_id = {
             let raw = *self.context.get_type_binding(&reader.id)?;
 
@@ -1486,6 +1531,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting integer expression");
+
         let type_id = {
             let raw = *self.context.get_type_binding(&reader.id)?;
 
@@ -1572,6 +1619,8 @@ impl<'a> PrototypeEmitter<'a> {
         _: SyntaxReader,
         _: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting string expression");
+
         todo!()
     }
 
@@ -1580,6 +1629,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting array expression");
+
         let ArrayExpression { elements } = reader.as_component()?;
 
         let mut array_instructions = Instructions::new();
@@ -1625,6 +1676,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting array repeat expression");
+
         let ArrayRepeatExpression { element, .. } = reader.as_component()?;
 
         let mut array_instructions = Instructions::new();
@@ -1686,6 +1739,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting index expression");
+
         let IndexExpression { collection, index } = reader.as_component()?;
 
         let collection_emission = self.visit_expression(
@@ -1840,6 +1895,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting range expression");
+
         let RangeExpression { start, end } = reader.as_component()?;
 
         let target_registers = match target {
@@ -1924,6 +1981,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting path expression");
+
         let declaration_id = *self.context.get_declaration_binding(&reader.id)?;
 
         if let Some(local) = self.locals.get(&declaration_id).cloned() {
@@ -2092,6 +2151,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting struct expression");
+
         let StructExpression {
             path: _,
             fields: struct_fields,
@@ -2172,6 +2233,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting grouped expression");
+
         let GroupedExpression { expression } = reader.as_component()?;
 
         if let Some(expression) = expression {
@@ -2186,6 +2249,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader<'_>,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting block expression");
+
         let BlockExpression { children } = reader.as_component()?;
 
         let mut block_instructions = Instructions::new();
@@ -2303,6 +2368,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader<'_>,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting if expression");
+
         let IfExpression {
             condition,
             then_branch,
@@ -2409,6 +2476,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting math expression");
+
         let MathExpression { left, right } = reader.as_component()?;
 
         let left_emission = self.visit_expression(
@@ -2547,6 +2616,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting comparison expression");
+
         let ComparisonExpression { left, right } = reader.as_component()?;
 
         let left_emission = self.visit_expression(
@@ -2677,6 +2748,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader<'_>,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting logic expression");
+
         let LogicExpression { left, right } = reader.as_component()?;
 
         let left_emission = self.visit_expression(
@@ -2760,6 +2833,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting negation expression");
+
         let NegationExpression { operand } = reader.as_component()?;
 
         let expression_emission = self.visit_expression(
@@ -2808,6 +2883,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting not expression");
+
         let NotExpression { operand } = reader.as_component()?;
 
         let expression_emission = self.visit_expression(
@@ -2856,6 +2933,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader<'_>,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting while expression");
+
         let WhileExpression { condition, body } = reader.as_component()?;
 
         let mut while_instructions = Instructions::new();
@@ -2903,6 +2982,8 @@ impl<'a> PrototypeEmitter<'a> {
         _: SyntaxReader<'_>,
         _: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting break expression");
+
         let break_id = self.create_jump_id();
 
         self.jump_over_branch_ids.push(break_id);
@@ -2920,6 +3001,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader<'_>,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting call expression");
+
         let CallExpression { callee, arguments } = reader.as_component()?;
 
         let mut call_instructions = Instructions::new();
@@ -2946,6 +3029,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader<'_>,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting method call expression");
+
         let MethodCallExpression {
             method_parent,
             method,
@@ -3045,6 +3130,8 @@ impl<'a> PrototypeEmitter<'a> {
         arguments_start: Option<u16>,
         instructions: &mut Instructions,
     ) -> Result<u16, CompileError> {
+        trace!("Visiting value arguments");
+
         let mut arguments_start = arguments_start.unwrap_or(u16::MAX);
         let mut next_offset = 0;
 
@@ -3104,6 +3191,8 @@ impl<'a> PrototypeEmitter<'a> {
         reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting field access expression");
+
         let FieldAccessExpression {
             struct_expression,
             field_name,
@@ -3206,6 +3295,8 @@ impl<'a> PrototypeEmitter<'a> {
         _reader: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
+        trace!("Visiting self expression");
+
         let Some(self_registers) = &self.self_registers else {
             return Err(CompileError::ExpectedAllocation);
         };
@@ -3273,6 +3364,13 @@ impl Instructions {
         self.pending_drops.extend(other.pending_drops);
         self.target_registers = other.target_registers;
     }
+
+    fn extend(&mut self, other: Instructions) -> Option<RegisterClaims> {
+        self.instructions.extend(other.instructions);
+        self.pending_drops.extend(other.pending_drops);
+
+        other.target_registers
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -3282,15 +3380,6 @@ pub enum Place {
         operand_type: OperandType,
     },
     Registers(RegisterClaims),
-}
-
-impl Place {
-    fn address(&self) -> Address {
-        match self {
-            Place::Constant { index, .. } => Address::new(MemoryKind::CONSTANT, *index),
-            Place::Registers(registers) => registers.expect_single().unwrap().address(),
-        }
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -3449,8 +3538,6 @@ impl RegisterTracker {
                 self.next_reserved = 0;
             }
         }
-
-        self.max = self.max.min(self.next_temporary);
     }
 }
 

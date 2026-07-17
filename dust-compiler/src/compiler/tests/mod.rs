@@ -25,12 +25,12 @@ macro_rules! assert_program_eq {
     ($code: literal, prototypes: $prototypes: expr, return_type: $return_type: expr) => {
         use $crate::{
             compiler::Compiler,
-            source::{Source, SourceCode},
+            source::{Code, Source},
         };
 
         let mut source = Source::new();
 
-        source.add_code(SourceCode::validated("test", $code));
+        source.add_code(Code::validated("test", $code));
 
         let program = Compiler::new(source)
             .compile("test_program".to_string())

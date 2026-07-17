@@ -20,8 +20,6 @@ pub struct SyntaxReader<'a> {
 
 impl<'a> SyntaxReader<'a> {
     pub fn new(id: SyntaxId, node: SyntaxNode, tree: &'a SyntaxTree) -> Self {
-        trace!("Reading syntax {} at {}", node.kind, node.span);
-
         Self { id, node, tree }
     }
 

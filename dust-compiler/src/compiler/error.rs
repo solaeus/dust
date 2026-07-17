@@ -181,14 +181,7 @@ impl<'a> DustError<'a> for CompileError {
                     .map(|r#type| r#type.to_string())
                     .unwrap_or("<invalid type>".to_string());
                 let title = format!("Expected an integer index, found {found_type}");
-                let file_content = match source.get_content(*position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        error.add_report((), groups);
-
-                        return;
-                    }
-                };
+                let file_content = source.get_code(position.source_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
@@ -202,14 +195,7 @@ impl<'a> DustError<'a> for CompileError {
                 position,
             } => {
                 let title = "Expected a boolean expression";
-                let file_content = match source.get_content(*position) {
-                    Ok(file) => file,
-                    Err(error) => {
-                        error.add_report((), groups);
-
-                        return;
-                    }
-                };
+                let file_content = source.get_code(position.source_id).content_as_str();
                 let found_type = match context.get_external_type(*found_type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
@@ -232,7 +218,6 @@ impl<'a> DustError<'a> for CompileError {
                 usage_position,
             } => {
                 let title = "Declaration out of scope";
-
                 let declaration = context.declarations.get_declaration(*declaration_id);
                 let name = match context.symbols.get_symbol(&declaration.symbol_id) {
                     Ok(name) => name,
@@ -242,15 +227,7 @@ impl<'a> DustError<'a> for CompileError {
                         return;
                     }
                 };
-                let file_content = match source.get_content(*usage_position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        error.add_report((), groups);
-
-                        return;
-                    }
-                };
-
+                let file_content = source.get_code(usage_position.source_id).content_as_str();
                 let group = if let Some((position, _)) = declaration.syntax {
                     Group::with_title(Level::ERROR.primary_title(title)).element(
                         Snippet::source(file_content).annotation(
@@ -401,14 +378,7 @@ impl<'a> DustError<'a> for CompileError {
                 operand_position,
             } => {
                 let title = "Cannot apply operator";
-                let file_content = match source.get_content(*operand_position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        error.add_report((), groups);
-
-                        return;
-                    }
-                };
+                let file_content = source.get_code(operand_position.source_id).content_as_str();
                 let r#type = match context.get_external_type(*type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
@@ -437,12 +407,7 @@ impl<'a> DustError<'a> for CompileError {
                     }
                 };
                 let title = format!("Cannot index type {type}");
-                let file_content = match source.get_content(*position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
+                let file_content = source.get_code(position.source_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
@@ -497,12 +462,7 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::CannotMutate { position } => {
                 let title = "Cannot mutate immutable value";
-                let file_content = match source.get_content(*position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
+                let file_content = source.get_code(position.source_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
@@ -512,13 +472,7 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::ExpectedFunctionType { found, position } => {
                 let title = "Expected a function type";
-                let file_content = match source.get_content(*position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
-
+                let file_content = source.get_code(position.source_id).content_as_str();
                 let found_type = match context.get_external_type(*found) {
                     Ok(r#type) => r#type,
                     Err(error) => {
@@ -557,7 +511,6 @@ impl<'a> DustError<'a> for CompileError {
 
                 let title = "Expected a value";
                 let file_content = source.get_code(*source_id).content_as_str();
-
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
@@ -597,13 +550,7 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::ExpectedNativeFunctionCall { position } => {
                 let title = "Expected a native function to be called";
-                let file_content = match source.get_content(*position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
-
+                let file_content = source.get_code(position.source_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
@@ -636,7 +583,6 @@ impl<'a> DustError<'a> for CompileError {
             } => {
                 let title = "Constant overflow";
                 let file_content = source.get_code(*source_id).content_as_str();
-
                 let group = Group::with_title(Level::ERROR.primary_title(title))
                     .element(
                         Snippet::source(file_content).annotation(
@@ -666,7 +612,6 @@ impl<'a> DustError<'a> for CompileError {
             } => {
                 let title = "Constant overflow";
                 let file_content = source.get_code(*source_id).content_as_str();
-
                 let group = Group::with_title(Level::ERROR.primary_title(title))
                     .element(
                         Snippet::source(file_content).annotation(
@@ -691,7 +636,6 @@ impl<'a> DustError<'a> for CompileError {
             } => {
                 let title = "Invalid constant exponent";
                 let file_content = source.get_code(*source_id).content_as_str();
-
                 let group = Group::with_title(Level::ERROR.primary_title(title))
                     .element(
                         Snippet::source(file_content).annotation(
@@ -746,12 +690,7 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::SelfTypeOutsideOfImpl { position } => {
                 let title = "Use of `Self` type outside of impl";
-                let file_content = match source.get_content(*position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
+                let file_content = source.get_code(position.source_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
@@ -764,12 +703,7 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::ConstantValueOverflow { position } => {
                 let title = "Constant value overflow";
-                let file_content = match source.get_content(*position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        return error.add_report((), groups);
-                    }
-                };
+                let file_content = source.get_code(position.source_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
