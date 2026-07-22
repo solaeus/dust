@@ -1,19 +1,14 @@
 use crate::{
     function_wrapper,
     lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::{Parser, parse},
     source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn add_assign() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x += 42;")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x += 42;"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

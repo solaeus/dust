@@ -3,7 +3,7 @@ pub mod scopes;
 pub mod symbols;
 pub mod types;
 
-use std::{collections::HashMap, fmt::Debug, thread::scope};
+use std::{collections::HashMap, fmt::Debug};
 
 use rustc_hash::FxBuildHasher;
 use smallvec::{SmallVec, smallvec};
@@ -24,6 +24,7 @@ use crate::{
     constants::value::ConstantValue,
     dust_type::{DustEnumType, DustFunctionType, DustStructType, DustStructTypeFields, DustType},
     instruction::OperandType,
+    source::CodeId,
     syntax::{SyntaxId, reader::SyntaxReader},
 };
 
@@ -36,8 +37,8 @@ pub struct Context {
     pub type_parameter_map: HashMap<DeclarationId, TypeId, FxBuildHasher>,
     pub implementations: HashMap<DeclarationId, DeclarationId::SmallVec, FxBuildHasher>,
 
-    declaration_bindings: HashMap<SyntaxId, DeclarationId, FxBuildHasher>,
-    type_bindings: HashMap<SyntaxId, TypeId, FxBuildHasher>,
+    declaration_bindings: HashMap<(CodeId, SyntaxId), DeclarationId, FxBuildHasher>,
+    type_bindings: HashMap<(CodeId, SyntaxId), TypeId, FxBuildHasher>,
 
     constant_item_values: HashMap<DeclarationId, ConstantValue, FxBuildHasher>,
 }
@@ -61,27 +62,39 @@ impl Context {
         context
     }
 
-    pub fn add_declaration_binding(&mut self, syntax_id: SyntaxId, declaration_id: DeclarationId) {
-        self.declaration_bindings.insert(syntax_id, declaration_id);
+    pub fn add_declaration_binding(
+        &mut self,
+        code_id: CodeId,
+        syntax_id: SyntaxId,
+        declaration_id: DeclarationId,
+    ) {
+        self.declaration_bindings
+            .insert((code_id, syntax_id), declaration_id);
     }
 
     pub fn get_declaration_binding(
         &self,
-        syntax_id: &SyntaxId,
+        ids: &(CodeId, SyntaxId),
     ) -> Result<&DeclarationId, CompileError> {
         self.declaration_bindings
-            .get(syntax_id)
-            .ok_or(CompileError::MissingDeclarationBinding(*syntax_id))
+            .get(ids)
+            .ok_or(CompileError::MissingDeclarationBinding {
+                code_id: ids.0,
+                syntax_id: ids.1,
+            })
     }
 
-    pub fn add_type_binding(&mut self, syntax_id: SyntaxId, type_id: TypeId) {
-        self.type_bindings.insert(syntax_id, type_id);
+    pub fn add_type_binding(&mut self, code_id: CodeId, syntax_id: SyntaxId, type_id: TypeId) {
+        self.type_bindings.insert((code_id, syntax_id), type_id);
     }
 
-    pub fn get_type_binding(&self, syntax_id: &SyntaxId) -> Result<&TypeId, CompileError> {
+    pub fn get_type_binding(&self, ids: &(CodeId, SyntaxId)) -> Result<&TypeId, CompileError> {
         self.type_bindings
-            .get(syntax_id)
-            .ok_or(CompileError::MissingTypeBinding(*syntax_id))
+            .get(ids)
+            .ok_or(CompileError::MissingTypeBinding {
+                code_id: ids.0,
+                syntax_id: ids.1,
+            })
     }
 
     pub fn add_constant_item_value(&mut self, declaration_id: DeclarationId, value: ConstantValue) {

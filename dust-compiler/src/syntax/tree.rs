@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    source::SourceCodeId,
+    source::CodeId,
     syntax::{
         SyntaxId,
         error::SyntaxError,
@@ -15,7 +15,7 @@ use crate::{
 /// Parsed Dust source code.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SyntaxTree {
-    pub source_id: SourceCodeId,
+    pub code_id: CodeId,
 
     /// Append-only list of syntax nodes. Each node's ID is its index in this list.
     pub(super) nodes: Vec<SyntaxNode>,
@@ -25,21 +25,16 @@ pub struct SyntaxTree {
 }
 
 impl SyntaxTree {
-    pub fn new(source_id: SourceCodeId) -> Self {
+    pub fn new(code_id: CodeId) -> Self {
         Self {
-            source_id,
+            code_id,
             nodes: Vec::new(),
             children: Vec::new(),
         }
     }
 
     pub fn read_root(&self) -> Result<SyntaxReader<'_>, SyntaxError> {
-        let root_node = self
-            .nodes
-            .first()
-            .ok_or(SyntaxError::MissingNode(SyntaxId::ROOT))?;
-
-        Ok(SyntaxReader::new(SyntaxId::ROOT, *root_node, self))
+        self.read_node(SyntaxId::ROOT)
     }
 
     pub fn read_node(&self, id: SyntaxId) -> Result<SyntaxReader<'_>, SyntaxError> {
@@ -49,13 +44,6 @@ impl SyntaxTree {
             .ok_or(SyntaxError::MissingNode(id))?;
 
         Ok(SyntaxReader::new(id, *node, self))
-    }
-
-    pub fn reader_iter(&self) -> impl Iterator<Item = SyntaxReader<'_>> {
-        self.nodes
-            .iter()
-            .enumerate()
-            .map(|(index, node)| SyntaxReader::new(SyntaxId(index as u32), *node, self))
     }
 
     pub fn sort_nodes(&self) -> Vec<SyntaxNode> {
@@ -77,18 +65,14 @@ impl SyntaxTree {
 
         nodes
     }
-
-    pub fn next_syntax_id(&self) -> SyntaxId {
-        SyntaxId(self.nodes.len() as u32)
-    }
 }
 
 impl Debug for SyntaxTree {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(
             f,
-            "SyntaxTree {{ source_id: {:?}, nodes: {}, children: {} }}",
-            self.source_id,
+            "SyntaxTree {{ code_id: {:?}, nodes: {}, children: {} }}",
+            self.code_id,
             self.nodes.len(),
             self.children.len()
         )
@@ -110,33 +94,30 @@ impl Display for SyntaxTree {
 }
 
 pub struct SyntaxTreeBuilder {
-    pub source_id: SourceCodeId,
+    pub code_id: CodeId,
     nodes: Vec<SyntaxNode>,
     children: Vec<SyntaxId>,
-    next_syntax_id: SyntaxId,
 }
 
 impl SyntaxTreeBuilder {
-    pub fn new(source_id: SourceCodeId, first_syntax_id: SyntaxId) -> Self {
+    pub fn new(code_id: CodeId) -> Self {
         Self {
-            source_id,
+            code_id,
             nodes: Vec::new(),
             children: Vec::new(),
-            next_syntax_id: first_syntax_id,
         }
     }
 
     pub fn build(self) -> SyntaxTree {
         SyntaxTree {
-            source_id: self.source_id,
+            code_id: self.code_id,
             nodes: self.nodes,
             children: self.children,
         }
     }
 
     pub fn add_node(&mut self, node: SyntaxNode) -> SyntaxId {
-        let id = self.next_syntax_id;
-        self.next_syntax_id.0 += 1;
+        let id = SyntaxId(self.nodes.len() as u32);
 
         self.nodes.push(node);
 

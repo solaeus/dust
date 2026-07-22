@@ -2,11 +2,11 @@ use std::fmt::{self, Display, Formatter};
 
 use annotate_snippets::Renderer;
 
-use crate::{error::DustError, source::SourceCodeId, syntax::SyntaxId};
+use crate::{error::DustError, source::CodeId, syntax::SyntaxId};
 
 #[derive(Clone, Debug)]
 pub enum SyntaxError {
-    MissingTree(SourceCodeId),
+    MissingTree(CodeId),
     MissingNode(SyntaxId),
     MissingChild {
         missing_index: u32,

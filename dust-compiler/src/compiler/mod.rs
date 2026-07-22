@@ -28,10 +28,10 @@ use crate::{
     error::{Error, ErrorContext, ErrorKind},
     instruction::OperandType,
     lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::Parser,
     program::Program,
-    source::{Source, SourceCodeId},
-    syntax::{Syntax, SyntaxId, components::FunctionItem, node::SyntaxKind},
+    source::{Code, CodeId, Source},
+    syntax::{Syntax, components::FunctionItem, node::SyntaxKind},
 };
 
 pub struct Compiler<'src> {
@@ -118,23 +118,27 @@ impl<'src> Compiler<'src> {
             let span = span!(Level::INFO, "parsing");
             let _enter = span.enter();
 
-            for (source_id, file) in self.source.iter_mut() {
-                let lexer = if file.utf8_validated() {
-                    Lexer::validated(file.content_as_str())
-                } else {
-                    Lexer::unvalidated(file.content_as_bytes())
-                };
-                let parser = Parser::new(source_id, SyntaxId::ROOT, lexer);
-                let ParseResult {
-                    syntax_tree,
-                    errors: parse_errors,
-                    file_module_names: _,
-                } = parser.parse();
+            let mut current_code_id = CodeId::MAIN;
+            let mut module_names = Vec::new();
+            let mut parse_errors = Vec::new();
+
+            while let Some(position) = module_names.pop() {
+                let file_name = unwrap_or_return!(self.source.get_content(position));
+                let mut file = unwrap_or_return!(Code::file(file_name));
+
+                let lexer = Lexer::unvalidated(file.content_as_bytes());
+                let parser =
+                    Parser::new(current_code_id, lexer, &mut module_names, &mut parse_errors);
+                let syntax_tree = parser.parse();
 
                 file.set_utf8_validated(true);
+
+                current_code_id = self.source.add_code(file);
+
                 self.syntax.add_tree(syntax_tree);
-                errors.extend(parse_errors.into_iter().map(ErrorKind::Parse));
             }
+
+            errors.extend(parse_errors.into_iter().map(ErrorKind::Parse));
         }
 
         let crate_scope_id = self.context.scopes.enter_scope(Barrier::Module, None);
@@ -145,11 +149,12 @@ impl<'src> Compiler<'src> {
 
             let main_file_root = unwrap_or_return!(
                 self.syntax
-                    .get_tree(SourceCodeId::MAIN)
+                    .get_tree(CodeId::MAIN)
                     .and_then(|tree| tree.read_root())
             );
 
             let mut declaration_resolver = DeclarationResolver::new(
+                CodeId::MAIN,
                 &self.source,
                 &self.syntax,
                 &mut self.context,
@@ -169,8 +174,6 @@ impl<'src> Compiler<'src> {
             return Err(errors);
         }
 
-        // Emission phase
-
         let main_symbol_id = self.context.symbols.add_symbol("main");
         let main_declaration_id = match self
             .context
@@ -184,16 +187,6 @@ impl<'src> Compiler<'src> {
                 return Err(errors);
             }
         };
-        let main_declaration = self
-            .context
-            .declarations
-            .get_declaration(main_declaration_id);
-        let Definition::Function { .. } = main_declaration.definition else {
-            errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
-
-            return Err(errors);
-        };
-
         let main_prototype_id = self
             .prototypes
             .monomorphize_function_to_prototype(main_declaration_id, SmallVec::new());
@@ -261,7 +254,7 @@ impl<'src> Compiler<'src> {
                 }))?;
         let function_syntax = self
             .syntax
-            .get_tree(position.source_id)
+            .get_tree(position.code_id)
             .and_then(|tree| tree.read_node(syntax_id))?;
         let Ok(FunctionItem {
             body: Some(body),
@@ -273,6 +266,12 @@ impl<'src> Compiler<'src> {
                 expected: &[SyntaxKind::BlockExpression],
             }));
         };
+        let (position, _syntax_id) =
+            &declaration
+                .syntax
+                .ok_or(ErrorKind::Compile(CompileError::ExpectedSyntax {
+                    expected: &[SyntaxKind::BlockExpression],
+                }))?;
 
         let type_parameter_ids = self
             .context
@@ -293,7 +292,8 @@ impl<'src> Compiler<'src> {
             let span = span!(Level::INFO, "type_resolve");
             let _enter = span.enter();
 
-            let mut type_resolver = TypeResolver::new(&mut self.context, &self.source, errors);
+            let mut type_resolver =
+                TypeResolver::new(&mut self.context, &self.source, position.code_id, errors);
 
             type_resolver.visit_function_body(body, return_type_id)?;
         }
@@ -302,34 +302,12 @@ impl<'src> Compiler<'src> {
             let span = span!(Level::INFO, "emit");
             let _enter = span.enter();
 
-            let self_id = if let Some(parent_id) = parent_impl_or_trait {
-                let parent_declaration = self.context.declarations.get_declaration(parent_id);
-                let self_id = match parent_declaration.definition {
-                    Definition::InherentImplementation {
-                        self_declaration_id,
-                        ..
-                    } => self_declaration_id,
-                    Definition::TraitImplementation {
-                        self_declaration_id,
-                        ..
-                    } => self_declaration_id,
-                    _ => {
-                        return Err(ErrorKind::Compile(
-                            CompileError::ExpectedImplementationDefinition(parent_id),
-                        ));
-                    }
-                };
-
-                Some(self_id)
-            } else {
-                None
-            };
-
             let mut prototype_emitter = PrototypeEmitter::new(
                 declaration_id,
                 prototype_id,
                 return_type_id,
                 value_parameters,
+                position.code_id,
                 (
                     &self.source,
                     &self.syntax,

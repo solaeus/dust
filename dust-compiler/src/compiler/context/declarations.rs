@@ -10,7 +10,7 @@ use crate::{
     },
     native_function::NativeFunction,
     optimize_inline_capacity,
-    source::{Position, SourceCodeId},
+    source::{CodeId, Position},
     syntax::SyntaxId,
 };
 
@@ -379,7 +379,7 @@ pub enum Definition {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ModuleKind {
-    File { source_id: SourceCodeId },
+    File { code_id: CodeId },
     Inline,
 }
 

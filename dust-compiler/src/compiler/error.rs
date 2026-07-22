@@ -13,7 +13,7 @@ use crate::{
     constants::{ConstantsError, value::ConstantValue},
     dust_type::DustType,
     error::DustError,
-    source::{Position, Source, SourceCodeId, SourceError, Span},
+    source::{CodeId, Position, Source, SourceError, Span},
     syntax::{Syntax, SyntaxId, error::SyntaxError, node::SyntaxKind},
 };
 
@@ -44,13 +44,13 @@ pub enum CompileError {
         right_value: ConstantValue,
         right_span: Span,
         operator: SyntaxKind,
-        source_id: SourceCodeId,
+        code_id: CodeId,
     },
     ConstantUnaryOverflow {
         value: ConstantValue,
         operand_span: Span,
         operator: SyntaxKind,
-        source_id: SourceCodeId,
+        code_id: CodeId,
     },
     InvalidConstantExponent {
         base_value: ConstantValue,
@@ -58,7 +58,7 @@ pub enum CompileError {
         exponent_value: ConstantValue,
         exponent_span: Span,
         operator: SyntaxKind,
-        source_id: SourceCodeId,
+        code_id: CodeId,
     },
     ExpectedIntegerIndex {
         found: TypeId,
@@ -91,7 +91,7 @@ pub enum CompileError {
         position: Position,
     },
     ExpectedValue {
-        source_id: SourceCodeId,
+        code_id: CodeId,
         syntax_id: SyntaxId,
     },
     IndexOutOfBounds {
@@ -117,9 +117,15 @@ pub enum CompileError {
     ExpectedTypeDeclaration(DeclarationId),
     InvalidRegisterAllocation,
     ExpectedJumpPlacement(JumpId),
-    MissingDeclarationBinding(SyntaxId),
+    MissingDeclarationBinding {
+        code_id: CodeId,
+        syntax_id: SyntaxId,
+    },
     MissingTypeMember(u32),
-    MissingTypeBinding(SyntaxId),
+    MissingTypeBinding {
+        code_id: CodeId,
+        syntax_id: SyntaxId,
+    },
     ExpectedFunctionDefinition(DeclarationId),
     ExpectedAlgebraicTypeDefinition(DeclarationId),
     MissingTypeArgument(DeclarationId),
@@ -181,7 +187,7 @@ impl<'a> DustError<'a> for CompileError {
                     .map(|r#type| r#type.to_string())
                     .unwrap_or("<invalid type>".to_string());
                 let title = format!("Expected an integer index, found {found_type}");
-                let file_content = source.get_code(position.source_id).content_as_str();
+                let file_content = source.get_code(position.code_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
@@ -195,7 +201,7 @@ impl<'a> DustError<'a> for CompileError {
                 position,
             } => {
                 let title = "Expected a boolean expression";
-                let file_content = source.get_code(position.source_id).content_as_str();
+                let file_content = source.get_code(position.code_id).content_as_str();
                 let found_type = match context.get_external_type(*found_type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
@@ -227,7 +233,7 @@ impl<'a> DustError<'a> for CompileError {
                         return;
                     }
                 };
-                let file_content = source.get_code(usage_position.source_id).content_as_str();
+                let file_content = source.get_code(usage_position.code_id).content_as_str();
                 let group = if let Some((position, _)) = declaration.syntax {
                     Group::with_title(Level::ERROR.primary_title(title)).element(
                         Snippet::source(file_content).annotation(
@@ -333,9 +339,9 @@ impl<'a> DustError<'a> for CompileError {
                         return;
                     }
                 };
-                let found_file = source.get_code(found_position.source_id);
+                let found_file = source.get_code(found_position.code_id);
                 let group = if let Some(expected_position) = expected_position {
-                    let expected_file = source.get_code(expected_position.source_id);
+                    let expected_file = source.get_code(expected_position.code_id);
 
                     Group::with_title(Level::ERROR.primary_title(title)).elements([
                         Snippet::source(expected_file.content_as_str())
@@ -378,7 +384,7 @@ impl<'a> DustError<'a> for CompileError {
                 operand_position,
             } => {
                 let title = "Cannot apply operator";
-                let file_content = source.get_code(operand_position.source_id).content_as_str();
+                let file_content = source.get_code(operand_position.code_id).content_as_str();
                 let r#type = match context.get_external_type(*type_id) {
                     Ok(r#type) => r#type,
                     Err(error) => {
@@ -407,7 +413,7 @@ impl<'a> DustError<'a> for CompileError {
                     }
                 };
                 let title = format!("Cannot index type {type}");
-                let file_content = source.get_code(position.source_id).content_as_str();
+                let file_content = source.get_code(position.code_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
@@ -423,7 +429,7 @@ impl<'a> DustError<'a> for CompileError {
                 usage_position,
             } => {
                 let title = "Undeclared symbol";
-                let file_content = source.get_code(usage_position.source_id).content_as_str();
+                let file_content = source.get_code(usage_position.code_id).content_as_str();
                 let name_str = match context.symbols.get_symbol(symbol_id) {
                     Ok(name) => name,
                     Err(error) => {
@@ -462,7 +468,7 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::CannotMutate { position } => {
                 let title = "Cannot mutate immutable value";
-                let file_content = source.get_code(position.source_id).content_as_str();
+                let file_content = source.get_code(position.code_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content)
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
@@ -472,7 +478,7 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::ExpectedFunctionType { found, position } => {
                 let title = "Expected a function type";
-                let file_content = source.get_code(position.source_id).content_as_str();
+                let file_content = source.get_code(position.code_id).content_as_str();
                 let found_type = match context.get_external_type(*found) {
                     Ok(r#type) => r#type,
                     Err(error) => {
@@ -493,12 +499,9 @@ impl<'a> DustError<'a> for CompileError {
 
                 groups.push(group);
             }
-            CompileError::ExpectedValue {
-                source_id,
-                syntax_id,
-            } => {
+            CompileError::ExpectedValue { code_id, syntax_id } => {
                 let syntax = match syntax
-                    .get_tree(*source_id)
+                    .get_tree(*code_id)
                     .and_then(|tree| tree.read_node(*syntax_id))
                 {
                     Ok(syntax) => syntax,
@@ -510,7 +513,7 @@ impl<'a> DustError<'a> for CompileError {
                 };
 
                 let title = "Expected a value";
-                let file_content = source.get_code(*source_id).content_as_str();
+                let file_content = source.get_code(*code_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
@@ -550,7 +553,7 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::ExpectedNativeFunctionCall { position } => {
                 let title = "Expected a native function to be called";
-                let file_content = source.get_code(position.source_id).content_as_str();
+                let file_content = source.get_code(position.code_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
@@ -579,10 +582,10 @@ impl<'a> DustError<'a> for CompileError {
                 right_value,
                 right_span,
                 operator,
-                source_id,
+                code_id,
             } => {
                 let title = "Constant overflow";
-                let file_content = source.get_code(*source_id).content_as_str();
+                let file_content = source.get_code(*code_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title))
                     .element(
                         Snippet::source(file_content).annotation(
@@ -608,10 +611,10 @@ impl<'a> DustError<'a> for CompileError {
                 value,
                 operand_span,
                 operator,
-                source_id,
+                code_id,
             } => {
                 let title = "Constant overflow";
-                let file_content = source.get_code(*source_id).content_as_str();
+                let file_content = source.get_code(*code_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title))
                     .element(
                         Snippet::source(file_content).annotation(
@@ -632,10 +635,10 @@ impl<'a> DustError<'a> for CompileError {
                 exponent_value,
                 exponent_span,
                 operator,
-                source_id,
+                code_id,
             } => {
                 let title = "Invalid constant exponent";
-                let file_content = source.get_code(*source_id).content_as_str();
+                let file_content = source.get_code(*code_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title))
                     .element(
                         Snippet::source(file_content).annotation(
@@ -690,7 +693,7 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::SelfTypeOutsideOfImpl { position } => {
                 let title = "Use of `Self` type outside of impl";
-                let file_content = source.get_code(position.source_id).content_as_str();
+                let file_content = source.get_code(position.code_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
@@ -703,7 +706,7 @@ impl<'a> DustError<'a> for CompileError {
             }
             CompileError::ConstantValueOverflow { position } => {
                 let title = "Constant value overflow";
-                let file_content = source.get_code(position.source_id).content_as_str();
+                let file_content = source.get_code(position.code_id).content_as_str();
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file_content).annotation(
                         AnnotationKind::Primary
@@ -722,9 +725,9 @@ impl<'a> DustError<'a> for CompileError {
             | CompileError::ExpectedJumpPlacement(_)
             | CompileError::ExpectedFieldDefinition { .. }
             | CompileError::ExpectedAllocation
-            | CompileError::MissingDeclarationBinding(_)
+            | CompileError::MissingDeclarationBinding { .. }
             | CompileError::MissingTypeMember(_)
-            | CompileError::MissingTypeBinding(_)
+            | CompileError::MissingTypeBinding { .. }
             | CompileError::ExpectedFunctionDefinition(_)
             | CompileError::ExpectedAlgebraicTypeDefinition(_)
             | CompileError::MissingTypeArgument(_)

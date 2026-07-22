@@ -6,7 +6,7 @@ pub mod tree;
 
 use serde::{Deserialize, Serialize};
 
-use crate::source::SourceCodeId;
+use crate::source::CodeId;
 
 use error::SyntaxError;
 use tree::SyntaxTree;
@@ -36,7 +36,7 @@ impl Syntax {
     }
 
     pub fn add_tree(&mut self, tree: SyntaxTree) {
-        let index = tree.source_id.inner() as usize;
+        let index = tree.code_id.inner() as usize;
 
         debug_assert!(
             index < self.trees.len() || self.trees.is_empty(),
@@ -46,16 +46,16 @@ impl Syntax {
         self.trees.push(tree);
     }
 
-    pub fn get_tree(&self, source_id: SourceCodeId) -> Result<&SyntaxTree, SyntaxError> {
-        let index = source_id.inner() as usize;
+    pub fn get_tree(&self, code_id: CodeId) -> Result<&SyntaxTree, SyntaxError> {
+        let index = code_id.inner() as usize;
 
         self.trees
             .get(index)
-            .ok_or(SyntaxError::MissingTree(source_id))
+            .ok_or(SyntaxError::MissingTree(code_id))
     }
 }
 
-/// A unique identifier for a syntax node within a syntax tree.
+/// A unique identifier for a [`SyntaxNode`][].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct SyntaxId(#[cfg(test)] pub(super) u32, #[cfg(not(test))] u32);
 

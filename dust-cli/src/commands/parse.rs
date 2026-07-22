@@ -23,13 +23,13 @@ pub fn parse<'src>(command: ParseCommand) -> Result<(), Error<'src>> {
     let mut errors = Vec::new();
     let mut starting_syntax_id = SyntaxId::ROOT;
 
-    for (source_id, file) in source.iter() {
+    for (code_id, file) in source.iter() {
         let lexer = if file.utf8_validated() {
             Lexer::validated(file.content_as_str())
         } else {
             Lexer::unvalidated(file.content_as_bytes())
         };
-        let parser = Parser::new(source_id, starting_syntax_id, lexer);
+        let parser = Parser::new(code_id, starting_syntax_id, lexer);
         let ParseResult {
             syntax_tree,
             errors: parse_errors,

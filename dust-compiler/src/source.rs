@@ -11,7 +11,7 @@ use annotate_snippets::{Group, Level, Renderer};
 use serde::{Deserialize, Serialize};
 use tracing::{error, warn};
 
-use crate::{crate_config::CrateConfig, error::DustError};
+use crate::error::DustError;
 
 #[derive(Debug, Clone)]
 pub struct Source<'src> {
@@ -37,68 +37,53 @@ impl<'src> Source<'src> {
         &self.code
     }
 
-    pub fn add_code(&mut self, file: Code<'src>) -> SourceCodeId {
-        let id = SourceCodeId(self.code.len() as u32);
+    pub fn add_code(&mut self, file: Code<'src>) -> CodeId {
+        let id = CodeId(self.code.len() as u32);
 
         self.code.push(file);
 
         id
     }
 
-    pub fn get_code(&self, source_id: SourceCodeId) -> &Code<'src> {
-        &self.code[source_id.0 as usize]
+    pub fn get_code(&self, code_id: CodeId) -> &Code<'src> {
+        &self.code[code_id.0 as usize]
     }
 
-    pub fn add_crate(
-        &mut self,
-        config: &CrateConfig,
-        crate_path: &Path,
-        target_program: Option<&str>,
-    ) -> Result<(), SourceError> {
-        let program_path = if let Some(target) = target_program
-            && let Some(program) = config.package.programs.iter().find(|p| p.name == target)
-        {
-            crate_path.join(&program.path)
-        } else {
-            crate_path.join("src").join("main.ds")
-        };
-
-        self.add_code(Code::file(program_path)?);
-
-        Ok(())
+    pub(crate) fn get_code_mut(&mut self, code_id: CodeId) -> &mut Code<'src> {
+        &mut self.code[code_id.0 as usize]
     }
 
     pub fn get_content(&self, position: Position) -> Result<&str, SourceError> {
-        self.get_code(position.source_id).get_str(position.span)
+        self.get_code(position.code_id).get_str(position.span)
     }
 
-    pub fn set_utf8_validated(&mut self, source_id: SourceCodeId) {
+    pub fn set_utf8_validated(&mut self, code_id: CodeId) {
         if let Some(
             Code::File { utf8_validated, .. }
             | Code::Borrowed { utf8_validated, .. }
             | Code::Owned { utf8_validated, .. },
-        ) = self.code.get_mut(source_id.0 as usize)
+        ) = self.code.get_mut(code_id.0 as usize)
         {
             *utf8_validated = true;
         }
     }
 
-    pub fn ids(&self) -> impl Iterator<Item = SourceCodeId> {
-        (0..self.code.len() as u32).map(SourceCodeId)
+    pub fn ids(&self) -> impl Iterator<Item = CodeId> {
+        (0..self.code.len() as u32).map(CodeId)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (SourceCodeId, &Code<'src>)> {
+    pub fn iter(&self) -> impl Iterator<Item = (CodeId, &Code<'src>)> {
         self.code
             .iter()
             .enumerate()
-            .map(|(index, file)| (SourceCodeId(index as u32), file))
+            .map(|(index, file)| (CodeId(index as u32), file))
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (SourceCodeId, &mut Code<'src>)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (CodeId, &mut Code<'src>)> {
         self.code
             .iter_mut()
             .enumerate()
-            .map(|(index, file)| (SourceCodeId(index as u32), file))
+            .map(|(index, file)| (CodeId(index as u32), file))
     }
 }
 
@@ -109,10 +94,10 @@ impl Default for Source<'_> {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct SourceCodeId(u32);
+pub struct CodeId(u32);
 
-impl SourceCodeId {
-    pub const MAIN: Self = SourceCodeId(0);
+impl CodeId {
+    pub const MAIN: Self = CodeId(0);
 
     pub fn inner(self) -> u32 {
         self.0
@@ -379,18 +364,18 @@ impl Debug for Code<'_> {
 /// Represents a slice of a file's content that can be read from the `Source`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Position {
-    pub source_id: SourceCodeId,
+    pub code_id: CodeId,
     pub span: Span,
 }
 
 impl Position {
-    pub fn new(source_id: SourceCodeId, span: Span) -> Self {
-        Self { source_id, span }
+    pub fn new(code_id: CodeId, span: Span) -> Self {
+        Self { code_id, span }
     }
 
     pub fn shrink(self, offset: u32) -> Position {
         Position {
-            source_id: self.source_id,
+            code_id: self.code_id,
             span: self.span.shrink(offset),
         }
     }

@@ -14,7 +14,7 @@ use crate::{
         error::ParseError,
         parse_rule::{Associativity, ParseRule, Precedence},
     },
-    source::{Position, SourceCodeId, Span},
+    source::{CodeId, Position, Span},
     syntax::{
         SyntaxId,
         node::{SyntaxChildren, SyntaxChildrenKind, SyntaxFlags, SyntaxKind, SyntaxNode},
@@ -25,34 +25,36 @@ use crate::{
 
 pub fn parse(source_code: &str) -> (SyntaxTree, Vec<ParseError>) {
     let lexer = Lexer::validated(source_code);
-    let parser = Parser::new_standalone(lexer);
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let mut module_names = Vec::new();
+    let mut errors = Vec::new();
+    let parser = Parser::new(CodeId::MAIN, lexer, &mut module_names, &mut errors);
+    let syntax_tree = parser.parse();
 
     (syntax_tree, errors)
 }
 
-pub struct Parser<'src> {
-    lexer: Lexer<'src>,
+pub struct Parser<'a> {
+    lexer: Lexer<'a>,
 
     current_token: Token,
     previous_token: Token,
 
     tree: SyntaxTreeBuilder,
     child_buffer: Vec<SyntaxId>,
-    file_module_names: Vec<Span>,
 
-    errors: Vec<ParseError>,
+    module_names: &'a mut Vec<Position>,
+    errors: &'a mut Vec<ParseError>,
 }
 
-impl<'src> Parser<'src> {
-    pub fn new(source_id: SourceCodeId, first_syntax_id: SyntaxId, lexer: Lexer<'src>) -> Self {
+impl<'a> Parser<'a> {
+    pub fn new(
+        code_id: CodeId,
+        lexer: Lexer<'a>,
+        module_names: &'a mut Vec<Position>,
+        errors: &'a mut Vec<ParseError>,
+    ) -> Self {
         Self {
             lexer,
-            tree: SyntaxTreeBuilder::new(source_id, first_syntax_id),
             current_token: Token {
                 kind: TokenKind::Unknown,
                 span: Span::empty(),
@@ -61,17 +63,14 @@ impl<'src> Parser<'src> {
                 kind: TokenKind::Unknown,
                 span: Span::empty(),
             },
-            file_module_names: Vec::new(),
-            errors: Vec::new(),
+            tree: SyntaxTreeBuilder::new(code_id),
             child_buffer: Vec::with_capacity(16),
+            module_names,
+            errors,
         }
     }
 
-    pub fn new_standalone(lexer: Lexer<'src>) -> Self {
-        Self::new(SourceCodeId::MAIN, SyntaxId::ROOT, lexer)
-    }
-
-    pub fn parse(mut self) -> ParseResult {
+    pub fn parse(mut self) -> SyntaxTree {
         self.advance();
 
         let _root_id = self.tree.add_node(SyntaxKind::Root.empty(Span::empty()));
@@ -85,11 +84,7 @@ impl<'src> Parser<'src> {
             Err(error) => self.errors.push(error),
         }
 
-        ParseResult {
-            syntax_tree: self.tree.build(),
-            errors: self.errors,
-            file_module_names: self.file_module_names,
-        }
+        self.tree.build()
     }
 
     fn create_node(
@@ -143,7 +138,7 @@ impl<'src> Parser<'src> {
     }
 
     fn current_position(&self) -> Position {
-        Position::new(self.tree.source_id, self.current_token.span)
+        Position::new(self.tree.code_id, self.current_token.span)
     }
 
     fn pratt(&mut self, minimum_precedence: Precedence) -> Result<SyntaxNode, ParseError> {
@@ -164,7 +159,7 @@ impl<'src> Parser<'src> {
 
     fn advance(&mut self) {
         if let Some(index) = self.lexer.error_index() {
-            let position = Position::new(self.tree.source_id, Span::new(index, index));
+            let position = Position::new(self.tree.code_id, Span::new(index, index));
 
             self.recover(ParseError::InvalidUtf8 { position }, 0);
         }
@@ -275,7 +270,7 @@ impl<'src> Parser<'src> {
             Ok(node) if node.kind.is_item() => Ok(node),
             Ok(node) => Err(ParseError::ExpectedItem {
                 found: node.kind,
-                position: Position::new(self.tree.source_id, node.span),
+                position: Position::new(self.tree.code_id, node.span),
             }),
             Err(error) => Err(error),
         }
@@ -286,7 +281,7 @@ impl<'src> Parser<'src> {
             Ok(node) if node.kind.is_expression() => Ok(node),
             Ok(node) => Err(ParseError::ExpectedExpression {
                 found: Some(node.kind),
-                position: Position::new(self.tree.source_id, node.span),
+                position: Position::new(self.tree.code_id, node.span),
             }),
             Err(error) => Err(error),
         }
@@ -297,7 +292,7 @@ impl<'src> Parser<'src> {
             Ok(node) if node.kind.is_expression() => Ok(node),
             Ok(node) => Err(ParseError::ExpectedExpression {
                 found: Some(node.kind),
-                position: Position::new(self.tree.source_id, node.span),
+                position: Position::new(self.tree.code_id, node.span),
             }),
             Err(error) => Err(error),
         }
@@ -422,7 +417,8 @@ impl<'src> Parser<'src> {
             TokenKind::Semicolon => {
                 self.advance();
 
-                self.file_module_names.push(module_name_node.span);
+                self.module_names
+                    .push(Position::new(self.tree.code_id, module_name_node.span));
 
                 Ok(SyntaxKind::ModItem.with_single_child(
                     Span::new(start, self.previous_token.span.end()),
@@ -2482,10 +2478,4 @@ impl<'src> Parser<'src> {
             children_start,
         ))
     }
-}
-
-pub struct ParseResult {
-    pub syntax_tree: SyntaxTree,
-    pub errors: Vec<ParseError>,
-    pub file_module_names: Vec<Span>,
 }

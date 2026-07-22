@@ -86,7 +86,7 @@ impl Symbols {
         let _ = write!(
             &mut self.pool,
             "impl@{}:{}",
-            position.source_id.inner(),
+            position.code_id.inner(),
             position.span
         );
 

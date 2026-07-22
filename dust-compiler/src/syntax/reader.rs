@@ -1,7 +1,5 @@
-use tracing::trace;
-
 use crate::{
-    source::{Position, SourceCodeId},
+    source::{CodeId, Position},
     syntax::{
         SyntaxId,
         components::SyntaxComponent,
@@ -23,12 +21,12 @@ impl<'a> SyntaxReader<'a> {
         Self { id, node, tree }
     }
 
-    pub fn source_id(&self) -> SourceCodeId {
-        self.tree.source_id
+    pub fn code_id(&self) -> CodeId {
+        self.tree.code_id
     }
 
     pub fn position(&self) -> Position {
-        Position::new(self.tree.source_id, self.node.span)
+        Position::new(self.tree.code_id, self.node.span)
     }
 
     pub fn child_count(&self) -> usize {

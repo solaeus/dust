@@ -50,7 +50,7 @@ impl<'src> DustError<'src> for ParseError {
         match self {
             ParseError::InvalidUtf8 { position } => {
                 let title = "Invalid UTF-8 sequence".to_string();
-                let file = source.get_code(position.source_id);
+                let file = source.get_code(position.code_id);
 
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file.content_as_str())
@@ -71,7 +71,7 @@ impl<'src> DustError<'src> for ParseError {
                 position,
             } => {
                 let title = "Expected a different token".to_string();
-                let file = source.get_code(position.source_id);
+                let file = source.get_code(position.code_id);
 
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file.content_as_str())
@@ -92,7 +92,7 @@ impl<'src> DustError<'src> for ParseError {
                 position,
             } => {
                 let title = "Expected a different token".to_string();
-                let file = source.get_code(position.source_id);
+                let file = source.get_code(position.code_id);
 
                 let expected_list = expected
                     .iter()
@@ -124,7 +124,7 @@ impl<'src> DustError<'src> for ParseError {
             }
             ParseError::UnexpectedToken { position, found } => {
                 let title = "Unexpected token".to_string();
-                let file = source.get_code(position.source_id);
+                let file = source.get_code(position.code_id);
 
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file.content_as_str())

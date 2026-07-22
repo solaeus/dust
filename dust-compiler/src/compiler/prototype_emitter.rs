@@ -31,7 +31,7 @@ use crate::{
     native_function::NativeFunction,
     optimize_inline_capacity,
     prototype::Prototype,
-    source::Source,
+    source::{CodeId, Source},
     syntax::{
         Syntax,
         components::{
@@ -39,8 +39,8 @@ use crate::{
             CallExpression, ComparisonExpression, ConstItem, ExpressionStatement,
             FieldAccessExpression, GroupedExpression, IfExpression, IndexExpression, LetStatement,
             LogicExpression, MathExpression, MethodCallExpression, NegationExpression,
-            NotExpression, PathExpression, RangeExpression, StructExpression,
-            StructExpressionStructFields, ValueParameters, WhileExpression,
+            NotExpression, RangeExpression, StructExpression, StructExpressionStructFields,
+            ValueParameters, WhileExpression,
         },
         node::{SyntaxFlags, SyntaxKind},
         reader::SyntaxReader,
@@ -58,6 +58,8 @@ pub struct PrototypeEmitter<'a> {
     context: &'a mut Context,
 
     prototypes: &'a mut Prototypes,
+
+    code_id: CodeId,
 
     argument_count: u16,
 
@@ -95,7 +97,8 @@ impl<'a> PrototypeEmitter<'a> {
         prototype_id: PrototypeId,
         return_type_id: TypeId,
         value_parameters: Option<SyntaxReader>,
-        (source, syntax, constants, context, monomorphs): (
+        code_id: CodeId,
+        (source, syntax, constants, context, prototypes): (
             &'a Source,
             &'a Syntax,
             &'a mut ConstantsBuilder,
@@ -115,7 +118,8 @@ impl<'a> PrototypeEmitter<'a> {
             syntax,
             constants,
             context,
-            prototypes: monomorphs,
+            prototypes,
+            code_id,
             instructions: Vec::new(),
             locals: HashMap::default(),
             pending_drops: Vec::new(),
@@ -150,7 +154,7 @@ impl<'a> PrototypeEmitter<'a> {
             {
                 let self_type_id = *prototype_emitter
                     .context
-                    .get_type_binding(&value_parameters.id)?;
+                    .get_type_binding(&(value_parameters.code_id(), value_parameters.id))?;
                 let concrete_self_type_id = prototype_emitter
                     .context
                     .get_inferred_type_id(self_type_id)?;
@@ -163,7 +167,7 @@ impl<'a> PrototypeEmitter<'a> {
             for (parameter_name, _) in name_type_pairs {
                 let declaration_id = *prototype_emitter
                     .context
-                    .get_declaration_binding(&parameter_name.id)?;
+                    .get_declaration_binding(&(parameter_name.code_id(), parameter_name.id))?;
                 let declaration = prototype_emitter
                     .context
                     .declarations
@@ -578,7 +582,7 @@ impl<'a> PrototypeEmitter<'a> {
                 Some(register_claims),
             )),
             ExpressionTarget::UnclaimedRegister(register_kind) => {
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
                 if matches!(type_id, TypeId::UNIT | TypeId::NEVER) {
                     Ok((u16::MAX, None))
@@ -589,7 +593,7 @@ impl<'a> PrototypeEmitter<'a> {
                 }
             }
             ExpressionTarget::Any => {
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
                 if matches!(type_id, TypeId::UNIT | TypeId::NEVER) {
                     Ok((u16::MAX, None))
@@ -683,7 +687,7 @@ impl<'a> PrototypeEmitter<'a> {
                     Ok(Place::Registers(registers))
                 } else {
                     Err(CompileError::ExpectedValue {
-                        source_id: syntax.source_id(),
+                        code_id: syntax.code_id(),
                         syntax_id: syntax.id,
                     })
                 }
@@ -692,7 +696,7 @@ impl<'a> PrototypeEmitter<'a> {
                 position: syntax.position(),
             }),
             _ => Err(CompileError::ExpectedValue {
-                source_id: syntax.source_id(),
+                code_id: syntax.code_id(),
                 syntax_id: syntax.id,
             }),
         }
@@ -888,7 +892,7 @@ impl<'a> PrototypeEmitter<'a> {
                         index: allocation.expect_base_index()?,
                     }),
                     None => Err(CompileError::ExpectedValue {
-                        source_id: operand.source_id(),
+                        code_id: operand.code_id(),
                         syntax_id: operand.id,
                     }),
                 }
@@ -897,7 +901,7 @@ impl<'a> PrototypeEmitter<'a> {
                 position: operand.position(),
             }),
             Emission::Never | Emission::None => Err(CompileError::ExpectedValue {
-                source_id: operand.source_id(),
+                code_id: operand.code_id(),
                 syntax_id: operand.id,
             }),
         }
@@ -975,7 +979,9 @@ impl<'a> PrototypeEmitter<'a> {
                                 Address::new(MemoryKind::REGISTER, allocation.claims[0].index)
                             } else {
                                 return Err(CompileError::ExpectedBooleanExpression {
-                                    found: *self.context.get_type_binding(&condition.id)?,
+                                    found: *self
+                                        .context
+                                        .get_type_binding(&(self.code_id, condition.id))?,
                                     node_kind: condition.node.kind,
                                     position: condition.position(),
                                 });
@@ -994,7 +1000,9 @@ impl<'a> PrototypeEmitter<'a> {
                 Ok(())
             }
             _ => Err(CompileError::ExpectedBooleanExpression {
-                found: *self.context.get_type_binding(&condition.id)?,
+                found: *self
+                    .context
+                    .get_type_binding(&(self.code_id, condition.id))?,
                 node_kind: condition.node.kind,
                 position: condition.position(),
             }),
@@ -1201,12 +1209,14 @@ impl<'a> PrototypeEmitter<'a> {
             ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
         )?;
 
-        let declaration_id = *self.context.get_declaration_binding(&name.id)?;
+        let declaration_id = *self
+            .context
+            .get_declaration_binding(&(self.code_id, name.id))?;
         let constant_value = if let Emission::Value(constant) = expression_emission {
             constant
         } else {
             return Err(CompileError::ExpectedValue {
-                source_id: value.source_id(),
+                code_id: value.code_id(),
                 syntax_id: value.id,
             });
         };
@@ -1231,7 +1241,9 @@ impl<'a> PrototypeEmitter<'a> {
         } = syntax.as_component()?;
 
         let expression_target = if mutable {
-            let type_id = *self.context.get_type_binding(&expression.id)?;
+            let type_id = *self
+                .context
+                .get_type_binding(&(self.code_id, expression.id))?;
             let registers = self.claim_registers(type_id, RegisterKind::Local)?;
 
             ExpressionTarget::ClaimedRegister(registers)
@@ -1242,14 +1254,18 @@ impl<'a> PrototypeEmitter<'a> {
 
         match emission {
             Emission::Value(value) => {
-                let declaration_id = *self.context.get_declaration_binding(&name.id)?;
+                let declaration_id = *self
+                    .context
+                    .get_declaration_binding(&(self.code_id, name.id))?;
 
                 self.locals.insert(declaration_id, Local::Constant(value));
 
                 Ok(None)
             }
             Emission::Place(place) => {
-                let declaration_id = *self.context.get_declaration_binding(&name.id)?;
+                let declaration_id = *self
+                    .context
+                    .get_declaration_binding(&(self.code_id, name.id))?;
 
                 self.locals.insert(declaration_id, Local::Place(place));
 
@@ -1260,9 +1276,11 @@ impl<'a> PrototypeEmitter<'a> {
                 target_registers,
                 pending_drops,
             }) => {
-                let declaration_id = *self.context.get_declaration_binding(&name.id)?;
+                let declaration_id = *self
+                    .context
+                    .get_declaration_binding(&(self.code_id, name.id))?;
                 let registers = target_registers.ok_or_else(|| CompileError::ExpectedValue {
-                    source_id: expression.source_id(),
+                    code_id: expression.code_id(),
                     syntax_id: expression.id,
                 })?;
 
@@ -1295,7 +1313,9 @@ impl<'a> PrototypeEmitter<'a> {
 
         let target_registers = match target.node.kind {
             SyntaxKind::PathExpression => {
-                let declaration_id = self.context.get_declaration_binding(&target.id)?;
+                let declaration_id = self
+                    .context
+                    .get_declaration_binding(&(self.code_id, target.id))?;
                 let local = self.locals.get(declaration_id).ok_or_else(|| {
                     CompileError::DeclarationOutOfScope {
                         declaration_id: *declaration_id,
@@ -1322,13 +1342,13 @@ impl<'a> PrototypeEmitter<'a> {
                     Emission::Instructions(instructions) => assignment_instructions
                         .extend(instructions)
                         .ok_or_else(|| CompileError::ExpectedValue {
-                            source_id: target.source_id(),
+                            code_id: target.code_id(),
                             syntax_id: target.id,
                         })?,
                     _ => {
                         return Err(CompileError::CannotApplyOperator {
                             operator: SyntaxKind::AssignmentExpression,
-                            type_id: *self.context.get_type_binding(&target.id)?,
+                            type_id: *self.context.get_type_binding(&(self.code_id, target.id))?,
                             operand_position: target.position(),
                         });
                     }
@@ -1400,7 +1420,7 @@ impl<'a> PrototypeEmitter<'a> {
             }
             Emission::Never | Emission::None => {
                 return Err(CompileError::ExpectedValue {
-                    source_id: source.source_id(),
+                    code_id: source.code_id(),
                     syntax_id: source.id,
                 });
             }
@@ -1452,7 +1472,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         let bytes = &self
             .source
-            .get_code(reader.source_id())
+            .get_code(reader.code_id())
             .get_bytes(reader.node.span)?[2..];
         let byte = create_u8_from_hexadecimal(bytes, reader)?;
 
@@ -1480,13 +1500,13 @@ impl<'a> PrototypeEmitter<'a> {
         trace!("Visiting float expression");
 
         let type_id = {
-            let raw = *self.context.get_type_binding(&reader.id)?;
+            let raw = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
             self.context.get_inferred_type_id(raw)?
         };
         let bytes = self
             .source
-            .get_code(reader.source_id())
+            .get_code(reader.code_id())
             .get_bytes(reader.node.span)?;
         let value = match type_id {
             TypeId::F_32 => {
@@ -1534,13 +1554,13 @@ impl<'a> PrototypeEmitter<'a> {
         trace!("Visiting integer expression");
 
         let type_id = {
-            let raw = *self.context.get_type_binding(&reader.id)?;
+            let raw = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
             self.context.get_inferred_type_id(raw)?
         };
         let bytes = self
             .source
-            .get_code(reader.source_id())
+            .get_code(reader.code_id())
             .get_bytes(reader.node.span)?;
         let value = match type_id {
             TypeId::I_8 => ConstantValue::I8(create_i8_from_decimal(bytes, reader)?),
@@ -1638,12 +1658,12 @@ impl<'a> PrototypeEmitter<'a> {
         let array_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
                 self.claim_registers(type_id, register_kind)?
             }
             ExpressionTarget::Any => {
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
                 self.claim_registers(type_id, RegisterKind::Temporary)?
             }
@@ -1682,7 +1702,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         let mut array_instructions = Instructions::new();
 
-        let type_id = *self.context.get_type_binding(&reader.id)?;
+        let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
         let array_length = if let Type::Array { length, .. } = *self.context.types.get_type(type_id)
         {
             length
@@ -1754,7 +1774,7 @@ impl<'a> PrototypeEmitter<'a> {
                 Emission::Instructions(instructions) => {
                     let registers = instructions.target_registers.clone().ok_or(
                         CompileError::ExpectedValue {
-                            source_id: collection.source_id(),
+                            code_id: collection.code_id(),
                             syntax_id: collection.id,
                         },
                     )?;
@@ -1763,13 +1783,15 @@ impl<'a> PrototypeEmitter<'a> {
                 }
                 _ => {
                     return Err(CompileError::ExpectedValue {
-                        source_id: collection.source_id(),
+                        code_id: collection.code_id(),
                         syntax_id: collection.id,
                     });
                 }
             };
 
-        let list_type_id = *self.context.get_type_binding(&collection.id)?;
+        let list_type_id = *self
+            .context
+            .get_type_binding(&(self.code_id, collection.id))?;
         let list_type = *self.context.types.get_type(list_type_id);
 
         let (element_type_id, array_length) = match list_type {
@@ -1791,7 +1813,7 @@ impl<'a> PrototypeEmitter<'a> {
         if index.node.kind == SyntaxKind::IntegerExpression {
             let index_bytes = self
                 .source
-                .get_code(index.source_id())
+                .get_code(index.code_id())
                 .get_bytes(index.node.span)?;
             let constant_index = create_usize_from_decimal(index_bytes, index)?;
 
@@ -1848,7 +1870,7 @@ impl<'a> PrototypeEmitter<'a> {
                 }
                 _ => {
                     return Err(CompileError::ExpectedIntegerIndex {
-                        found: *self.context.get_type_binding(&index.id)?,
+                        found: *self.context.get_type_binding(&(self.code_id, index.id))?,
                         position: index.position(),
                     });
                 }
@@ -1857,7 +1879,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         let base_index = list_registers.expect_base_index()?;
 
-        let element_type_id = *self.context.get_type_binding(&reader.id)?;
+        let element_type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
         let destination = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
@@ -1902,12 +1924,12 @@ impl<'a> PrototypeEmitter<'a> {
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
                 self.claim_registers(type_id, register_kind)?
             }
             ExpressionTarget::Any => {
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
                 self.claim_registers(type_id, RegisterKind::Temporary)?
             }
@@ -1983,7 +2005,9 @@ impl<'a> PrototypeEmitter<'a> {
     ) -> Result<Emission, CompileError> {
         trace!("Visiting path expression");
 
-        let declaration_id = *self.context.get_declaration_binding(&reader.id)?;
+        let declaration_id = *self
+            .context
+            .get_declaration_binding(&(self.code_id, reader.id))?;
 
         if let Some(local) = self.locals.get(&declaration_id).cloned() {
             match local {
@@ -2010,7 +2034,7 @@ impl<'a> PrototypeEmitter<'a> {
                         return Ok(Emission::Instructions(instructions));
                     }
                     ExpressionTarget::UnclaimedRegister(register_kind) => {
-                        let type_id = *self.context.get_type_binding(&reader.id)?;
+                        let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
                         let registers = self.claim_registers(type_id, register_kind)?;
 
                         let mut instructions = Instructions::new();
@@ -2044,7 +2068,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         match declaration.definition {
             Definition::Function { .. } => {
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
                 let callee_type = *self.context.types.get_type(type_id);
                 let type_arguments =
                     if let Type::FunctionDefinition { type_arguments, .. } = callee_type {
@@ -2075,19 +2099,20 @@ impl<'a> PrototypeEmitter<'a> {
                     } else {
                         let (position, syntax_id) =
                             declaration.syntax.ok_or(CompileError::ExpectedValue {
-                                source_id: reader.source_id(),
+                                code_id: reader.code_id(),
                                 syntax_id: reader.id,
                             })?;
-                        let tree = self.syntax.get_tree(position.source_id)?;
+                        let tree = self.syntax.get_tree(position.code_id)?;
                         let const_syntax = tree.read_node(syntax_id)?;
                         let const_reader: ConstItem = const_syntax.as_component()?;
                         let value_expression =
                             const_reader.value.ok_or(CompileError::ExpectedValue {
-                                source_id: reader.source_id(),
+                                code_id: reader.code_id(),
                                 syntax_id: reader.id,
                             })?;
 
-                        self.context.add_type_binding(value_expression.id, type_id);
+                        self.context
+                            .add_type_binding(self.code_id, value_expression.id, type_id);
 
                         let expression_emission = self.visit_expression(
                             value_expression,
@@ -2097,7 +2122,7 @@ impl<'a> PrototypeEmitter<'a> {
                             Emission::Value(constant_value) => constant_value,
                             _ => {
                                 return Err(CompileError::ExpectedValue {
-                                    source_id: reader.source_id(),
+                                    code_id: reader.code_id(),
                                     syntax_id: reader.id,
                                 });
                             }
@@ -2118,7 +2143,7 @@ impl<'a> PrototypeEmitter<'a> {
                 ..
             } => {
                 let mut instructions = Instructions::new();
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
                 let register = match target {
                     ExpressionTarget::ClaimedRegister(registers) => registers,
                     ExpressionTarget::UnclaimedRegister(register_kind) => {
@@ -2140,7 +2165,7 @@ impl<'a> PrototypeEmitter<'a> {
                 Ok(Emission::Instructions(instructions))
             }
             _ => Err(CompileError::ExpectedValue {
-                source_id: reader.source_id(),
+                code_id: reader.code_id(),
                 syntax_id: reader.id,
             }),
         }
@@ -2161,7 +2186,7 @@ impl<'a> PrototypeEmitter<'a> {
             name_expression_pairs,
         } = struct_fields.as_component()?;
 
-        let type_id = *self.context.get_type_binding(&reader.id)?;
+        let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
@@ -2255,7 +2280,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         let mut block_instructions = Instructions::new();
 
-        let type_id = *self.context.get_type_binding(&reader.id)?;
+        let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
@@ -2388,12 +2413,12 @@ impl<'a> PrototypeEmitter<'a> {
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
                 self.claim_registers(type_id, register_kind)?
             }
             ExpressionTarget::Any => {
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
                 self.claim_registers(type_id, RegisterKind::Temporary)?
             }
@@ -2530,7 +2555,7 @@ impl<'a> PrototypeEmitter<'a> {
         let right_address =
             self.handle_operand_emission(&mut math_emission, right_emission, &right)?;
 
-        let type_id = *self.context.get_type_binding(&reader.id)?;
+        let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
         let is_assignment = matches!(
             reader.node.kind,
             SyntaxKind::AdditionAssignmentExpression
@@ -2666,20 +2691,20 @@ impl<'a> PrototypeEmitter<'a> {
             self.handle_operand_emission(&mut comparison_emission, left_emission, &left)?;
         let left_operand_types = self
             .context
-            .get_operand_types(*self.context.get_type_binding(&left.id)?)?;
+            .get_operand_types(*self.context.get_type_binding(&(self.code_id, left.id))?)?;
         let left_operand_type = if left_operand_types.len() == 1 {
             left_operand_types[0]
         } else {
             return Err(CompileError::CannotApplyOperator {
                 operator: reader.node.kind,
-                type_id: *self.context.get_type_binding(&left.id)?,
+                type_id: *self.context.get_type_binding(&(self.code_id, left.id))?,
                 operand_position: left.position(),
             });
         };
         let right_address =
             self.handle_operand_emission(&mut comparison_emission, right_emission, &right)?;
 
-        let type_id = *self.context.get_type_binding(&reader.id)?;
+        let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
@@ -2788,12 +2813,12 @@ impl<'a> PrototypeEmitter<'a> {
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
                 self.claim_registers(type_id, register_kind)?
             }
             ExpressionTarget::Any => {
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
                 self.claim_registers(type_id, RegisterKind::Temporary)?
             }
@@ -2857,12 +2882,12 @@ impl<'a> PrototypeEmitter<'a> {
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
                 self.claim_registers(type_id, register_kind)?
             }
             ExpressionTarget::Any => {
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
                 self.claim_registers(type_id, RegisterKind::Temporary)?
             }
@@ -2907,12 +2932,12 @@ impl<'a> PrototypeEmitter<'a> {
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
                 self.claim_registers(type_id, register_kind)?
             }
             ExpressionTarget::Any => {
-                let type_id = *self.context.get_type_binding(&reader.id)?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
 
                 self.claim_registers(type_id, RegisterKind::Temporary)?
             }
@@ -3040,9 +3065,11 @@ impl<'a> PrototypeEmitter<'a> {
 
         let mut call_instructions = Instructions::new();
 
-        let method_type_id = *self.context.get_type_binding(&method.id)?;
+        let method_type_id = *self.context.get_type_binding(&(self.code_id, method.id))?;
         let parent_type_id = {
-            let raw_type_id = self.context.get_type_binding(&method_parent.id)?;
+            let raw_type_id = self
+                .context
+                .get_type_binding(&(self.code_id, method_parent.id))?;
 
             self.context.get_inferred_type_id(*raw_type_id)?
         };
@@ -3142,7 +3169,9 @@ impl<'a> PrototypeEmitter<'a> {
             )?;
             let argument_address =
                 self.handle_operand_emission(instructions, argument_emission, &argument)?;
-            let argument_type_id = *self.context.get_type_binding(&argument.id)?;
+            let argument_type_id = *self
+                .context
+                .get_type_binding(&(self.code_id, argument.id))?;
             let argument_operand_types = self.context.get_operand_types(argument_type_id)?;
             let argument_width = argument_operand_types
                 .iter()
@@ -3217,7 +3246,7 @@ impl<'a> PrototypeEmitter<'a> {
                     Place::Registers(registers) => registers,
                     _ => {
                         return Err(CompileError::ExpectedValue {
-                            source_id: struct_expression.source_id(),
+                            code_id: struct_expression.code_id(),
                             syntax_id: struct_expression.id,
                         });
                     }
@@ -3225,7 +3254,9 @@ impl<'a> PrototypeEmitter<'a> {
             }
         };
 
-        let field_declaration_id = *self.context.get_declaration_binding(&field_name.id)?;
+        let field_declaration_id = *self
+            .context
+            .get_declaration_binding(&(self.code_id, field_name.id))?;
         let field_declaration = self
             .context
             .declarations
@@ -3235,7 +3266,7 @@ impl<'a> PrototypeEmitter<'a> {
             Definition::Field { parent_struct, .. } => parent_struct,
             _ => {
                 return Err(CompileError::ExpectedValue {
-                    source_id: field_name.source_id(),
+                    code_id: field_name.code_id(),
                     syntax_id: field_name.id,
                 });
             }
@@ -3250,7 +3281,7 @@ impl<'a> PrototypeEmitter<'a> {
             } => fields,
             _ => {
                 return Err(CompileError::ExpectedValue {
-                    source_id: field_name.source_id(),
+                    code_id: field_name.code_id(),
                     syntax_id: field_name.id,
                 });
             }
@@ -3284,7 +3315,7 @@ impl<'a> PrototypeEmitter<'a> {
                 target,
             ),
             None => Err(CompileError::ExpectedValue {
-                source_id: field_name.source_id(),
+                code_id: field_name.code_id(),
                 syntax_id: field_name.id,
             }),
         }

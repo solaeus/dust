@@ -13,7 +13,7 @@ use crate::{
         value_creation::create_usize_from_decimal,
     },
     error::ErrorKind,
-    source::{Position, Source},
+    source::{CodeId, Position, Source},
     syntax::{
         Syntax, SyntaxId,
         components::{
@@ -33,6 +33,8 @@ use crate::{
 };
 
 pub struct DeclarationResolver<'a> {
+    code_id: CodeId,
+
     source: &'a Source<'a>,
 
     syntax: &'a Syntax,
@@ -50,6 +52,7 @@ pub struct DeclarationResolver<'a> {
 
 impl<'a> DeclarationResolver<'a> {
     pub fn new(
+        code_id: CodeId,
         source: &'a Source<'a>,
         syntax: &'a Syntax,
         context: &'a mut Context,
@@ -57,6 +60,7 @@ impl<'a> DeclarationResolver<'a> {
         starting_scope_id: ScopeId,
     ) -> Self {
         Self {
+            code_id,
             source,
             syntax,
             context,
@@ -219,35 +223,24 @@ impl<'a> DeclarationResolver<'a> {
         let module_declaration_id =
             self.reserve_declaration_id(module_symbol_id, Some((name.position(), reader.id)));
 
+        self.context
+            .add_declaration_binding(self.code_id, reader.id, module_declaration_id);
         self.enter_scope(Barrier::Module);
 
         let inner_scope_id = self.current_scope_id;
 
         if let Some(module_body) = body {
-            self.context
-                .add_declaration_binding(reader.id, module_declaration_id);
-
             for child in module_body.children() {
                 match self.visit_item(child) {
                     Ok(()) => {}
                     Err(error) => self.errors.push(ErrorKind::Compile(error)),
                 }
             }
-
-            self.exit_scope();
-            self.context.declarations.set_reserved_declaration(
-                module_declaration_id,
-                Definition::Module {
-                    public,
-                    kind: ModuleKind::Inline,
-                    inner_scope_id: Some(inner_scope_id),
-                },
-            );
         } else {
-            let module_source_id = self
+            let module_code_id = self
                 .source
                 .iter()
-                .find_map(|(source_id, file)| {
+                .find_map(|(code_id, file)| {
                     if file
                         .path()?
                         .file_stem()
@@ -255,7 +248,7 @@ impl<'a> DeclarationResolver<'a> {
                         .map(|stem_str| stem_str == module_name_str)
                         .unwrap_or(false)
                     {
-                        Some(source_id)
+                        Some(code_id)
                     } else {
                         None
                     }
@@ -263,25 +256,20 @@ impl<'a> DeclarationResolver<'a> {
                 .ok_or(CompileError::UnresolvedModule {
                     symbol_id: module_symbol_id,
                 })?;
-
-            self.context
-                .add_declaration_binding(name.id, module_declaration_id);
-
-            let module_root = self.syntax.get_tree(module_source_id)?.read_root()?;
+            let module_root = self.syntax.get_tree(module_code_id)?.read_root()?;
 
             self.visit_root(module_root)?;
-            self.exit_scope();
-            self.context.declarations.set_reserved_declaration(
-                module_declaration_id,
-                Definition::Module {
-                    public,
-                    kind: ModuleKind::File {
-                        source_id: module_source_id,
-                    },
-                    inner_scope_id: Some(inner_scope_id),
-                },
-            );
         }
+
+        self.exit_scope();
+        self.context.declarations.set_reserved_declaration(
+            module_declaration_id,
+            Definition::Module {
+                public,
+                kind: ModuleKind::Inline,
+                inner_scope_id: Some(inner_scope_id),
+            },
+        );
 
         Ok(())
     }
@@ -289,7 +277,7 @@ impl<'a> DeclarationResolver<'a> {
     fn visit_use_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
         let UseItem { public, path } = reader.as_component()?;
 
-        let file = self.source.get_code(path.source_id());
+        let file = self.source.get_code(path.code_id());
         let mut path_segments = path.children();
 
         let first_segment = path_segments.next().ok_or(CompileError::ExpectedSyntax {
@@ -333,11 +321,11 @@ impl<'a> DeclarationResolver<'a> {
                 public,
                 source_declaration_id: current_declaration_id,
             },
-            Some((Position::new(reader.source_id(), current_span), reader.id)),
+            Some((Position::new(reader.code_id(), current_span), reader.id)),
         );
 
         self.context
-            .add_declaration_binding(reader.id, use_declaration_id);
+            .add_declaration_binding(self.code_id, reader.id, use_declaration_id);
 
         Ok(())
     }
@@ -384,10 +372,13 @@ impl<'a> DeclarationResolver<'a> {
                     return Err(CompileError::InvalidContext);
                 };
 
+                self.context.add_declaration_binding(
+                    self.code_id,
+                    value_parameters.id,
+                    self_declaration_id,
+                );
                 self.context
-                    .add_declaration_binding(value_parameters.id, self_declaration_id);
-                self.context
-                    .add_type_binding(value_parameters.id, self_type_id);
+                    .add_type_binding(self.code_id, value_parameters.id, self_type_id);
             }
 
             for (parameter_name, parameter_type) in name_type_pairs {
@@ -404,8 +395,11 @@ impl<'a> DeclarationResolver<'a> {
                     Some((parameter_name.position(), parameter_name.id)),
                 );
 
-                self.context
-                    .add_declaration_binding(parameter_name.id, parameter_declaration_id);
+                self.context.add_declaration_binding(
+                    self.code_id,
+                    parameter_name.id,
+                    parameter_declaration_id,
+                );
             }
 
             Some(self.current_scope_id)
@@ -463,7 +457,7 @@ impl<'a> DeclarationResolver<'a> {
             },
         );
         self.context
-            .add_declaration_binding(name.id, function_declaration_id);
+            .add_declaration_binding(self.code_id, name.id, function_declaration_id);
 
         Ok(function_declaration_id)
     }
@@ -515,7 +509,7 @@ impl<'a> DeclarationResolver<'a> {
                 SyntaxKind::NamedFields => {
                     let NamedFields { name_type_pairs } = NamedFields::from_reader(&fields)?;
 
-                    let file = self.source.get_code(name.source_id());
+                    let file = self.source.get_code(name.code_id());
 
                     for (field_name, field_type) in name_type_pairs {
                         let public = field_name.node.flags.get_flag(SyntaxFlags::PUBLIC);
@@ -532,8 +526,11 @@ impl<'a> DeclarationResolver<'a> {
                             Some((field_name.position(), field_name.id)),
                         );
 
-                        self.context
-                            .add_declaration_binding(field_name.id, field_declaration_id);
+                        self.context.add_declaration_binding(
+                            self.code_id,
+                            field_name.id,
+                            field_declaration_id,
+                        );
                     }
                 }
                 _ => {
@@ -563,7 +560,7 @@ impl<'a> DeclarationResolver<'a> {
             },
         );
         self.context
-            .add_declaration_binding(reader.id, struct_declaration_id);
+            .add_declaration_binding(self.code_id, reader.id, struct_declaration_id);
 
         Ok(())
     }
@@ -608,7 +605,7 @@ impl<'a> DeclarationResolver<'a> {
             },
         );
         self.context
-            .add_declaration_binding(name.id, enum_declaration_id);
+            .add_declaration_binding(self.code_id, name.id, enum_declaration_id);
 
         Ok(())
     }
@@ -653,8 +650,11 @@ impl<'a> DeclarationResolver<'a> {
                 Some((type_parameter.position(), type_parameter.id)),
             );
 
-            self.context
-                .add_declaration_binding(type_parameter.id, type_parameter_declaration_id);
+            self.context.add_declaration_binding(
+                self.code_id,
+                type_parameter.id,
+                type_parameter_declaration_id,
+            );
         }
 
         Ok(type_parameters_scope_id)
@@ -666,7 +666,7 @@ impl<'a> DeclarationResolver<'a> {
         enum_declaration_id: DeclarationId,
         discriminant: u16,
     ) -> Result<DeclarationId, CompileError> {
-        let file = self.source.get_code(reader.source_id());
+        let file = self.source.get_code(reader.code_id());
 
         match reader.node.kind {
             SyntaxKind::EnumUnitVariant => {
@@ -686,7 +686,7 @@ impl<'a> DeclarationResolver<'a> {
                 );
 
                 self.context
-                    .add_declaration_binding(name.id, variant_declaration_id);
+                    .add_declaration_binding(self.code_id, name.id, variant_declaration_id);
 
                 Ok(variant_declaration_id)
             }
@@ -730,7 +730,7 @@ impl<'a> DeclarationResolver<'a> {
                     },
                 );
                 self.context
-                    .add_declaration_binding(name.id, variant_declaration_id);
+                    .add_declaration_binding(self.code_id, name.id, variant_declaration_id);
 
                 Ok(variant_declaration_id)
             }
@@ -773,7 +773,7 @@ impl<'a> DeclarationResolver<'a> {
                     },
                 );
                 self.context
-                    .add_declaration_binding(name.id, variant_declaration_id);
+                    .add_declaration_binding(self.code_id, name.id, variant_declaration_id);
 
                 Ok(variant_declaration_id)
             }
@@ -815,7 +815,7 @@ impl<'a> DeclarationResolver<'a> {
         );
 
         self.context
-            .add_declaration_binding(name.id, const_declaration_id);
+            .add_declaration_binding(self.code_id, name.id, const_declaration_id);
 
         Ok(const_declaration_id)
     }
@@ -830,7 +830,7 @@ impl<'a> DeclarationResolver<'a> {
 
         let Some(aliased_type) = aliased_type else {
             return Err(CompileError::ExpectedValue {
-                source_id: reader.source_id(),
+                code_id: reader.code_id(),
                 syntax_id: reader.id,
             });
         };
@@ -860,7 +860,7 @@ impl<'a> DeclarationResolver<'a> {
         );
 
         self.context
-            .add_declaration_binding(name.id, type_alias_declaration_id);
+            .add_declaration_binding(self.code_id, name.id, type_alias_declaration_id);
 
         Ok(type_alias_declaration_id)
     }
@@ -941,7 +941,7 @@ impl<'a> DeclarationResolver<'a> {
                     } = child.as_component()?;
                     let Some(aliased_type) = aliased_type else {
                         return Err(CompileError::ExpectedValue {
-                            source_id: child.source_id(),
+                            code_id: child.code_id(),
                             syntax_id: child.id,
                         });
                     };
@@ -964,8 +964,11 @@ impl<'a> DeclarationResolver<'a> {
                         Some((child.position(), child.id)),
                     );
 
-                    self.context
-                        .add_declaration_binding(name.id, type_declaration_id);
+                    self.context.add_declaration_binding(
+                        self.code_id,
+                        name.id,
+                        type_declaration_id,
+                    );
                 }
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
@@ -1023,7 +1026,7 @@ impl<'a> DeclarationResolver<'a> {
             .declarations
             .set_reserved_declaration(impl_declaration_id, definition);
         self.context
-            .add_declaration_binding(reader.id, impl_declaration_id);
+            .add_declaration_binding(self.code_id, reader.id, impl_declaration_id);
         self.context
             .implementations
             .entry(self_declaration_id)
@@ -1116,8 +1119,11 @@ impl<'a> DeclarationResolver<'a> {
                         Some((child.position(), child.id)),
                     );
 
-                    self.context
-                        .add_declaration_binding(name.id, type_declaration_id);
+                    self.context.add_declaration_binding(
+                        self.code_id,
+                        name.id,
+                        type_declaration_id,
+                    );
                 }
                 SyntaxKind::ConstItem => {
                     let ConstItem {
@@ -1144,8 +1150,11 @@ impl<'a> DeclarationResolver<'a> {
                         Some((child.position(), child.id)),
                     );
 
-                    self.context
-                        .add_declaration_binding(name.id, const_declaration_id);
+                    self.context.add_declaration_binding(
+                        self.code_id,
+                        name.id,
+                        const_declaration_id,
+                    );
                 }
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
@@ -1180,7 +1189,7 @@ impl<'a> DeclarationResolver<'a> {
             },
         );
         self.context
-            .add_declaration_binding(name.id, trait_declaration_id);
+            .add_declaration_binding(self.code_id, name.id, trait_declaration_id);
 
         Ok(())
     }
@@ -1248,7 +1257,7 @@ impl<'a> DeclarationResolver<'a> {
         );
 
         self.context
-            .add_declaration_binding(name.id, declaration_id);
+            .add_declaration_binding(self.code_id, name.id, declaration_id);
 
         Ok(())
     }
@@ -1433,7 +1442,7 @@ impl<'a> DeclarationResolver<'a> {
         };
 
         self.context
-            .add_declaration_binding(reader.id, declaration_id);
+            .add_declaration_binding(self.code_id, reader.id, declaration_id);
         self.visit_expression(start)?;
         self.visit_expression(end)?;
 
@@ -1444,7 +1453,7 @@ impl<'a> DeclarationResolver<'a> {
         let declaration_id = self.visit_path(reader)?;
 
         self.context
-            .add_declaration_binding(reader.id, declaration_id);
+            .add_declaration_binding(self.code_id, reader.id, declaration_id);
 
         Ok(())
     }
@@ -1479,8 +1488,11 @@ impl<'a> DeclarationResolver<'a> {
                     .declarations
                     .find_declaration_id(field_symbol_id, fields_scope_id)
             {
-                self.context
-                    .add_declaration_binding(field_name.id, *field_declaration_id);
+                self.context.add_declaration_binding(
+                    self.code_id,
+                    field_name.id,
+                    *field_declaration_id,
+                );
             }
 
             self.visit_expression(field_value)?;
@@ -1607,10 +1619,12 @@ impl<'a> DeclarationResolver<'a> {
 
         self.visit_expression(callee)?;
 
-        let callee_declaration_id = *self.context.get_declaration_binding(&callee.id)?;
+        let callee_declaration_id = *self
+            .context
+            .get_declaration_binding(&(self.code_id, callee.id))?;
 
         self.context
-            .add_declaration_binding(reader.id, callee_declaration_id);
+            .add_declaration_binding(self.code_id, reader.id, callee_declaration_id);
 
         for argument in arguments.children() {
             self.visit_expression(argument)?;
@@ -1633,7 +1647,8 @@ impl<'a> DeclarationResolver<'a> {
             for type_argument in type_arguments.children() {
                 let type_id = self.visit_type(type_argument)?;
 
-                self.context.add_type_binding(type_argument.id, type_id);
+                self.context
+                    .add_type_binding(self.code_id, type_argument.id, type_id);
             }
         }
 
@@ -1681,7 +1696,7 @@ impl<'a> DeclarationResolver<'a> {
                 let element_type_id = self.visit_type(element_type)?;
                 let length_bytes = self
                     .source
-                    .get_code(length.source_id())
+                    .get_code(length.code_id())
                     .get_bytes(length.node.span)?;
                 let length = create_usize_from_decimal(length_bytes, length)?;
 
@@ -1726,7 +1741,7 @@ impl<'a> DeclarationResolver<'a> {
                 let declaration_id = self.visit_path(reader)?;
 
                 self.context
-                    .add_declaration_binding(reader.id, declaration_id);
+                    .add_declaration_binding(self.code_id, reader.id, declaration_id);
 
                 let declaration = self.context.declarations.get_declaration(declaration_id);
 
@@ -1758,8 +1773,9 @@ impl<'a> DeclarationResolver<'a> {
                                 expected: &[SyntaxKind::PathSegment],
                             })?;
 
-                        let first_declaration_id =
-                            *self.context.get_declaration_binding(&first_segment.id)?;
+                        let first_declaration_id = *self
+                            .context
+                            .get_declaration_binding(&(self.code_id, first_segment.id))?;
                         let first_declaration = self
                             .context
                             .declarations
@@ -1779,8 +1795,9 @@ impl<'a> DeclarationResolver<'a> {
                                     let mut type_ids = TypeId::SmallVec::new();
 
                                     for argument in type_arguments.children() {
-                                        let type_id =
-                                            *self.context.get_type_binding(&argument.id)?;
+                                        let type_id = *self
+                                            .context
+                                            .get_type_binding(&(self.code_id, argument.id))?;
 
                                         type_ids.push(type_id);
                                     }
@@ -1853,7 +1870,7 @@ impl<'a> DeclarationResolver<'a> {
     }
 
     fn visit_path(&mut self, path: SyntaxReader) -> Result<DeclarationId, CompileError> {
-        let source_code = self.source.get_code(path.source_id());
+        let source_code = self.source.get_code(path.code_id());
 
         let mut path_segments = path.children();
         let Some(first_segment) = path_segments.next() else {
@@ -1883,8 +1900,11 @@ impl<'a> DeclarationResolver<'a> {
             declaration_id
         };
 
-        self.context
-            .add_declaration_binding(first_segment.id, current_declaration_id);
+        self.context.add_declaration_binding(
+            self.code_id,
+            first_segment.id,
+            current_declaration_id,
+        );
 
         for path_segment in path_segments {
             self.visit_path_segment_type_arguments(path_segment)?;
@@ -1898,12 +1918,15 @@ impl<'a> DeclarationResolver<'a> {
                 path_segment,
             )?;
 
-            self.context
-                .add_declaration_binding(path_segment.id, current_declaration_id);
+            self.context.add_declaration_binding(
+                self.code_id,
+                path_segment.id,
+                current_declaration_id,
+            );
         }
 
         self.context
-            .add_declaration_binding(path.id, current_declaration_id);
+            .add_declaration_binding(self.code_id, path.id, current_declaration_id);
 
         Ok(current_declaration_id)
     }
@@ -1920,7 +1943,8 @@ impl<'a> DeclarationResolver<'a> {
             for type_argument in type_arguments.children() {
                 let type_id = self.visit_type(type_argument)?;
 
-                self.context.add_type_binding(type_argument.id, type_id);
+                self.context
+                    .add_type_binding(self.code_id, type_argument.id, type_id);
                 type_ids.push(type_id);
             }
 
@@ -1945,8 +1969,9 @@ impl<'a> DeclarationResolver<'a> {
         };
 
         self.context
-            .add_declaration_binding(reader.id, self_declaration_id);
-        self.context.add_type_binding(reader.id, self_type_id);
+            .add_declaration_binding(self.code_id, reader.id, self_declaration_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, self_type_id);
 
         Ok(())
     }

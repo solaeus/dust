@@ -11,7 +11,7 @@ use crate::{
         value_creation::create_usize_from_decimal,
     },
     error::ErrorKind,
-    source::Source,
+    source::{CodeId, Source},
     syntax::{
         components::{
             ArrayExpression, ArrayRepeatExpression, AssignmentExpression, BlockExpression,
@@ -33,18 +33,22 @@ pub struct TypeResolver<'a> {
     source: &'a Source<'a>,
 
     errors: &'a mut Vec<ErrorKind>,
+
+    code_id: CodeId,
 }
 
 impl<'a> TypeResolver<'a> {
     pub fn new(
         context: &'a mut Context,
         source: &'a Source<'a>,
+        code_id: CodeId,
         errors: &'a mut Vec<ErrorKind>,
     ) -> Self {
         Self {
             context,
             source,
             errors,
+            code_id,
         }
     }
 
@@ -542,7 +546,9 @@ impl<'a> TypeResolver<'a> {
             return Ok(());
         };
 
-        let declaration_id = *self.context.get_declaration_binding(&name.id)?;
+        let declaration_id = *self
+            .context
+            .get_declaration_binding(&(self.code_id, name.id))?;
         let declaration = self.context.declarations.get_declaration(declaration_id);
         let Definition::Constant {
             type_id: declared_type_id,
@@ -610,7 +616,9 @@ impl<'a> TypeResolver<'a> {
             name, expression, ..
         } = reader.as_component()?;
 
-        let declaration_id = *self.context.get_declaration_binding(&name.id)?;
+        let declaration_id = *self
+            .context
+            .get_declaration_binding(&(self.code_id, name.id))?;
         let declaration = self.context.declarations.get_declaration(declaration_id);
         let Definition::Local {
             type_id: declared_type_id,
@@ -649,13 +657,15 @@ impl<'a> TypeResolver<'a> {
         let value_type_id = self.visit_expression(source)?;
 
         self.unify_types(target_type_id, Some(target), value_type_id, source)?;
-        self.context.add_type_binding(reader.id, TypeId::UNIT);
+        self.context
+            .add_type_binding(self.code_id, reader.id, TypeId::UNIT);
 
         Ok(TypeId::UNIT)
     }
 
     fn visit_boolean_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
-        self.context.add_type_binding(reader.id, TypeId::BOOLEAN);
+        self.context
+            .add_type_binding(self.code_id, reader.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
     }
@@ -669,13 +679,15 @@ impl<'a> TypeResolver<'a> {
             .types
             .create_inferred_type(Some(InferredTypeConstraint::Integer));
 
-        self.context.add_type_binding(reader.id, type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, type_id);
 
         Ok(type_id)
     }
 
     fn visit_character_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
-        self.context.add_type_binding(reader.id, TypeId::CHARACTER);
+        self.context
+            .add_type_binding(self.code_id, reader.id, TypeId::CHARACTER);
 
         Ok(TypeId::CHARACTER)
     }
@@ -686,7 +698,8 @@ impl<'a> TypeResolver<'a> {
             .types
             .create_inferred_type(Some(InferredTypeConstraint::Float));
 
-        self.context.add_type_binding(reader.id, type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, type_id);
 
         Ok(type_id)
     }
@@ -697,7 +710,8 @@ impl<'a> TypeResolver<'a> {
             .types
             .create_inferred_type(Some(InferredTypeConstraint::Integer));
 
-        self.context.add_type_binding(reader.id, type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, type_id);
 
         Ok(type_id)
     }
@@ -727,7 +741,8 @@ impl<'a> TypeResolver<'a> {
             length,
         });
 
-        self.context.add_type_binding(reader.id, array_type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, array_type_id);
 
         Ok(array_type_id)
     }
@@ -740,7 +755,7 @@ impl<'a> TypeResolver<'a> {
 
         let length_bytes = self
             .source
-            .get_code(length.source_id())
+            .get_code(length.code_id())
             .get_bytes(length.node.span)?;
         let length = create_usize_from_decimal(length_bytes, length)?;
 
@@ -750,7 +765,8 @@ impl<'a> TypeResolver<'a> {
             length,
         });
 
-        self.context.add_type_binding(reader.id, array_type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, array_type_id);
 
         Ok(array_type_id)
     }
@@ -783,7 +799,8 @@ impl<'a> TypeResolver<'a> {
             element_type_id
         };
 
-        self.context.add_type_binding(reader.id, result_type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, result_type_id);
 
         Ok(result_type_id)
     }
@@ -796,20 +813,24 @@ impl<'a> TypeResolver<'a> {
 
         self.unify_types(start_type_id, Some(start), end_type_id, end)?;
 
-        let declaration_id = *self.context.get_declaration_binding(&reader.id)?;
+        let declaration_id = *self
+            .context
+            .get_declaration_binding(&(self.code_id, reader.id))?;
         let type_arguments = self.context.types.add_type_members([start_type_id]);
         let range_type_id = self.context.types.add_type(Type::Algebraic {
             declaration_id,
             type_arguments,
         });
 
-        self.context.add_type_binding(reader.id, range_type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, range_type_id);
 
         Ok(range_type_id)
     }
 
     fn visit_path_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
         fn collect_turbofish_arguments(
+            code_id: CodeId,
             context: &mut Context,
             reader: SyntaxReader,
         ) -> Result<TypeMembers, CompileError> {
@@ -824,7 +845,7 @@ impl<'a> TypeResolver<'a> {
                 };
 
                 for type_argument in type_arguments.children() {
-                    let type_id = *context.get_type_binding(&type_argument.id)?;
+                    let type_id = *context.get_type_binding(&(code_id, type_argument.id))?;
 
                     turbofish_arguments.push(type_id);
                 }
@@ -833,7 +854,9 @@ impl<'a> TypeResolver<'a> {
             Ok(context.types.add_type_members(turbofish_arguments))
         }
 
-        let declaration_id = *self.context.get_declaration_binding(&reader.id)?;
+        let declaration_id = *self
+            .context
+            .get_declaration_binding(&(self.code_id, reader.id))?;
         let declaration = self.context.declarations.get_declaration(declaration_id);
         let type_id = match declaration.definition {
             Definition::Local { type_id, .. }
@@ -843,7 +866,8 @@ impl<'a> TypeResolver<'a> {
                 self.context.get_normalized_type(type_id)?.0
             }
             Definition::Function { .. } => {
-                let type_arguments = collect_turbofish_arguments(self.context, reader)?;
+                let type_arguments =
+                    collect_turbofish_arguments(self.code_id, self.context, reader)?;
 
                 self.context.types.add_type(Type::FunctionDefinition {
                     declaration_id,
@@ -856,7 +880,8 @@ impl<'a> TypeResolver<'a> {
                 ..
             } => match kind {
                 VariantKind::Unit => {
-                    let type_arguments = collect_turbofish_arguments(self.context, reader)?;
+                    let type_arguments =
+                        collect_turbofish_arguments(self.code_id, self.context, reader)?;
 
                     self.context.types.add_type(Type::Algebraic {
                         declaration_id: enum_declaration_id,
@@ -864,7 +889,8 @@ impl<'a> TypeResolver<'a> {
                     })
                 }
                 VariantKind::TupleFields => {
-                    let type_arguments = collect_turbofish_arguments(self.context, reader)?;
+                    let type_arguments =
+                        collect_turbofish_arguments(self.code_id, self.context, reader)?;
 
                     self.context.types.add_type(Type::FunctionDefinition {
                         declaration_id,
@@ -891,7 +917,7 @@ impl<'a> TypeResolver<'a> {
                     }
                     _ => {
                         return Err(CompileError::ExpectedValue {
-                            source_id: reader.source_id(),
+                            code_id: reader.code_id(),
                             syntax_id: reader.id,
                         });
                     }
@@ -910,7 +936,8 @@ impl<'a> TypeResolver<'a> {
                         self.context.get_normalized_type(type_id)?.0
                     }
                     _ => {
-                        let type_arguments = collect_turbofish_arguments(self.context, reader)?;
+                        let type_arguments =
+                            collect_turbofish_arguments(self.code_id, self.context, reader)?;
                         let algebraic_type = Type::Algebraic {
                             declaration_id: resolved,
                             type_arguments,
@@ -921,7 +948,8 @@ impl<'a> TypeResolver<'a> {
                 }
             }
             Definition::StructType { .. } => {
-                let type_arguments = collect_turbofish_arguments(self.context, reader)?;
+                let type_arguments =
+                    collect_turbofish_arguments(self.code_id, self.context, reader)?;
 
                 self.context.types.add_type(Type::Algebraic {
                     declaration_id,
@@ -933,7 +961,8 @@ impl<'a> TypeResolver<'a> {
             }
         };
 
-        self.context.add_type_binding(reader.id, type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, type_id);
 
         Ok(type_id)
     }
@@ -945,7 +974,9 @@ impl<'a> TypeResolver<'a> {
         } = fields.as_component()?;
 
         for (field_name, field_value) in name_expression_pairs {
-            let field_declaration_id = *self.context.get_declaration_binding(&field_name.id)?;
+            let field_declaration_id = *self
+                .context
+                .get_declaration_binding(&(self.code_id, field_name.id))?;
             let field_declaration = self
                 .context
                 .declarations
@@ -961,14 +992,17 @@ impl<'a> TypeResolver<'a> {
             self.unify_types(field_type_id, Some(field_name), value_type_id, field_value)?;
         }
 
-        let declaration_id = *self.context.get_declaration_binding(&path.id)?;
+        let declaration_id = *self
+            .context
+            .get_declaration_binding(&(self.code_id, path.id))?;
         let struct_type = Type::Algebraic {
             declaration_id,
             type_arguments: TypeMembers::default(),
         };
         let type_id = self.context.types.add_type(struct_type);
 
-        self.context.add_type_binding(reader.id, type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, type_id);
 
         Ok(type_id)
     }
@@ -982,7 +1016,8 @@ impl<'a> TypeResolver<'a> {
             TypeId::UNIT
         };
 
-        self.context.add_type_binding(reader.id, type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, type_id);
 
         Ok(type_id)
     }
@@ -999,7 +1034,8 @@ impl<'a> TypeResolver<'a> {
             }
         }
 
-        self.context.add_type_binding(reader.id, block_type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, block_type_id);
 
         Ok(block_type_id)
     }
@@ -1029,11 +1065,13 @@ impl<'a> TypeResolver<'a> {
             };
 
             self.unify_types(then_type_id, Some(then_branch), else_type_id, else_branch)?;
-            self.context.add_type_binding(reader.id, then_type_id);
+            self.context
+                .add_type_binding(self.code_id, reader.id, then_type_id);
 
             Ok(then_type_id)
         } else {
-            self.context.add_type_binding(reader.id, TypeId::UNIT);
+            self.context
+                .add_type_binding(self.code_id, reader.id, TypeId::UNIT);
 
             Ok(TypeId::UNIT)
         }
@@ -1047,7 +1085,8 @@ impl<'a> TypeResolver<'a> {
 
         self.unify_types(left_type_id, Some(reader), right_type_id, right)?;
 
-        self.context.add_type_binding(reader.id, left_type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, left_type_id);
 
         if matches!(reader.node.kind, SyntaxKind::AdditionAssignmentExpression) {
             Ok(TypeId::UNIT)
@@ -1067,7 +1106,8 @@ impl<'a> TypeResolver<'a> {
 
         self.unify_types(left_type_id, Some(reader), right_type_id, right)?;
 
-        self.context.add_type_binding(reader.id, TypeId::BOOLEAN);
+        self.context
+            .add_type_binding(self.code_id, reader.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
     }
@@ -1080,7 +1120,8 @@ impl<'a> TypeResolver<'a> {
 
         self.unify_types(TypeId::BOOLEAN, Some(reader), left_type_id, left)?;
         self.unify_types(TypeId::BOOLEAN, Some(reader), right_type_id, right)?;
-        self.context.add_type_binding(reader.id, TypeId::BOOLEAN);
+        self.context
+            .add_type_binding(self.code_id, reader.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
     }
@@ -1090,7 +1131,8 @@ impl<'a> TypeResolver<'a> {
 
         let operand_type_id = self.visit_expression(operand)?;
 
-        self.context.add_type_binding(reader.id, operand_type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, operand_type_id);
 
         Ok(operand_type_id)
     }
@@ -1101,7 +1143,8 @@ impl<'a> TypeResolver<'a> {
         let operand_type_id = self.visit_expression(operand)?;
 
         self.unify_types(TypeId::BOOLEAN, Some(reader), operand_type_id, operand)?;
-        self.context.add_type_binding(reader.id, TypeId::BOOLEAN);
+        self.context
+            .add_type_binding(self.code_id, reader.id, TypeId::BOOLEAN);
 
         Ok(TypeId::BOOLEAN)
     }
@@ -1113,13 +1156,15 @@ impl<'a> TypeResolver<'a> {
 
         self.unify_types(TypeId::BOOLEAN, Some(reader), condition_type_id, condition)?;
         self.visit_expression(body)?;
-        self.context.add_type_binding(reader.id, TypeId::UNIT);
+        self.context
+            .add_type_binding(self.code_id, reader.id, TypeId::UNIT);
 
         Ok(TypeId::UNIT)
     }
 
     fn visit_break_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
-        self.context.add_type_binding(reader.id, TypeId::UNIT);
+        self.context
+            .add_type_binding(self.code_id, reader.id, TypeId::UNIT);
 
         Ok(TypeId::UNIT)
     }
@@ -1149,7 +1194,8 @@ impl<'a> TypeResolver<'a> {
             self.unify_types(expected_type_id, Some(argument), actual_type_id, argument)?;
         }
 
-        self.context.add_type_binding(reader.id, return_type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, return_type_id);
 
         Ok(return_type_id)
     }
@@ -1189,7 +1235,9 @@ impl<'a> TypeResolver<'a> {
             let mut type_argument_ids = TypeId::SmallVec::new();
 
             for type_argument in type_arguments.children() {
-                let type_argument_id = *self.context.get_type_binding(&type_argument.id)?;
+                let type_argument_id = *self
+                    .context
+                    .get_type_binding(&(self.code_id, type_argument.id))?;
 
                 type_argument_ids.push(type_argument_id);
             }
@@ -1222,9 +1270,11 @@ impl<'a> TypeResolver<'a> {
         }
 
         self.context
-            .add_declaration_binding(method.id, method_declaration_id);
-        self.context.add_type_binding(method.id, method_type_id);
-        self.context.add_type_binding(reader.id, return_type_id);
+            .add_declaration_binding(self.code_id, method.id, method_declaration_id);
+        self.context
+            .add_type_binding(self.code_id, method.id, method_type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, return_type_id);
 
         Ok(return_type_id)
     }
@@ -1268,16 +1318,19 @@ impl<'a> TypeResolver<'a> {
         let field_type_id = self.context.get_normalized_type(field_raw_type_id)?.0;
 
         self.context
-            .add_declaration_binding(field_name.id, field_declaration_id);
+            .add_declaration_binding(self.code_id, field_name.id, field_declaration_id);
         self.context
-            .add_declaration_binding(reader.id, field_declaration_id);
+            .add_declaration_binding(self.code_id, reader.id, field_declaration_id);
 
-        self.context.add_type_binding(reader.id, field_type_id);
+        self.context
+            .add_type_binding(self.code_id, reader.id, field_type_id);
 
         Ok(field_raw_type_id)
     }
 
     fn visit_self_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
-        self.context.get_type_binding(&reader.id).copied()
+        self.context
+            .get_type_binding(&(self.code_id, reader.id))
+            .copied()
     }
 }
