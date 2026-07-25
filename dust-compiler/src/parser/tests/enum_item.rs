@@ -1,6 +1,5 @@
 use crate::{
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{
         SyntaxId,
@@ -10,12 +9,7 @@ use crate::{
 
 #[test]
 fn empty_variant() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"enum Foo { Bar }"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("enum Foo { Bar }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -32,12 +26,7 @@ fn empty_variant() {
 
 #[test]
 fn tuple_variant() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"enum Foo { Bar(i64, i64) }"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("enum Foo { Bar(i64, i64) }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -62,12 +51,7 @@ fn tuple_variant() {
 
 #[test]
 fn fields_variant() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"enum Foo { Bar { x: i64, y: i64 } }"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("enum Foo { Bar { x: i64, y: i64 } }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -94,14 +78,7 @@ fn fields_variant() {
 
 #[test]
 fn mixed_variants() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(
-        b"enum Foo { Bar, Baz(i64), Qux { x: i64 } }",
-    ));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("enum Foo { Bar, Baz(i64), Qux { x: i64 } }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -135,12 +112,7 @@ fn mixed_variants() {
 
 #[test]
 fn type_parameters() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"enum Foo<A, B, C> { Bar }"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("enum Foo<A, B, C> { Bar }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

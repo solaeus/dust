@@ -1,6 +1,5 @@
 use crate::{
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{
         SyntaxId,
@@ -10,12 +9,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"fn foo() {}"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("fn foo() {}");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -31,12 +25,7 @@ fn empty() {
 
 #[test]
 fn value_parameters() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"fn foo(x: i64, y: bool) {}"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("fn foo(x: i64, y: bool) {}");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -59,12 +48,7 @@ fn value_parameters() {
 
 #[test]
 fn type_parameters() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"fn foo<A, B, C>() {}"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("fn foo<A, B, C>() {}");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -89,12 +73,7 @@ fn type_parameters() {
 
 #[test]
 fn return_type() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"fn foo() -> i64 {}"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("fn foo() -> i64 {}");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -113,12 +92,7 @@ fn return_type() {
 
 #[test]
 fn mixed() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"fn foo<A, B, C>(x: A, y: B) -> C {}"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("fn foo<A, B, C>(x: A, y: B) -> C {}");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

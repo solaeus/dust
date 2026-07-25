@@ -3,7 +3,7 @@ use std::io::{Write, stderr, stdout};
 use dust_compiler::{
     error::{Error as DustError, ErrorContext, ErrorKind},
     lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::Parser,
     syntax::SyntaxId,
 };
 use ron::ser::{PrettyConfig, to_string_pretty};
@@ -21,7 +21,6 @@ pub fn parse<'src>(command: ParseCommand) -> Result<(), Error<'src>> {
 
     let mut syntax_trees = Vec::with_capacity(source.file_count());
     let mut errors = Vec::new();
-    let mut starting_syntax_id = SyntaxId::ROOT;
 
     for (code_id, file) in source.iter() {
         let lexer = if file.utf8_validated() {
@@ -29,16 +28,10 @@ pub fn parse<'src>(command: ParseCommand) -> Result<(), Error<'src>> {
         } else {
             Lexer::unvalidated(file.content_as_bytes())
         };
-        let parser = Parser::new(code_id, starting_syntax_id, lexer);
-        let ParseResult {
-            syntax_tree,
-            errors: parse_errors,
-            ..
-        } = parser.parse();
-        starting_syntax_id = syntax_tree.next_syntax_id();
+        let parser = Parser::new(code_id, lexer, &mut errors);
+        let syntax_tree = parser.parse();
 
         syntax_trees.push(syntax_tree);
-        errors.extend(parse_errors.into_iter().map(ErrorKind::Parse));
     }
 
     if !errors.is_empty() {

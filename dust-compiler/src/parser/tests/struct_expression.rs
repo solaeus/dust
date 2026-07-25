@@ -1,7 +1,6 @@
 use crate::{
     function_wrapper,
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{
         SyntaxId,
@@ -11,12 +10,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("Foo;")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("Foo;"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -35,14 +29,7 @@ fn empty() {
 
 #[test]
 fn named_fields() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "Foo { x: 42, y: 666 }"
-    )));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!( "Foo { x: 42, y: 666 }" ));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

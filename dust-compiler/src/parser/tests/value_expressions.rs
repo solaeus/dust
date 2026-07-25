@@ -1,7 +1,6 @@
 use crate::{
     function_wrapper,
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{
         SyntaxId,
@@ -11,12 +10,7 @@ use crate::{
 
 #[test]
 fn boolean() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("true")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("true"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -35,12 +29,7 @@ fn boolean() {
 
 #[test]
 fn byte() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("0x2A")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("0x2A"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -57,12 +46,7 @@ fn byte() {
 
 #[test]
 fn character() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("'a'")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("'a'"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -79,12 +63,7 @@ fn character() {
 
 #[test]
 fn float() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("42.0")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("42.0"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -101,12 +80,7 @@ fn float() {
 
 #[test]
 fn integer() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("42")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("42"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -123,12 +97,7 @@ fn integer() {
 
 #[test]
 fn string() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("\"Hello, world!\"")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("\"Hello, world!\""));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -145,12 +114,7 @@ fn string() {
 
 #[test]
 fn list() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("[1, 2, 3]")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("[1, 2, 3]"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -170,12 +134,7 @@ fn list() {
 
 #[test]
 fn array_repeat() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("[0; 3]")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("[0; 3]"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

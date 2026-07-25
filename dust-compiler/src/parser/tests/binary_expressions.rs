@@ -1,19 +1,13 @@
 use crate::{
     function_wrapper,
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn addition() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x + y")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x + y"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -34,12 +28,7 @@ fn addition() {
 
 #[test]
 fn subtraction() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x - y")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x - y"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -60,12 +49,7 @@ fn subtraction() {
 
 #[test]
 fn multiplication() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x * y")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x * y"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -90,12 +74,7 @@ fn multiplication() {
 
 #[test]
 fn division() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x / y")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x / y"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -116,12 +95,7 @@ fn division() {
 
 #[test]
 fn modulo() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x % y")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x % y"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -142,12 +116,7 @@ fn modulo() {
 
 #[test]
 fn power() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x ^ y")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x ^ y"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -168,12 +137,7 @@ fn power() {
 
 #[test]
 fn equal() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x == y")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x == y"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -194,12 +158,7 @@ fn equal() {
 
 #[test]
 fn not_equal() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x != y")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x != y"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -220,12 +179,7 @@ fn not_equal() {
 
 #[test]
 fn less_than() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x < y")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x < y"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -246,12 +200,7 @@ fn less_than() {
 
 #[test]
 fn less_than_or_equal() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x <= y")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x <= y"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -276,12 +225,7 @@ fn less_than_or_equal() {
 
 #[test]
 fn greater_than() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x > y")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x > y"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -302,12 +246,7 @@ fn greater_than() {
 
 #[test]
 fn greater_than_or_equal() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x >= y")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x >= y"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -332,12 +271,7 @@ fn greater_than_or_equal() {
 
 #[test]
 fn logical_and() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x && y")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x && y"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -358,12 +292,7 @@ fn logical_and() {
 
 #[test]
 fn logical_or() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x || y")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x || y"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

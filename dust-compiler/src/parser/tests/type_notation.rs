@@ -1,6 +1,5 @@
 use crate::{
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
 };
 
 #[test]
@@ -32,8 +31,7 @@ fn type_notations() {
     ];
 
     for source in cases {
-        let parser = Parser::new_standalone(Lexer::unvalidated(source.as_bytes()));
-        let ParseResult { errors, .. } = parser.parse();
+        let (_, errors) = parse(source);
 
         assert!(errors.is_empty(), "{source}: {errors:#?}");
     }

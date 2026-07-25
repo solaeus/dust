@@ -1,6 +1,5 @@
 use crate::{
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{
         SyntaxId,
@@ -10,12 +9,7 @@ use crate::{
 
 #[test]
 fn simple() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"type Foo = i64;"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("type Foo = i64;");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -31,12 +25,7 @@ fn simple() {
 
 #[test]
 fn with_type_parameters() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"type Foo<T> = T;"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("type Foo<T> = T;");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

@@ -1,6 +1,5 @@
 use crate::{
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{
         SyntaxId,
@@ -10,12 +9,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"struct Foo {}"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("struct Foo {}");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -33,12 +27,7 @@ fn empty() {
 
 #[test]
 fn tuple() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"struct Foo(i64, i64);"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("struct Foo(i64, i64);");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -58,12 +47,7 @@ fn tuple() {
 
 #[test]
 fn fields() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"struct Foo { x: i64, y: i64 }"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("struct Foo { x: i64, y: i64 }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -85,12 +69,7 @@ fn fields() {
 
 #[test]
 fn type_parameters() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"struct Foo<A, B, C> {}"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("struct Foo<A, B, C> {}");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

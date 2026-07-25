@@ -1,7 +1,6 @@
 use crate::{
     function_wrapper,
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{
         SyntaxId,
@@ -11,12 +10,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("{}")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("{}"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -33,12 +27,7 @@ fn empty() {
 
 #[test]
 fn item() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("{ fn foo() {} }")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("{ fn foo() {} }"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -58,12 +47,7 @@ fn item() {
 
 #[test]
 fn statement() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("{ let x = 42; }")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("{ let x = 42; }"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -83,12 +67,7 @@ fn statement() {
 
 #[test]
 fn expression() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("{ x + y }")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("{ x + y }"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -110,14 +89,7 @@ fn expression() {
 
 #[test]
 fn mixed() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "{ fn foo() {} let x = 42; x + y }"
-    )));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!( "{ fn foo() {} let x = 42; x + y }" ));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

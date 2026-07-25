@@ -1,7 +1,6 @@
 use crate::{
     function_wrapper,
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{
         SyntaxId,
@@ -11,14 +10,7 @@ use crate::{
 
 #[test]
 fn r#if() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "if condition { x + y }"
-    )));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!( "if condition { x + y }" ));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -43,14 +35,7 @@ fn r#if() {
 
 #[test]
 fn if_else() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "if condition { x + y } else { x - y }"
-    )));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!( "if condition { x + y } else { x - y }" ));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -85,14 +70,7 @@ fn if_else() {
 
 #[test]
 fn if_else_if() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "if left { x + y } else if right { x - y } else { x * y }"
-    )));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!( "if left { x + y } else if right { x - y } else { x * y }" ));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

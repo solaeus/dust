@@ -1,6 +1,5 @@
 use crate::{
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{
         SyntaxId,
@@ -10,12 +9,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo {}"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("trait Foo {}");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -31,12 +25,7 @@ fn empty() {
 
 #[test]
 fn with_supertraits() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo: Bar + Baz {}"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("trait Foo: Bar + Baz {}");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -59,12 +48,7 @@ fn with_supertraits() {
 
 #[test]
 fn with_type_parameters_and_supertraits() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo<T>: Bar + Baz {}"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("trait Foo<T>: Bar + Baz {}");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -90,12 +74,7 @@ fn with_type_parameters_and_supertraits() {
 
 #[test]
 fn with_where_clause() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo<T> where T: Bar {}"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("trait Foo<T> where T: Bar {}");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -123,12 +102,7 @@ fn with_where_clause() {
 
 #[test]
 fn with_const_member() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo { const X: i64; }"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("trait Foo { const X: i64; }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -147,12 +121,7 @@ fn with_const_member() {
 
 #[test]
 fn with_const_member_default() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo { const X: i64 = 42; }"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("trait Foo { const X: i64 = 42; }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -172,12 +141,7 @@ fn with_const_member_default() {
 
 #[test]
 fn with_method_signature() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo { fn bar(self); }"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("trait Foo { fn bar(self); }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -200,12 +164,7 @@ fn with_method_signature() {
 
 #[test]
 fn with_default_method() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo { fn bar(self) {} }"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("trait Foo { fn bar(self) {} }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -229,12 +188,7 @@ fn with_default_method() {
 
 #[test]
 fn with_method_signature_and_return_type() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo { fn bar(self) -> i64; }"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("trait Foo { fn bar(self) -> i64; }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -258,12 +212,7 @@ fn with_method_signature_and_return_type() {
 
 #[test]
 fn with_type_member() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo { type Bar; }"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("trait Foo { type Bar; }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -281,12 +230,7 @@ fn with_type_member() {
 
 #[test]
 fn with_type_member_default() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"trait Foo { type Bar = i64; }"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("trait Foo { type Bar = i64; }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

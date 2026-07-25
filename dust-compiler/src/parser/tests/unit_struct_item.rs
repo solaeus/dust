@@ -1,18 +1,12 @@
 use crate::{
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn unit_struct() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"struct Foo;"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("struct Foo;");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

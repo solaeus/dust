@@ -1,19 +1,13 @@
 use crate::{
     function_wrapper,
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn negation() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("-x")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("-x"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -32,12 +26,7 @@ fn negation() {
 
 #[test]
 fn logical_not() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("!x")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("!x"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

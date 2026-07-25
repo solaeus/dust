@@ -1,6 +1,5 @@
 use crate::{
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{
         SyntaxId,
@@ -10,12 +9,7 @@ use crate::{
 
 #[test]
 fn simple() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"const X: i64 = 42;"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("const X: i64 = 42;");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -32,12 +26,7 @@ fn simple() {
 
 #[test]
 fn pub_const() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"pub const X: i64 = 42;"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("pub const X: i64 = 42;");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

@@ -1,18 +1,12 @@
 use crate::{
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn file() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"mod foo;"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("mod foo;");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -27,12 +21,7 @@ fn file() {
 
 #[test]
 fn empty() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"mod foo {}"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("mod foo {}");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -48,12 +37,7 @@ fn empty() {
 
 #[test]
 fn nested() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"mod foo { mod bar {} }"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("mod foo { mod bar {} }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

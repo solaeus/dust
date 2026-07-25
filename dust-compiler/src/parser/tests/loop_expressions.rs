@@ -1,7 +1,6 @@
 use crate::{
     function_wrapper,
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{
         SyntaxId,
@@ -11,12 +10,7 @@ use crate::{
 
 #[test]
 fn while_expression() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("while x { y }")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("while x { y }"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -38,14 +32,7 @@ fn while_expression() {
 
 #[test]
 fn break_empty() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "while true { break; }"
-    )));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!( "while true { break; }" ));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -67,14 +54,7 @@ fn break_empty() {
 
 #[test]
 fn break_with_value() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "while true { break 42; }"
-    )));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!( "while true { break 42; }" ));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

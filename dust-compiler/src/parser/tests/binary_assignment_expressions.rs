@@ -1,7 +1,6 @@
 use crate::{
     function_wrapper,
-    lexer::Lexer,
-    parser::{Parser, parse},
+    parser::parse,
     source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
@@ -33,12 +32,7 @@ fn add_assign() {
 
 #[test]
 fn subtract_assign() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x -= 42;")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x -= 42;"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -63,12 +57,7 @@ fn subtract_assign() {
 
 #[test]
 fn multiply_assign() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x *= 42;")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x *= 42;"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -93,12 +82,7 @@ fn multiply_assign() {
 
 #[test]
 fn divide_assign() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x /= 42;")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x /= 42;"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -123,12 +107,7 @@ fn divide_assign() {
 
 #[test]
 fn modulo_assign() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x %= 42;")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x %= 42;"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -153,12 +132,7 @@ fn modulo_assign() {
 
 #[test]
 fn power_assign() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x ^= 42;")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x ^= 42;"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use annotate_snippets::{AnnotationKind, Group, Level, Snippet};
 
 use crate::{
@@ -103,6 +105,10 @@ pub enum CompileError {
         position: Position,
     },
     ExpectedMainFunction,
+    ExpectedFileModule {
+        path: PathBuf,
+        position: Position,
+    },
     ExpectedIndexableType {
         type_id: TypeId,
     },
@@ -712,6 +718,19 @@ impl<'a> DustError<'a> for CompileError {
                         AnnotationKind::Primary
                             .span(position.span.as_usize_range())
                             .label("This constant value exceeds the maximum allowed for its type."),
+                    ),
+                );
+
+                groups.push(group);
+            }
+            CompileError::ExpectedFileModule { path, position } => {
+                let title = "Expected a file module";
+                let path = path.display();
+                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
+                    Snippet::source(path.to_string()).annotation(
+                        AnnotationKind::Primary
+                            .span(position.span.as_usize_range())
+                            .label(format!("Expected a file module at path: {path}")),
                     ),
                 );
 

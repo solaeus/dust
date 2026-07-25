@@ -1,6 +1,5 @@
 use crate::{
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{
         SyntaxId,
@@ -10,12 +9,7 @@ use crate::{
 
 #[test]
 fn empty() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"impl Foo {}"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("impl Foo {}");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -32,12 +26,7 @@ fn empty() {
 
 #[test]
 fn with_function() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"impl Foo { fn bar(self) {} }"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("impl Foo { fn bar(self) {} }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -62,12 +51,7 @@ fn with_function() {
 
 #[test]
 fn with_pub_function() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"impl Foo { pub fn bar(self) {} }"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("impl Foo { pub fn bar(self) {} }");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -92,12 +76,7 @@ fn with_pub_function() {
 
 #[test]
 fn trait_impl() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"impl Bar for Foo {}"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("impl Bar for Foo {}");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -118,12 +97,7 @@ fn trait_impl() {
 
 #[test]
 fn with_where_clause() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"impl Foo where Foo: Bar {}"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("impl Foo where Foo: Bar {}");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

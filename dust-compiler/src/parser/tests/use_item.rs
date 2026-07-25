@@ -1,18 +1,12 @@
 use crate::{
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn use_item() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(b"use foo;"));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse("use foo;");
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

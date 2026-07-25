@@ -1,21 +1,21 @@
-use std::mem::replace;
+use std::{mem::replace, path::Path};
 
 use crate::{
     compiler::{
         context::{
             Context,
-            declarations::{Declaration, DeclarationId, Definition, ModuleKind, VariantKind},
+            declarations::{DeclarationId, Definition, ModuleKind, VariantKind},
             scopes::{Barrier, BarrierTracker, ScopeId},
-            symbols::SymbolId,
             types::{Type, TypeId, TypeMembers},
         },
         error::CompileError,
         value_creation::create_usize_from_decimal,
     },
     error::ErrorKind,
-    source::{CodeId, Position, Source},
+    lexer::Lexer,
+    parser::Parser,
+    source::{Code, CodeId, Position, Source},
     syntax::{
-        Syntax, SyntaxId,
         components::{
             ArrayExpression, ArrayRepeatExpression, ArrayType, AssignmentExpression,
             BlockExpression, CallExpression, ComparisonExpression, ConstItem, EnumItem,
@@ -32,12 +32,10 @@ use crate::{
     },
 };
 
-pub struct DeclarationResolver<'a> {
+pub struct DeclarationResolver<'a, 'src> {
     code_id: CodeId,
 
-    source: &'a Source<'a>,
-
-    syntax: &'a Syntax,
+    source: &'a mut Source<'src>,
 
     context: &'a mut Context,
 
@@ -50,11 +48,10 @@ pub struct DeclarationResolver<'a> {
     outer: OuterDeclaration,
 }
 
-impl<'a> DeclarationResolver<'a> {
+impl<'a, 'src> DeclarationResolver<'a, 'src> {
     pub fn new(
         code_id: CodeId,
-        source: &'a Source<'a>,
-        syntax: &'a Syntax,
+        source: &'a mut Source<'src>,
         context: &'a mut Context,
         errors: &'a mut Vec<ErrorKind>,
         starting_scope_id: ScopeId,
@@ -62,7 +59,6 @@ impl<'a> DeclarationResolver<'a> {
         Self {
             code_id,
             source,
-            syntax,
             context,
             errors,
             forward_references: Vec::new(),
@@ -71,8 +67,16 @@ impl<'a> DeclarationResolver<'a> {
         }
     }
 
-    pub fn visit_root(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
-        let Root { items } = reader.as_component()?;
+    pub fn visit_root(mut self, reader: SyntaxReader) {
+        let Root { items } = match reader.as_component::<Root>() {
+            Ok(root) => root,
+            Err(error) => {
+                self.errors
+                    .push(ErrorKind::Compile(CompileError::Syntax(error)));
+
+                return;
+            }
+        };
 
         for item in items.children() {
             match self.visit_item(item) {
@@ -101,10 +105,13 @@ impl<'a> DeclarationResolver<'a> {
                         let declaration = self.context.declarations.get_declaration(declaration_id);
 
                         if crossed_barriers.should_block(&declaration.definition) {
-                            return Err(CompileError::Undeclared {
-                                symbol_id: forward_reference.symbol_id,
-                                usage_position: forward_reference.syntax.unwrap().0,
-                            });
+                            self.errors
+                                .push(ErrorKind::Compile(CompileError::Undeclared {
+                                    symbol_id: forward_reference.symbol_id,
+                                    usage_position: forward_reference.syntax.unwrap().0,
+                                }));
+
+                            return;
                         }
 
                         break declaration_id;
@@ -114,10 +121,13 @@ impl<'a> DeclarationResolver<'a> {
                     current_scope_id = if let Some(parent) = scope.parent {
                         parent
                     } else {
-                        return Err(CompileError::Undeclared {
-                            symbol_id: forward_reference.symbol_id,
-                            usage_position: forward_reference.syntax.unwrap().0,
-                        });
+                        self.errors
+                            .push(ErrorKind::Compile(CompileError::Undeclared {
+                                symbol_id: forward_reference.symbol_id,
+                                usage_position: forward_reference.syntax.unwrap().0,
+                            }));
+
+                        return;
                     };
 
                     crossed_barriers.add(scope.barrier);
@@ -128,8 +138,6 @@ impl<'a> DeclarationResolver<'a> {
                 .declarations
                 .resolve_forward_reference(forward_reference_id, resolved_declaration_id);
         }
-
-        Ok(())
     }
 
     fn enter_scope(&mut self, barrier: Barrier) {
@@ -150,40 +158,6 @@ impl<'a> DeclarationResolver<'a> {
 
                 self.current_scope_id
             });
-    }
-
-    fn add_declaration(
-        &mut self,
-        symbol_id: SymbolId,
-        definition: Definition,
-        syntax: Option<(Position, SyntaxId)>,
-    ) -> DeclarationId {
-        let declaration_id = self.context.declarations.add_declaration(Declaration {
-            symbol_id,
-            scope_id: self.current_scope_id,
-            definition,
-            syntax,
-        });
-
-        self.context.scopes.add_to_current_namespace(declaration_id);
-
-        declaration_id
-    }
-
-    fn reserve_declaration_id(
-        &mut self,
-        symbol_id: SymbolId,
-        syntax: Option<(Position, SyntaxId)>,
-    ) -> DeclarationId {
-        let declaration_id = self.context.declarations.reserve_declaration_id(
-            symbol_id,
-            self.current_scope_id,
-            syntax,
-        );
-
-        self.context.scopes.add_to_current_namespace(declaration_id);
-
-        declaration_id
     }
 
     fn visit_item(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
@@ -220,56 +194,78 @@ impl<'a> DeclarationResolver<'a> {
         let module_name_str = self.source.get_content(name.position())?;
         let module_symbol_id = self.context.symbols.add_symbol(module_name_str);
 
-        let module_declaration_id =
-            self.reserve_declaration_id(module_symbol_id, Some((name.position(), reader.id)));
+        let module_declaration_id = self.context.reserve_declaration_id(
+            module_symbol_id,
+            Some((name.position(), reader.id)),
+            self.current_scope_id,
+        );
 
         self.context
             .add_declaration_binding(self.code_id, reader.id, module_declaration_id);
-        self.enter_scope(Barrier::Module);
-
-        let inner_scope_id = self.current_scope_id;
 
         if let Some(module_body) = body {
+            self.enter_scope(Barrier::Module);
+
+            let inner_scope_id = self.current_scope_id;
+
             for child in module_body.children() {
                 match self.visit_item(child) {
                     Ok(()) => {}
                     Err(error) => self.errors.push(ErrorKind::Compile(error)),
                 }
             }
+
+            self.exit_scope();
+            self.context.declarations.set_reserved_declaration(
+                module_declaration_id,
+                Definition::Module {
+                    public,
+                    kind: ModuleKind::Inline,
+                    inner_scope_id: Some(inner_scope_id),
+                },
+            );
         } else {
-            let module_code_id = self
-                .source
-                .iter()
-                .find_map(|(code_id, file)| {
-                    if file
-                        .path()?
-                        .file_stem()
-                        .and_then(|stem| stem.to_str())
-                        .map(|stem_str| stem_str == module_name_str)
-                        .unwrap_or(false)
-                    {
-                        Some(code_id)
-                    } else {
-                        None
-                    }
-                })
-                .ok_or(CompileError::UnresolvedModule {
-                    symbol_id: module_symbol_id,
-                })?;
-            let module_root = self.syntax.get_tree(module_code_id)?.read_root()?;
+            let current_path = self.source.get_code(self.code_id).path_or_name();
+            let current_path = Path::new(current_path.as_ref());
+            let module_path_base =
+                current_path
+                    .parent()
+                    .ok_or_else(|| CompileError::ExpectedFileModule {
+                        path: current_path.to_path_buf(),
+                        position: name.position(),
+                    })?;
+            let module_path = module_path_base.join(module_name_str);
+            let module_file = Code::file(module_path)?;
+            let module_code_id = self.source.add_code(module_file);
 
-            self.visit_root(module_root)?;
+            let module_lexer =
+                Lexer::unvalidated(self.source.get_code(module_code_id).content_as_bytes());
+            let module_parser = Parser::new(module_code_id, module_lexer, self.errors);
+            let module_syntax_tree = module_parser.parse();
+
+            self.source.set_utf8_validated(module_code_id);
+            self.enter_scope(Barrier::Module);
+
+            let inner_scope_id = self.current_scope_id;
+            let module_resolver = DeclarationResolver::new(
+                module_code_id,
+                self.source,
+                self.context,
+                self.errors,
+                inner_scope_id,
+            );
+
+            module_resolver.visit_root(module_syntax_tree.read_root()?);
+            self.exit_scope();
+            self.context.declarations.set_reserved_declaration(
+                module_declaration_id,
+                Definition::Module {
+                    public,
+                    kind: ModuleKind::Inline,
+                    inner_scope_id: Some(inner_scope_id),
+                },
+            );
         }
-
-        self.exit_scope();
-        self.context.declarations.set_reserved_declaration(
-            module_declaration_id,
-            Definition::Module {
-                public,
-                kind: ModuleKind::Inline,
-                inner_scope_id: Some(inner_scope_id),
-            },
-        );
 
         Ok(())
     }
@@ -315,13 +311,14 @@ impl<'a> DeclarationResolver<'a> {
             current_span = segment.node.span;
         }
 
-        let use_declaration_id = self.add_declaration(
+        let use_declaration_id = self.context.add_declaration(
             current_symbol_id,
             Definition::Use {
                 public,
                 source_declaration_id: current_declaration_id,
             },
             Some((Position::new(reader.code_id(), current_span), reader.id)),
+            self.current_scope_id,
         );
 
         self.context
@@ -343,8 +340,11 @@ impl<'a> DeclarationResolver<'a> {
 
         let function_name_str = self.source.get_content(name.position())?;
         let function_symbol_id = self.context.symbols.add_symbol(function_name_str);
-        let function_declaration_id =
-            self.reserve_declaration_id(function_symbol_id, Some((reader.position(), reader.id)));
+        let function_declaration_id = self.context.reserve_declaration_id(
+            function_symbol_id,
+            Some((reader.position(), reader.id)),
+            self.current_scope_id,
+        );
 
         self.enter_scope(Barrier::Item);
 
@@ -385,7 +385,7 @@ impl<'a> DeclarationResolver<'a> {
                 let parameter_name_str = self.source.get_content(parameter_name.position())?;
                 let parameter_symbol_id = self.context.symbols.add_symbol(parameter_name_str);
                 let parameter_type_id = self.visit_type(parameter_type)?;
-                let parameter_declaration_id = self.add_declaration(
+                let parameter_declaration_id = self.context.add_declaration(
                     parameter_symbol_id,
                     Definition::Local {
                         mutable: false,
@@ -393,6 +393,7 @@ impl<'a> DeclarationResolver<'a> {
                         type_id: parameter_type_id,
                     },
                     Some((parameter_name.position(), parameter_name.id)),
+                    self.current_scope_id,
                 );
 
                 self.context.add_declaration_binding(
@@ -473,8 +474,11 @@ impl<'a> DeclarationResolver<'a> {
 
         let struct_name_str = self.source.get_content(name.position())?;
         let struct_symbol_id = self.context.symbols.add_symbol(struct_name_str);
-        let struct_declaration_id =
-            self.reserve_declaration_id(struct_symbol_id, Some((reader.position(), reader.id)));
+        let struct_declaration_id = self.context.reserve_declaration_id(
+            struct_symbol_id,
+            Some((reader.position(), reader.id)),
+            self.current_scope_id,
+        );
 
         self.enter_scope(Barrier::Item);
 
@@ -495,7 +499,7 @@ impl<'a> DeclarationResolver<'a> {
                         let field_symbol_id = self.context.symbols.add_index_symbol(index as u32);
                         let field_type_id = self.visit_type(field_type)?;
 
-                        self.add_declaration(
+                        self.context.add_declaration(
                             field_symbol_id,
                             Definition::Field {
                                 public,
@@ -503,20 +507,19 @@ impl<'a> DeclarationResolver<'a> {
                                 type_id: field_type_id,
                             },
                             Some((field_type.position(), field_type.id)),
+                            self.current_scope_id,
                         );
                     }
                 }
                 SyntaxKind::NamedFields => {
                     let NamedFields { name_type_pairs } = NamedFields::from_reader(&fields)?;
 
-                    let file = self.source.get_code(name.code_id());
-
                     for (field_name, field_type) in name_type_pairs {
                         let public = field_name.node.flags.get_flag(SyntaxFlags::PUBLIC);
-                        let field_name_str = file.get_str(field_name.node.span)?;
+                        let field_name_str = self.source.get_content(field_name.position())?;
                         let field_symbol_id = self.context.symbols.add_symbol(field_name_str);
                         let field_type_id = self.visit_type(field_type)?;
-                        let field_declaration_id = self.add_declaration(
+                        let field_declaration_id = self.context.add_declaration(
                             field_symbol_id,
                             Definition::Field {
                                 public,
@@ -524,6 +527,7 @@ impl<'a> DeclarationResolver<'a> {
                                 type_id: field_type_id,
                             },
                             Some((field_name.position(), field_name.id)),
+                            self.current_scope_id,
                         );
 
                         self.context.add_declaration_binding(
@@ -575,8 +579,11 @@ impl<'a> DeclarationResolver<'a> {
 
         let enum_name_str = self.source.get_content(name.position())?;
         let enum_symbol_id = self.context.symbols.add_symbol(enum_name_str);
-        let enum_declaration_id =
-            self.reserve_declaration_id(enum_symbol_id, Some((reader.position(), reader.id)));
+        let enum_declaration_id = self.context.reserve_declaration_id(
+            enum_symbol_id,
+            Some((reader.position(), reader.id)),
+            self.current_scope_id,
+        );
 
         self.enter_scope(Barrier::Item);
 
@@ -641,13 +648,14 @@ impl<'a> DeclarationResolver<'a> {
                 None
             };
 
-            let type_parameter_declaration_id = self.add_declaration(
+            let type_parameter_declaration_id = self.context.add_declaration(
                 type_parameter_symbol_id,
                 Definition::TypeParameter {
                     is_self: false,
                     bounds: bounds_scope_id,
                 },
                 Some((type_parameter.position(), type_parameter.id)),
+                self.current_scope_id,
             );
 
             self.context.add_declaration_binding(
@@ -666,15 +674,13 @@ impl<'a> DeclarationResolver<'a> {
         enum_declaration_id: DeclarationId,
         discriminant: u16,
     ) -> Result<DeclarationId, CompileError> {
-        let file = self.source.get_code(reader.code_id());
-
         match reader.node.kind {
             SyntaxKind::EnumUnitVariant => {
                 let EnumUnitVariant { name } = reader.as_component()?;
 
-                let variant_name_str = file.get_str(name.node.span)?;
+                let variant_name_str = self.source.get_content(name.position())?;
                 let variant_symbol_id = self.context.symbols.add_symbol(variant_name_str);
-                let variant_declaration_id = self.add_declaration(
+                let variant_declaration_id = self.context.add_declaration(
                     variant_symbol_id,
                     Definition::Variant {
                         discriminant,
@@ -683,6 +689,7 @@ impl<'a> DeclarationResolver<'a> {
                         kind: VariantKind::Unit,
                     },
                     Some((name.position(), name.id)),
+                    self.current_scope_id,
                 );
 
                 self.context
@@ -694,11 +701,12 @@ impl<'a> DeclarationResolver<'a> {
                 let EnumItemTupleVariant { name, tuple_fields } = reader.as_component()?;
                 let TupleFields { types } = tuple_fields.as_component()?;
 
-                let variant_name_str = file.get_str(name.node.span)?;
+                let variant_name_str = self.source.get_content(name.position())?;
                 let variant_symbol_id = self.context.symbols.add_symbol(variant_name_str);
-                let variant_declaration_id = self.reserve_declaration_id(
+                let variant_declaration_id = self.context.reserve_declaration_id(
                     variant_symbol_id,
                     Some((reader.position(), reader.id)),
+                    self.current_scope_id,
                 );
 
                 self.enter_scope(Barrier::Members);
@@ -706,7 +714,7 @@ impl<'a> DeclarationResolver<'a> {
                 for (index, field_type) in types.enumerate() {
                     let symbol_id = self.context.symbols.add_index_symbol(index as u32);
                     let type_id = self.visit_type(field_type)?;
-                    self.add_declaration(
+                    self.context.add_declaration(
                         symbol_id,
                         Definition::Field {
                             public: false,
@@ -714,6 +722,7 @@ impl<'a> DeclarationResolver<'a> {
                             type_id,
                         },
                         Some((field_type.position(), field_type.id)),
+                        self.current_scope_id,
                     );
                 }
 
@@ -738,18 +747,21 @@ impl<'a> DeclarationResolver<'a> {
                 let EnumNamedFieldsVariant { name, named_fields } = reader.as_component()?;
                 let NamedFields { name_type_pairs } = named_fields.as_component()?;
 
-                let variant_name_str = file.get_str(name.node.span)?;
+                let variant_name_str = self.source.get_content(name.position())?;
                 let variant_symbol_id = self.context.symbols.add_symbol(variant_name_str);
-                let variant_declaration_id = self
-                    .reserve_declaration_id(variant_symbol_id, Some((name.position(), name.id)));
+                let variant_declaration_id = self.context.reserve_declaration_id(
+                    variant_symbol_id,
+                    Some((name.position(), name.id)),
+                    self.current_scope_id,
+                );
 
                 self.enter_scope(Barrier::Members);
 
                 for (field_name, field_type) in name_type_pairs {
-                    let field_name_str = file.get_str(field_name.node.span)?;
+                    let field_name_str = self.source.get_content(field_name.position())?;
                     let field_symbol_id = self.context.symbols.add_symbol(field_name_str);
                     let field_type_id = self.visit_type(field_type)?;
-                    self.add_declaration(
+                    self.context.add_declaration(
                         field_symbol_id,
                         Definition::Field {
                             public: false,
@@ -757,6 +769,7 @@ impl<'a> DeclarationResolver<'a> {
                             type_id: field_type_id,
                         },
                         Some((field_name.position(), field_name.id)),
+                        self.current_scope_id,
                     );
                 }
 
@@ -805,13 +818,14 @@ impl<'a> DeclarationResolver<'a> {
         let const_name_str = self.source.get_content(name.position())?;
         let const_symbol_id = self.context.symbols.add_symbol(const_name_str);
         let const_type_id = self.visit_type(type_notation)?;
-        let const_declaration_id = self.add_declaration(
+        let const_declaration_id = self.context.add_declaration(
             const_symbol_id,
             Definition::Constant {
                 public,
                 type_id: const_type_id,
             },
             Some((reader.position(), reader.id)),
+            self.current_scope_id,
         );
 
         self.context
@@ -849,7 +863,7 @@ impl<'a> DeclarationResolver<'a> {
 
         let type_alias_name_str = self.source.get_content(name.position())?;
         let type_alias_symbol_id = self.context.symbols.add_symbol(type_alias_name_str);
-        let type_alias_declaration_id = self.add_declaration(
+        let type_alias_declaration_id = self.context.add_declaration(
             type_alias_symbol_id,
             Definition::TypeAlias {
                 public,
@@ -857,6 +871,7 @@ impl<'a> DeclarationResolver<'a> {
                 aliased_type_id,
             },
             Some((reader.position(), reader.id)),
+            self.current_scope_id,
         );
 
         self.context
@@ -877,8 +892,11 @@ impl<'a> DeclarationResolver<'a> {
         } = reader.as_component()?;
 
         let impl_symbol_id = self.context.symbols.add_impl_symbol(reader.position());
-        let impl_declaration_id =
-            self.reserve_declaration_id(impl_symbol_id, Some((reader.position(), reader.id)));
+        let impl_declaration_id = self.context.reserve_declaration_id(
+            impl_symbol_id,
+            Some((reader.position(), reader.id)),
+            self.current_scope_id,
+        );
 
         self.enter_scope(Barrier::Item);
 
@@ -953,7 +971,7 @@ impl<'a> DeclarationResolver<'a> {
                     let aliased_type_id = self.visit_type(aliased_type)?;
                     let type_name_str = self.source.get_content(name.position())?;
                     let type_symbol_id = self.context.symbols.add_symbol(type_name_str);
-                    let type_declaration_id = self.add_declaration(
+                    let type_declaration_id = self.context.add_declaration(
                         type_symbol_id,
                         Definition::InherentAssociatedType {
                             public,
@@ -962,6 +980,7 @@ impl<'a> DeclarationResolver<'a> {
                             aliased_type_id,
                         },
                         Some((child.position(), child.id)),
+                        self.current_scope_id,
                     );
 
                     self.context.add_declaration_binding(
@@ -1048,8 +1067,11 @@ impl<'a> DeclarationResolver<'a> {
 
         let trait_name_str = self.source.get_content(name.position())?;
         let trait_symbol_id = self.context.symbols.add_symbol(trait_name_str);
-        let trait_declaration_id =
-            self.reserve_declaration_id(trait_symbol_id, Some((reader.position(), reader.id)));
+        let trait_declaration_id = self.context.reserve_declaration_id(
+            trait_symbol_id,
+            Some((reader.position(), reader.id)),
+            self.current_scope_id,
+        );
 
         self.enter_scope(Barrier::Item);
 
@@ -1108,7 +1130,7 @@ impl<'a> DeclarationResolver<'a> {
                         .transpose()?;
                     let type_name_str = self.source.get_content(name.position())?;
                     let type_symbol_id = self.context.symbols.add_symbol(type_name_str);
-                    let type_declaration_id = self.add_declaration(
+                    let type_declaration_id = self.context.add_declaration(
                         type_symbol_id,
                         Definition::TraitAssociatedType {
                             public,
@@ -1117,6 +1139,7 @@ impl<'a> DeclarationResolver<'a> {
                             default_aliased_type_id: aliased_type_id,
                         },
                         Some((child.position(), child.id)),
+                        self.current_scope_id,
                     );
 
                     self.context.add_declaration_binding(
@@ -1140,7 +1163,7 @@ impl<'a> DeclarationResolver<'a> {
                     let const_name_str = self.source.get_content(name.position())?;
                     let const_symbol_id = self.context.symbols.add_symbol(const_name_str);
                     let const_type_id = self.visit_type(type_notation)?;
-                    let const_declaration_id = self.add_declaration(
+                    let const_declaration_id = self.context.add_declaration(
                         const_symbol_id,
                         Definition::InherentAssociatedConstant {
                             public: false,
@@ -1148,6 +1171,7 @@ impl<'a> DeclarationResolver<'a> {
                             type_id: const_type_id,
                         },
                         Some((child.position(), child.id)),
+                        self.current_scope_id,
                     );
 
                     self.context.add_declaration_binding(
@@ -1246,7 +1270,7 @@ impl<'a> DeclarationResolver<'a> {
             .declarations
             .find_declaration_id(local_symbol_id, self.current_scope_id)
             .copied();
-        let declaration_id = self.add_declaration(
+        let declaration_id = self.context.add_declaration(
             local_symbol_id,
             Definition::Local {
                 mutable,
@@ -1254,6 +1278,7 @@ impl<'a> DeclarationResolver<'a> {
                 type_id: local_type_id,
             },
             Some((name.position(), name.id)),
+            self.current_scope_id,
         );
 
         self.context
@@ -1870,8 +1895,6 @@ impl<'a> DeclarationResolver<'a> {
     }
 
     fn visit_path(&mut self, path: SyntaxReader) -> Result<DeclarationId, CompileError> {
-        let source_code = self.source.get_code(path.code_id());
-
         let mut path_segments = path.children();
         let Some(first_segment) = path_segments.next() else {
             return Err(CompileError::ExpectedSyntax {
@@ -1881,7 +1904,7 @@ impl<'a> DeclarationResolver<'a> {
 
         self.visit_path_segment_type_arguments(first_segment)?;
 
-        let first_segment_str = source_code.get_str(first_segment.node.span)?;
+        let first_segment_str = self.source.get_content(first_segment.position())?;
         let first_symbol_id = self.context.symbols.add_symbol(first_segment_str);
         let mut current_declaration_id = if let Some(declaration_id) = self
             .context
@@ -1889,10 +1912,11 @@ impl<'a> DeclarationResolver<'a> {
         {
             declaration_id
         } else {
-            let declaration_id = self.add_declaration(
+            let declaration_id = self.context.add_declaration(
                 first_symbol_id,
                 Definition::ForwardReference { resolved: None },
                 Some((first_segment.position(), first_segment.id)),
+                self.current_scope_id,
             );
 
             self.forward_references.push(declaration_id);
@@ -1909,7 +1933,7 @@ impl<'a> DeclarationResolver<'a> {
         for path_segment in path_segments {
             self.visit_path_segment_type_arguments(path_segment)?;
 
-            let segment_str = source_code.get_str(path_segment.node.span)?;
+            let segment_str = self.source.get_content(path_segment.position())?;
             let segment_symbol_id = self.context.symbols.add_symbol(segment_str);
 
             current_declaration_id = self.context.find_member_declaration(

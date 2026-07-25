@@ -1,19 +1,13 @@
 use crate::{
     function_wrapper,
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn simple() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("foo")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("foo"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -31,12 +25,7 @@ fn simple() {
 
 #[test]
 fn multi_segment() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("foo::bar")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("foo::bar"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -55,12 +44,7 @@ fn multi_segment() {
 
 #[test]
 fn with_type_arguments() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("foo::<Bar>")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("foo::<Bar>"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -81,12 +65,7 @@ fn with_type_arguments() {
 
 #[test]
 fn with_multiple_type_arguments() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("foo::<Bar, Baz>")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("foo::<Bar, Baz>"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -109,12 +88,7 @@ fn with_multiple_type_arguments() {
 
 #[test]
 fn multi_segment_with_type_arguments() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("foo::bar::<Baz>")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("foo::bar::<Baz>"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -136,12 +110,7 @@ fn multi_segment_with_type_arguments() {
 
 #[test]
 fn type_arguments_on_middle_segment() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("foo::<Bar>::baz")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("foo::<Bar>::baz"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

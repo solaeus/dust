@@ -58,13 +58,8 @@ impl<'src> Source<'src> {
     }
 
     pub fn set_utf8_validated(&mut self, code_id: CodeId) {
-        if let Some(
-            Code::File { utf8_validated, .. }
-            | Code::Borrowed { utf8_validated, .. }
-            | Code::Owned { utf8_validated, .. },
-        ) = self.code.get_mut(code_id.0 as usize)
-        {
-            *utf8_validated = true;
+        if let Some(code) = self.code.get_mut(code_id.0 as usize) {
+            code.set_utf8_validated(true);
         }
     }
 
@@ -104,22 +99,26 @@ impl CodeId {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct Code<'src> {
+    inner: CodeInner<'src>,
+    utf8_validated: bool,
+    declaration_scanned: bool,
+}
+
 #[derive(Clone)]
-pub enum Code<'src> {
+pub enum CodeInner<'src> {
     File {
         path: PathBuf,
         content: Vec<u8>,
-        utf8_validated: bool,
     },
     Borrowed {
         name: &'src str,
         content: &'src [u8],
-        utf8_validated: bool,
     },
     Owned {
         name: &'src str,
         content: Vec<u8>,
-        utf8_validated: bool,
     },
 }
 
@@ -154,56 +153,62 @@ impl<'src> Code<'src> {
                 io_error: error.kind(),
             })?;
 
-        Ok(Code::File {
-            path,
-            content,
+        Ok(Code {
+            inner: CodeInner::File { path, content },
             utf8_validated: false,
+            declaration_scanned: false,
         })
     }
 
     pub fn unvalidated(name: &'src str, content: &'src [u8]) -> Self {
-        Code::Borrowed {
-            name,
-            content,
+        Code {
+            inner: CodeInner::Borrowed { name, content },
             utf8_validated: false,
+            declaration_scanned: false,
         }
     }
 
     pub fn unvalidated_owned(name: &'src str, content: Vec<u8>) -> Self {
-        Code::Owned {
-            name,
-            content,
+        Code {
+            inner: CodeInner::Owned { name, content },
             utf8_validated: false,
+            declaration_scanned: false,
         }
     }
 
     pub const fn validated(name: &'src str, content: &'src str) -> Self {
-        Code::Borrowed {
-            name,
-            content: content.as_bytes(),
+        Code {
+            inner: CodeInner::Borrowed {
+                name,
+                content: content.as_bytes(),
+            },
             utf8_validated: true,
+            declaration_scanned: false,
         }
     }
 
     pub fn validated_owned(name: &'src str, content: String) -> Self {
-        Code::Owned {
-            name,
-            content: content.into_bytes(),
+        Code {
+            inner: CodeInner::Owned {
+                name,
+                content: content.into_bytes(),
+            },
             utf8_validated: true,
+            declaration_scanned: false,
         }
     }
 
     pub fn path(&self) -> Option<&Path> {
-        match self {
-            Self::File { path, .. } => Some(path),
+        match &self.inner {
+            CodeInner::File { path, .. } => Some(path),
             _ => None,
         }
     }
 
     pub fn file_name(&self) -> &str {
-        match self {
-            Self::Borrowed { name, .. } | Self::Owned { name, .. } => name,
-            Self::File { path, .. } => path
+        match &self.inner {
+            CodeInner::Borrowed { name, .. } | CodeInner::Owned { name, .. } => name,
+            CodeInner::File { path, .. } => path
                 .file_name()
                 .and_then(|name| name.to_str())
                 .unwrap_or("<invalid file name>"),
@@ -211,26 +216,18 @@ impl<'src> Code<'src> {
     }
 
     pub fn path_or_name(&self) -> Cow<'_, str> {
-        match self {
-            Self::Borrowed { name, .. } | Self::Owned { name, .. } => Cow::Borrowed(name),
-            Self::File { path, .. } => path.to_string_lossy(),
+        match &self.inner {
+            CodeInner::Borrowed { name, .. } | CodeInner::Owned { name, .. } => Cow::Borrowed(name),
+            CodeInner::File { path, .. } => path.to_string_lossy(),
         }
     }
 
     pub fn utf8_validated(&self) -> bool {
-        match self {
-            Self::Borrowed { utf8_validated, .. }
-            | Self::Owned { utf8_validated, .. }
-            | Self::File { utf8_validated, .. } => *utf8_validated,
-        }
+        self.utf8_validated
     }
 
     pub fn set_utf8_validated(&mut self, validated: bool) {
-        match self {
-            Self::Borrowed { utf8_validated, .. }
-            | Self::Owned { utf8_validated, .. }
-            | Self::File { utf8_validated, .. } => *utf8_validated = validated,
-        }
+        self.utf8_validated = validated;
     }
 
     pub fn get_bytes(&self, span: Span) -> Result<&[u8], SourceError> {
@@ -257,9 +254,9 @@ impl<'src> Code<'src> {
     }
 
     pub fn content_as_bytes(&self) -> &[u8] {
-        match self {
-            Self::Borrowed { content, .. } => content,
-            Self::File { content, .. } | Self::Owned { content, .. } => content,
+        match &self.inner {
+            CodeInner::Borrowed { content, .. } => content,
+            CodeInner::File { content, .. } | CodeInner::Owned { content, .. } => content,
         }
     }
 
@@ -286,35 +283,23 @@ impl<'src> Code<'src> {
             unsafe { str::from_utf8_unchecked(utf8_bytes) }
         }
 
-        match self {
-            Self::Borrowed {
-                name,
-                content,
-                utf8_validated,
-            } => {
-                if *utf8_validated {
+        match &self.inner {
+            CodeInner::Borrowed { name, content } => {
+                if self.utf8_validated {
                     unsafe { str::from_utf8_unchecked(content) }
                 } else {
                     handle_utf8_validation(name, content)
                 }
             }
-            Self::Owned {
-                name,
-                content,
-                utf8_validated,
-            } => {
-                if *utf8_validated {
+            CodeInner::Owned { name, content } => {
+                if self.utf8_validated {
                     unsafe { str::from_utf8_unchecked(content) }
                 } else {
                     handle_utf8_validation(name, content)
                 }
             }
-            Self::File {
-                path,
-                content,
-                utf8_validated,
-            } => {
-                if *utf8_validated {
+            CodeInner::File { path, content } => {
+                if self.utf8_validated {
                     unsafe { str::from_utf8_unchecked(content) }
                 } else {
                     handle_utf8_validation(&path.to_string_lossy(), content)
@@ -324,38 +309,23 @@ impl<'src> Code<'src> {
     }
 }
 
-impl Debug for Code<'_> {
+impl Debug for CodeInner<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::File {
-                path,
-                content,
-                utf8_validated,
-            } => f
+            Self::File { path, content } => f
                 .debug_struct("File")
                 .field("path", path)
                 .field("content", &String::from_utf8_lossy(content))
-                .field("utf8_validated", utf8_validated)
                 .finish(),
-            Self::Borrowed {
-                name,
-                content,
-                utf8_validated,
-            } => f
+            Self::Borrowed { name, content } => f
                 .debug_struct("Borrowed")
                 .field("name", name)
                 .field("content", &String::from_utf8_lossy(content))
-                .field("utf8_validated", utf8_validated)
                 .finish(),
-            Self::Owned {
-                name,
-                content,
-                utf8_validated,
-            } => f
+            Self::Owned { name, content } => f
                 .debug_struct("Owned")
                 .field("name", name)
                 .field("content", &String::from_utf8_lossy(content))
-                .field("utf8_validated", utf8_validated)
                 .finish(),
         }
     }

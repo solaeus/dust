@@ -1,7 +1,6 @@
 use crate::{
     function_wrapper,
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{
         SyntaxId,
@@ -11,12 +10,7 @@ use crate::{
 
 #[test]
 fn let_statement() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("let x = 42;")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("let x = 42;"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -35,12 +29,7 @@ fn let_statement() {
 
 #[test]
 fn let_statement_with_type() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("let x: i64 = 42;")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("let x: i64 = 42;"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -60,12 +49,7 @@ fn let_statement_with_type() {
 
 #[test]
 fn let_mut_statement() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("let mut x = 42;")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("let mut x = 42;"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -86,14 +70,7 @@ fn let_mut_statement() {
 
 #[test]
 fn let_mut_statement_with_type() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!(
-        "let mut x: i64 = 42;"
-    )));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!( "let mut x: i64 = 42;" ));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

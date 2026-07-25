@@ -24,11 +24,10 @@ use crate::{
     constants::value::ConstantValue,
     dust_type::{DustEnumType, DustFunctionType, DustStructType, DustStructTypeFields, DustType},
     instruction::OperandType,
-    source::CodeId,
+    source::{CodeId, Position},
     syntax::{SyntaxId, reader::SyntaxReader},
 };
 
-#[derive(Debug)]
 pub struct Context {
     pub symbols: Symbols,
     pub declarations: Declarations,
@@ -82,6 +81,40 @@ impl Context {
                 code_id: ids.0,
                 syntax_id: ids.1,
             })
+    }
+
+    pub fn add_declaration(
+        &mut self,
+        symbol_id: SymbolId,
+        definition: Definition,
+        syntax: Option<(Position, SyntaxId)>,
+        current_scope_id: ScopeId,
+    ) -> DeclarationId {
+        let declaration_id = self.declarations.add_declaration(Declaration {
+            symbol_id,
+            scope_id: current_scope_id,
+            definition,
+            syntax,
+        });
+
+        self.scopes.add_to_current_namespace(declaration_id);
+
+        declaration_id
+    }
+
+    pub fn reserve_declaration_id(
+        &mut self,
+        symbol_id: SymbolId,
+        syntax: Option<(Position, SyntaxId)>,
+        current_scope_id: ScopeId,
+    ) -> DeclarationId {
+        let declaration_id =
+            self.declarations
+                .reserve_declaration_id(symbol_id, current_scope_id, syntax);
+
+        self.scopes.add_to_current_namespace(declaration_id);
+
+        declaration_id
     }
 
     pub fn add_type_binding(&mut self, code_id: CodeId, syntax_id: SyntaxId, type_id: TypeId) {
@@ -2126,5 +2159,21 @@ fn get_built_in_type_id(
         BuiltInType::Struct { .. } | BuiltInType::Enum { .. } => {
             unreachable!("nested core algebraic types are not used")
         }
+    }
+}
+
+impl Debug for Context {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Context")
+            .field("symbols", &self.symbols.symbol_count())
+            .field("declarations", &self.declarations.declaration_count())
+            .field("scopes", &self.scopes.scope_count())
+            .field("types", &self.types.type_count())
+            .field("type_parameter_map", &self.type_parameter_map.len())
+            .field("implementations", &self.implementations.len())
+            .field("declaration_bindings", &self.declaration_bindings.len())
+            .field("type_bindings", &self.type_bindings.len())
+            .field("constant_item_values", &self.constant_item_values.len())
+            .finish()
     }
 }

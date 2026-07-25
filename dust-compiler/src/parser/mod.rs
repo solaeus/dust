@@ -9,6 +9,7 @@ use std::mem::replace;
 use tracing::{debug, trace};
 
 use crate::{
+    error::ErrorKind,
     lexer::Lexer,
     parser::{
         error::ParseError,
@@ -23,11 +24,10 @@ use crate::{
     token::{Token, TokenKind},
 };
 
-pub fn parse(source_code: &str) -> (SyntaxTree, Vec<ParseError>) {
+pub fn parse(source_code: &str) -> (SyntaxTree, Vec<ErrorKind>) {
     let lexer = Lexer::validated(source_code);
-    let mut module_names = Vec::new();
     let mut errors = Vec::new();
-    let parser = Parser::new(CodeId::MAIN, lexer, &mut module_names, &mut errors);
+    let parser = Parser::new(CodeId::MAIN, lexer, &mut errors);
     let syntax_tree = parser.parse();
 
     (syntax_tree, errors)
@@ -42,17 +42,11 @@ pub struct Parser<'a> {
     tree: SyntaxTreeBuilder,
     child_buffer: Vec<SyntaxId>,
 
-    module_names: &'a mut Vec<Position>,
-    errors: &'a mut Vec<ParseError>,
+    errors: &'a mut Vec<ErrorKind>,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(
-        code_id: CodeId,
-        lexer: Lexer<'a>,
-        module_names: &'a mut Vec<Position>,
-        errors: &'a mut Vec<ParseError>,
-    ) -> Self {
+    pub fn new(code_id: CodeId, lexer: Lexer<'a>, errors: &'a mut Vec<ErrorKind>) -> Self {
         Self {
             lexer,
             current_token: Token {
@@ -65,7 +59,6 @@ impl<'a> Parser<'a> {
             },
             tree: SyntaxTreeBuilder::new(code_id),
             child_buffer: Vec::with_capacity(16),
-            module_names,
             errors,
         }
     }
@@ -81,7 +74,7 @@ impl<'a> Parser<'a> {
             Ok(root_node) => {
                 self.tree.replace_node(SyntaxId::ROOT, root_node);
             }
-            Err(error) => self.errors.push(error),
+            Err(error) => self.errors.push(ErrorKind::Parse(error)),
         }
 
         self.tree.build()
@@ -185,7 +178,7 @@ impl<'a> Parser<'a> {
             self.current_token.kind, self.current_token.span
         );
 
-        self.errors.push(error);
+        self.errors.push(ErrorKind::Parse(error));
         self.child_buffer.truncate(children_start);
         self.advance();
 
@@ -417,9 +410,6 @@ impl<'a> Parser<'a> {
             TokenKind::Semicolon => {
                 self.advance();
 
-                self.module_names
-                    .push(Position::new(self.tree.code_id, module_name_node.span));
-
                 Ok(SyntaxKind::ModItem.with_single_child(
                     Span::new(start, self.previous_token.span.end()),
                     module_name_id,
@@ -443,7 +433,6 @@ impl<'a> Parser<'a> {
                 }
 
                 let span = Span::new(body_start, self.previous_token.span.end());
-
                 let module_body = self.create_node(
                     SyntaxKind::ModuleBody,
                     SyntaxFlags::default(),
@@ -1555,8 +1544,6 @@ impl<'a> Parser<'a> {
                 });
             }
         };
-        // NOTE: Consider writing a `Precedence::from_prefix` method to avoid creating a whole
-        // `ParseRule`.
         let operator_precedence = ParseRule::from(self.current_token.kind).precedence;
 
         self.advance();

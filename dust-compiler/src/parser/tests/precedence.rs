@@ -1,19 +1,13 @@
 use crate::{
     function_wrapper,
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn addition_and_multiplication() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("a + b * c")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("a + b * c"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -41,12 +35,7 @@ fn addition_and_multiplication() {
 
 #[test]
 fn right_associative_exponentiation() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("a ^ b ^ c")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("a ^ b ^ c"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

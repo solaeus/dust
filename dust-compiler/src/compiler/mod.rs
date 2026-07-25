@@ -9,6 +9,8 @@ mod value_creation;
 #[cfg(test)]
 pub(crate) mod tests;
 
+use std::path::Path;
+
 pub use prototype_emitter::RegisterWidth;
 
 use smallvec::SmallVec;
@@ -114,36 +116,17 @@ impl<'src> Compiler<'src> {
             };
         }
 
-        {
+        let crate_scope_id = {
             let span = span!(Level::INFO, "parsing");
             let _enter = span.enter();
 
-            let mut current_code_id = CodeId::MAIN;
-            let mut module_names = Vec::new();
-            let mut parse_errors = Vec::new();
+            let main_code = self.source.get_code(CodeId::MAIN).content_as_bytes();
+            let main_parser = Parser::new(CodeId::MAIN, Lexer::unvalidated(main_code), &mut errors);
+            let main_syntax_tree = main_parser.parse();
 
-            while let Some(position) = module_names.pop() {
-                let file_name = unwrap_or_return!(self.source.get_content(position));
-                let mut file = unwrap_or_return!(Code::file(file_name));
+            self.source.set_utf8_validated(CodeId::MAIN);
+            self.syntax.add_tree(main_syntax_tree);
 
-                let lexer = Lexer::unvalidated(file.content_as_bytes());
-                let parser =
-                    Parser::new(current_code_id, lexer, &mut module_names, &mut parse_errors);
-                let syntax_tree = parser.parse();
-
-                file.set_utf8_validated(true);
-
-                current_code_id = self.source.add_code(file);
-
-                self.syntax.add_tree(syntax_tree);
-            }
-
-            errors.extend(parse_errors.into_iter().map(ErrorKind::Parse));
-        }
-
-        let crate_scope_id = self.context.scopes.enter_scope(Barrier::Module, None);
-
-        {
             let span = span!(Level::INFO, "declaration_resolution");
             let _enter = span.enter();
 
@@ -153,22 +136,20 @@ impl<'src> Compiler<'src> {
                     .and_then(|tree| tree.read_root())
             );
 
+            let crate_scope_id = self.context.scopes.enter_scope(Barrier::Module, None);
             let mut declaration_resolver = DeclarationResolver::new(
                 CodeId::MAIN,
-                &self.source,
-                &self.syntax,
+                &mut self.source,
                 &mut self.context,
                 &mut errors,
                 crate_scope_id,
             );
 
-            match declaration_resolver.visit_root(main_file_root) {
-                Ok(()) => {}
-                Err(error) => errors.push(ErrorKind::Compile(error)),
-            }
-
+            declaration_resolver.visit_root(main_file_root);
             self.context.scopes.exit_scope(crate_scope_id);
-        }
+
+            crate_scope_id
+        };
 
         if !errors.is_empty() {
             return Err(errors);

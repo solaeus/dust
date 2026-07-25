@@ -1,19 +1,13 @@
 use crate::{
     function_wrapper,
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
+    parser::parse,
     source::Span,
     syntax::{SyntaxId, node::SyntaxKind::*},
 };
 
 #[test]
 fn index_expression() {
-    let parser = Parser::new_standalone(Lexer::unvalidated(function_wrapper!("x[0]")));
-    let ParseResult {
-        syntax_tree,
-        errors,
-        ..
-    } = parser.parse();
+    let (syntax_tree, errors) = parse(function_wrapper!("x[0]"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
