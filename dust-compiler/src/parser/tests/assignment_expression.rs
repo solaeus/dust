@@ -7,7 +7,7 @@ use crate::{
 
 #[test]
 fn assignment_expression() {
-    let (syntax_tree, errors) = parse(function_wrapper!("x as i32"));
+    let (syntax_tree, errors) = parse(function_wrapper!("x = 42;"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
