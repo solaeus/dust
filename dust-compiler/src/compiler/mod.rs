@@ -9,8 +9,6 @@ mod value_creation;
 #[cfg(test)]
 pub(crate) mod tests;
 
-use std::path::Path;
-
 pub use prototype_emitter::RegisterWidth;
 
 use smallvec::SmallVec;
@@ -32,7 +30,7 @@ use crate::{
     lexer::Lexer,
     parser::Parser,
     program::Program,
-    source::{Code, CodeId, Source},
+    source::{CodeId, Source},
     syntax::{Syntax, components::FunctionItem, node::SyntaxKind},
 };
 
@@ -117,18 +115,16 @@ impl<'src> Compiler<'src> {
         }
 
         let crate_scope_id = {
-            let span = span!(Level::INFO, "parsing");
+            let span = span!(Level::INFO, "parse/declare");
             let _enter = span.enter();
 
             let main_code = self.source.get_code(CodeId::MAIN).content_as_bytes();
             let main_parser = Parser::new(CodeId::MAIN, Lexer::unvalidated(main_code), &mut errors);
             let main_syntax_tree = main_parser.parse();
+            let mut new_trees = Vec::new();
 
             self.source.set_utf8_validated(CodeId::MAIN);
             self.syntax.add_tree(main_syntax_tree);
-
-            let span = span!(Level::INFO, "declaration_resolution");
-            let _enter = span.enter();
 
             let main_file_root = unwrap_or_return!(
                 self.syntax
@@ -137,16 +133,21 @@ impl<'src> Compiler<'src> {
             );
 
             let crate_scope_id = self.context.scopes.enter_scope(Barrier::Module, None);
-            let mut declaration_resolver = DeclarationResolver::new(
+            let declaration_resolver = DeclarationResolver::new(
                 CodeId::MAIN,
                 &mut self.source,
                 &mut self.context,
+                &mut new_trees,
                 &mut errors,
                 crate_scope_id,
             );
 
             declaration_resolver.visit_root(main_file_root);
             self.context.scopes.exit_scope(crate_scope_id);
+
+            for tree in new_trees {
+                self.syntax.add_tree(tree);
+            }
 
             crate_scope_id
         };

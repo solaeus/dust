@@ -3368,10 +3368,6 @@ impl Instructions {
         }
     }
 
-    fn length(&self) -> usize {
-        self.instructions.len()
-    }
-
     fn is_empty(&self) -> bool {
         self.instructions.is_empty()
     }
@@ -3553,10 +3549,6 @@ impl RegisterTracker {
         self.next_reserved += operand_type.register_width().as_u16();
 
         next
-    }
-
-    fn free_reserved(&mut self) {
-        self.next_reserved = 0;
     }
 
     fn deallocate(&mut self, allocation: &RegisterClaims) {

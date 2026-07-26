@@ -13,11 +13,7 @@ const SOURCE: &[u8] = include_bytes!("../../examples/eratosthenes_sieve.ds");
 fn compiler_bench(content: &[u8]) {
     let mut source = Source::new();
 
-    source.add_code(Code::Borrowed {
-        name: "eratosthenes_sieve.ds",
-        content,
-        utf8_validated: true,
-    });
+    source.add_code(Code::unvalidated("eratosthenes_sieve.ds", content));
 
     Compiler::new(source)
         .compile("eratosthenes_sieve".to_string())

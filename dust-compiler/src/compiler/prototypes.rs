@@ -6,7 +6,6 @@ use rustc_hash::FxBuildHasher;
 use crate::{
     compiler::context::{declarations::DeclarationId, types::TypeId},
     prototype::Prototype,
-    source::CodeId,
 };
 
 #[derive(Debug, Default)]

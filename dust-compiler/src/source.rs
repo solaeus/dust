@@ -49,10 +49,6 @@ impl<'src> Source<'src> {
         &self.code[code_id.0 as usize]
     }
 
-    pub(crate) fn get_code_mut(&mut self, code_id: CodeId) -> &mut Code<'src> {
-        &mut self.code[code_id.0 as usize]
-    }
-
     pub fn get_content(&self, position: Position) -> Result<&str, SourceError> {
         self.get_code(position.code_id).get_str(position.span)
     }
@@ -103,7 +99,6 @@ impl CodeId {
 pub struct Code<'src> {
     inner: CodeInner<'src>,
     utf8_validated: bool,
-    declaration_scanned: bool,
 }
 
 #[derive(Clone)]
@@ -156,7 +151,6 @@ impl<'src> Code<'src> {
         Ok(Code {
             inner: CodeInner::File { path, content },
             utf8_validated: false,
-            declaration_scanned: false,
         })
     }
 
@@ -164,7 +158,6 @@ impl<'src> Code<'src> {
         Code {
             inner: CodeInner::Borrowed { name, content },
             utf8_validated: false,
-            declaration_scanned: false,
         }
     }
 
@@ -172,7 +165,6 @@ impl<'src> Code<'src> {
         Code {
             inner: CodeInner::Owned { name, content },
             utf8_validated: false,
-            declaration_scanned: false,
         }
     }
 
@@ -183,7 +175,6 @@ impl<'src> Code<'src> {
                 content: content.as_bytes(),
             },
             utf8_validated: true,
-            declaration_scanned: false,
         }
     }
 
@@ -194,7 +185,6 @@ impl<'src> Code<'src> {
                 content: content.into_bytes(),
             },
             utf8_validated: true,
-            declaration_scanned: false,
         }
     }
 

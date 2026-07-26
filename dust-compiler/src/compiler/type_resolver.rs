@@ -4,7 +4,7 @@ use crate::{
     compiler::{
         context::{
             Context,
-            declarations::{DeclarationId, Definition, VariantKind},
+            declarations::{DeclarationId, Definition},
             types::{InferredTypeConstraint, Type, TypeId, TypeMembers},
         },
         error::CompileError,
@@ -876,29 +876,16 @@ impl<'a> TypeResolver<'a> {
             }
             Definition::Variant {
                 enum_declaration_id,
-                kind,
                 ..
-            } => match kind {
-                VariantKind::Unit => {
-                    let type_arguments =
-                        collect_turbofish_arguments(self.code_id, self.context, reader)?;
+            } => {
+                let type_arguments =
+                    collect_turbofish_arguments(self.code_id, self.context, reader)?;
 
-                    self.context.types.add_type(Type::Algebraic {
-                        declaration_id: enum_declaration_id,
-                        type_arguments,
-                    })
-                }
-                VariantKind::TupleFields => {
-                    let type_arguments =
-                        collect_turbofish_arguments(self.code_id, self.context, reader)?;
-
-                    self.context.types.add_type(Type::FunctionDefinition {
-                        declaration_id,
-                        type_arguments,
-                    })
-                }
-                VariantKind::NamedFields => todo!("Determine if this is reachable"),
-            },
+                self.context.types.add_type(Type::Algebraic {
+                    declaration_id: enum_declaration_id,
+                    type_arguments,
+                })
+            }
             Definition::Use {
                 source_declaration_id,
                 ..

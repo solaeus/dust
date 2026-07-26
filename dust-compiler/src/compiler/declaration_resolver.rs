@@ -29,6 +29,7 @@ use crate::{
         },
         node::{SyntaxFlags, SyntaxKind},
         reader::SyntaxReader,
+        tree::SyntaxTree,
     },
 };
 
@@ -40,6 +41,8 @@ pub struct DeclarationResolver<'a, 'src> {
     context: &'a mut Context,
 
     errors: &'a mut Vec<ErrorKind>,
+
+    new_trees: &'a mut Vec<SyntaxTree>,
 
     forward_references: Vec<DeclarationId>,
 
@@ -53,6 +56,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
         code_id: CodeId,
         source: &'a mut Source<'src>,
         context: &'a mut Context,
+        new_trees: &'a mut Vec<SyntaxTree>,
         errors: &'a mut Vec<ErrorKind>,
         starting_scope_id: ScopeId,
     ) -> Self {
@@ -60,6 +64,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
             code_id,
             source,
             context,
+            new_trees,
             errors,
             forward_references: Vec::new(),
             current_scope_id: starting_scope_id,
@@ -251,11 +256,13 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                 module_code_id,
                 self.source,
                 self.context,
+                self.new_trees,
                 self.errors,
                 inner_scope_id,
             );
 
             module_resolver.visit_root(module_syntax_tree.read_root()?);
+            self.new_trees.push(module_syntax_tree);
             self.exit_scope();
             self.context.declarations.set_reserved_declaration(
                 module_declaration_id,

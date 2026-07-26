@@ -1,10 +1,9 @@
 use std::io::{Write, stderr, stdout};
 
 use dust_compiler::{
-    error::{Error as DustError, ErrorContext, ErrorKind},
+    error::{Error as DustError, ErrorContext},
     lexer::Lexer,
     parser::Parser,
-    syntax::SyntaxId,
 };
 use ron::ser::{PrettyConfig, to_string_pretty};
 

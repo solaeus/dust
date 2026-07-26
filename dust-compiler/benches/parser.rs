@@ -1,10 +1,7 @@
 use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
-use dust_compiler::{
-    lexer::Lexer,
-    parser::{ParseResult, Parser},
-};
+use dust_compiler::{lexer::Lexer, parser::Parser, source::CodeId};
 
 const SOURCE: &[u8] = include_bytes!("../../examples/eratosthenes_sieve.ds");
 
@@ -15,7 +12,8 @@ const BENCHES: [(&str, usize); 3] = [
 ];
 
 fn parse_bench(source: &[u8]) {
-    let ParseResult { errors, .. } = Parser::new_standalone(Lexer::unvalidated(source)).parse();
+    let mut errors = Vec::new();
+    let _syntax_tree = Parser::new(CodeId::MAIN, Lexer::unvalidated(source), &mut errors).parse();
 
     assert!(errors.is_empty(), "{errors:#?}");
 }
