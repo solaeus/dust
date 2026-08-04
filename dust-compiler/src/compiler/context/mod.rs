@@ -982,9 +982,7 @@ impl Context {
                 resolved_id: None,
                 ..
             } => Ok(smallvec![OperandType::F_64]),
-            Type::Reference {
-                referenced_type_id, ..
-            } => self.get_operand_types(*referenced_type_id),
+            Type::Reference { .. } => Ok(smallvec![OperandType::POINTER]),
             Type::Generic { .. } | Type::Inferred { .. } | Type::Projection { .. } => {
                 Err(CompileError::ExpectedConcreteType)
             }
@@ -1376,10 +1374,7 @@ impl Context {
             DustType::Reference(referenced_type) => {
                 let referenced_type_id = self.add_external_type(referenced_type, scope_id);
 
-                self.types.add_type(Type::Reference {
-                    mutable: false,
-                    referenced_type_id,
-                })
+                self.types.add_type(Type::Reference { referenced_type_id })
             }
         }
     }
@@ -1747,9 +1742,7 @@ impl Context {
                 }
             }
             Type::Pointer { .. } => Ok(DustType::Unit),
-            Type::Reference {
-                referenced_type_id, ..
-            } => {
+            Type::Reference { referenced_type_id } => {
                 let referenced_dust_type = self.get_external_type(*referenced_type_id)?;
 
                 Ok(DustType::Reference(Box::new(referenced_dust_type)))

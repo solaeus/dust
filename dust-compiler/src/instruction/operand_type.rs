@@ -64,7 +64,7 @@ impl Display for OperandType {
             Self::F_64 => write!(f, "f64"),
             Self::CHARACTER => write!(f, "char"),
             Self::FUNCTION => write!(f, "fn"),
-            Self::POINTER => write!(f, "*T"),
+            Self::POINTER => write!(f, "ptr"),
             _ => write!(f, "<invalid operand type>"),
         }
     }

@@ -1095,6 +1095,10 @@ impl<'a> PrototypeEmitter<'a> {
                 for (emission_register, target_register) in
                     emission_registers.claims.into_iter().zip(registers.claims)
                 {
+                    if emission_register.index == target_register.index {
+                        continue;
+                    }
+
                     let move_instruction = Instruction::r#move(
                         target_register.index,
                         emission_register.operand_type,

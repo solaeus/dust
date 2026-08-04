@@ -957,3 +957,17 @@ impl<'a> SyntaxComponent<'a> for TupleType<'a> {
         })
     }
 }
+
+pub struct ReferenceType<'a> {
+    pub referenced_type: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for ReferenceType<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug_assert_eq!(reader.node.kind, SyntaxKind::ReferenceType);
+
+        Ok(Self {
+            referenced_type: reader.single_child()?,
+        })
+    }
+}

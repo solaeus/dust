@@ -310,7 +310,9 @@ pub enum Type {
     /// An anonymous heterogeneous product type.
     ///
     /// `()`, `(i32, T)`, `(f64, bool, char)`, etc.
-    Tuple { element_types: TypeMembers },
+    Tuple {
+        element_types: TypeMembers,
+    },
 
     /// An anonymous homogeneous product type with a fixed length.
     ///
@@ -385,7 +387,9 @@ pub enum Type {
     /// the type is instantiated.
     ///
     /// `T` in `fn foo<T>(x: T) -> T`
-    Generic { declaration_id: DeclarationId },
+    Generic {
+        declaration_id: DeclarationId,
+    },
 
     /// An internal type used to represent the pointer fields of types like `Vec` and `String`. The
     /// type arguments make each instance unique but the size is always the size of a pointer on the
@@ -411,7 +415,6 @@ pub enum Type {
     },
 
     Reference {
-        mutable: bool,
         referenced_type_id: TypeId,
     },
 }
@@ -540,6 +543,14 @@ impl PartialEq for Type {
                     && left_trait_type_arguments == right_trait_type_arguments
                     && left_associated_declaration_id == right_associated_declaration_id
             }
+            (
+                Type::Reference {
+                    referenced_type_id: left_referenced_type_id,
+                },
+                Type::Reference {
+                    referenced_type_id: right_referenced_type_id,
+                },
+            ) => left_referenced_type_id == right_referenced_type_id,
             (
                 Type::Inferred {
                     inferred_id: left_inferred_id,
@@ -711,16 +722,12 @@ impl Ord for Type {
             (Type::Inferred { .. }, _) => Ordering::Less,
             (
                 Type::Reference {
-                    mutable: left_is_mutable,
                     referenced_type_id: left_referenced_type_id,
                 },
                 Type::Reference {
-                    mutable: right_is_mutable,
                     referenced_type_id: right_referenced_type_id,
                 },
-            ) => left_is_mutable
-                .cmp(right_is_mutable)
-                .then_with(|| left_referenced_type_id.cmp(right_referenced_type_id)),
+            ) => left_referenced_type_id.cmp(right_referenced_type_id),
             (Type::Reference { .. }, _) => Ordering::Less,
         }
     }
@@ -859,12 +866,8 @@ impl Hash for Type {
                 state.write_u8(26);
                 inferred_id.hash(state);
             }
-            Type::Reference {
-                mutable: is_mutable,
-                referenced_type_id,
-            } => {
+            Type::Reference { referenced_type_id } => {
                 state.write_u8(27);
-                is_mutable.hash(state);
                 referenced_type_id.hash(state);
             }
         }

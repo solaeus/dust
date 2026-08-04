@@ -178,7 +178,10 @@ impl<'src> Compiler<'src> {
         let mut main_return_type_id = None;
 
         while let Some(prototype_id) = self.prototypes.pop_from_compilation_stack() {
-            let type_id = unwrap_or_return!(self.compile_loop(prototype_id, &mut errors));
+            let type_id = match self.compile_loop(prototype_id, &mut errors) {
+                Ok(type_id) => type_id,
+                Err(()) => return Err(errors),
+            };
 
             if prototype_id == PrototypeId::MAIN {
                 let inferred_type_id =
@@ -211,7 +214,24 @@ impl<'src> Compiler<'src> {
         &mut self,
         prototype_id: PrototypeId,
         errors: &mut Vec<ErrorKind>,
-    ) -> Result<TypeId, ErrorKind> {
+    ) -> Result<TypeId, ()> {
+        macro_rules! unwrap_or_return {
+            ($result: expr) => {
+                match $result {
+                    Ok(value) => value,
+                    Err(error) => {
+                        errors.push(error.into());
+
+                        return Err(());
+                    }
+                }
+            };
+        }
+
+        if !errors.is_empty() {
+            return Err(());
+        }
+
         let (declaration_id, mut type_arguments) = self
             .prototypes
             .get_monomorphized_function(prototype_id)
@@ -224,40 +244,41 @@ impl<'src> Compiler<'src> {
             ..
         } = declaration.definition
         else {
-            return Err(ErrorKind::Compile(
+            errors.push(ErrorKind::Compile(
                 CompileError::ExpectedFunctionDefinition(declaration_id),
             ));
+
+            return Err(());
         };
-        let (position, syntax_id) =
-            declaration
-                .syntax
-                .ok_or(ErrorKind::Compile(CompileError::ExpectedSyntax {
-                    expected: &[SyntaxKind::BlockExpression],
-                }))?;
-        let function_syntax = self
-            .syntax
-            .get_tree(position.code_id)
-            .and_then(|tree| tree.read_node(syntax_id))?;
-        let Ok(FunctionItem {
-            body: Some(body),
+        let (position, syntax_id) = unwrap_or_return!(declaration.syntax.ok_or(
+            ErrorKind::Compile(CompileError::ExpectedSyntax {
+                expected: &[SyntaxKind::BlockExpression],
+            })
+        ));
+        let function_syntax = unwrap_or_return!(
+            self.syntax
+                .get_tree(position.code_id)
+                .and_then(|tree| tree.read_node(syntax_id))
+        );
+        let FunctionItem {
+            body,
             value_parameters,
             ..
-        }) = function_syntax.as_component()
-        else {
-            return Err(ErrorKind::Compile(CompileError::ExpectedSyntax {
+        } = unwrap_or_return!(function_syntax.as_component());
+        let body =
+            unwrap_or_return!(body.ok_or(ErrorKind::Compile(CompileError::ExpectedSyntax {
                 expected: &[SyntaxKind::BlockExpression],
-            }));
-        };
-        let (position, _syntax_id) =
-            &declaration
-                .syntax
-                .ok_or(ErrorKind::Compile(CompileError::ExpectedSyntax {
-                    expected: &[SyntaxKind::BlockExpression],
-                }))?;
+            })));
+        let (position, _syntax_id) = unwrap_or_return!(declaration.syntax.ok_or(
+            ErrorKind::Compile(CompileError::ExpectedSyntax {
+                expected: &[SyntaxKind::BlockExpression],
+            })
+        ));
 
-        let type_parameter_ids = self
-            .context
-            .get_type_parameter_ids(parent_impl_or_trait, type_parameters)?;
+        let type_parameter_ids = unwrap_or_return!(
+            self.context
+                .get_type_parameter_ids(parent_impl_or_trait, type_parameters)
+        );
 
         while type_arguments.len() < type_parameter_ids.len() {
             let inferred_type_id = self.context.types.create_inferred_type(None);
@@ -277,14 +298,14 @@ impl<'src> Compiler<'src> {
             let mut type_resolver =
                 TypeResolver::new(&mut self.context, &self.source, position.code_id, errors);
 
-            type_resolver.visit_function_body(body, return_type_id)?;
+            unwrap_or_return!(type_resolver.visit_function_body(body, return_type_id));
         }
 
         {
             let span = span!(Level::INFO, "emit");
             let _enter = span.enter();
 
-            let mut prototype_emitter = PrototypeEmitter::new(
+            let mut prototype_emitter = unwrap_or_return!(PrototypeEmitter::new(
                 declaration_id,
                 prototype_id,
                 return_type_id,
@@ -297,16 +318,17 @@ impl<'src> Compiler<'src> {
                     &mut self.context,
                     &mut self.prototypes,
                 ),
-            )?;
+            ));
 
-            prototype_emitter.visit_function_body(body)?;
+            unwrap_or_return!(prototype_emitter.visit_function_body(body));
 
-            let prototype = prototype_emitter.finish()?;
+            let prototype = unwrap_or_return!(prototype_emitter.finish());
 
             self.prototypes.set_prototype(prototype_id, prototype);
         }
 
-        let resolved_return_type_id = self.context.get_inferred_type_id(return_type_id)?;
+        let resolved_return_type_id =
+            unwrap_or_return!(self.context.get_inferred_type_id(return_type_id));
 
         Ok(resolved_return_type_id)
     }

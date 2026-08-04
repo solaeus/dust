@@ -167,6 +167,7 @@ pub enum SyntaxKind {
     NeverType,
     TupleType,
     SelfType,
+    ReferenceType,
 
     // Ignored
     Trivia,
@@ -297,6 +298,7 @@ impl SyntaxKind {
                 | SyntaxKind::PathExpression
                 | SyntaxKind::RangeExpression
                 | SyntaxKind::RangeInclusiveExpression
+                | SyntaxKind::ReferenceExpression
                 | SyntaxKind::ReturnExpression
                 | SyntaxKind::SelfExpression
                 | SyntaxKind::StringExpression
@@ -385,6 +387,7 @@ impl SyntaxKind {
             SyntaxKind::RangeExpression => "range expression",
             SyntaxKind::RangeInclusiveExpression => "range inclusive expression",
             SyntaxKind::ReferenceExpression => "reference expression",
+            SyntaxKind::ReferenceType => "reference type",
             SyntaxKind::ReturnExpression => "return expression",
             SyntaxKind::Root => "root",
             SyntaxKind::SelfType => "self type",

@@ -23,9 +23,10 @@ use crate::{
             FieldAccessExpression, FunctionItem, FunctionType, GroupedExpression, IfExpression,
             ImplItem, IndexExpression, LetStatement, LogicExpression, MathExpression,
             MethodCallExpression, ModItem, NamedFields, NegationExpression, NotExpression,
-            PathSegment, RangeExpression, ReferenceExpression, Root, StructExpression,
-            StructExpressionStructFields, StructItem, SyntaxComponent, TraitItem, TupleFields,
-            TupleType, TypeItem, TypeParameter, UseItem, ValueParameters, WhileExpression,
+            PathSegment, RangeExpression, ReferenceExpression, ReferenceType, Root,
+            StructExpression, StructExpressionStructFields, StructItem, SyntaxComponent, TraitItem,
+            TupleFields, TupleType, TypeItem, TypeParameter, UseItem, ValueParameters,
+            WhileExpression,
         },
         node::{SyntaxFlags, SyntaxKind},
         reader::SyntaxReader,
@@ -1791,6 +1792,16 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                     position: reader.position(),
                 }),
             },
+            SyntaxKind::ReferenceType => {
+                let ReferenceType { referenced_type } = reader.as_component()?;
+
+                let referenced_type_id = self.visit_type(referenced_type)?;
+
+                Ok(self
+                    .context
+                    .types
+                    .add_type(Type::Reference { referenced_type_id }))
+            }
             _ => Err(CompileError::UnexpectedSyntax {
                 found: reader.node.kind,
             }),

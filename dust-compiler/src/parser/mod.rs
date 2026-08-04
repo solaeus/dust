@@ -559,7 +559,7 @@ impl<'a> Parser<'a> {
 
             self.expect(TokenKind::Colon)?;
 
-            let field_type_node = self.expect_type()?;
+            let field_type_node = self.parse_type()?;
             let field_type_id = self.tree.add_node(field_type_node);
 
             self.child_buffer.push(field_name_id);
@@ -595,7 +595,7 @@ impl<'a> Parser<'a> {
 
         while !self.allow(TokenKind::RightParenthesis) {
             let is_public = self.allow(TokenKind::Pub);
-            let mut field_type_node = self.expect_type()?;
+            let mut field_type_node = self.parse_type()?;
             if is_public {
                 field_type_node.flags.set_flag(SyntaxFlags::PUBLIC);
             }
@@ -785,7 +785,7 @@ impl<'a> Parser<'a> {
         }
 
         if self.allow(TokenKind::ArrowThin) {
-            let return_type_node = self.expect_type()?;
+            let return_type_node = self.parse_type()?;
             let return_type_id = self.tree.add_node(return_type_node);
 
             self.child_buffer.push(return_type_id);
@@ -829,7 +829,7 @@ impl<'a> Parser<'a> {
 
             self.expect(TokenKind::Colon)?;
 
-            let parameter_type_node_id = self.expect_type()?;
+            let parameter_type_node_id = self.parse_type()?;
             let parameter_type_id = self.tree.add_node(parameter_type_node_id);
 
             self.child_buffer.push(parameter_path_id);
@@ -1074,7 +1074,7 @@ impl<'a> Parser<'a> {
 
         self.expect(TokenKind::Equal)?;
 
-        let type_node = self.expect_type()?;
+        let type_node = self.parse_type()?;
         let type_id = self.tree.add_node(type_node);
 
         self.child_buffer.push(type_id);
@@ -1099,7 +1099,7 @@ impl<'a> Parser<'a> {
 
         self.expect(TokenKind::Colon)?;
 
-        let type_node = self.expect_type()?;
+        let type_node = self.parse_type()?;
         let type_id = self.tree.add_node(type_node);
 
         self.expect(TokenKind::Equal)?;
@@ -1126,7 +1126,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn expect_type(&mut self) -> Result<SyntaxNode, ParseError> {
+    fn parse_type(&mut self) -> Result<SyntaxNode, ParseError> {
         match self.current_token.kind {
             TokenKind::Bang => {
                 self.advance();
@@ -1303,7 +1303,7 @@ impl<'a> Parser<'a> {
                 let children_start = self.child_buffer.len();
 
                 while !self.allow(TokenKind::RightParenthesis) {
-                    let type_node = self.expect_type()?;
+                    let type_node = self.parse_type()?;
                     let type_id = self.tree.add_node(type_node);
 
                     self.child_buffer.push(type_id);
@@ -1323,7 +1323,7 @@ impl<'a> Parser<'a> {
 
                 self.advance();
 
-                let element_type_node = self.expect_type()?;
+                let element_type_node = self.parse_type()?;
                 let element_type_id = self.tree.add_node(element_type_node);
 
                 self.expect(TokenKind::Semicolon)?;
@@ -1349,7 +1349,7 @@ impl<'a> Parser<'a> {
                 let children_start = self.child_buffer.len();
 
                 while !self.allow(TokenKind::RightParenthesis) {
-                    let parameter_type_node = self.expect_type()?;
+                    let parameter_type_node = self.parse_type()?;
                     let parameter_type_id = self.tree.add_node(parameter_type_node);
 
                     self.child_buffer.push(parameter_type_id);
@@ -1366,7 +1366,7 @@ impl<'a> Parser<'a> {
                 let value_parameter_types_node_id = self.tree.add_node(value_parameter_types_node);
 
                 if self.allow(TokenKind::ArrowThin) {
-                    let return_type_node = self.expect_type()?;
+                    let return_type_node = self.parse_type()?;
                     let return_type_id = self.tree.add_node(return_type_node);
 
                     Ok(SyntaxKind::FunctionType.with_binary_children(
@@ -1381,8 +1381,20 @@ impl<'a> Parser<'a> {
                     ))
                 }
             }
+            TokenKind::Ampersand => {
+                let start = self.current_token.span.start();
+
+                self.advance();
+
+                let type_node = self.parse_type()?;
+                let type_id = self.tree.add_node(type_node);
+
+                Ok(SyntaxKind::ReferenceType
+                    .with_single_child(Span::new(start, self.previous_token.span.end()), type_id))
+            }
             _ => Err(ParseError::ExpectedMultipleTokens {
                 expected: &[
+                    TokenKind::Ampersand,
                     TokenKind::Identifier,
                     TokenKind::Bool,
                     TokenKind::I8,
@@ -1421,7 +1433,7 @@ impl<'a> Parser<'a> {
         let path_node = self.expect_simple_path()?;
         let path_id = self.tree.add_node(path_node);
         let type_notation_id = if self.allow(TokenKind::Colon) {
-            let type_node = self.expect_type()?;
+            let type_node = self.parse_type()?;
             let type_id = self.tree.add_node(type_node);
 
             Some(type_id)
@@ -1657,7 +1669,7 @@ impl<'a> Parser<'a> {
 
         self.advance();
 
-        let type_node = self.expect_type()?;
+        let type_node = self.parse_type()?;
         let type_id = self.tree.add_node(type_node);
         let end = self.previous_token.span.end();
 
@@ -2320,7 +2332,7 @@ impl<'a> Parser<'a> {
         let children_start = self.child_buffer.len();
 
         while !self.allow(TokenKind::Greater) {
-            let type_argument_node = self.expect_type()?;
+            let type_argument_node = self.parse_type()?;
             let type_argument_id = self.tree.add_node(type_argument_node);
 
             self.child_buffer.push(type_argument_id);
@@ -2387,7 +2399,7 @@ impl<'a> Parser<'a> {
 
         self.expect(TokenKind::Colon)?;
 
-        let type_node = self.expect_type()?;
+        let type_node = self.parse_type()?;
         let type_id = self.tree.add_node(type_node);
 
         if self.allow(TokenKind::Equal) {
@@ -2433,7 +2445,7 @@ impl<'a> Parser<'a> {
         let name_id = self.tree.add_node(name_node);
 
         if self.allow(TokenKind::Equal) {
-            let aliased_type_node = self.expect_type()?;
+            let aliased_type_node = self.parse_type()?;
             let aliased_type_id = self.tree.add_node(aliased_type_node);
 
             self.expect(TokenKind::Semicolon)?;

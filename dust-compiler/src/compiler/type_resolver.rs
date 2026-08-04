@@ -378,6 +378,19 @@ impl<'a> TypeResolver<'a> {
                     right_syntax,
                 )
             }
+            (
+                Type::Reference {
+                    referenced_type_id: left_referenced_type_id,
+                },
+                Type::Reference {
+                    referenced_type_id: right_referenced_type_id,
+                },
+            ) => self.unify_types(
+                left_referenced_type_id,
+                left_syntax,
+                right_referenced_type_id,
+                right_syntax,
+            ),
             (left_type_node, right_type_node) => {
                 if left_type_node == right_type_node {
                     Ok(())
@@ -1259,10 +1272,10 @@ impl<'a> TypeResolver<'a> {
         let ReferenceExpression { operand } = reader.as_component()?;
 
         let referenced_type_id = self.visit_expression(operand)?;
-        let type_id = self.context.types.add_type(Type::Reference {
-            mutable: false,
-            referenced_type_id,
-        });
+        let type_id = self
+            .context
+            .types
+            .add_type(Type::Reference { referenced_type_id });
 
         self.context
             .add_type_binding(self.code_id, reader.id, type_id);

@@ -46,7 +46,7 @@ impl Display for Call {
             write!(f, "reg_{destination} = ")?;
         }
 
-        write!(f, "{callee}")?;
+        write!(f, "proto_{}", callee.index)?;
 
         if arguments_start == u16::MAX {
             write!(f, "()")
