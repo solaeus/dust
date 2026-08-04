@@ -80,6 +80,7 @@ pub enum TokenKind {
     While,
 
     // Operators and punctuation
+    Ampersand,
     ArrowThin,
     Asterisk,
     AsteriskEqual,
@@ -129,6 +130,7 @@ pub enum TokenKind {
 impl Display for TokenKind {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
+            TokenKind::Ampersand => write!(f, "& symbol"),
             TokenKind::ArrowThin => write!(f, "-> symbol"),
             TokenKind::As => write!(f, "as keyword"),
             TokenKind::Asterisk => write!(f, "* symbol"),

@@ -69,6 +69,9 @@ pub enum DustType {
 
     /// `enum Name { Variant1, Variant2, ... }`
     Enum(Box<DustEnumType>),
+
+    /// `&T`
+    Reference(Box<DustType>),
 }
 
 impl Display for DustType {
@@ -108,6 +111,7 @@ impl Display for DustType {
             DustType::Function(function_type) => write!(f, "{function_type}"),
             DustType::Struct(struct_type) => write!(f, "{struct_type}"),
             DustType::Enum(enum_type) => write!(f, "{enum_type}"),
+            DustType::Reference(reference_type) => write!(f, "&{reference_type}"),
         }
     }
 }

@@ -39,10 +39,8 @@ impl OperandType {
 
     pub fn register_width(self) -> RegisterWidth {
         match self {
-            Self::U_64 | Self::I_64 | Self::F_64 => RegisterWidth::Double,
+            Self::U_64 | Self::I_64 | Self::F_64 | Self::POINTER => RegisterWidth::Double,
             Self::U_128 | Self::I_128 => RegisterWidth::Quad,
-            #[cfg(target_pointer_width = "64")]
-            Self::POINTER => RegisterWidth::Double,
             _ => RegisterWidth::Single,
         }
     }

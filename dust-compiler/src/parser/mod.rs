@@ -18,7 +18,11 @@ use crate::{
     source::{CodeId, Position, Span},
     syntax::{
         SyntaxId,
-        node::{SyntaxChildren, SyntaxChildrenKind, SyntaxFlags, SyntaxKind, SyntaxNode},
+        node::{
+            SyntaxChildren, SyntaxChildrenKind, SyntaxFlags,
+            SyntaxKind::{self, ReferenceExpression},
+            SyntaxNode,
+        },
         tree::{SyntaxTree, SyntaxTreeBuilder},
     },
     token::{Token, TokenKind},
@@ -1550,10 +1554,22 @@ impl<'a> Parser<'a> {
 
         let expression_node = self.parse_sub_expression(operator_precedence)?;
         let expression_id = self.tree.add_node(expression_node);
-
         let end = self.previous_token.span.end();
 
         Ok(kind.with_single_child(Span::new(start, end), expression_id))
+    }
+
+    fn parse_prefix_reference_operator(&mut self) -> Result<SyntaxNode, ParseError> {
+        let start = self.current_token.span.start();
+        let operator_precedence = ParseRule::from(self.current_token.kind).precedence;
+
+        self.advance();
+
+        let expression_node = self.parse_sub_expression(operator_precedence)?;
+        let expression_id = self.tree.add_node(expression_node);
+        let end = self.previous_token.span.end();
+
+        Ok(ReferenceExpression.with_single_child(Span::new(start, end), expression_id))
     }
 
     fn parse_infix_binary_operator(&mut self, left: SyntaxNode) -> Result<SyntaxNode, ParseError> {

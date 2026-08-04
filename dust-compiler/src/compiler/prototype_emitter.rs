@@ -39,8 +39,8 @@ use crate::{
             CallExpression, ComparisonExpression, ConstItem, ExpressionStatement,
             FieldAccessExpression, GroupedExpression, IfExpression, IndexExpression, LetStatement,
             LogicExpression, MathExpression, MethodCallExpression, NegationExpression,
-            NotExpression, RangeExpression, StructExpression, StructExpressionStructFields,
-            ValueParameters, WhileExpression,
+            NotExpression, RangeExpression, ReferenceExpression, StructExpression,
+            StructExpressionStructFields, ValueParameters, WhileExpression,
         },
         node::{SyntaxFlags, SyntaxKind},
         reader::SyntaxReader,
@@ -536,6 +536,25 @@ impl<'a> PrototypeEmitter<'a> {
                     resolved_id: None,
                     ..
                 } => OperandType::F_64,
+                Type::Reference { .. } => {
+                    let register_index = match kind {
+                        RegisterKind::Local => prototype_emitter
+                            .register_tracker
+                            .allocate_next_local(OperandType::POINTER),
+                        RegisterKind::Temporary => prototype_emitter
+                            .register_tracker
+                            .allocate_next_temporary(OperandType::POINTER),
+                        RegisterKind::Reserved => prototype_emitter
+                            .register_tracker
+                            .allocate_next_reserved(OperandType::POINTER),
+                    };
+                    registers.push(RegisterClaim {
+                        operand_type: OperandType::POINTER,
+                        index: register_index,
+                    });
+
+                    return Ok(());
+                }
                 Type::Inferred { .. } | Type::Generic { .. } | Type::Projection { .. } => {
                     return Err(CompileError::CannotInferType { type_id });
                 }
@@ -589,7 +608,7 @@ impl<'a> PrototypeEmitter<'a> {
                 } else {
                     let register_claims = self.claim_registers(type_id, register_kind)?;
 
-                    Ok((register_claims.expect_base_index()?, Some(register_claims)))
+                    Ok((register_claims.base_index()?, Some(register_claims)))
                 }
             }
             ExpressionTarget::Any => {
@@ -600,7 +619,7 @@ impl<'a> PrototypeEmitter<'a> {
                 } else {
                     let register_claims = self.claim_registers(type_id, RegisterKind::Temporary)?;
 
-                    Ok((register_claims.expect_base_index()?, Some(register_claims)))
+                    Ok((register_claims.base_index()?, Some(register_claims)))
                 }
             }
         }
@@ -881,7 +900,7 @@ impl<'a> PrototypeEmitter<'a> {
             }),
             Emission::Place(Place::Registers(allocation)) => Ok(Address {
                 memory: MemoryKind::REGISTER,
-                index: allocation.expect_base_index()?,
+                index: allocation.base_index()?,
             }),
             Emission::Instructions(operand_instructions) => {
                 instructions.merge(operand_instructions);
@@ -889,7 +908,7 @@ impl<'a> PrototypeEmitter<'a> {
                 match &instructions.target_registers {
                     Some(allocation) => Ok(Address {
                         memory: MemoryKind::REGISTER,
-                        index: allocation.expect_base_index()?,
+                        index: allocation.base_index()?,
                     }),
                     None => Err(CompileError::ExpectedValue {
                         code_id: operand.code_id(),
@@ -932,7 +951,7 @@ impl<'a> PrototypeEmitter<'a> {
                 Ok(())
             }
             Emission::Place(Place::Registers(allocation)) if allocation.claims.len() == 1 => {
-                let operand = Address::new(MemoryKind::REGISTER, allocation.expect_base_index()?);
+                let operand = Address::new(MemoryKind::REGISTER, allocation.base_index()?);
                 let test_instruction = Instruction::test(comparator, operand, 0);
 
                 target_instructions.push(test_instruction);
@@ -1038,11 +1057,8 @@ impl<'a> PrototypeEmitter<'a> {
             Emission::Value(value) => {
                 let mut return_instructions = Instructions::new();
                 let operand = self.materialize_value(value)?;
-                let move_instruction = Instruction::r#move(
-                    registers.expect_base_index()?,
-                    value.operand_type(),
-                    operand,
-                );
+                let move_instruction =
+                    Instruction::r#move(registers.base_index()?, value.operand_type(), operand);
 
                 return_instructions.push(move_instruction);
                 return_instructions.push(Instruction::r#return());
@@ -1056,7 +1072,7 @@ impl<'a> PrototypeEmitter<'a> {
             }) => {
                 let mut return_instructions = Instructions::new();
                 let move_instruction = Instruction::r#move(
-                    registers.expect_base_index()?,
+                    registers.base_index()?,
                     operand_type,
                     Address::new(MemoryKind::CONSTANT, index),
                 );
@@ -1127,7 +1143,6 @@ impl<'a> PrototypeEmitter<'a> {
             SyntaxKind::LetStatement => self.visit_let_statement(reader),
             SyntaxKind::ExpressionStatement => self.visit_expression_statement(reader),
             _ => Err(CompileError::UnexpectedSyntax {
-                expected: &[SyntaxKind::LetStatement, SyntaxKind::ExpressionStatement],
                 found: reader.node.kind,
             }),
         }
@@ -1188,8 +1203,8 @@ impl<'a> PrototypeEmitter<'a> {
             SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
                 self.visit_logic_expression(reader, target)
             }
+            SyntaxKind::ReferenceExpression => self.visit_reference_expression(reader, target),
             _ => Err(CompileError::UnexpectedSyntax {
-                expected: &[],
                 found: reader.node.kind,
             }),
         }
@@ -1364,11 +1379,8 @@ impl<'a> PrototypeEmitter<'a> {
             Emission::Value(value) => {
                 let operand_type = value.operand_type();
                 let operand = self.materialize_value(value)?;
-                let move_instruction = Instruction::r#move(
-                    target_registers.expect_base_index()?,
-                    operand_type,
-                    operand,
-                );
+                let move_instruction =
+                    Instruction::r#move(target_registers.base_index()?, operand_type, operand);
 
                 assignment_instructions.push(move_instruction);
 
@@ -1877,7 +1889,7 @@ impl<'a> PrototypeEmitter<'a> {
             }
         };
 
-        let base_index = list_registers.expect_base_index()?;
+        let base_index = list_registers.base_index()?;
 
         let element_type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
         let destination = match target {
@@ -2539,7 +2551,6 @@ impl<'a> PrototypeEmitter<'a> {
                 }
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
-                        expected: &[],
                         found: reader.node.kind,
                     });
                 }
@@ -2617,14 +2628,6 @@ impl<'a> PrototypeEmitter<'a> {
             }
             _ => {
                 return Err(CompileError::UnexpectedSyntax {
-                    expected: &[
-                        SyntaxKind::AdditionExpression,
-                        SyntaxKind::SubtractionExpression,
-                        SyntaxKind::MultiplicationExpression,
-                        SyntaxKind::DivisionExpression,
-                        SyntaxKind::ModuloExpression,
-                        SyntaxKind::ExponentExpression,
-                    ],
                     found: reader.node.kind,
                 });
             }
@@ -2676,7 +2679,6 @@ impl<'a> PrototypeEmitter<'a> {
                 }
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
-                        expected: &[],
                         found: reader.node.kind,
                     });
                 }
@@ -2735,14 +2737,6 @@ impl<'a> PrototypeEmitter<'a> {
             }
             _ => {
                 return Err(CompileError::UnexpectedSyntax {
-                    expected: &[
-                        SyntaxKind::EqualExpression,
-                        SyntaxKind::NotEqualExpression,
-                        SyntaxKind::LessThanExpression,
-                        SyntaxKind::GreaterThanExpression,
-                        SyntaxKind::LessThanOrEqualExpression,
-                        SyntaxKind::GreaterThanOrEqualExpression,
-                    ],
                     found: reader.node.kind,
                 });
             }
@@ -2794,7 +2788,6 @@ impl<'a> PrototypeEmitter<'a> {
                 SyntaxKind::OrExpression => left_constant.or(right_constant, &reader)?,
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
-                        expected: &[],
                         found: reader.node.kind,
                     });
                 }
@@ -2830,7 +2823,6 @@ impl<'a> PrototypeEmitter<'a> {
             SyntaxKind::OrExpression => Instruction::test(true, left_address, 1),
             _ => {
                 return Err(CompileError::UnexpectedSyntax {
-                    expected: &[SyntaxKind::AndExpression, SyntaxKind::OrExpression],
                     found: reader.node.kind,
                 });
             }
@@ -3127,7 +3119,7 @@ impl<'a> PrototypeEmitter<'a> {
                 call_instructions.push(move_instruction);
             }
 
-            parent_registers.expect_base_index()?
+            parent_registers.base_index()?
         };
 
         if let Some(value_arguments) = value_arguments {
@@ -3199,7 +3191,7 @@ impl<'a> PrototypeEmitter<'a> {
                 self.claim_registers(argument_type_id, RegisterKind::Temporary)?;
 
             if arguments_start == u16::MAX {
-                arguments_start = argument_allocation.expect_base_index()?;
+                arguments_start = argument_allocation.base_index()?;
             }
 
             for register in argument_allocation.claims {
@@ -3334,6 +3326,107 @@ impl<'a> PrototypeEmitter<'a> {
 
         self.create_emission_from_registers(self_registers.clone(), target)
     }
+
+    fn visit_reference_expression(
+        &mut self,
+        reader: SyntaxReader,
+        target: ExpressionTarget,
+    ) -> Result<Emission, CompileError> {
+        trace!("Visiting reference expression");
+
+        let ReferenceExpression { operand } = reader.as_component()?;
+
+        let mut reference_instructions = Instructions::new();
+
+        let operand_emission = self.visit_expression(
+            operand,
+            ExpressionTarget::UnclaimedRegister(RegisterKind::Local),
+        )?;
+        let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+        let referenced_type_id = if let Type::Reference {
+            referenced_type_id, ..
+        } = self.context.types.get_type(type_id)
+        {
+            *referenced_type_id
+        } else {
+            return Err(CompileError::ExpectedReferenceType(type_id));
+        };
+        let operand_address = match operand_emission {
+            Emission::Value(value) => {
+                let register = match target {
+                    ExpressionTarget::ClaimedRegister(register_claims) => register_claims,
+                    _ => self.claim_registers(referenced_type_id, RegisterKind::Local)?,
+                };
+                let base_index = register.base_index()?;
+                let operand_address = self.materialize_value(value)?;
+                let move_instruction =
+                    Instruction::r#move(base_index, value.operand_type(), operand_address);
+
+                reference_instructions.push(move_instruction);
+
+                Address::new(MemoryKind::REGISTER, base_index)
+            }
+            Emission::Place(Place::Constant {
+                index,
+                operand_type,
+            }) => {
+                let register = self.claim_registers(referenced_type_id, RegisterKind::Local)?;
+                let base_index = register.base_index()?;
+                let operand_address = Address::new(MemoryKind::CONSTANT, index);
+                let move_instruction =
+                    Instruction::r#move(base_index, operand_type, operand_address);
+
+                reference_instructions.push(move_instruction);
+
+                Address::new(MemoryKind::REGISTER, base_index)
+            }
+            Emission::Place(Place::Registers(registers)) => {
+                Address::new(MemoryKind::REGISTER, registers.base_index()?)
+            }
+            Emission::Instructions(instructions) => {
+                let base_index = instructions
+                    .target_registers
+                    .as_ref()
+                    .ok_or(CompileError::ExpectedAllocation)?
+                    .base_index()?;
+
+                reference_instructions.merge(instructions);
+
+                Address::new(MemoryKind::REGISTER, base_index)
+            }
+            _ => {
+                return Err(CompileError::ExpectedValue {
+                    code_id: operand.code_id(),
+                    syntax_id: operand.id,
+                });
+            }
+        };
+        let register = self
+            .register_tracker
+            .allocate_next_local(OperandType::POINTER);
+        let operand_type = self
+            .context
+            .get_operand_types(type_id)?
+            .first()
+            .copied()
+            .ok_or_else(|| CompileError::CannotApplyOperator {
+                operator: SyntaxKind::ReferenceExpression,
+                type_id,
+                operand_position: reader.position(),
+            })?;
+        let reference_instruction = Instruction::reference(register, operand_type, operand_address);
+
+        reference_instructions.push(reference_instruction);
+        reference_instructions.set_target(Some(RegisterClaims {
+            claims: smallvec![RegisterClaim {
+                index: register,
+                operand_type: OperandType::POINTER
+            }],
+            kind: RegisterKind::Local,
+        }));
+
+        Ok(Emission::Instructions(reference_instructions))
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -3422,8 +3515,7 @@ pub struct RegisterClaims {
 }
 
 impl RegisterClaims {
-    // TODO: Remove this or make infallible
-    fn expect_base_index(&self) -> Result<u16, CompileError> {
+    fn base_index(&self) -> Result<u16, CompileError> {
         self.claims
             .first()
             .map(|claim| claim.index)

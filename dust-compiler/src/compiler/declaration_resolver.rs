@@ -23,9 +23,9 @@ use crate::{
             FieldAccessExpression, FunctionItem, FunctionType, GroupedExpression, IfExpression,
             ImplItem, IndexExpression, LetStatement, LogicExpression, MathExpression,
             MethodCallExpression, ModItem, NamedFields, NegationExpression, NotExpression,
-            PathSegment, RangeExpression, Root, StructExpression, StructExpressionStructFields,
-            StructItem, SyntaxComponent, TraitItem, TupleFields, TupleType, TypeItem,
-            TypeParameter, UseItem, ValueParameters, WhileExpression,
+            PathSegment, RangeExpression, ReferenceExpression, Root, StructExpression,
+            StructExpressionStructFields, StructItem, SyntaxComponent, TraitItem, TupleFields,
+            TupleType, TypeItem, TypeParameter, UseItem, ValueParameters, WhileExpression,
         },
         node::{SyntaxFlags, SyntaxKind},
         reader::SyntaxReader,
@@ -177,17 +177,6 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
             SyntaxKind::ImplItem => self.visit_impl_item(reader),
             SyntaxKind::TraitItem => self.visit_trait_item(reader),
             _ => Err(CompileError::UnexpectedSyntax {
-                expected: &[
-                    SyntaxKind::ModItem,
-                    SyntaxKind::UseItem,
-                    SyntaxKind::FunctionItem,
-                    SyntaxKind::StructItem,
-                    SyntaxKind::EnumItem,
-                    SyntaxKind::ConstItem,
-                    SyntaxKind::TypeItem,
-                    SyntaxKind::ImplItem,
-                    SyntaxKind::TraitItem,
-                ],
                 found: reader.node.kind,
             }),
         }
@@ -546,7 +535,6 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                 }
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
-                        expected: &[SyntaxKind::TupleFields, SyntaxKind::NamedFields],
                         found: fields.node.kind,
                     });
                 }
@@ -798,11 +786,6 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                 Ok(variant_declaration_id)
             }
             _ => Err(CompileError::UnexpectedSyntax {
-                expected: &[
-                    SyntaxKind::EnumUnitVariant,
-                    SyntaxKind::EnumTupleFieldsVariant,
-                    SyntaxKind::EnumNamedFieldsVariant,
-                ],
                 found: reader.node.kind,
             }),
         }
@@ -998,11 +981,6 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                 }
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
-                        expected: &[
-                            SyntaxKind::FunctionItem,
-                            SyntaxKind::ConstItem,
-                            SyntaxKind::TypeItem,
-                        ],
                         found: child.node.kind,
                     });
                 }
@@ -1189,11 +1167,6 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                 }
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
-                        expected: &[
-                            SyntaxKind::FunctionItem,
-                            SyntaxKind::TypeItem,
-                            SyntaxKind::ConstItem,
-                        ],
                         found: child.node.kind,
                     });
                 }
@@ -1238,18 +1211,6 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
             SyntaxKind::LetStatement => self.visit_let_statement(reader),
             SyntaxKind::ExpressionStatement => self.visit_expression_statement(reader),
             _ => Err(CompileError::UnexpectedSyntax {
-                expected: &[
-                    SyntaxKind::ConstItem,
-                    SyntaxKind::EnumItem,
-                    SyntaxKind::ExpressionStatement,
-                    SyntaxKind::FunctionItem,
-                    SyntaxKind::ImplItem,
-                    SyntaxKind::LetStatement,
-                    SyntaxKind::StructItem,
-                    SyntaxKind::TraitItem,
-                    SyntaxKind::TypeItem,
-                    SyntaxKind::UseItem,
-                ],
                 found: reader.node.kind,
             }),
         }
@@ -1351,46 +1312,8 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
             | SyntaxKind::EqualExpression
             | SyntaxKind::NotEqualExpression => self.visit_comparison_expression(reader),
             SyntaxKind::SelfExpression => self.visit_self_expression(reader),
+            SyntaxKind::ReferenceExpression => self.visit_reference_expression(reader),
             _ => Err(CompileError::UnexpectedSyntax {
-                expected: &[
-                    SyntaxKind::AdditionExpression,
-                    SyntaxKind::AndExpression,
-                    SyntaxKind::ArrayExpression,
-                    SyntaxKind::ArrayRepeatExpression,
-                    SyntaxKind::AssignmentExpression,
-                    SyntaxKind::BlockExpression,
-                    SyntaxKind::BooleanExpression,
-                    SyntaxKind::BreakExpression,
-                    SyntaxKind::CallExpression,
-                    SyntaxKind::CharacterExpression,
-                    SyntaxKind::DivisionExpression,
-                    SyntaxKind::EqualExpression,
-                    SyntaxKind::ExponentExpression,
-                    SyntaxKind::FieldAccessExpression,
-                    SyntaxKind::FloatExpression,
-                    SyntaxKind::GreaterThanExpression,
-                    SyntaxKind::GreaterThanOrEqualExpression,
-                    SyntaxKind::GroupedExpression,
-                    SyntaxKind::HexadecimalExpression,
-                    SyntaxKind::IfExpression,
-                    SyntaxKind::IndexExpression,
-                    SyntaxKind::IntegerExpression,
-                    SyntaxKind::LessThanExpression,
-                    SyntaxKind::LessThanOrEqualExpression,
-                    SyntaxKind::MethodCallExpression,
-                    SyntaxKind::ModuloExpression,
-                    SyntaxKind::MultiplicationExpression,
-                    SyntaxKind::NegationExpression,
-                    SyntaxKind::NotEqualExpression,
-                    SyntaxKind::NotExpression,
-                    SyntaxKind::OrExpression,
-                    SyntaxKind::PathExpression,
-                    SyntaxKind::RangeExpression,
-                    SyntaxKind::StringExpression,
-                    SyntaxKind::StructExpression,
-                    SyntaxKind::SubtractionExpression,
-                    SyntaxKind::WhileExpression,
-                ],
                 found: reader.node.kind,
             }),
         }
@@ -1464,10 +1387,6 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
             SyntaxKind::RangeInclusiveExpression => DeclarationId::RANGE_INCLUSIVE,
             _ => {
                 return Err(CompileError::UnexpectedSyntax {
-                    expected: &[
-                        SyntaxKind::RangeExpression,
-                        SyntaxKind::RangeInclusiveExpression,
-                    ],
                     found: reader.node.kind,
                 });
             }
@@ -1580,7 +1499,6 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                 SyntaxKind::IfExpression => self.visit_if_expression(else_branch)?,
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
-                        expected: &[SyntaxKind::BlockExpression, SyntaxKind::IfExpression],
                         found: else_branch.node.kind,
                     });
                 }
@@ -1874,28 +1792,6 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                 }),
             },
             _ => Err(CompileError::UnexpectedSyntax {
-                expected: &[
-                    SyntaxKind::BooleanType,
-                    SyntaxKind::I8Type,
-                    SyntaxKind::I16Type,
-                    SyntaxKind::I32Type,
-                    SyntaxKind::I64Type,
-                    SyntaxKind::I128Type,
-                    SyntaxKind::ISizeType,
-                    SyntaxKind::U8Type,
-                    SyntaxKind::U16Type,
-                    SyntaxKind::U32Type,
-                    SyntaxKind::U64Type,
-                    SyntaxKind::U128Type,
-                    SyntaxKind::USizeType,
-                    SyntaxKind::F32Type,
-                    SyntaxKind::F64Type,
-                    SyntaxKind::CharacterType,
-                    SyntaxKind::TupleType,
-                    SyntaxKind::FunctionType,
-                    SyntaxKind::TypePath,
-                    SyntaxKind::SelfType,
-                ],
                 found: reader.node.kind,
             }),
         }
@@ -2003,6 +1899,14 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
             .add_declaration_binding(self.code_id, reader.id, self_declaration_id);
         self.context
             .add_type_binding(self.code_id, reader.id, self_type_id);
+
+        Ok(())
+    }
+
+    fn visit_reference_expression(&mut self, reader: SyntaxReader) -> Result<(), CompileError> {
+        let ReferenceExpression { operand } = reader.as_component()?;
+
+        self.visit_expression(operand)?;
 
         Ok(())
     }

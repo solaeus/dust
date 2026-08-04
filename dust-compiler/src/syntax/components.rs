@@ -429,6 +429,20 @@ impl<'a> SyntaxComponent<'a> for NotExpression<'a> {
     }
 }
 
+pub struct ReferenceExpression<'a> {
+    pub operand: SyntaxReader<'a>,
+}
+
+impl<'a> SyntaxComponent<'a> for ReferenceExpression<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug_assert_eq!(reader.node.kind, SyntaxKind::ReferenceExpression);
+
+        Ok(Self {
+            operand: reader.single_child()?,
+        })
+    }
+}
+
 pub struct ArrayExpression<'a> {
     pub elements: SyntaxIterator<'a>,
 }

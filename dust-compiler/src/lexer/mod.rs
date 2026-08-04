@@ -98,6 +98,8 @@ impl<'src> Lexer<'src> {
         let next = self.next_byte();
 
         let (kind, width) = match (current, next) {
+            (b'&', Some(b'&')) => (TokenKind::DoubleAmpersand, 2),
+            (b'&', _) => (TokenKind::Ampersand, 1),
             (b'*', Some(b'=')) => (TokenKind::AsteriskEqual, 2),
             (b'*', _) => (TokenKind::Asterisk, 1),
             (b'!', Some(b'=')) => (TokenKind::BangEqual, 2),
@@ -115,7 +117,6 @@ impl<'src> Lexer<'src> {
                 }
             }
             (b'.', _) => (TokenKind::Dot, 1),
-            (b'&', Some(b'&')) => (TokenKind::DoubleAmpersand, 2),
             (b'|', Some(b'|')) => (TokenKind::DoublePipe, 2),
             (b'=', Some(b'=')) => (TokenKind::DoubleEqual, 2),
             (b'=', _) => (TokenKind::Equal, 1),

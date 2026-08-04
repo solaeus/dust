@@ -23,6 +23,12 @@ pub struct ParseRule<'a> {
 impl From<TokenKind> for ParseRule<'_> {
     fn from(token: TokenKind) -> Self {
         match token {
+            TokenKind::Ampersand => ParseRule {
+                prefix: Parser::parse_prefix_reference_operator,
+                infix: None,
+                precedence: Precedence::Reference,
+                associativity: Associativity::Left,
+            },
             TokenKind::ArrowThin => ParseRule {
                 prefix: Parser::parse_unexpected,
                 infix: None,
@@ -605,13 +611,14 @@ pub enum Associativity {
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Precedence {
-    Primary = 12,
-    Path = 11,
-    CallOrIndex = 10,
-    Unary = 9,
-    AsKeyword = 8,
-    PrimaryMath = 7,
-    SecondaryMath = 6,
+    Primary = 13,
+    Path = 12,
+    CallOrIndex = 11,
+    Unary = 10,
+    AsKeyword = 9,
+    PrimaryMath = 8,
+    SecondaryMath = 7,
+    Reference = 6,
     Exponent = 5,
     Comparison = 4,
     Logic = 3,
@@ -628,7 +635,8 @@ impl Precedence {
             Precedence::Range => Precedence::Logic,
             Precedence::Logic => Precedence::Comparison,
             Precedence::Comparison => Precedence::Exponent,
-            Precedence::Exponent => Precedence::SecondaryMath,
+            Precedence::Exponent => Precedence::Reference,
+            Precedence::Reference => Precedence::SecondaryMath,
             Precedence::SecondaryMath => Precedence::PrimaryMath,
             Precedence::PrimaryMath => Precedence::AsKeyword,
             Precedence::AsKeyword => Precedence::Unary,
@@ -637,5 +645,57 @@ impl Precedence {
             Precedence::Path => Precedence::Primary,
             Precedence::Primary => Precedence::Primary,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn precedence_increment() {
+        let mut precedence = Precedence::None;
+
+        precedence = precedence.increment();
+        assert_eq!(precedence, Precedence::Assignment);
+
+        precedence = precedence.increment();
+        assert_eq!(precedence, Precedence::Range);
+
+        precedence = precedence.increment();
+        assert_eq!(precedence, Precedence::Logic);
+
+        precedence = precedence.increment();
+        assert_eq!(precedence, Precedence::Comparison);
+
+        precedence = precedence.increment();
+        assert_eq!(precedence, Precedence::Exponent);
+
+        precedence = precedence.increment();
+        assert_eq!(precedence, Precedence::Reference);
+
+        precedence = precedence.increment();
+        assert_eq!(precedence, Precedence::SecondaryMath);
+
+        precedence = precedence.increment();
+        assert_eq!(precedence, Precedence::PrimaryMath);
+
+        precedence = precedence.increment();
+        assert_eq!(precedence, Precedence::AsKeyword);
+
+        precedence = precedence.increment();
+        assert_eq!(precedence, Precedence::Unary);
+
+        precedence = precedence.increment();
+        assert_eq!(precedence, Precedence::CallOrIndex);
+
+        precedence = precedence.increment();
+        assert_eq!(precedence, Precedence::Path);
+
+        precedence = precedence.increment();
+        assert_eq!(precedence, Precedence::Primary);
+
+        precedence = precedence.increment();
+        assert_eq!(precedence, Precedence::Primary);
     }
 }

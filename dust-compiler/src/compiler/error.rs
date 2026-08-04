@@ -143,7 +143,6 @@ pub enum CompileError {
     ExpectedArrayType(TypeId),
     InvalidEmission,
     UnexpectedSyntax {
-        expected: &'static [SyntaxKind],
         found: SyntaxKind,
     },
     ExpectedLocalDefinition(DeclarationId),
@@ -162,6 +161,11 @@ pub enum CompileError {
     ExpectedInferredType(TypeId),
     UnexpectedType(TypeId),
     ExpectedImplementationDefinition(DeclarationId),
+    CannotPlaceEncodedValue {
+        code_id: CodeId,
+        syntax_id: crate::syntax::SyntaxId,
+    },
+    ExpectedReferenceType(TypeId),
 }
 
 impl From<SyntaxError> for CompileError {
@@ -681,19 +685,10 @@ impl<'a> DustError<'a> for CompileError {
 
                 groups.push(group);
             }
-            CompileError::UnexpectedSyntax { expected, found } => {
+            CompileError::UnexpectedSyntax { found } => {
                 let title = "Unexpected syntax";
-                let expected_string = expected
-                    .iter()
-                    .map(|kind| format!("`{kind}`"))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                let found_string = format!("`{found}`");
-                let group = Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Level::ERROR.message(format!(
-                        "Expected one of the following syntax kinds: {expected_string}, but found {found_string}."
-                    )),
-                );
+                let group = Group::with_title(Level::ERROR.primary_title(title))
+                    .element(Level::ERROR.message(format!("Unexpected syntax, found {found}.")));
 
                 groups.push(group);
             }
@@ -766,7 +761,9 @@ impl<'a> DustError<'a> for CompileError {
             | CompileError::ExpectedFunctionDefinitionType(_)
             | CompileError::ExpectedInferredType(_)
             | CompileError::UnexpectedType(_)
-            | CompileError::ExpectedImplementationDefinition(_) => {
+            | CompileError::ExpectedImplementationDefinition(_)
+            | CompileError::CannotPlaceEncodedValue { .. }
+            | CompileError::ExpectedReferenceType(_) => {
                 self.add_internal_report(groups);
             }
         }

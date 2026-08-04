@@ -19,7 +19,8 @@ use crate::{
             FieldAccessExpression, GroupedExpression, IfExpression, ImplItem, IndexExpression,
             LetStatement, LogicExpression, MathExpression, MethodCallExpression,
             NegationExpression, NotExpression, PathExpression, PathSegment, RangeExpression,
-            StructExpression, StructExpressionStructFields, TraitItem, WhileExpression,
+            ReferenceExpression, StructExpression, StructExpressionStructFields, TraitItem,
+            WhileExpression,
         },
         node::SyntaxKind,
         reader::SyntaxReader,
@@ -417,19 +418,6 @@ impl<'a> TypeResolver<'a> {
             | SyntaxKind::EnumItem
             | SyntaxKind::TypeItem => Ok(()),
             _ => Err(CompileError::UnexpectedSyntax {
-                expected: &[
-                    SyntaxKind::ConstItem,
-                    SyntaxKind::EnumItem,
-                    SyntaxKind::ExpressionStatement,
-                    SyntaxKind::FunctionItem,
-                    SyntaxKind::ImplItem,
-                    SyntaxKind::LetStatement,
-                    SyntaxKind::ModItem,
-                    SyntaxKind::StructItem,
-                    SyntaxKind::TraitItem,
-                    SyntaxKind::TypeItem,
-                    SyntaxKind::UseItem,
-                ],
                 found: reader.node.kind,
             }),
         }
@@ -484,52 +472,8 @@ impl<'a> TypeResolver<'a> {
                 self.visit_logic_expression(reader)
             }
             SyntaxKind::SelfExpression => self.visit_self_expression(reader),
+            SyntaxKind::ReferenceExpression => self.visit_reference_expression(reader),
             _ => Err(CompileError::UnexpectedSyntax {
-                expected: &[
-                    SyntaxKind::AdditionAssignmentExpression,
-                    SyntaxKind::AdditionExpression,
-                    SyntaxKind::AndExpression,
-                    SyntaxKind::ArrayExpression,
-                    SyntaxKind::ArrayRepeatExpression,
-                    SyntaxKind::AssignmentExpression,
-                    SyntaxKind::BlockExpression,
-                    SyntaxKind::BooleanExpression,
-                    SyntaxKind::BreakExpression,
-                    SyntaxKind::CallExpression,
-                    SyntaxKind::CharacterExpression,
-                    SyntaxKind::DivisionAssignmentExpression,
-                    SyntaxKind::DivisionExpression,
-                    SyntaxKind::EqualExpression,
-                    SyntaxKind::ExponentAssignmentExpression,
-                    SyntaxKind::ExponentExpression,
-                    SyntaxKind::FieldAccessExpression,
-                    SyntaxKind::FloatExpression,
-                    SyntaxKind::GreaterThanExpression,
-                    SyntaxKind::GreaterThanOrEqualExpression,
-                    SyntaxKind::GroupedExpression,
-                    SyntaxKind::HexadecimalExpression,
-                    SyntaxKind::IfExpression,
-                    SyntaxKind::IndexExpression,
-                    SyntaxKind::IntegerExpression,
-                    SyntaxKind::LessThanExpression,
-                    SyntaxKind::LessThanOrEqualExpression,
-                    SyntaxKind::ModuloAssignmentExpression,
-                    SyntaxKind::ModuloExpression,
-                    SyntaxKind::MultiplicationAssignmentExpression,
-                    SyntaxKind::MultiplicationExpression,
-                    SyntaxKind::NegationExpression,
-                    SyntaxKind::NotEqualExpression,
-                    SyntaxKind::NotExpression,
-                    SyntaxKind::OrExpression,
-                    SyntaxKind::PathExpression,
-                    SyntaxKind::RangeExpression,
-                    SyntaxKind::RangeInclusiveExpression,
-                    SyntaxKind::StringExpression,
-                    SyntaxKind::StructExpression,
-                    SyntaxKind::SubtractionAssignmentExpression,
-                    SyntaxKind::SubtractionExpression,
-                    SyntaxKind::WhileExpression,
-                ],
                 found: reader.node.kind,
             }),
         }
@@ -574,11 +518,6 @@ impl<'a> TypeResolver<'a> {
                 SyntaxKind::FunctionItem | SyntaxKind::TypeItem => {}
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
-                        expected: &[
-                            SyntaxKind::ConstItem,
-                            SyntaxKind::FunctionItem,
-                            SyntaxKind::TypeItem,
-                        ],
                         found: child.node.kind,
                     });
                 }
@@ -597,11 +536,6 @@ impl<'a> TypeResolver<'a> {
                 SyntaxKind::FunctionItem | SyntaxKind::TypeItem => {}
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
-                        expected: &[
-                            SyntaxKind::ConstItem,
-                            SyntaxKind::FunctionItem,
-                            SyntaxKind::TypeItem,
-                        ],
                         found: child.node.kind,
                     });
                 }
@@ -1319,5 +1253,20 @@ impl<'a> TypeResolver<'a> {
         self.context
             .get_type_binding(&(self.code_id, reader.id))
             .copied()
+    }
+
+    fn visit_reference_expression(&mut self, reader: SyntaxReader) -> Result<TypeId, CompileError> {
+        let ReferenceExpression { operand } = reader.as_component()?;
+
+        let referenced_type_id = self.visit_expression(operand)?;
+        let type_id = self.context.types.add_type(Type::Reference {
+            mutable: false,
+            referenced_type_id,
+        });
+
+        self.context
+            .add_type_binding(self.code_id, reader.id, type_id);
+
+        Ok(type_id)
     }
 }

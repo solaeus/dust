@@ -736,22 +736,6 @@ impl ConstantValue {
             }
             _ => {
                 return CompileError::UnexpectedSyntax {
-                    expected: &[
-                        SyntaxKind::AdditionExpression,
-                        SyntaxKind::SubtractionExpression,
-                        SyntaxKind::MultiplicationExpression,
-                        SyntaxKind::DivisionExpression,
-                        SyntaxKind::ModuloExpression,
-                        SyntaxKind::ExponentExpression,
-                        SyntaxKind::EqualExpression,
-                        SyntaxKind::NotEqualExpression,
-                        SyntaxKind::LessThanExpression,
-                        SyntaxKind::GreaterThanExpression,
-                        SyntaxKind::LessThanOrEqualExpression,
-                        SyntaxKind::GreaterThanOrEqualExpression,
-                        SyntaxKind::AndExpression,
-                        SyntaxKind::OrExpression,
-                    ],
                     found: syntax.node.kind,
                 };
             }

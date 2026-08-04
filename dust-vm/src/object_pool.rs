@@ -113,8 +113,23 @@ impl<'a> ObjectPool<'a> {
         });
     }
 
-    fn mark(_registers: &[Register], _register_tags: &[RegisterTag]) {
-        todo!()
+    fn mark(registers: &[Register], tags: &[RegisterTag]) {
+        let mut low_bits = None;
+
+        for (register, tag) in registers.iter().zip(tags) {
+            if *tag == RegisterTag::OBJECT {
+                low_bits = Some(register.as_bits());
+            }
+
+            if let Some(low) = low_bits {
+                low_bits = None;
+                let high_bits = register.as_bits();
+                let pointer = ((high_bits as usize) << 32) | (low as usize);
+                let object = unsafe { &mut *(pointer as *mut Object) };
+
+                Self::mark_object(object);
+            }
+        }
     }
 
     fn mark_object(object: &mut Object) {

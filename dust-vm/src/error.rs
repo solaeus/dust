@@ -11,11 +11,11 @@ use crate::thread_pool::ThreadMessage;
 
 #[derive(Debug)]
 pub enum VmError {
+    CallStackUnderflow,
     ConstantList(ConstantsError),
     ChannelSendError,
-
     InvalidPrototypeIndex {
-        index: u16,
+        index: usize,
     },
     UnsupportedOperation {
         operation: Operation,
@@ -26,13 +26,15 @@ pub enum VmError {
     UnsupportedOperandType {
         operand_type: OperandType,
     },
-    CallStackUnderflow,
     InvalidReturnValue {
         register_count: usize,
         expected_type: DustType,
     },
     InvalidRegisterIndex {
         index: u16,
+    },
+    InvalidInstructionPointer {
+        index: usize,
     },
 }
 
@@ -72,6 +74,9 @@ impl Display for VmError {
                 "Invalid return value: register_count={register_count}, expected_type={expected_type:?}"
             ),
             Self::InvalidRegisterIndex { index } => write!(f, "Invalid register index: {index}"),
+            Self::InvalidInstructionPointer { index } => {
+                write!(f, "Invalid instruction pointer: {index}")
+            }
         }
     }
 }

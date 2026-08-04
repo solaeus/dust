@@ -65,11 +65,12 @@ impl ThreadSpawner {
         let _minimum_object_sweep = self.minimum_object_sweep;
         let join_handle = ThreadBuilder::new()
             .spawn(move || {
-                let thread = Thread::new(program, prototype_id, Arc::clone(&message_sender));
+                let thread =
+                    Thread::new(program, prototype_id as usize, Arc::clone(&message_sender));
                 let result = thread.run();
 
                 if let Err(error) = result {
-                    message_sender.send(ThreadMessage::ThreadError {
+                    let _ = message_sender.send(ThreadMessage::ThreadError {
                         thread_id: current_thread_id(),
                         error,
                     });
@@ -94,11 +95,12 @@ impl ThreadSpawner {
         let join_handle = ThreadBuilder::new()
             .name(thread_name)
             .spawn(move || {
-                let thread = Thread::new(program, prototype_id, Arc::clone(&message_sender));
+                let thread =
+                    Thread::new(program, prototype_id as usize, Arc::clone(&message_sender));
                 let result = thread.run();
 
                 if let Err(error) = result {
-                    message_sender.send(ThreadMessage::ThreadError {
+                    let _ = message_sender.send(ThreadMessage::ThreadError {
                         thread_id: current_thread_id(),
                         error,
                     });
@@ -133,13 +135,4 @@ pub enum ThreadMessage {
         thread_id: ThreadId,
         error: VmError,
     },
-}
-
-#[repr(C)]
-pub struct ThreadStatus(u8);
-
-impl ThreadStatus {
-    pub const OK: Self = Self(0);
-    pub const ERROR_LIST_INDEX_OUT_OF_BOUNDS: Self = Self(1);
-    pub const ERROR_DIVISION_BY_ZERO: Self = Self(2);
 }

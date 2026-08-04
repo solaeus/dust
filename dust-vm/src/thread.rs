@@ -12,7 +12,7 @@ use crate::{
 
 pub struct Thread {
     program: Arc<Program>,
-    main_prototype_index: u16,
+    main_prototype_index: usize,
 
     call_stack: Vec<CallFrame>,
     register_stack: Vec<Register>,
@@ -23,7 +23,7 @@ pub struct Thread {
 impl Thread {
     pub fn new(
         program: Arc<Program>,
-        main_prototype_index: u16,
+        main_prototype_index: usize,
         message_sender: Arc<Sender<ThreadMessage>>,
     ) -> Self {
         let call_stack_capacity = if program.prototypes().len() == 1 {
@@ -47,35 +47,17 @@ impl Thread {
     }
 
     pub fn run(mut self) -> Result<(), VmError> {
-        let starting_prototype = self
-            .program
-            .prototypes()
-            .as_slice()
-            .get(self.main_prototype_index as usize)
-            .ok_or(VmError::InvalidPrototypeIndex {
-                index: self.main_prototype_index,
-            })?;
         let starting_call_frame = CallFrame {
             prototype_index: self.main_prototype_index,
-            regsiter_range_start: 0,
-            register_range_end: starting_prototype.register_count,
+            base_register: 0,
             instruction_pointer: 0,
         };
 
         self.call_stack.push(starting_call_frame);
 
         let return_registers = loop {
-            let current_call_frame = self.call_stack.last().ok_or(VmError::CallStackUnderflow)?;
-            let prototype = self
-                .program
-                .prototypes()
-                .get(current_call_frame.prototype_index as usize)
-                .ok_or(VmError::InvalidPrototypeIndex {
-                    index: current_call_frame.prototype_index,
-                })?;
             let call = Call::new(
-                current_call_frame.instruction_pointer,
-                prototype,
+                self.program.prototypes(),
                 &mut self.register_stack,
                 self.program.constants(),
                 &mut self.call_stack,

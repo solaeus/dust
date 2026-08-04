@@ -85,6 +85,7 @@ pub enum SyntaxKind {
     NotEqualExpression,
 
     // Unary expressions
+    ReferenceExpression,
     NegationExpression,
     NotExpression,
 
@@ -383,6 +384,7 @@ impl SyntaxKind {
             SyntaxKind::PathSegment => "path segment",
             SyntaxKind::RangeExpression => "range expression",
             SyntaxKind::RangeInclusiveExpression => "range inclusive expression",
+            SyntaxKind::ReferenceExpression => "reference expression",
             SyntaxKind::ReturnExpression => "return expression",
             SyntaxKind::Root => "root",
             SyntaxKind::SelfType => "self type",

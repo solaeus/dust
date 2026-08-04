@@ -96,11 +96,6 @@ impl Types {
         id: TypeId,
         resolved_id: TypeId,
     ) -> Result<(), CompileError> {
-        trace!(
-            "Resolving {id:?} to {:?}",
-            &self.types[resolved_id.0 as usize]
-        );
-
         let r#type = self.types.get_index_mut2(id.0 as usize);
 
         if let Some(Type::Inferred {
@@ -414,6 +409,11 @@ pub enum Type {
         constraint: Option<InferredTypeConstraint>,
         resolved_id: Option<TypeId>,
     },
+
+    Reference {
+        mutable: bool,
+        referenced_type_id: TypeId,
+    },
 }
 
 impl Type {
@@ -709,6 +709,19 @@ impl Ord for Type {
                 },
             ) => a_inferred_id.cmp(b_inferred_id),
             (Type::Inferred { .. }, _) => Ordering::Less,
+            (
+                Type::Reference {
+                    mutable: left_is_mutable,
+                    referenced_type_id: left_referenced_type_id,
+                },
+                Type::Reference {
+                    mutable: right_is_mutable,
+                    referenced_type_id: right_referenced_type_id,
+                },
+            ) => left_is_mutable
+                .cmp(right_is_mutable)
+                .then_with(|| left_referenced_type_id.cmp(right_referenced_type_id)),
+            (Type::Reference { .. }, _) => Ordering::Less,
         }
     }
 }
@@ -845,6 +858,14 @@ impl Hash for Type {
             } => {
                 state.write_u8(26);
                 inferred_id.hash(state);
+            }
+            Type::Reference {
+                mutable: is_mutable,
+                referenced_type_id,
+            } => {
+                state.write_u8(27);
+                is_mutable.hash(state);
+                referenced_type_id.hash(state);
             }
         }
     }

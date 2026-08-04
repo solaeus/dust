@@ -125,7 +125,6 @@ impl<'src> DustError<'src> for ParseError {
             ParseError::UnexpectedToken { position, found } => {
                 let title = "Unexpected token".to_string();
                 let file = source.get_code(position.code_id);
-
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
                     Snippet::source(file.content_as_str())
                         .path(file.path_or_name())
@@ -141,16 +140,9 @@ impl<'src> DustError<'src> for ParseError {
             }
             ParseError::ExpectedItem { position, found } => {
                 let title = format!("Expected an item, but found {found}");
-                let file_content = match source.get_content(*position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        error.add_report((), groups);
-
-                        return;
-                    }
-                };
+                let file = source.get_code(position.code_id);
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_content)
+                    Snippet::source(file.content_as_str())
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 );
 
@@ -161,16 +153,9 @@ impl<'src> DustError<'src> for ParseError {
                     Some(found) => format!("Expected an expression, but found {found}"),
                     None => "Expected an expression".to_string(),
                 };
-                let file_content = match source.get_content(*position) {
-                    Ok(content) => content,
-                    Err(error) => {
-                        error.add_report((), groups);
-
-                        return;
-                    }
-                };
+                let file = source.get_code(position.code_id);
                 let group = Group::with_title(Level::ERROR.primary_title(title)).element(
-                    Snippet::source(file_content)
+                    Snippet::source(file.content_as_str())
                         .annotation(AnnotationKind::Primary.span(position.span.as_usize_range())),
                 );
 
