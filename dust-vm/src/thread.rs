@@ -5,7 +5,6 @@ use dust_compiler::program::Program;
 
 use crate::{
     call::{Call, CallFrame},
-    error::VmError,
     register::Register,
     thread_pool::ThreadMessage,
 };
@@ -46,7 +45,7 @@ impl Thread {
         }
     }
 
-    pub fn run(mut self) -> Result<(), VmError> {
+    pub fn run(mut self) {
         let starting_call_frame = CallFrame {
             prototype_index: self.main_prototype_index,
             base_register: 0,
@@ -56,23 +55,40 @@ impl Thread {
         self.call_stack.push(starting_call_frame);
 
         let return_registers = loop {
-            let call = Call::new(
+            let call = match Call::new(
                 self.program.prototypes(),
-                &mut self.register_stack,
                 self.program.constants(),
+                &mut self.register_stack,
                 &mut self.call_stack,
-            )?;
+            ) {
+                Ok(call) => call,
+                Err(error) => {
+                    let _ = self.message_sender.send(ThreadMessage::ThreadError {
+                        thread_id: current_id(),
+                        error,
+                    });
 
-            if let Some(return_registers) = call.run()? {
-                break return_registers;
+                    return;
+                }
+            };
+
+            match call.run() {
+                Ok(Some(return_registers)) => break return_registers,
+                Ok(None) => {}
+                Err(error) => {
+                    let _ = self.message_sender.send(ThreadMessage::ThreadError {
+                        thread_id: current_id(),
+                        error,
+                    });
+
+                    return;
+                }
             }
         };
 
-        self.message_sender.send(ThreadMessage::ThreadFinished {
+        let _ = self.message_sender.send(ThreadMessage::ThreadFinished {
             thread_id: current_id(),
             return_registers,
-        })?;
-
-        Ok(())
+        });
     }
 }

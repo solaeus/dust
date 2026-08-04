@@ -6,19 +6,20 @@ mod divide;
 mod drop;
 mod equal;
 mod exponent;
-mod get_index;
+mod get;
 mod jump;
 mod less;
 mod less_equal;
 mod modulo;
 mod r#move;
 mod multiply;
+mod native_function;
 mod negate;
 mod operand_type;
 mod operation;
 mod reference;
 mod r#return;
-mod set_index;
+mod set;
 mod subtract;
 mod test;
 
@@ -29,26 +30,25 @@ pub use divide::Divide;
 pub use drop::Drop;
 pub use equal::Equal;
 pub use exponent::Exponent;
-pub use get_index::GetIndex;
+pub use get::Get;
 pub use jump::Jump;
 pub use less::Less;
 pub use less_equal::LessEqual;
 pub use modulo::Modulo;
 pub use r#move::Move;
 pub use multiply::Multiply;
+pub use native_function::NativeFunction;
 pub use negate::Negate;
-pub use operand_type::OperandType;
+pub use operand_type::{OperandType, RegisterWidth};
 pub use operation::Operation;
 pub use reference::Reference;
 pub use r#return::Return;
-pub use set_index::SetIndex;
+pub use set::Set;
 pub use subtract::Subtract;
 pub use test::Test;
 
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug, Display, Formatter};
-
-use crate::native_function::NativeFunction;
 
 /// An instruction for the Dust virtual machine.
 ///
@@ -58,10 +58,11 @@ use crate::native_function::NativeFunction;
 ///
 /// Bits    | Description
 /// ------- | -----------
-/// 0..=5   | Operation
-/// 6..=7   | Memory kind for the B field
-/// 8..=9   | Memory kind for the C field
-/// 10..=15 | Operand type
+/// 0..=4   | Operation
+/// 5..=6   | Unused
+/// 7..=8   | Memory kind for the B field
+/// 9..=10  | Memory kind for the C field
+/// 11..=14 | Operand type
 /// 16..=31 | A field
 /// 32..=47 | B field
 /// 48..=63 | C field
@@ -106,63 +107,39 @@ impl Instruction {
         })
     }
 
-    pub fn reference(destination: u16, operand_type: OperandType, source: Address) -> Instruction {
+    pub fn reference(destination: u16, source: u16, width: u16) -> Instruction {
         Instruction::from(Reference {
             destination,
-            operand_type,
-            source,
-            jump_distance: 0,
-            jump_forward: false,
+            start_register: source,
+            end_register: width,
         })
     }
 
-    pub fn reference_with_jump(
+    pub fn get(
         destination: u16,
         operand_type: OperandType,
+        base_register: u16,
+        index: Address,
+    ) -> Instruction {
+        Instruction::from(Get {
+            destination,
+            operand_type,
+            base_register,
+            index,
+        })
+    }
+
+    pub fn set(
+        base: u16,
+        operand_type: OperandType,
+        index: Address,
         source: Address,
-        jump_distance: u16,
-        jump_forward: bool,
     ) -> Instruction {
-        Instruction::from(Reference {
-            destination,
+        Instruction::from(Set {
+            base,
             operand_type,
+            index,
             source,
-            jump_distance,
-            jump_forward,
-        })
-    }
-
-    pub fn get_index(
-        destination: u16,
-        operand_type: OperandType,
-        base_register: u16,
-        index_memory: MemoryKind,
-        index_index: u16,
-    ) -> Instruction {
-        Instruction::from(GetIndex {
-            destination,
-            operand_type,
-            base_register,
-            index_memory,
-            index_index,
-        })
-    }
-
-    pub fn set_index(
-        base_register: u16,
-        operand_type: OperandType,
-        index_memory: MemoryKind,
-        index_index: u16,
-        source_memory: MemoryKind,
-        source_index: u16,
-    ) -> Instruction {
-        Instruction::from(SetIndex {
-            base_register,
-            operand_type,
-            index_memory,
-            index_index,
-            source_memory,
-            source_index,
         })
     }
 
@@ -366,16 +343,16 @@ impl Instruction {
         Operation(self.0 as u8 & 0x1F)
     }
 
-    pub fn operand_type(self) -> OperandType {
-        OperandType(((self.0 >> 10) & 0x1F) as u8)
-    }
-
     pub fn b_memory(self) -> MemoryKind {
-        MemoryKind(((self.0 >> 6) & 0x3) as u8)
+        MemoryKind(((self.0 >> 7) & 0x3) as u8)
     }
 
     pub fn c_memory(self) -> MemoryKind {
-        MemoryKind(((self.0 >> 8) & 0x3) as u8)
+        MemoryKind(((self.0 >> 9) & 0x3) as u8)
+    }
+
+    pub fn operand_type(self) -> OperandType {
+        OperandType(((self.0 >> 11) & 0xF) as u8)
     }
 
     pub fn a_field(self) -> u16 {
@@ -388,10 +365,6 @@ impl Instruction {
 
     pub fn c_field(self) -> u16 {
         ((self.0 >> 48) & 0xFFFF) as u16
-    }
-
-    pub fn _d_field(self) -> u16 {
-        ((self.0 >> 10) & 0x3F) as u16
     }
 
     pub fn b_address(self) -> Address {
@@ -437,8 +410,8 @@ impl Instruction {
             Operation::NO_OP => String::new(),
             Operation::MOVE => Move::from(self).to_string(),
             Operation::REFERENCE => Reference::from(self).to_string(),
-            Operation::GET_INDEX => GetIndex::from(self).to_string(),
-            Operation::SET_INDEX => SetIndex::from(self).to_string(),
+            Operation::GET => Get::from(self).to_string(),
+            Operation::SET => Set::from(self).to_string(),
             Operation::DROP => Drop::from(self).to_string(),
             Operation::ADD => Add::from(self).to_string(),
             Operation::SUBTRACT => Subtract::from(self).to_string(),
@@ -475,81 +448,73 @@ impl Display for Instruction {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct InstructionBuilder {
     operation: Operation,
-    b_memory: Option<MemoryKind>,
-    c_memory: Option<MemoryKind>,
-    operand_type: Option<OperandType>,
-    d_field: Option<u16>,
-    a_field: Option<u16>,
-    b_field: Option<u16>,
-    c_field: Option<u16>,
+    b_memory: MemoryKind,
+    c_memory: MemoryKind,
+    operand_type: OperandType,
+    a_field: u16,
+    b_field: u16,
+    c_field: u16,
 }
 
 impl InstructionBuilder {
     pub fn new(operation: Operation) -> Self {
         Self {
             operation,
-            b_memory: None,
-            c_memory: None,
-            operand_type: None,
-            d_field: None,
-            a_field: None,
-            b_field: None,
-            c_field: None,
+            b_memory: MemoryKind(0),
+            c_memory: MemoryKind(0),
+            operand_type: OperandType(0),
+            a_field: 0,
+            b_field: 0,
+            c_field: 0,
         }
     }
 
     pub fn b_memory(mut self, memory: MemoryKind) -> Self {
-        self.b_memory = Some(memory);
+        self.b_memory = memory;
 
         self
     }
 
     pub fn c_memory(mut self, memory: MemoryKind) -> Self {
-        self.c_memory = Some(memory);
+        self.c_memory = memory;
 
         self
     }
 
     pub fn operand_type(mut self, operand_type: OperandType) -> Self {
-        self.operand_type = Some(operand_type);
-
-        self
-    }
-
-    pub fn _d_field(mut self, d_field: u16) -> Self {
-        self.d_field = Some(d_field);
+        self.operand_type = operand_type;
 
         self
     }
 
     pub fn a_field(mut self, a_field: u16) -> Self {
-        self.a_field = Some(a_field);
+        self.a_field = a_field;
 
         self
     }
 
     pub fn b_field(mut self, b_field: u16) -> Self {
-        self.b_field = Some(b_field);
+        self.b_field = b_field;
 
         self
     }
 
     pub fn c_field(mut self, c_field: u16) -> Self {
-        self.c_field = Some(c_field);
+        self.c_field = c_field;
 
         self
     }
 
     pub fn b_address(mut self, operand: Address) -> Self {
-        self.b_memory = Some(operand.memory);
-        self.b_field = Some(operand.index);
+        self.b_memory = operand.memory;
+        self.b_field = operand.index;
 
         self
     }
 
     pub fn c_address(mut self, operand: Address) -> Self {
-        self.c_memory = Some(operand.memory);
-        self.c_field = Some(operand.index);
+        self.c_memory = operand.memory;
+        self.c_field = operand.index;
 
         self
     }
@@ -557,33 +522,12 @@ impl InstructionBuilder {
     pub fn build(self) -> Instruction {
         let mut bits = self.operation.0 as u64;
 
-        if let Some(b_memory) = self.b_memory {
-            bits |= ((b_memory.0 as u64) & 0x3) << 6;
-        }
-
-        if let Some(c_memory) = self.c_memory {
-            bits |= ((c_memory.0 as u64) & 0x3) << 8;
-        }
-
-        if let Some(operand_type) = self.operand_type {
-            bits |= ((operand_type.0 as u64) & 0x1F) << 10;
-        }
-
-        if let Some(d_field) = self.d_field {
-            bits |= ((d_field as u64) & 0x3F) << 10;
-        }
-
-        if let Some(a_field) = self.a_field {
-            bits |= ((a_field as u64) & 0xFFFF) << 16;
-        }
-
-        if let Some(b_field) = self.b_field {
-            bits |= ((b_field as u64) & 0xFFFF) << 32;
-        }
-
-        if let Some(c_field) = self.c_field {
-            bits |= ((c_field as u64) & 0xFFFF) << 48;
-        }
+        bits |= (self.b_memory.0 as u64) << 7;
+        bits |= (self.c_memory.0 as u64) << 9;
+        bits |= (self.operand_type.0 as u64) << 11;
+        bits |= (self.a_field as u64) << 16;
+        bits |= (self.b_field as u64) << 32;
+        bits |= (self.c_field as u64) << 48;
 
         Instruction(bits)
     }

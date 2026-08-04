@@ -5,7 +5,7 @@ use std::fmt::{self, Display, Formatter};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::{compiler::RegisterWidth, optimize_inline_capacity};
+use crate::optimize_inline_capacity;
 
 /// A small (4-bit) type representation used to encode the types of instruction operands.
 ///
@@ -66,6 +66,31 @@ impl Display for OperandType {
             Self::FUNCTION => write!(f, "fn"),
             Self::POINTER => write!(f, "ptr"),
             _ => write!(f, "<invalid operand type>"),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub enum RegisterWidth {
+    Single,
+    Double,
+    Quad,
+}
+
+impl RegisterWidth {
+    pub fn as_u16(&self) -> u16 {
+        match self {
+            RegisterWidth::Single => 1,
+            RegisterWidth::Double => 2,
+            RegisterWidth::Quad => 4,
+        }
+    }
+
+    pub fn as_usize(&self) -> usize {
+        match self {
+            RegisterWidth::Single => 1,
+            RegisterWidth::Double => 2,
+            RegisterWidth::Quad => 4,
         }
     }
 }

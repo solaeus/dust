@@ -19,10 +19,7 @@ pub fn run<'src>(commmand: RunCommand) -> Result<(), Error<'src>> {
 
     match vm.run() {
         Ok(Some(return_value)) => {
-            let mut stdout = stdout().lock();
-
-            stdout.write_all(return_value.to_string().as_bytes())?;
-            stdout.write_all(b"\n")?;
+            println!("{return_value}");
 
             Ok(())
         }

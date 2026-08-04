@@ -8,28 +8,28 @@ pub struct Operation(pub u8);
 impl Operation {
     pub const NO_OP: Operation = Operation(0);
 
-    // Memory operations (with optional control flow)
+    // Memory operations
     pub const MOVE: Operation = Operation(1);
     pub const REFERENCE: Operation = Operation(2);
-    pub const GET_INDEX: Operation = Operation(3);
-    pub const SET_INDEX: Operation = Operation(4);
+    pub const GET: Operation = Operation(3);
+    pub const SET: Operation = Operation(4);
     pub const DROP: Operation = Operation(5);
 
-    // Arithmetic binary operations
-    pub const ADD: Operation = Operation(6);
-    pub const SUBTRACT: Operation = Operation(7);
-    pub const MULTIPLY: Operation = Operation(8);
-    pub const DIVIDE: Operation = Operation(9);
-    pub const MODULO: Operation = Operation(10);
-    pub const EXPONENT: Operation = Operation(11);
-
     // Comparison binary operations (with control flow)
-    pub const EQUAL: Operation = Operation(12);
-    pub const LESS: Operation = Operation(13);
-    pub const LESS_EQUAL: Operation = Operation(14);
+    pub const EQUAL: Operation = Operation(6);
+    pub const LESS: Operation = Operation(7);
+    pub const LESS_EQUAL: Operation = Operation(8);
 
-    // Logical AND/OR operations (with control flow)
-    pub const TEST: Operation = Operation(15);
+    // Logical AND/OR (with control flow)
+    pub const TEST: Operation = Operation(9);
+
+    // Arithmetic binary operations
+    pub const ADD: Operation = Operation(10);
+    pub const SUBTRACT: Operation = Operation(11);
+    pub const MULTIPLY: Operation = Operation(12);
+    pub const DIVIDE: Operation = Operation(13);
+    pub const MODULO: Operation = Operation(14);
+    pub const EXPONENT: Operation = Operation(15);
 
     // Logical NOT and negation
     pub const NEGATE: Operation = Operation(16);
@@ -52,8 +52,8 @@ impl Operation {
             Self::NO_OP => "NO_OP",
             Self::MOVE => "MOVE",
             Self::REFERENCE => "REFERENCE",
-            Self::GET_INDEX => "GET_INDEX",
-            Self::SET_INDEX => "SET_INDEX",
+            Self::GET => "GET",
+            Self::SET => "SET",
             Self::DROP => "DROP",
             Self::ADD => "ADD",
             Self::SUBTRACT => "SUBTRACT",

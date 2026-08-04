@@ -13,7 +13,7 @@ use crate::thread_pool::ThreadMessage;
 pub enum VmError {
     CallStackUnderflow,
     ConstantList(ConstantsError),
-    ChannelSendError,
+    ChannelError,
     InvalidPrototypeIndex {
         index: usize,
     },
@@ -31,10 +31,13 @@ pub enum VmError {
         expected_type: DustType,
     },
     InvalidRegisterIndex {
-        index: u16,
+        index: usize,
     },
     InvalidInstructionPointer {
         index: usize,
+    },
+    InvalidCharacter {
+        value: u32,
     },
 }
 
@@ -44,17 +47,11 @@ impl From<ConstantsError> for VmError {
     }
 }
 
-impl From<SendError<ThreadMessage>> for VmError {
-    fn from(_: SendError<ThreadMessage>) -> Self {
-        Self::ChannelSendError
-    }
-}
-
 impl Display for VmError {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::ConstantList(constant_list_error) => write!(f, "{constant_list_error:?}"),
-            Self::ChannelSendError => write!(f, "Error sending message to thread pool"),
+            Self::ChannelError => write!(f, "Channel error"),
             Self::InvalidPrototypeIndex { index } => write!(f, "Invalid prototype index: {index}"),
             Self::UnsupportedOperation { operation } => {
                 write!(f, "Unsupported operation: {operation:?}")
@@ -76,6 +73,9 @@ impl Display for VmError {
             Self::InvalidRegisterIndex { index } => write!(f, "Invalid register index: {index}"),
             Self::InvalidInstructionPointer { index } => {
                 write!(f, "Invalid instruction pointer: {index}")
+            }
+            Self::InvalidCharacter { value } => {
+                write!(f, "Invalid character bits: {value}")
             }
         }
     }

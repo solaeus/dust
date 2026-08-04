@@ -9,8 +9,6 @@ mod value_creation;
 #[cfg(test)]
 pub(crate) mod tests;
 
-pub use prototype_emitter::RegisterWidth;
-
 use smallvec::SmallVec;
 use tracing::{Level, span};
 

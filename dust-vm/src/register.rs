@@ -1,4 +1,6 @@
-#[derive(Clone, Copy, Debug)]
+use crate::error::VmError;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(C)]
 pub struct Register(u32);
 
@@ -7,8 +9,16 @@ impl Register {
         Self(value.to_u32())
     }
 
+    pub fn from_character(character: char) -> Self {
+        Self(character as u32)
+    }
+
     pub fn as_value<T: RegisterValue>(&self) -> T {
         T::from_u32(self.0)
+    }
+
+    pub fn as_character(&self) -> Result<char, VmError> {
+        char::from_u32(self.0).ok_or(VmError::InvalidCharacter { value: self.0 })
     }
 
     pub fn as_bits(&self) -> u32 {
@@ -56,16 +66,6 @@ impl RegisterValue for f32 {
 
     fn to_u32(self) -> u32 {
         self.to_bits()
-    }
-}
-
-impl RegisterValue for char {
-    fn from_u32(value: u32) -> Self {
-        char::from_u32(value).unwrap_or('\0')
-    }
-
-    fn to_u32(self) -> u32 {
-        self as u32
     }
 }
 

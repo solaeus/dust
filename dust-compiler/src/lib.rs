@@ -12,7 +12,6 @@ pub mod dust_value;
 pub mod error;
 pub mod instruction;
 pub mod lexer;
-pub mod native_function;
 pub mod parser;
 pub mod program;
 pub mod prototype;

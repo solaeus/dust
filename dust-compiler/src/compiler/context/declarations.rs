@@ -8,7 +8,7 @@ use crate::{
         context::{TypeId, scopes::ScopeId, symbols::SymbolId, types::TypeMembers},
         error::CompileError,
     },
-    native_function::NativeFunction,
+    instruction::NativeFunction,
     optimize_inline_capacity,
     source::{CodeId, Position},
     syntax::SyntaxId,

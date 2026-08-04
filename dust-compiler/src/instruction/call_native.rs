@@ -1,9 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::{
-    instruction::{Instruction, InstructionBuilder, Operation},
-    native_function::NativeFunction,
-};
+use crate::instruction::{Instruction, InstructionBuilder, NativeFunction, Operation};
 
 pub struct CallNative {
     pub destination: u16,
@@ -15,7 +12,7 @@ impl From<Instruction> for CallNative {
     fn from(instruction: Instruction) -> Self {
         CallNative {
             destination: instruction.a_field(),
-            function: NativeFunction::from_id(instruction.b_field()),
+            function: NativeFunction::from_u16(instruction.b_field()),
             arguments_start: instruction.c_field(),
         }
     }
@@ -31,7 +28,7 @@ impl From<CallNative> for Instruction {
 
         InstructionBuilder::new(Operation::CALL_NATIVE)
             .a_field(destination)
-            .b_field(function.id())
+            .b_field(function.as_u16())
             .c_field(arguments_start)
             .build()
     }

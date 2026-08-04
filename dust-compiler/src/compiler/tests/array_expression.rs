@@ -93,7 +93,7 @@ fn index_with_runtime_index() {
                     Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 20)),
                     Instruction::r#move(4, OperandType::I_64, Address::new(MemoryKind::ENCODED, 30)),
                     Instruction::r#move(6, OperandType::I_32, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::get_index(0, OperandType::I_64, 0, MemoryKind::REGISTER, 6),
+                    Instruction::get(0, OperandType::I_64, 0, Address::new(MemoryKind::REGISTER, 6)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],

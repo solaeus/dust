@@ -17,6 +17,7 @@ use crate::dust_type::DustFunctionType;
 /// # Unit value
 ///
 /// To represent an instance of the Unit type, use an empty tuple (`DustValue::Tuple(Vec::new())`).
+#[derive(Clone, Debug, PartialEq)]
 pub enum DustValue<E = ()> {
     Boolean(bool),
     I8(i8),
@@ -88,6 +89,7 @@ impl<E> Display for DustValue<E> {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct DustStruct<E> {
     pub struct_name: String,
     pub value: DustStructValue<E>,
@@ -101,6 +103,7 @@ impl<E> Display for DustStruct<E> {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct DustEnumVariant<E> {
     pub enum_name: String,
     pub variant_name: String,
@@ -119,6 +122,7 @@ impl<E> Display for DustEnumVariant<E> {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum DustStructValue<E> {
     Unit,
     Tuple(Vec<DustValue<E>>),
@@ -163,6 +167,7 @@ impl<E> Display for DustStructValue<E> {
 
 pub type DustFunctionLogic<E> = fn(&[DustValue<E>]) -> Result<Option<DustValue<E>>, E>;
 
+#[derive(Clone, Debug)]
 pub struct DustFunction<E> {
     pub name: String,
     pub r#type: DustFunctionType,
@@ -185,6 +190,12 @@ impl<E: Debug> DustFunction<E> {
         catch_unwind(|| (self.logic)(arguments))
             .map_err(DustFunctionError::Panic)
             .and_then(|result| result.map_err(DustFunctionError::Custom))
+    }
+}
+
+impl<E> PartialEq for DustFunction<E> {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.r#type == other.r#type
     }
 }
 

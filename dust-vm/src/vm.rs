@@ -107,12 +107,12 @@ impl Vm {
                         error
                     );
 
-                    break;
+                    return Err(error);
                 }
                 Err(error) => {
                     error!("VM main thread encountered an error: {}", error);
 
-                    break;
+                    return Err(VmError::ChannelError);
                 }
             }
         }
@@ -135,7 +135,7 @@ impl Vm {
                 Ok(DustValue::Boolean(boolean))
             }
             DustType::Character if *index < return_registers.len() => {
-                let character = return_registers[*index].as_value();
+                let character = return_registers[*index].as_character()?;
                 *index += 1;
 
                 Ok(DustValue::Character(character))
