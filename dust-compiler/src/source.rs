@@ -90,7 +90,7 @@ pub struct CodeId(u32);
 impl CodeId {
     pub const MAIN: Self = CodeId(0);
 
-    pub fn inner(self) -> u32 {
+    pub fn index(self) -> u32 {
         self.0
     }
 }
@@ -99,22 +99,6 @@ impl CodeId {
 pub struct Code<'src> {
     inner: CodeInner<'src>,
     utf8_validated: bool,
-}
-
-#[derive(Clone)]
-pub enum CodeInner<'src> {
-    File {
-        path: PathBuf,
-        content: Vec<u8>,
-    },
-    Borrowed {
-        name: &'src str,
-        content: &'src [u8],
-    },
-    Owned {
-        name: &'src str,
-        content: Vec<u8>,
-    },
 }
 
 impl<'src> Code<'src> {
@@ -321,7 +305,23 @@ impl Debug for CodeInner<'_> {
     }
 }
 
-/// Represents a slice of a file's content that can be read from the `Source`.
+#[derive(Clone)]
+pub enum CodeInner<'src> {
+    File {
+        path: PathBuf,
+        content: Vec<u8>,
+    },
+    Borrowed {
+        name: &'src str,
+        content: &'src [u8],
+    },
+    Owned {
+        name: &'src str,
+        content: Vec<u8>,
+    },
+}
+
+/// Represents a slice of a file's content that can be read from `Source`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct Position {
     pub code_id: CodeId,

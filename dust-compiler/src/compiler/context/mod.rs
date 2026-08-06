@@ -1,3 +1,4 @@
+mod core;
 pub mod declarations;
 pub mod scopes;
 pub mod symbols;
@@ -11,6 +12,7 @@ use smallvec::{SmallVec, smallvec};
 use crate::{
     compiler::{
         context::{
+            core::add_core,
             declarations::{Declaration, DeclarationId, Declarations, Definition, VariantKind},
             scopes::{Barrier, BarrierTracker, ScopeId, Scopes},
             symbols::{SymbolId, Symbols},
@@ -97,7 +99,7 @@ impl Context {
             syntax,
         });
 
-        self.scopes.add_to_current_namespace(declaration_id);
+        self.scopes.add_to_current_scope(declaration_id);
 
         declaration_id
     }
@@ -112,7 +114,7 @@ impl Context {
             self.declarations
                 .reserve_declaration_id(symbol_id, current_scope_id, syntax);
 
-        self.scopes.add_to_current_namespace(declaration_id);
+        self.scopes.add_to_current_scope(declaration_id);
 
         declaration_id
     }
@@ -447,7 +449,7 @@ impl Context {
                 ..
             }
             | Definition::EnumType {
-                variants: Some(inner_scope_id),
+                variants: inner_scope_id,
                 ..
             }
             | Definition::TraitImplementation {
@@ -458,8 +460,7 @@ impl Context {
                 declarations: Some(inner_scope_id),
                 ..
             } => Some(inner_scope_id),
-            Definition::StructType { fields: None, .. }
-            | Definition::EnumType { variants: None, .. } => None,
+            Definition::StructType { fields: None, .. } => None,
             _ => {
                 return Err(CompileError::Undeclared {
                     symbol_id,
@@ -565,7 +566,7 @@ impl Context {
         })
     }
 
-    pub fn get_defined_declaration(
+    pub fn get_resolved_declaration(
         &mut self,
         declaration_id: DeclarationId,
     ) -> Result<Declaration, CompileError> {
@@ -767,9 +768,7 @@ impl Context {
                                 Some((parameter_declaration_id, *argument_type_id))
                             });
 
-                        let variant_entries = (*variants)
-                            .map(|id| self.scopes.get_members(id))
-                            .unwrap_or_default();
+                        let variant_entries = self.scopes.get_members(*variants);
 
                         let mut largest_variant_operand_types: Vec<OperandType> = Vec::new();
                         let mut largest_variant_register_count: u16 = 0;
@@ -1160,6 +1159,7 @@ impl Context {
             DustType::USize => TypeId::U_SIZE,
             DustType::F32 => TypeId::F_32,
             DustType::F64 => TypeId::F_64,
+            DustType::Pointer => TypeId::POINTER,
             DustType::Tuple(element_types) => {
                 let type_scope_id = self.scopes.enter_scope(Barrier::Members, Some(scope_id));
                 let element_type_ids = element_types
@@ -1362,7 +1362,7 @@ impl Context {
                     Definition::EnumType {
                         public: true,
                         type_parameters: None,
-                        variants: Some(enum_scope_id),
+                        variants: enum_scope_id,
                     },
                 );
 
@@ -1461,9 +1461,7 @@ impl Context {
                                 })
                                 .collect();
 
-                        let variant_entries = (*variants)
-                            .map(|id| self.scopes.get_members(id))
-                            .unwrap_or_default();
+                        let variant_entries = self.scopes.get_members(*variants);
                         let mut variants = Vec::with_capacity(variant_entries.len());
 
                         for variant_declaration_id in variant_entries {
@@ -1647,9 +1645,6 @@ impl Context {
                             value_type,
                         })))
                     }
-                    Definition::TypeAlias {
-                        aliased_type_id, ..
-                    } => self.get_external_type(*aliased_type_id),
                     _ => Err(CompileError::ExpectedAlgebraicTypeDefinition(
                         *declaration_id,
                     )),
@@ -1741,7 +1736,7 @@ impl Context {
                     _ => Err(CompileError::ExpectedFunctionDefinition(*declaration_id)),
                 }
             }
-            Type::Pointer { .. } => Ok(DustType::Unit),
+            Type::Pointer => Ok(DustType::Pointer),
             Type::Reference { referenced_type_id } => {
                 let referenced_dust_type = self.get_external_type(*referenced_type_id)?;
 
@@ -1768,411 +1763,6 @@ impl Context {
     }
 }
 
-fn add_core(context: &mut Context) {
-    const OPTION_VARIANTS: &[(&str, BuiltInStructFields)] = &[
-        ("None", BuiltInStructFields::Unit),
-        (
-            "Some",
-            BuiltInStructFields::Tuple(&[BuiltInType::Generic("T")]),
-        ),
-    ];
-    const RESULT_VARIANTS: &[(&str, BuiltInStructFields)] = &[
-        (
-            "Ok",
-            BuiltInStructFields::Tuple(&[BuiltInType::Generic("T")]),
-        ),
-        (
-            "Err",
-            BuiltInStructFields::Tuple(&[BuiltInType::Generic("E")]),
-        ),
-    ];
-    const RANGE_FIELDS: &[(&str, BuiltInType)] = &[
-        ("start", BuiltInType::Generic("T")),
-        ("end", BuiltInType::Generic("T")),
-    ];
-    const BUILT_IN_TYPES: &[BuiltInType] = &[
-        BuiltInType::Enum {
-            name: "Option",
-            type_parameters: &[("T", &[])],
-            variants: OPTION_VARIANTS,
-        },
-        BuiltInType::Enum {
-            name: "Result",
-            type_parameters: &[("T", &[]), ("E", &[])],
-            variants: RESULT_VARIANTS,
-        },
-        BuiltInType::Struct {
-            name: "Range",
-            type_parameters: &[("T", &[])],
-            fields: BuiltInStructFields::Named(RANGE_FIELDS),
-        },
-        BuiltInType::Struct {
-            name: "RangeInclusive",
-            type_parameters: &[("T", &[])],
-            fields: BuiltInStructFields::Named(RANGE_FIELDS),
-        },
-    ];
-
-    let core_scope_id = context.scopes.enter_scope(Barrier::Module, None);
-
-    debug_assert_eq!(core_scope_id, ScopeId::CORE);
-
-    let mut type_declaration_ids = Vec::with_capacity(BUILT_IN_TYPES.len());
-
-    for built_in_type in BUILT_IN_TYPES {
-        let type_symbol_id = context.symbols.add_symbol(built_in_type.name());
-        let type_declaration_id =
-            context
-                .declarations
-                .reserve_declaration_id(type_symbol_id, core_scope_id, None);
-
-        context.scopes.add_to_current_namespace(type_declaration_id);
-        type_declaration_ids.push((*built_in_type, type_declaration_id));
-    }
-
-    debug_assert_eq!(type_declaration_ids[0].1, DeclarationId::OPTION);
-    debug_assert_eq!(type_declaration_ids[1].1, DeclarationId::RESULT);
-    debug_assert_eq!(type_declaration_ids[2].1, DeclarationId::RANGE);
-    debug_assert_eq!(type_declaration_ids[3].1, DeclarationId::RANGE_INCLUSIVE);
-
-    for (built_in_type, type_declaration_id) in type_declaration_ids {
-        add_built_in_type_definition(context, built_in_type, type_declaration_id, core_scope_id);
-    }
-
-    context.scopes.exit_scope(core_scope_id);
-    context.declarations.finish_reserved_range();
-}
-
-impl Default for Context {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(Clone, Copy)]
-enum BuiltInType<'a> {
-    Struct {
-        name: &'a str,
-        type_parameters: &'a [(&'a str, &'a [DeclarationId])],
-        fields: BuiltInStructFields<'a>,
-    },
-    Enum {
-        name: &'a str,
-        type_parameters: &'a [(&'a str, &'a [DeclarationId])],
-        variants: &'a [(&'a str, BuiltInStructFields<'a>)],
-    },
-    Generic(&'a str),
-}
-
-#[derive(Clone, Copy)]
-enum BuiltInStructFields<'a> {
-    Unit,
-    Tuple(&'a [BuiltInType<'a>]),
-    Named(&'a [(&'a str, BuiltInType<'a>)]),
-}
-
-impl<'a> BuiltInType<'a> {
-    fn name(self) -> &'a str {
-        match self {
-            BuiltInType::Struct { name, .. } | BuiltInType::Enum { name, .. } => name,
-            BuiltInType::Generic(_) => unreachable!("generic built-in types are not top-level"),
-        }
-    }
-}
-
-fn add_built_in_type_definition(
-    context: &mut Context,
-    built_in_type: BuiltInType,
-    type_declaration_id: DeclarationId,
-    core_scope_id: ScopeId,
-) {
-    let item_scope_id = context
-        .scopes
-        .enter_scope(Barrier::Item, Some(core_scope_id));
-
-    match built_in_type {
-        BuiltInType::Struct {
-            type_parameters,
-            fields,
-            ..
-        } => {
-            let type_parameter_declarations =
-                add_built_in_type_parameters(context, item_scope_id, type_parameters);
-            let type_parameters = if type_parameter_declarations.is_empty() {
-                None
-            } else {
-                Some(item_scope_id)
-            };
-            let fields = add_built_in_fields(
-                context,
-                fields,
-                type_declaration_id,
-                item_scope_id,
-                &type_parameter_declarations,
-            );
-
-            context.scopes.exit_scope(item_scope_id);
-            context.declarations.set_reserved_declaration(
-                type_declaration_id,
-                Definition::StructType {
-                    public: true,
-                    type_parameters,
-                    fields,
-                },
-            );
-        }
-        BuiltInType::Enum {
-            type_parameters,
-            variants,
-            ..
-        } => {
-            let type_parameter_declarations =
-                add_built_in_type_parameters(context, item_scope_id, type_parameters);
-            let type_parameters = if type_parameter_declarations.is_empty() {
-                None
-            } else {
-                Some(item_scope_id)
-            };
-            let variants = add_built_in_variants(
-                context,
-                variants,
-                type_declaration_id,
-                item_scope_id,
-                &type_parameter_declarations,
-            );
-
-            context.scopes.exit_scope(item_scope_id);
-            context.declarations.set_reserved_declaration(
-                type_declaration_id,
-                Definition::EnumType {
-                    public: true,
-                    type_parameters,
-                    variants: Some(variants),
-                },
-            );
-        }
-        BuiltInType::Generic(_) => unreachable!("generic built-in types are not declarations"),
-    }
-}
-
-fn add_built_in_type_parameters<'a>(
-    context: &mut Context,
-    item_scope_id: ScopeId,
-    type_parameters: &'a [(&'a str, &'a [DeclarationId])],
-) -> Vec<(&'a str, SymbolId, DeclarationId)> {
-    let mut type_parameter_declarations = Vec::with_capacity(type_parameters.len());
-
-    for (type_parameter_name, bounds) in type_parameters {
-        let bounds = if !bounds.is_empty() { todo!() } else { None };
-
-        let type_parameter_symbol_id = context.symbols.add_symbol(type_parameter_name);
-        let type_parameter_declaration_id = context.declarations.add_declaration(Declaration {
-            symbol_id: type_parameter_symbol_id,
-            definition: Definition::TypeParameter {
-                is_self: false,
-                bounds,
-            },
-            scope_id: item_scope_id,
-            syntax: None,
-        });
-
-        type_parameter_declarations.push((
-            *type_parameter_name,
-            type_parameter_symbol_id,
-            type_parameter_declaration_id,
-        ));
-        context
-            .scopes
-            .add_to_current_namespace(type_parameter_declaration_id);
-    }
-
-    type_parameter_declarations
-}
-
-fn add_built_in_fields(
-    context: &mut Context,
-    fields: BuiltInStructFields,
-    parent_declaration_id: DeclarationId,
-    parent_scope_id: ScopeId,
-    type_parameter_declarations: &[(&str, SymbolId, DeclarationId)],
-) -> Option<ScopeId> {
-    match fields {
-        BuiltInStructFields::Unit => None,
-        BuiltInStructFields::Tuple(field_types) => {
-            let fields_scope_id = context
-                .scopes
-                .enter_scope(Barrier::Members, Some(parent_scope_id));
-
-            for (field_index, field_type) in field_types.iter().enumerate() {
-                let field_symbol_id = context.symbols.add_index_symbol(field_index as u32);
-                let field_type_id =
-                    get_built_in_type_id(context, *field_type, type_parameter_declarations);
-                let field_declaration_id = context.declarations.add_declaration(Declaration {
-                    symbol_id: field_symbol_id,
-                    definition: Definition::Field {
-                        public: true,
-                        parent_struct: parent_declaration_id,
-                        type_id: field_type_id,
-                    },
-                    scope_id: fields_scope_id,
-                    syntax: None,
-                });
-
-                context
-                    .scopes
-                    .add_to_current_namespace(field_declaration_id);
-            }
-
-            context.scopes.exit_scope(fields_scope_id);
-
-            Some(fields_scope_id)
-        }
-        BuiltInStructFields::Named(field_types) => {
-            let fields_scope_id = context
-                .scopes
-                .enter_scope(Barrier::Members, Some(parent_scope_id));
-
-            for (field_name, field_type) in field_types {
-                let field_symbol_id = context.symbols.add_symbol(field_name);
-                let field_type_id =
-                    get_built_in_type_id(context, *field_type, type_parameter_declarations);
-                let field_declaration_id = context.declarations.add_declaration(Declaration {
-                    symbol_id: field_symbol_id,
-                    definition: Definition::Field {
-                        public: true,
-                        parent_struct: parent_declaration_id,
-                        type_id: field_type_id,
-                    },
-                    scope_id: fields_scope_id,
-                    syntax: None,
-                });
-
-                context
-                    .scopes
-                    .add_to_current_namespace(field_declaration_id);
-            }
-
-            context.scopes.exit_scope(fields_scope_id);
-
-            Some(fields_scope_id)
-        }
-    }
-}
-
-fn add_built_in_variants(
-    context: &mut Context,
-    variants: &[(&str, BuiltInStructFields)],
-    enum_declaration_id: DeclarationId,
-    item_scope_id: ScopeId,
-    type_parameter_declarations: &[(&str, SymbolId, DeclarationId)],
-) -> ScopeId {
-    let variants_scope_id = context
-        .scopes
-        .enter_scope(Barrier::Members, Some(item_scope_id));
-    let mut variant_namespace_entries = Vec::with_capacity(variants.len());
-
-    for (variant_index, (variant_name, variant_fields)) in variants.iter().enumerate() {
-        let variant_symbol_id = context.symbols.add_symbol(variant_name);
-        let variant_declaration_id = match variant_fields {
-            BuiltInStructFields::Unit => context.declarations.add_declaration(Declaration {
-                symbol_id: variant_symbol_id,
-                definition: Definition::Variant {
-                    discriminant: variant_index as u16,
-                    enum_declaration_id,
-                    fields: None,
-                    kind: VariantKind::Unit,
-                },
-                scope_id: variants_scope_id,
-                syntax: None,
-            }),
-            BuiltInStructFields::Tuple(_) => {
-                let variant_declaration_id = context.declarations.reserve_declaration_id(
-                    variant_symbol_id,
-                    variants_scope_id,
-                    None,
-                );
-                let fields = add_built_in_fields(
-                    context,
-                    *variant_fields,
-                    variant_declaration_id,
-                    variants_scope_id,
-                    type_parameter_declarations,
-                );
-
-                context.declarations.set_reserved_declaration(
-                    variant_declaration_id,
-                    Definition::Variant {
-                        discriminant: variant_index as u16,
-                        enum_declaration_id,
-                        fields,
-                        kind: VariantKind::TupleFields,
-                    },
-                );
-
-                variant_declaration_id
-            }
-            BuiltInStructFields::Named(_) => {
-                let variant_declaration_id = context.declarations.reserve_declaration_id(
-                    variant_symbol_id,
-                    variants_scope_id,
-                    None,
-                );
-                let fields = add_built_in_fields(
-                    context,
-                    *variant_fields,
-                    variant_declaration_id,
-                    variants_scope_id,
-                    type_parameter_declarations,
-                );
-
-                context.declarations.set_reserved_declaration(
-                    variant_declaration_id,
-                    Definition::Variant {
-                        discriminant: variant_index as u16,
-                        enum_declaration_id,
-                        fields,
-                        kind: VariantKind::NamedFields,
-                    },
-                );
-
-                variant_declaration_id
-            }
-        };
-
-        context
-            .scopes
-            .add_to_current_namespace(variant_declaration_id);
-        variant_namespace_entries.push((variant_symbol_id, variant_declaration_id));
-    }
-
-    context.scopes.exit_scope(variants_scope_id);
-
-    variants_scope_id
-}
-
-fn get_built_in_type_id(
-    context: &mut Context,
-    built_in_type: BuiltInType,
-    type_parameter_declarations: &[(&str, SymbolId, DeclarationId)],
-) -> TypeId {
-    match built_in_type {
-        BuiltInType::Generic(type_parameter_name) => {
-            for (candidate_name, _, declaration_id) in type_parameter_declarations {
-                if *candidate_name == type_parameter_name {
-                    return context.types.add_type(Type::Generic {
-                        declaration_id: *declaration_id,
-                    });
-                }
-            }
-
-            unreachable!("missing core type parameter")
-        }
-        BuiltInType::Struct { .. } | BuiltInType::Enum { .. } => {
-            unreachable!("nested core algebraic types are not used")
-        }
-    }
-}
-
 impl Debug for Context {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Context")
@@ -2186,5 +1776,11 @@ impl Debug for Context {
             .field("type_bindings", &self.type_bindings.len())
             .field("constant_item_values", &self.constant_item_values.len())
             .finish()
+    }
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        Self::new()
     }
 }

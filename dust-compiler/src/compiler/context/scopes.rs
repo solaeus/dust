@@ -35,7 +35,7 @@ impl Scopes {
         id
     }
 
-    pub fn add_to_current_namespace(&mut self, declaration_id: DeclarationId) {
+    pub fn add_to_current_scope(&mut self, declaration_id: DeclarationId) {
         self.current_namespace.push(declaration_id);
     }
 

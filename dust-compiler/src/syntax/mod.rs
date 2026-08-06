@@ -36,7 +36,7 @@ impl Syntax {
     }
 
     pub fn add_tree(&mut self, tree: SyntaxTree) {
-        let index = tree.code_id.inner() as usize;
+        let index = tree.code_id.index() as usize;
 
         debug_assert!(
             index < self.trees.len() || self.trees.is_empty(),
@@ -47,7 +47,7 @@ impl Syntax {
     }
 
     pub fn get_tree(&self, code_id: CodeId) -> Result<&SyntaxTree, SyntaxError> {
-        let index = code_id.inner() as usize;
+        let index = code_id.index() as usize;
 
         self.trees
             .get(index)

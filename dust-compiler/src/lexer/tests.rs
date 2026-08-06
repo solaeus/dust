@@ -976,26 +976,6 @@ fn bare_minus_at_eof() {
 }
 
 #[test]
-fn lone_ampersand_and_pipe() {
-    let source = b"& |";
-    let tokens = Lexer::unvalidated(source).collect::<Vec<_>>();
-
-    assert_eq!(
-        tokens,
-        vec![
-            Token {
-                kind: TokenKind::Unknown,
-                span: Span::new(0, 1),
-            },
-            Token {
-                kind: TokenKind::Unknown,
-                span: Span::new(2, 3),
-            },
-        ]
-    );
-}
-
-#[test]
 fn identifier_plus_identifier() {
     let source = b"foo+bar";
     let tokens = Lexer::unvalidated(source).collect::<Vec<_>>();

@@ -72,6 +72,9 @@ pub enum DustType {
 
     /// `&T`
     Reference(Box<DustType>),
+
+    /// A heap object pointer. Only used for internal purposes.
+    Pointer,
 }
 
 impl Display for DustType {
@@ -111,7 +114,8 @@ impl Display for DustType {
             DustType::Function(function_type) => write!(f, "{function_type}"),
             DustType::Struct(struct_type) => write!(f, "{struct_type}"),
             DustType::Enum(enum_type) => write!(f, "{enum_type}"),
-            DustType::Reference(reference_type) => write!(f, "&{reference_type}"),
+            DustType::Reference(referenced_type) => write!(f, "&{referenced_type}"),
+            DustType::Pointer => write!(f, "*pointer"),
         }
     }
 }

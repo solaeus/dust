@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::Range};
+use std::collections::HashMap;
 
 use rustc_hash::FxBuildHasher;
 use smallvec::SmallVec;
@@ -70,17 +70,6 @@ impl Declarations {
         id
     }
 
-    pub fn finish_reserved_range(&mut self) {
-        while self.declarations.len() < DeclarationId::RESERVED.end as usize {
-            self.declarations.push(Declaration {
-                symbol_id: SymbolId::PLACEHOLDER,
-                definition: Definition::Placeholder,
-                scope_id: ScopeId::CORE,
-                syntax: None,
-            });
-        }
-    }
-
     pub fn set_reserved_declaration(&mut self, id: DeclarationId, definition: Definition) {
         let declaration = &mut self.declarations[id.0 as usize];
 
@@ -127,22 +116,6 @@ impl Declarations {
                 | Definition::Field {
                     type_id: declaration_type_id,
                     ..
-                }
-                | Definition::Function {
-                    return_type_id: declaration_type_id,
-                    ..
-                }
-                | Definition::NativeFunction {
-                    return_type_id: declaration_type_id,
-                    ..
-                }
-                | Definition::TypeAlias {
-                    aliased_type_id: declaration_type_id,
-                    ..
-                }
-                | Definition::InherentAssociatedType {
-                    aliased_type_id: declaration_type_id,
-                    ..
                 } if declaration_type_id == type_id => {
                     return Ok(Some(declaration));
                 }
@@ -165,16 +138,10 @@ pub struct DeclarationId(#[cfg(test)] pub(crate) u32, #[cfg(not(test))] u32);
 impl DeclarationId {
     pub type SmallVec = SmallVec<[Self; optimize_inline_capacity::<Self, 4>()]>;
 
-    pub const RESERVED: Range<u32> = 0..100;
-
     pub const OPTION: Self = Self(0);
     pub const RESULT: Self = Self(1);
     pub const RANGE: Self = Self(2);
     pub const RANGE_INCLUSIVE: Self = Self(3);
-
-    pub fn inner(self) -> u32 {
-        self.0
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -278,7 +245,7 @@ pub enum Definition {
     EnumType {
         public: bool,
         type_parameters: Option<ScopeId>,
-        variants: Option<ScopeId>,
+        variants: ScopeId,
     },
 
     /// Variants are the members of an enum type. This is essentially a struct type with a
@@ -371,6 +338,11 @@ pub enum Definition {
 
     ForwardReference {
         resolved: Option<DeclarationId>,
+    },
+
+    /// Internal representation for the definition of a primitive type such as `i32` or `f64`.
+    PrimitiveType {
+        type_id: TypeId,
     },
 
     /// Used when reserving a declaration ID.

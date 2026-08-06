@@ -28,11 +28,16 @@ impl Prototypes {
         &self,
         prototype_id: PrototypeId,
     ) -> &(DeclarationId, TypeId::SmallVec) {
-        &self.monomorphization_cache[prototype_id.0 as usize]
+        &self.monomorphization_cache[prototype_id.index as usize]
     }
 
     pub fn set_prototype(&mut self, prototype_id: PrototypeId, prototype: Prototype) {
-        self.prototypes[prototype_id.0 as usize] = prototype;
+        debug_assert_eq!(
+            self.prototypes[prototype_id.index as usize],
+            Prototype::placeholder()
+        );
+
+        self.prototypes[prototype_id.index as usize] = prototype;
     }
 
     pub fn monomorphize_function_to_prototype(
@@ -43,9 +48,13 @@ impl Prototypes {
         let cache_key = (declaration_id, type_arguments);
 
         if let Some(index) = self.monomorphization_cache.get_index_of(&cache_key) {
-            PrototypeId(index as u16)
+            PrototypeId {
+                index: index as u16,
+            }
         } else {
-            let prototype_id = PrototypeId(self.prototypes.len() as u16);
+            let prototype_id = PrototypeId {
+                index: self.prototypes.len() as u16,
+            };
 
             self.prototypes.push(Prototype::placeholder());
             self.monomorphization_cache.insert(cache_key);
@@ -57,18 +66,24 @@ impl Prototypes {
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub struct PrototypeId(#[cfg(test)] pub(crate) u16, #[cfg(not(test))] u16);
+pub struct PrototypeId {
+    #[cfg(test)]
+    pub(crate) index: u16,
+
+    #[cfg(not(test))]
+    index: u16,
+}
 
 impl PrototypeId {
-    pub(crate) const MAIN: Self = Self(0);
+    pub(crate) const MAIN: Self = Self { index: 0 };
 
     pub fn index(self) -> u16 {
-        self.0
+        self.index
     }
 }
 
 impl Display for PrototypeId {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "proto_{}", self.0)
+        write!(f, "proto_{}", self.index)
     }
 }

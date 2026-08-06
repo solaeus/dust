@@ -22,11 +22,11 @@ pub enum TokenKind {
     Unknown,
 
     // Literals
-    CharacterLiteral,
-    StringLiteral,
-    FloatLiteral,
     IntegerLiteral,
     HexIntegerLiteral,
+    FloatLiteral,
+    CharacterLiteral,
+    StringLiteral,
 
     // Names for variables, functions, types and modules
     Identifier,

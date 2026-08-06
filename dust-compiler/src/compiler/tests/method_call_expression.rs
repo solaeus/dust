@@ -35,7 +35,6 @@ fn method_call() {
             },
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -75,7 +74,6 @@ fn method_call_runtime() {
             },
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],

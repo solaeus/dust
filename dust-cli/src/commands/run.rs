@@ -1,5 +1,3 @@
-use std::io::{Write, stdout};
-
 use dust_compiler::compiler::Compiler;
 use dust_vm::{Vm, VmConfig};
 

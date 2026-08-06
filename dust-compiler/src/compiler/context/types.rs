@@ -7,7 +7,6 @@ use std::{
 
 use indexmap::{IndexSet, set::MutableValues};
 use smallvec::SmallVec;
-use tracing::trace;
 
 use crate::{
     compiler::{context::declarations::DeclarationId, error::CompileError},
@@ -47,6 +46,7 @@ impl Types {
         let _f32_type_id = types.add_type(Type::Float(FloatType::F32));
         let _f64_type_id = types.add_type(Type::Float(FloatType::F64));
         let _character_type_id = types.add_type(Type::Character);
+        let _pointer_type_id = types.add_type(Type::Pointer);
         let _never_type_id = types.add_type(Type::Never);
 
         debug_assert_eq!(_unit_type_id, TypeId::UNIT);
@@ -66,6 +66,7 @@ impl Types {
         debug_assert_eq!(_f32_type_id, TypeId::F_32);
         debug_assert_eq!(_f64_type_id, TypeId::F_64);
         debug_assert_eq!(_character_type_id, TypeId::CHARACTER);
+        debug_assert_eq!(_pointer_type_id, TypeId::POINTER);
         debug_assert_eq!(_never_type_id, TypeId::NEVER);
 
         types
@@ -146,10 +147,6 @@ impl Types {
             | Some(Type::Algebraic {
                 type_arguments: old_arguments,
                 ..
-            })
-            | Some(Type::Pointer {
-                type_arguments: old_arguments,
-                ..
             }) => {
                 *old_arguments = arguments;
             }
@@ -225,7 +222,8 @@ impl TypeId {
     pub const F_32: Self = TypeId(14);
     pub const F_64: Self = TypeId(15);
     pub const CHARACTER: Self = TypeId(16);
-    pub const NEVER: Self = TypeId(17);
+    pub const POINTER: Self = TypeId(17);
+    pub const NEVER: Self = TypeId(18);
 
     pub fn inner(self) -> u32 {
         self.0
@@ -391,14 +389,6 @@ pub enum Type {
         declaration_id: DeclarationId,
     },
 
-    /// An internal type used to represent the pointer fields of types like `Vec` and `String`. The
-    /// type arguments make each instance unique but the size is always the size of a pointer on the
-    /// target platform.
-    Pointer {
-        declaration_id: DeclarationId,
-        type_arguments: TypeMembers,
-    },
-
     Projection {
         base_type_id: TypeId,
         trait_declaration_id: DeclarationId,
@@ -417,6 +407,9 @@ pub enum Type {
     Reference {
         referenced_type_id: TypeId,
     },
+
+    /// An internal type used to represent the heap object fields of types like `Vec`.
+    Pointer,
 }
 
 impl Type {
@@ -434,6 +427,7 @@ impl PartialEq for Type {
             (Type::SignedInteger(left), Type::SignedInteger(right)) => left == right,
             (Type::UnsignedInteger(left), Type::UnsignedInteger(right)) => left == right,
             (Type::Float(left), Type::Float(right)) => left == right,
+            (Type::Pointer, Type::Pointer) => true,
             (Type::Never, Type::Never) => true,
             (
                 Type::Tuple {
@@ -512,19 +506,6 @@ impl PartialEq for Type {
                 },
             ) => left_declaration_id == right_declaration_id,
             (
-                Type::Pointer {
-                    declaration_id: left_declaration_id,
-                    type_arguments: left_type_arguments,
-                },
-                Type::Pointer {
-                    declaration_id: right_declaration_id,
-                    type_arguments: right_type_arguments,
-                },
-            ) => {
-                left_declaration_id == right_declaration_id
-                    && left_type_arguments == right_type_arguments
-            }
-            (
                 Type::Projection {
                     base_type_id: left_base_type_id,
                     trait_declaration_id: left_trait_declaration_id,
@@ -590,6 +571,8 @@ impl Ord for Type {
             (Type::UnsignedInteger(_), _) => Ordering::Less,
             (Type::Float(left), Type::Float(right)) => left.cmp(right),
             (Type::Float(_), _) => Ordering::Less,
+            (Type::Pointer, Type::Pointer) => Ordering::Equal,
+            (Type::Pointer, _) => Ordering::Less,
             (Type::Never, Type::Never) => Ordering::Equal,
             (Type::Never, _) => Ordering::Less,
             (
@@ -675,19 +658,6 @@ impl Ord for Type {
                 },
             ) => left_declaration_id.cmp(right_declaration_id),
             (Type::Generic { .. }, _) => Ordering::Less,
-            (
-                Type::Pointer {
-                    declaration_id: left_declaration_id,
-                    type_arguments: left_type_arguments,
-                },
-                Type::Pointer {
-                    declaration_id: right_declaration_id,
-                    type_arguments: right_type_arguments,
-                },
-            ) => left_declaration_id
-                .cmp(right_declaration_id)
-                .then_with(|| left_type_arguments.cmp(right_type_arguments)),
-            (Type::Pointer { .. }, _) => Ordering::Less,
             (
                 Type::Projection {
                     base_type_id: left_base_type_id,
@@ -785,20 +755,23 @@ impl Hash for Type {
             Type::Float(FloatType::F64) => {
                 state.write_u8(15);
             }
-            Type::Never => {
+            Type::Pointer => {
                 state.write_u8(16);
+            }
+            Type::Never => {
+                state.write_u8(17);
             }
             Type::Tuple {
                 element_types: element_type_ids,
             } => {
-                state.write_u8(17);
+                state.write_u8(18);
                 element_type_ids.hash(state);
             }
             Type::Array {
                 element_type_id,
                 length,
             } => {
-                state.write_u8(18);
+                state.write_u8(19);
                 element_type_id.hash(state);
                 length.hash(state);
             }
@@ -806,7 +779,7 @@ impl Hash for Type {
                 declaration_id,
                 type_arguments,
             } => {
-                state.write_u8(19);
+                state.write_u8(20);
                 declaration_id.hash(state);
                 type_arguments.hash(state);
             }
@@ -814,7 +787,7 @@ impl Hash for Type {
                 value_parameters,
                 return_type_id,
             } => {
-                state.write_u8(20);
+                state.write_u8(21);
                 value_parameters.hash(state);
                 return_type_id.hash(state);
             }
@@ -822,7 +795,7 @@ impl Hash for Type {
                 value_parameters,
                 return_type_id: return_type,
             } => {
-                state.write_u8(21);
+                state.write_u8(22);
                 value_parameters.hash(state);
                 return_type.hash(state);
             }
@@ -830,21 +803,13 @@ impl Hash for Type {
                 declaration_id,
                 type_arguments,
             } => {
-                state.write_u8(22);
+                state.write_u8(23);
                 declaration_id.hash(state);
                 type_arguments.hash(state);
             }
             Type::Generic { declaration_id } => {
-                state.write_u8(23);
-                declaration_id.hash(state);
-            }
-            Type::Pointer {
-                declaration_id,
-                type_arguments,
-            } => {
                 state.write_u8(24);
                 declaration_id.hash(state);
-                type_arguments.hash(state);
             }
             Type::Projection {
                 base_type_id,

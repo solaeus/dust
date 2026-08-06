@@ -34,7 +34,6 @@ impl Symbols {
         let hash = {
             let mut hasher = FxHasher::default();
 
-            hasher.write_u8(0);
             name.hash(&mut hasher);
             hasher.finish()
         };
@@ -59,7 +58,6 @@ impl Symbols {
         let hash = {
             let mut hasher = FxHasher::default();
 
-            hasher.write_u8(1);
             index.hash(&mut hasher);
             hasher.finish()
         };
@@ -73,32 +71,52 @@ impl Symbols {
 
         let _ = write!(&mut self.pool, "{index}");
 
-        self.spans
-            .insert(hash, Span::new(start, self.pool.len() as u32));
+        let end = self.pool.len() as u32;
+
+        self.spans.insert(hash, Span::new(start, end));
 
         id
     }
 
-    pub fn add_impl_symbol(&mut self, position: Position) -> SymbolId {
-        let id = SymbolId(self.spans.len() as u32);
+    pub fn add_impl_symbol(&mut self, type_name: &str, position: Position) -> SymbolId {
         let start = self.pool.len();
-
-        let _ = write!(
-            &mut self.pool,
-            "impl@{}:{}",
-            position.code_id.inner(),
-            position.span
-        );
-
+        let id = SymbolId(start as u32);
         let hash = {
             let mut hasher = FxHasher::default();
 
-            hasher.write_u8(2);
             self.pool[start..].hash(&mut hasher);
             hasher.finish()
         };
 
-        self.spans.insert(hash, Span::new(start, self.pool.len()));
+        let _ = write!(
+            &mut self.pool,
+            "impl{type_name}@{}:{}",
+            position.code_id.index(),
+            position.span
+        );
+
+        let end = self.pool.len();
+
+        self.spans.insert(hash, Span::new(start, end));
+
+        id
+    }
+
+    pub fn add_core_impl_symbol(&mut self, type_name: &str) -> SymbolId {
+        let start = self.pool.len();
+        let id = SymbolId(start as u32);
+        let hash = {
+            let mut hasher = FxHasher::default();
+
+            self.pool[start..].hash(&mut hasher);
+            hasher.finish()
+        };
+
+        let _ = write!(&mut self.pool, "{type_name}@core",);
+
+        let end = self.pool.len();
+
+        self.spans.insert(hash, Span::new(start, end));
 
         id
     }

@@ -595,7 +595,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
             self.visit_enum_variant(variant, enum_declaration_id, index as u16)?;
         }
 
-        let variants_scope_id = Some(self.current_scope_id);
+        let variants_scope_id = self.current_scope_id;
 
         self.exit_scope();
         self.exit_scope();
@@ -632,7 +632,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                     let bound_declaration_id = self.visit_path(bound)?;
                     self.context
                         .scopes
-                        .add_to_current_namespace(bound_declaration_id);
+                        .add_to_current_scope(bound_declaration_id);
                 }
 
                 let scope_id = self.current_scope_id;
@@ -882,7 +882,12 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
             body,
         } = reader.as_component()?;
 
-        let impl_symbol_id = self.context.symbols.add_impl_symbol(reader.position());
+        let self_name_str = self.source.get_content(self_name.position())?;
+
+        let impl_symbol_id = self
+            .context
+            .symbols
+            .add_impl_symbol(self_name_str, reader.position());
         let impl_declaration_id = self.context.reserve_declaration_id(
             impl_symbol_id,
             Some((reader.position(), reader.id)),
@@ -1075,7 +1080,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
 
                 self.context
                     .scopes
-                    .add_to_current_namespace(supertrait_declaration_id);
+                    .add_to_current_scope(supertrait_declaration_id);
             }
 
             Some(self.current_scope_id)
@@ -1781,13 +1786,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                 }
             }
             SyntaxKind::SelfType => match self.outer {
-                OuterDeclaration::Impl {
-                    self_declaration_id,
-                    ..
-                } => Ok(self.context.types.add_type(Type::Algebraic {
-                    declaration_id: self_declaration_id,
-                    type_arguments: TypeMembers::default(),
-                })),
+                OuterDeclaration::Impl { self_type_id, .. } => Ok(self_type_id),
                 _ => Err(CompileError::SelfTypeOutsideOfImpl {
                     position: reader.position(),
                 }),

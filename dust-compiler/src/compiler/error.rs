@@ -166,6 +166,7 @@ pub enum CompileError {
         syntax_id: crate::syntax::SyntaxId,
     },
     ExpectedReferenceType(TypeId),
+    ExpectedInstruction,
 }
 
 impl From<SyntaxError> for CompileError {
@@ -763,7 +764,8 @@ impl<'a> DustError<'a> for CompileError {
             | CompileError::UnexpectedType(_)
             | CompileError::ExpectedImplementationDefinition(_)
             | CompileError::CannotPlaceEncodedValue { .. }
-            | CompileError::ExpectedReferenceType(_) => {
+            | CompileError::ExpectedReferenceType(_)
+            | CompileError::ExpectedInstruction => {
                 self.add_internal_report(groups);
             }
         }

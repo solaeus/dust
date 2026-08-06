@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, mem::take, range::Range};
 
 use rustc_hash::FxBuildHasher;
 use smallvec::{SmallVec, smallvec};
@@ -26,8 +26,7 @@ use crate::{
     },
     constants::{ConstantsBuilder, value::ConstantValue},
     instruction::{
-        Address, Drop, Instruction, Jump, MemoryKind, Move, NativeFunction, OperandType, Operation,
-        Test,
+        Address, Drop, Instruction, MemoryKind, Move, NativeFunction, OperandType, Operation, Test,
     },
     optimize_inline_capacity,
     prototype::Prototype,
@@ -72,21 +71,19 @@ pub struct PrototypeEmitter<'a> {
     /// Emitted bytecode instructions, filled during compilation.
     instructions: Vec<Instruction>,
 
+    /// Concatenated lists of register indices that need to be dropped when exiting scopes.
+    drops: Vec<u16>,
+
     /// Local variables declared in the function.
     locals: HashMap<DeclarationId, Local, FxBuildHasher>,
-
-    /// Concatenated lists of register indices that need to be dropped when exiting scopes.
-    pending_drops: Vec<u16>,
-
-    /// Stack of start indices into `pending_drops`. When exiting a drop context, the index is used
-    /// to flush the indices into a DROP instruction.
-    drop_stack: Vec<usize>,
 
     register_tracker: RegisterTracker,
 
     jump_placements: HashMap<JumpId, JumpPlacement, FxBuildHasher>,
 
     jump_over_branch_ids: Vec<JumpId>,
+
+    break_ids: Vec<JumpId>,
 
     next_jump_id: JumpId,
 }
@@ -121,9 +118,8 @@ impl<'a> PrototypeEmitter<'a> {
             prototypes,
             code_id,
             instructions: Vec::new(),
+            drops: Vec::new(),
             locals: HashMap::default(),
-            pending_drops: Vec::new(),
-            drop_stack: Vec::new(),
             argument_count: 0,
             register_tracker: RegisterTracker::new(0, return_register_count),
             return_type_id,
@@ -131,6 +127,7 @@ impl<'a> PrototypeEmitter<'a> {
             return_operand_types,
             jump_placements: HashMap::default(),
             jump_over_branch_ids: Vec::new(),
+            break_ids: Vec::new(),
             next_jump_id: JumpId(0),
         };
 
@@ -284,13 +281,15 @@ impl<'a> PrototypeEmitter<'a> {
     pub fn visit_function_body(&mut self, body: SyntaxReader) -> Result<(), CompileError> {
         trace!("Visiting function body");
 
+        let mut body_instructions = self.create_instruction_range();
+
         let children = body.children();
         let child_count = children.len();
 
         for (index, child) in children.enumerate() {
             if child.node.kind.is_statement() {
                 if let Some(instructions) = self.visit_statement(child)? {
-                    self.handle_function_body_instructions(instructions)?;
+                    body_instructions.merge(instructions);
                 }
 
                 continue;
@@ -303,109 +302,131 @@ impl<'a> PrototypeEmitter<'a> {
                     child,
                     ExpressionTarget::ClaimedRegister(return_registers.clone()),
                 )?;
-                let return_instructions = self.create_return_instructions(
+
+                self.create_return_instructions(
+                    &mut body_instructions,
                     return_expression_emission,
                     return_registers,
                     &child,
                 )?;
 
-                self.handle_function_body_instructions(return_instructions)?;
-
-                continue;
+                break;
             }
 
-            if let Emission::Instructions(instructions) = self.visit_expression(
-                child,
-                ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
-            )? {
-                self.handle_function_body_instructions(instructions)?;
+            if let Emission::Instructions(instructions) =
+                self.visit_expression(child, ExpressionTarget::Any)?
+            {
+                body_instructions.merge(instructions);
             }
         }
 
         if self.instructions.is_empty() {
-            self.emit_instruction(Instruction::r#return());
+            self.emit_instruction(Instruction::r#return(), &mut body_instructions);
         }
 
         Ok(())
     }
 
-    fn emit_instruction(&mut self, instruction: Instruction) {
+    fn create_instruction_range(&self) -> InstructionRange {
+        let instruction_count = self.instructions.len() as u32;
+        let drop_count = self.drops.len() as u32;
+
+        InstructionRange {
+            instructions: Range {
+                start: instruction_count,
+                end: instruction_count,
+            },
+            drops: Range {
+                start: drop_count,
+                end: drop_count,
+            },
+            target_registers: None,
+        }
+    }
+
+    fn emit_instruction(&mut self, instruction: Instruction, range: &mut InstructionRange) {
         trace!("Emitting {} instruction", instruction.operation());
 
         self.instructions.push(instruction);
+
+        range.instructions.end += 1;
     }
 
-    fn enter_drop_context(&mut self) {
-        self.drop_stack.push(self.pending_drops.len());
+    fn discard_instructions(&mut self, count: usize, range: &mut InstructionRange) {
+        debug_assert_eq!(range.instructions.end as usize, self.instructions.len());
+
+        self.instructions.truncate(self.instructions.len() - count);
+
+        range.instructions.end -= count as u32;
     }
 
-    fn add_drop(&mut self, register_index: u16) {
-        self.pending_drops.push(register_index);
-    }
-
-    fn exit_drop_context(&mut self, instructions: &mut Instructions) {
-        let Some(start_index) = self.drop_stack.pop() else {
-            return;
+    fn jump_forward_from_current_instruction(
+        &mut self,
+        id: JumpId,
+        instructions: &mut InstructionRange,
+    ) -> Result<(), CompileError> {
+        let Some(last) = self.instructions.last().copied() else {
+            return Err(CompileError::ExpectedInstruction {});
         };
+        let coalesce = last.is_coallescible_with_jump(true);
 
-        let mut drops = self.pending_drops.drain(start_index..);
-
-        let Some(first_register) = drops.next() else {
-            return;
-        };
-        let (start_register, end_register) = drops.fold(
-            (first_register, first_register + 1),
-            |(min, max), register_index| (min.min(register_index), max.max(register_index + 1)),
-        );
-        let Some((last_instruction, _)) = instructions.instructions.last_mut() else {
-            let drop_instruction = Instruction::drop(start_register, end_register);
-
-            instructions.push(drop_instruction);
-
-            return;
-        };
-
-        match last_instruction.operation() {
-            Operation::DROP => {
-                let Drop {
-                    start_register,
-                    end_register: end_regisrer,
-                } = Drop::from(*last_instruction);
-
-                let register_range = start_register..=end_register;
-
-                if register_range.contains(&start_register)
-                    || register_range.contains(&end_regisrer)
-                {
-                    *last_instruction = Instruction::drop(
-                        start_register.min(start_register),
-                        end_regisrer.max(end_register),
-                    );
-                }
-            }
-            Operation::JUMP => {
-                let Jump {
-                    offset,
-                    is_positive,
-                    drop_register_start: _,
-                    drop_list_end,
-                } = Jump::from(*last_instruction);
-
-                if drop_list_end == 0 {
-                    *last_instruction = Instruction::jump_with_drops(
-                        offset,
-                        is_positive,
-                        start_register,
-                        end_register,
-                    );
-                }
-            }
-            _ => {
-                let drop_instruction = Instruction::drop(start_register, end_register);
-
-                instructions.push(drop_instruction);
-            }
+        if !coalesce {
+            self.emit_instruction(Instruction::no_op(), instructions);
         }
+
+        self.jump_placements.insert(
+            id,
+            JumpPlacement {
+                index: self.instructions.len() - 1,
+                distance: 0,
+                forward: true,
+                coalesce,
+            },
+        );
+
+        Ok(())
+    }
+
+    fn jump_forward_to_next_instruction(&mut self, id: JumpId) -> Result<(), CompileError> {
+        let Some(jump) = self.jump_placements.get_mut(&id) else {
+            return Err(CompileError::ExpectedJumpPlacement(id));
+        };
+
+        jump.distance = (self.instructions.len() - jump.index - 1) as u16;
+
+        Ok(())
+    }
+
+    fn end_loop_on_next_instruction(
+        &mut self,
+        loop_start_index: usize,
+        backward_id: JumpId,
+        instructions: &mut InstructionRange,
+    ) -> Result<(), CompileError> {
+        let last = self
+            .instructions
+            .last()
+            .ok_or(CompileError::ExpectedInstruction)?;
+        let coalesce = last.is_coallescible_with_jump(true);
+
+        if !coalesce {
+            self.emit_instruction(Instruction::no_op(), instructions);
+        }
+
+        let index = self.instructions.len() - 1;
+        let distance = (index - loop_start_index - 1) as u16;
+
+        self.jump_placements.insert(
+            backward_id,
+            JumpPlacement {
+                index,
+                distance,
+                forward: false,
+                coalesce,
+            },
+        );
+
+        Ok(())
     }
 
     fn create_jump_id(&mut self) -> JumpId {
@@ -593,7 +614,7 @@ impl<'a> PrototypeEmitter<'a> {
     fn claim_register_for_target(
         &mut self,
         target: ExpressionTarget,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
     ) -> Result<(u16, Option<RegisterClaims>), CompileError> {
         match target {
             ExpressionTarget::ClaimedRegister(register_claims) => Ok((
@@ -601,7 +622,7 @@ impl<'a> PrototypeEmitter<'a> {
                 Some(register_claims),
             )),
             ExpressionTarget::UnclaimedRegister(register_kind) => {
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
                 if matches!(type_id, TypeId::UNIT | TypeId::NEVER) {
                     Ok((u16::MAX, None))
@@ -612,7 +633,7 @@ impl<'a> PrototypeEmitter<'a> {
                 }
             }
             ExpressionTarget::Any => {
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
                 if matches!(type_id, TypeId::UNIT | TypeId::NEVER) {
                     Ok((u16::MAX, None))
@@ -681,7 +702,7 @@ impl<'a> PrototypeEmitter<'a> {
     fn place_emission(
         &mut self,
         source_emission: Emission,
-        target_instructions: &mut Instructions,
+        target_instructions: &mut InstructionRange,
         syntax: &SyntaxReader,
     ) -> Result<Place, CompileError> {
         match source_emission {
@@ -704,13 +725,8 @@ impl<'a> PrototypeEmitter<'a> {
                 }
             }
             Emission::Place(place) => Ok(place),
-            Emission::Instructions(Instructions {
-                target_registers,
-                instructions,
-                pending_drops,
-            }) => {
-                target_instructions.instructions.extend(instructions);
-                target_instructions.pending_drops.extend(pending_drops);
+            Emission::Instructions(instructions) => {
+                let target_registers = target_instructions.extend(instructions);
 
                 if let Some(registers) = target_registers {
                     Ok(Place::Registers(registers))
@@ -738,15 +754,15 @@ impl<'a> PrototypeEmitter<'a> {
     ) -> Result<Emission, CompileError> {
         match target {
             ExpressionTarget::ClaimedRegister(registers) => {
+                let mut instructions = self.create_instruction_range();
                 let register = registers.expect_single()?;
                 let operand = self.materialize_value(value)?;
                 let move_instruction =
                     Instruction::r#move(register.index, register.operand_type, operand);
 
-                let mut instructions = Instructions::new();
+                self.emit_instruction(move_instruction, &mut instructions);
 
-                instructions.push(move_instruction);
-                instructions.set_target(Some(registers));
+                instructions.target_registers = Some(registers);
 
                 Ok(Emission::Instructions(instructions))
             }
@@ -767,7 +783,7 @@ impl<'a> PrototypeEmitter<'a> {
                     return Ok(Emission::Place(Place::Registers(source_registers)));
                 }
 
-                let mut instructions = Instructions::new();
+                let mut instructions = self.create_instruction_range();
 
                 for (destination, operand) in
                     target_registers.claims.iter().zip(&source_registers.claims)
@@ -778,7 +794,7 @@ impl<'a> PrototypeEmitter<'a> {
                         Address::new(MemoryKind::REGISTER, operand.index),
                     );
 
-                    instructions.push(move_instruction);
+                    self.emit_instruction(move_instruction, &mut instructions);
                 }
 
                 instructions.target_registers = Some(source_registers);
@@ -789,117 +805,10 @@ impl<'a> PrototypeEmitter<'a> {
         }
     }
 
-    fn handle_function_body_instructions(
-        &mut self,
-        instructions: Instructions,
-    ) -> Result<(), CompileError> {
-        for (instruction, mut jump_anchors) in instructions.instructions {
-            self.emit_instruction(instruction);
-
-            jump_anchors.sort();
-
-            for anchor in jump_anchors {
-                match anchor {
-                    JumpAnchor::ForwardFromHere { id } => {
-                        let coalesce = if instruction.is_coallescible_with_jump(true) {
-                            true
-                        } else {
-                            self.emit_instruction(Instruction::no_op());
-
-                            false
-                        };
-
-                        self.jump_placements.insert(
-                            id,
-                            JumpPlacement {
-                                index: self.instructions.len() - 1,
-                                distance: 0,
-                                forward: true,
-                                coalesce,
-                            },
-                        );
-                    }
-                    JumpAnchor::ForwardToNext { id } => {
-                        let placement = self
-                            .jump_placements
-                            .get_mut(&id)
-                            .ok_or(CompileError::ExpectedJumpPlacement(id))?;
-                        let next_index = self.instructions.len();
-
-                        placement.distance = (next_index - placement.index - 1) as u16;
-                    }
-                    JumpAnchor::LoopStartHere { forward_id } => {
-                        let coalesce = if instruction.is_coallescible_with_jump(true) {
-                            true
-                        } else {
-                            self.emit_instruction(Instruction::no_op());
-
-                            false
-                        };
-
-                        self.jump_placements.insert(
-                            forward_id,
-                            JumpPlacement {
-                                index: self.instructions.len() - 1,
-                                distance: 0,
-                                forward: true,
-                                coalesce,
-                            },
-                        );
-                    }
-                    JumpAnchor::LoopEndOnNext {
-                        forward_id,
-                        backward_id,
-                    } => {
-                        let next_index = self.instructions.len();
-                        let forward_index = self
-                            .jump_placements
-                            .get(&forward_id)
-                            .ok_or(CompileError::ExpectedJumpPlacement(forward_id))?
-                            .index;
-                        let coalesce = if instruction.is_coallescible_with_jump(false) {
-                            true
-                        } else {
-                            self.emit_instruction(Instruction::no_op());
-
-                            false
-                        };
-
-                        let forward_distance = if coalesce {
-                            (next_index - forward_index - 1) as u16
-                        } else {
-                            (next_index - forward_index) as u16
-                        };
-
-                        let forward_placement = self
-                            .jump_placements
-                            .get_mut(&forward_id)
-                            .ok_or(CompileError::ExpectedJumpPlacement(forward_id))?;
-
-                        forward_placement.distance = forward_distance;
-
-                        let backward_distance =
-                            (self.instructions.len() - forward_index - 1) as u16;
-                        let backward_placement = JumpPlacement {
-                            index: self.instructions.len() - 1,
-                            distance: backward_distance,
-                            forward: false,
-                            coalesce,
-                        };
-
-                        self.jump_placements.insert(backward_id, backward_placement);
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-
     fn handle_operand_emission(
         &mut self,
-        instructions: &mut Instructions,
         emission: Emission,
+        instructions: &mut InstructionRange,
         operand: &SyntaxReader,
     ) -> Result<Address, CompileError> {
         match emission {
@@ -931,7 +840,7 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn handle_condition_emission(
         &mut self,
-        target_instructions: &mut Instructions,
+        target_instructions: &mut InstructionRange,
         emission: Emission,
         condition: &SyntaxReader,
         comparator: bool,
@@ -941,7 +850,7 @@ impl<'a> PrototypeEmitter<'a> {
                 let operand = Address::new(MemoryKind::ENCODED, boolean as u16);
                 let test_instruction = Instruction::test(comparator, operand, 0);
 
-                target_instructions.push(test_instruction);
+                self.emit_instruction(test_instruction, target_instructions);
 
                 Ok(())
             }
@@ -949,7 +858,7 @@ impl<'a> PrototypeEmitter<'a> {
                 let test_instruction =
                     Instruction::test(comparator, Address::new(MemoryKind::CONSTANT, index), 0);
 
-                target_instructions.push(test_instruction);
+                self.emit_instruction(test_instruction, target_instructions);
 
                 Ok(())
             }
@@ -957,38 +866,36 @@ impl<'a> PrototypeEmitter<'a> {
                 let operand = Address::new(MemoryKind::REGISTER, allocation.base_index()?);
                 let test_instruction = Instruction::test(comparator, operand, 0);
 
-                target_instructions.push(test_instruction);
+                self.emit_instruction(test_instruction, target_instructions);
 
                 Ok(())
             }
-            Emission::Instructions(Instructions {
-                mut instructions,
-                target_registers,
-                pending_drops,
-            }) => {
-                let length = instructions.len();
+            Emission::Instructions(instruction_range) => {
+                let length = self.instructions.len();
+
+                let target_registers = target_instructions.extend(instruction_range);
 
                 if length >= 3 {
-                    let condition_instruction = &mut instructions[length - 3].0;
+                    let condition_instruction = &mut self.instructions[length - 3];
 
                     match condition_instruction.operation() {
                         Operation::LESS | Operation::LESS_EQUAL | Operation::EQUAL => {
-                            instructions.truncate(length - 2);
+                            self.discard_instructions(2, target_instructions);
 
                             if let Some(registers) = &target_registers {
                                 self.register_tracker.deallocate(registers);
                             }
                         }
                         Operation::TEST
-                            if instructions[length - 2].0.operation() == Operation::MOVE
-                                && instructions[length - 1].0.operation() == Operation::MOVE =>
+                            if self.instructions[length - 2].operation() == Operation::MOVE
+                                && self.instructions[length - 1].operation() == Operation::MOVE =>
                         {
-                            let first_move_instruction = instructions[length - 2].0;
+                            let first_move_instruction = self.instructions[length - 2];
                             let operand = Move::from(first_move_instruction).operand;
                             let new_test_instruction = Instruction::test(comparator, operand, 1);
 
-                            instructions.truncate(length - 3);
-                            instructions.push((new_test_instruction, SmallVec::new()));
+                            self.discard_instructions(3, target_instructions);
+                            self.emit_instruction(new_test_instruction, target_instructions);
 
                             if let Some(registers) = &target_registers {
                                 self.register_tracker.deallocate(registers);
@@ -1010,7 +917,7 @@ impl<'a> PrototypeEmitter<'a> {
                             };
                             let test_instruction = Instruction::test(comparator, operand, 1);
 
-                            instructions.push((test_instruction, SmallVec::new()));
+                            self.emit_instruction(test_instruction, target_instructions);
                         }
                     }
                 } else {
@@ -1029,12 +936,8 @@ impl<'a> PrototypeEmitter<'a> {
                     };
                     let test_instruction = Instruction::test(comparator, operand, 1);
 
-                    instructions.push((test_instruction, SmallVec::new()));
+                    self.emit_instruction(test_instruction, target_instructions);
                 }
-
-                target_instructions.instructions.extend(instructions);
-                target_instructions.pending_drops.extend(pending_drops);
-                target_instructions.target_registers = target_registers;
 
                 Ok(())
             }
@@ -1051,7 +954,7 @@ impl<'a> PrototypeEmitter<'a> {
     fn handle_branch_emission(
         &mut self,
         branch_emission: Emission,
-        instructions: &mut Instructions,
+        instructions: &mut InstructionRange,
         syntax: &SyntaxReader,
     ) -> Result<(), CompileError> {
         match branch_emission {
@@ -1069,30 +972,29 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn create_return_instructions(
         &mut self,
+        instructions: &mut InstructionRange,
         expression_emission: Emission,
         registers: RegisterClaims,
         syntax: &SyntaxReader,
-    ) -> Result<Instructions, CompileError> {
+    ) -> Result<(), CompileError> {
         match expression_emission {
             Emission::Value(value) => {
-                let mut return_instructions = Instructions::new();
                 let operand = self.materialize_value(value)?;
                 let move_instruction =
                     Instruction::r#move(registers.base_index()?, value.operand_type(), operand);
 
-                return_instructions.push(move_instruction);
-                return_instructions.push(Instruction::r#return());
-                return_instructions.set_target(Some(registers));
+                self.emit_instruction(move_instruction, instructions);
+                self.emit_instruction(Instruction::r#return(), instructions);
 
-                Ok(return_instructions)
+                instructions.target_registers = Some(registers);
+
+                Ok(())
             }
             Emission::Place(Place::Registers(emission_registers)) => {
-                let mut return_instructions = Instructions::new();
-
                 if emission_registers.kind != RegisterKind::Reserved {
-                    return_instructions.push(Instruction::r#return());
+                    self.emit_instruction(Instruction::r#return(), instructions);
 
-                    return Ok(return_instructions);
+                    return Ok(());
                 }
 
                 for (emission_register, target_register) in
@@ -1108,38 +1010,38 @@ impl<'a> PrototypeEmitter<'a> {
                         emission_register.address(),
                     );
 
-                    return_instructions.push(move_instruction);
+                    self.emit_instruction(move_instruction, instructions);
                 }
 
-                return_instructions.push(Instruction::r#return());
+                self.emit_instruction(Instruction::r#return(), instructions);
 
-                Ok(return_instructions)
+                Ok(())
             }
             Emission::Place(
                 place @ Place::Constant { operand_type, .. }
                 | place @ Place::Encoded { operand_type, .. },
             ) => {
-                let mut return_instructions = Instructions::new();
                 let move_instruction =
                     Instruction::r#move(registers.base_index()?, operand_type, place.address()?);
 
-                return_instructions.push(move_instruction);
-                return_instructions.push(Instruction::r#return());
-                return_instructions.set_target(Some(registers));
+                self.emit_instruction(move_instruction, instructions);
+                self.emit_instruction(Instruction::r#return(), instructions);
 
-                Ok(return_instructions)
+                instructions.target_registers = Some(registers);
+
+                Ok(())
             }
-            Emission::Instructions(mut emission_instructions) => {
-                emission_instructions.push(Instruction::r#return());
+            Emission::Instructions(emission_instructions) => {
+                instructions.merge(emission_instructions);
 
-                Ok(emission_instructions)
+                self.emit_instruction(Instruction::r#return(), instructions);
+
+                Ok(())
             }
             Emission::Never | Emission::None => {
-                let mut return_instructions = Instructions::new();
+                self.emit_instruction(Instruction::r#return(), instructions);
 
-                return_instructions.push(Instruction::r#return());
-
-                Ok(return_instructions)
+                Ok(())
             }
             Emission::NativeFunction(_) => Err(CompileError::ExpectedNativeFunctionCall {
                 position: syntax.position(),
@@ -1149,10 +1051,10 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn visit_statement(
         &mut self,
-        reader: SyntaxReader,
-    ) -> Result<Option<Instructions>, CompileError> {
-        match reader.node.kind {
-            SyntaxKind::ConstItem => self.visit_const_item(reader).map(|()| None),
+        syntax: SyntaxReader,
+    ) -> Result<Option<InstructionRange>, CompileError> {
+        match syntax.node.kind {
+            SyntaxKind::ConstItem => self.visit_const_item(syntax).map(|()| None),
             SyntaxKind::ModItem
             | SyntaxKind::FunctionItem
             | SyntaxKind::UseItem
@@ -1161,45 +1063,45 @@ impl<'a> PrototypeEmitter<'a> {
             | SyntaxKind::TypeItem
             | SyntaxKind::ImplItem
             | SyntaxKind::TraitItem => Ok(None),
-            SyntaxKind::LetStatement => self.visit_let_statement(reader),
-            SyntaxKind::ExpressionStatement => self.visit_expression_statement(reader),
+            SyntaxKind::LetStatement => self.visit_let_statement(syntax),
+            SyntaxKind::ExpressionStatement => self.visit_expression_statement(syntax),
             _ => Err(CompileError::UnexpectedSyntax {
-                found: reader.node.kind,
+                found: syntax.node.kind,
             }),
         }
     }
 
     fn visit_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
-        match reader.node.kind {
-            SyntaxKind::AssignmentExpression => self.visit_assignment_expression(reader, target),
-            SyntaxKind::BooleanExpression => self.visit_boolean_expression(reader, target),
-            SyntaxKind::HexadecimalExpression => self.visit_hexadecimal_expression(reader, target),
-            SyntaxKind::CharacterExpression => self.visit_character_expression(reader, target),
-            SyntaxKind::FloatExpression => self.visit_float_expression(reader, target),
-            SyntaxKind::IntegerExpression => self.visit_integer_expression(reader, target),
-            SyntaxKind::StringExpression => self.visit_string_expression(reader, target),
-            SyntaxKind::ArrayExpression => self.visit_array_expression(reader, target),
-            SyntaxKind::ArrayRepeatExpression => self.visit_array_repeat_expression(reader, target),
-            SyntaxKind::IndexExpression => self.visit_index_expression(reader, target),
+        match syntax.node.kind {
+            SyntaxKind::AssignmentExpression => self.visit_assignment_expression(syntax, target),
+            SyntaxKind::BooleanExpression => self.visit_boolean_expression(syntax, target),
+            SyntaxKind::HexadecimalExpression => self.visit_hexadecimal_expression(syntax, target),
+            SyntaxKind::CharacterExpression => self.visit_character_expression(syntax, target),
+            SyntaxKind::FloatExpression => self.visit_float_expression(syntax, target),
+            SyntaxKind::IntegerExpression => self.visit_integer_expression(syntax, target),
+            SyntaxKind::StringExpression => self.visit_string_expression(syntax, target),
+            SyntaxKind::ArrayExpression => self.visit_array_expression(syntax, target),
+            SyntaxKind::ArrayRepeatExpression => self.visit_array_repeat_expression(syntax, target),
+            SyntaxKind::IndexExpression => self.visit_index_expression(syntax, target),
             SyntaxKind::RangeExpression | SyntaxKind::RangeInclusiveExpression => {
-                self.visit_range_expression(reader, target)
+                self.visit_range_expression(syntax, target)
             }
-            SyntaxKind::PathExpression => self.visit_path_expression(reader, target),
-            SyntaxKind::StructExpression => self.visit_struct_expression(reader, target),
-            SyntaxKind::GroupedExpression => self.visit_grouped_expression(reader, target),
-            SyntaxKind::BlockExpression => self.visit_block_expression(reader, target),
-            SyntaxKind::IfExpression => self.visit_if_expression(reader, target),
-            SyntaxKind::NegationExpression => self.visit_negation_expression(reader, target),
-            SyntaxKind::NotExpression => self.visit_not_expression(reader, target),
-            SyntaxKind::WhileExpression => self.visit_while_expression(reader, target),
-            SyntaxKind::BreakExpression => self.visit_break_expression(reader, target),
-            SyntaxKind::CallExpression => self.visit_call_expression(reader, target),
-            SyntaxKind::MethodCallExpression => self.visit_method_call_expression(reader, target),
-            SyntaxKind::FieldAccessExpression => self.visit_field_access_expression(reader, target),
+            SyntaxKind::PathExpression => self.visit_path_expression(syntax, target),
+            SyntaxKind::StructExpression => self.visit_struct_expression(syntax, target),
+            SyntaxKind::GroupedExpression => self.visit_grouped_expression(syntax, target),
+            SyntaxKind::BlockExpression => self.visit_block_expression(syntax, target),
+            SyntaxKind::IfExpression => self.visit_if_expression(syntax, target),
+            SyntaxKind::NegationExpression => self.visit_negation_expression(syntax, target),
+            SyntaxKind::NotExpression => self.visit_not_expression(syntax, target),
+            SyntaxKind::WhileExpression => self.visit_while_expression(syntax, target),
+            SyntaxKind::BreakExpression => self.visit_break_expression(syntax, target),
+            SyntaxKind::CallExpression => self.visit_call_expression(syntax, target),
+            SyntaxKind::MethodCallExpression => self.visit_method_call_expression(syntax, target),
+            SyntaxKind::FieldAccessExpression => self.visit_field_access_expression(syntax, target),
             SyntaxKind::AdditionExpression
             | SyntaxKind::AdditionAssignmentExpression
             | SyntaxKind::SubtractionExpression
@@ -1212,21 +1114,21 @@ impl<'a> PrototypeEmitter<'a> {
             | SyntaxKind::ModuloAssignmentExpression
             | SyntaxKind::ExponentExpression
             | SyntaxKind::ExponentAssignmentExpression => {
-                self.visit_math_expression(reader, target)
+                self.visit_math_expression(syntax, target)
             }
             SyntaxKind::GreaterThanExpression
             | SyntaxKind::LessThanExpression
             | SyntaxKind::GreaterThanOrEqualExpression
             | SyntaxKind::LessThanOrEqualExpression
             | SyntaxKind::EqualExpression
-            | SyntaxKind::NotEqualExpression => self.visit_comparison_expression(reader, target),
-            SyntaxKind::SelfExpression => self.visit_self_expression(reader, target),
+            | SyntaxKind::NotEqualExpression => self.visit_comparison_expression(syntax, target),
+            SyntaxKind::SelfExpression => self.visit_self_expression(syntax, target),
             SyntaxKind::AndExpression | SyntaxKind::OrExpression => {
-                self.visit_logic_expression(reader, target)
+                self.visit_logic_expression(syntax, target)
             }
-            SyntaxKind::ReferenceExpression => self.visit_reference_expression(reader, target),
+            SyntaxKind::ReferenceExpression => self.visit_reference_expression(syntax, target),
             _ => Err(CompileError::UnexpectedSyntax {
-                found: reader.node.kind,
+                found: syntax.node.kind,
             }),
         }
     }
@@ -1266,7 +1168,7 @@ impl<'a> PrototypeEmitter<'a> {
     fn visit_let_statement(
         &mut self,
         syntax: SyntaxReader,
-    ) -> Result<Option<Instructions>, CompileError> {
+    ) -> Result<Option<InstructionRange>, CompileError> {
         trace!("Visiting let statement");
 
         let LetStatement {
@@ -1307,27 +1209,24 @@ impl<'a> PrototypeEmitter<'a> {
 
                 Ok(None)
             }
-            Emission::Instructions(Instructions {
-                instructions,
-                target_registers,
-                pending_drops,
-            }) => {
+            Emission::Instructions(mut instructions) => {
                 let declaration_id = *self
                     .context
                     .get_declaration_binding(&(self.code_id, name.id))?;
-                let registers = target_registers.ok_or_else(|| CompileError::ExpectedValue {
-                    code_id: expression.code_id(),
-                    syntax_id: expression.id,
-                })?;
+                let registers =
+                    instructions
+                        .target_registers
+                        .ok_or_else(|| CompileError::ExpectedValue {
+                            code_id: expression.code_id(),
+                            syntax_id: expression.id,
+                        })?;
 
                 self.locals
                     .insert(declaration_id, Local::Place(Place::Registers(registers)));
 
-                Ok(Some(Instructions {
-                    instructions,
-                    target_registers: None,
-                    pending_drops,
-                }))
+                instructions.target_registers = None;
+
+                Ok(Some(instructions))
             }
             Emission::Never | Emission::None => Ok(None),
             Emission::NativeFunction(_) => Err(CompileError::ExpectedNativeFunctionCall {
@@ -1338,14 +1237,14 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn visit_assignment_expression(
         &mut self,
-        reader: SyntaxReader<'_>,
+        syntax: SyntaxReader<'_>,
         _: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting assignment expression");
 
-        let AssignmentExpression { target, source } = reader.as_component()?;
+        let AssignmentExpression { target, source } = syntax.as_component()?;
 
-        let mut assignment_instructions = Instructions::new();
+        let mut assignment_instructions = self.create_instruction_range();
 
         let target_registers = match target.node.kind {
             SyntaxKind::PathExpression => {
@@ -1433,7 +1332,7 @@ impl<'a> PrototypeEmitter<'a> {
                     source_place.address()?,
                 );
 
-                assignment_instructions.push(set_instruction);
+                self.emit_instruction(set_instruction, &mut assignment_instructions);
 
                 return Ok(Emission::Instructions(assignment_instructions));
             }
@@ -1473,11 +1372,7 @@ impl<'a> PrototypeEmitter<'a> {
                 let move_instruction =
                     Instruction::r#move(target_registers.base_index()?, operand_type, operand);
 
-                assignment_instructions.push(move_instruction);
-
-                if operand_type == OperandType::POINTER {
-                    self.add_drop(operand.index);
-                }
+                self.emit_instruction(move_instruction, &mut assignment_instructions);
             }
             Emission::Place(
                 place @ Place::Constant { operand_type, .. }
@@ -1487,11 +1382,7 @@ impl<'a> PrototypeEmitter<'a> {
                     let move_instruction =
                         Instruction::r#move(destination.index, operand_type, place.address()?);
 
-                    assignment_instructions.push(move_instruction);
-
-                    if destination.operand_type == OperandType::POINTER {
-                        self.add_drop(destination.index);
-                    }
+                    self.emit_instruction(move_instruction, &mut assignment_instructions);
                 }
             }
             Emission::Place(Place::Registers(operand_allocation)) => {
@@ -1506,16 +1397,16 @@ impl<'a> PrototypeEmitter<'a> {
                         Address::new(MemoryKind::REGISTER, operand.index),
                     );
 
-                    assignment_instructions.push(move_instruction);
+                    self.emit_instruction(move_instruction, &mut assignment_instructions)
                 }
             }
             Emission::Instructions(instructions) => {
                 assignment_instructions.merge(instructions);
-                assignment_instructions.set_target(None);
+                assignment_instructions.target_registers = None;
             }
             Emission::NativeFunction(_) => {
                 return Err(CompileError::ExpectedNativeFunctionCall {
-                    position: reader.position(),
+                    position: syntax.position(),
                 });
             }
             Emission::Never | Emission::None => {
@@ -1532,7 +1423,7 @@ impl<'a> PrototypeEmitter<'a> {
     fn visit_expression_statement(
         &mut self,
         syntax: SyntaxReader<'_>,
-    ) -> Result<Option<Instructions>, CompileError> {
+    ) -> Result<Option<InstructionRange>, CompileError> {
         trace!("Visiting expression statement");
 
         let ExpressionStatement { expression } = syntax.as_component()?;
@@ -1543,7 +1434,7 @@ impl<'a> PrototypeEmitter<'a> {
         )?;
 
         if let Emission::Instructions(mut instructions_emission) = expression_emission {
-            instructions_emission.set_target(None);
+            instructions_emission.target_registers = None;
 
             Ok(Some(instructions_emission))
         } else {
@@ -1553,40 +1444,40 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn visit_boolean_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting boolean expression");
 
-        let boolean = reader.node.flags.get_flag(SyntaxFlags::TRUE);
+        let boolean = syntax.node.flags.get_flag(SyntaxFlags::TRUE);
 
         self.create_emission_from_value(ConstantValue::Boolean(boolean), target)
     }
 
     fn visit_hexadecimal_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting hexadecimal expression");
 
         let bytes = &self
             .source
-            .get_code(reader.code_id())
-            .get_bytes(reader.node.span)?[2..];
-        let byte = create_u8_from_hexadecimal(bytes, reader)?;
+            .get_code(syntax.code_id())
+            .get_bytes(syntax.node.span)?[2..];
+        let byte = create_u8_from_hexadecimal(bytes, syntax)?;
 
         self.create_emission_from_value(ConstantValue::U8(byte), target)
     }
 
     fn visit_character_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting character expression");
 
-        let text = self.source.get_content(reader.position().shrink(1))?;
+        let text = self.source.get_content(syntax.position().shrink(1))?;
         let character = create_char(text)?;
 
         self.create_emission_from_value(ConstantValue::Character(character), target)
@@ -1594,28 +1485,28 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn visit_float_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting float expression");
 
         let type_id = {
-            let raw = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+            let raw = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
             self.context.get_inferred_type_id(raw)?
         };
         let bytes = self
             .source
-            .get_code(reader.code_id())
-            .get_bytes(reader.node.span)?;
+            .get_code(syntax.code_id())
+            .get_bytes(syntax.node.span)?;
         let value = match type_id {
             TypeId::F_32 => {
-                let float = create_f32_from_decimal(bytes, reader)?;
+                let float = create_f32_from_decimal(bytes, syntax)?;
 
                 ConstantValue::F32(float)
             }
             TypeId::F_64 => {
-                let float = create_f64_from_decimal(bytes, reader)?;
+                let float = create_f64_from_decimal(bytes, syntax)?;
 
                 ConstantValue::F64(float)
             }
@@ -1625,10 +1516,10 @@ impl<'a> PrototypeEmitter<'a> {
 
                     match register.operand_type {
                         OperandType::F_32 => {
-                            ConstantValue::F32(create_f32_from_decimal(bytes, reader)?)
+                            ConstantValue::F32(create_f32_from_decimal(bytes, syntax)?)
                         }
                         OperandType::F_64 => {
-                            ConstantValue::F64(create_f64_from_decimal(bytes, reader)?)
+                            ConstantValue::F64(create_f64_from_decimal(bytes, syntax)?)
                         }
                         _ => {
                             return Err(CompileError::InvalidTypeBinding(type_id));
@@ -1636,7 +1527,7 @@ impl<'a> PrototypeEmitter<'a> {
                     }
                 }
                 _ => {
-                    let float = create_f32_from_decimal(bytes, reader)?;
+                    let float = create_f32_from_decimal(bytes, syntax)?;
 
                     ConstantValue::F32(float)
                 }
@@ -1648,43 +1539,43 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn visit_integer_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting integer expression");
 
         let type_id = {
-            let raw = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+            let raw = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
             self.context.get_inferred_type_id(raw)?
         };
         let bytes = self
             .source
-            .get_code(reader.code_id())
-            .get_bytes(reader.node.span)?;
+            .get_code(syntax.code_id())
+            .get_bytes(syntax.node.span)?;
         let value = match type_id {
-            TypeId::I_8 => ConstantValue::I8(create_i8_from_decimal(bytes, reader)?),
-            TypeId::I_16 => ConstantValue::I16(create_i16_from_decimal(bytes, reader)?),
-            TypeId::I_32 => ConstantValue::I32(create_i32_from_decimal(bytes, reader)?),
-            TypeId::I_64 => ConstantValue::I64(create_i64_from_decimal(bytes, reader)?),
-            TypeId::I_128 => ConstantValue::I128(create_i128_from_decimal(bytes, reader)?),
+            TypeId::I_8 => ConstantValue::I8(create_i8_from_decimal(bytes, syntax)?),
+            TypeId::I_16 => ConstantValue::I16(create_i16_from_decimal(bytes, syntax)?),
+            TypeId::I_32 => ConstantValue::I32(create_i32_from_decimal(bytes, syntax)?),
+            TypeId::I_64 => ConstantValue::I64(create_i64_from_decimal(bytes, syntax)?),
+            TypeId::I_128 => ConstantValue::I128(create_i128_from_decimal(bytes, syntax)?),
             TypeId::I_SIZE => {
                 if cfg!(target_pointer_width = "64") {
-                    ConstantValue::I64(create_i64_from_decimal(bytes, reader)?)
+                    ConstantValue::I64(create_i64_from_decimal(bytes, syntax)?)
                 } else {
-                    ConstantValue::I32(create_i32_from_decimal(bytes, reader)?)
+                    ConstantValue::I32(create_i32_from_decimal(bytes, syntax)?)
                 }
             }
-            TypeId::U_8 => ConstantValue::U8(create_u8_from_decimal(bytes, reader)?),
-            TypeId::U_16 => ConstantValue::U16(create_u16_from_decimal(bytes, reader)?),
-            TypeId::U_32 => ConstantValue::U32(create_u32_from_decimal(bytes, reader)?),
-            TypeId::U_64 => ConstantValue::U64(create_u64_from_decimal(bytes, reader)?),
-            TypeId::U_128 => ConstantValue::U128(create_u128_from_decimal(bytes, reader)?),
+            TypeId::U_8 => ConstantValue::U8(create_u8_from_decimal(bytes, syntax)?),
+            TypeId::U_16 => ConstantValue::U16(create_u16_from_decimal(bytes, syntax)?),
+            TypeId::U_32 => ConstantValue::U32(create_u32_from_decimal(bytes, syntax)?),
+            TypeId::U_64 => ConstantValue::U64(create_u64_from_decimal(bytes, syntax)?),
+            TypeId::U_128 => ConstantValue::U128(create_u128_from_decimal(bytes, syntax)?),
             TypeId::U_SIZE => {
                 if cfg!(target_pointer_width = "64") {
-                    ConstantValue::U64(create_u64_from_decimal(bytes, reader)?)
+                    ConstantValue::U64(create_u64_from_decimal(bytes, syntax)?)
                 } else {
-                    ConstantValue::U32(create_u32_from_decimal(bytes, reader)?)
+                    ConstantValue::U32(create_u32_from_decimal(bytes, syntax)?)
                 }
             }
             _ => match &target {
@@ -1693,41 +1584,41 @@ impl<'a> PrototypeEmitter<'a> {
 
                     match register.operand_type {
                         OperandType::I_8 => {
-                            ConstantValue::I8(create_i8_from_decimal(bytes, reader)?)
+                            ConstantValue::I8(create_i8_from_decimal(bytes, syntax)?)
                         }
                         OperandType::I_16 => {
-                            ConstantValue::I16(create_i16_from_decimal(bytes, reader)?)
+                            ConstantValue::I16(create_i16_from_decimal(bytes, syntax)?)
                         }
                         OperandType::I_32 => {
-                            ConstantValue::I32(create_i32_from_decimal(bytes, reader)?)
+                            ConstantValue::I32(create_i32_from_decimal(bytes, syntax)?)
                         }
                         OperandType::I_64 => {
-                            ConstantValue::I64(create_i64_from_decimal(bytes, reader)?)
+                            ConstantValue::I64(create_i64_from_decimal(bytes, syntax)?)
                         }
                         OperandType::I_128 => {
-                            ConstantValue::I128(create_i128_from_decimal(bytes, reader)?)
+                            ConstantValue::I128(create_i128_from_decimal(bytes, syntax)?)
                         }
                         OperandType::U_8 => {
-                            ConstantValue::U8(create_u8_from_decimal(bytes, reader)?)
+                            ConstantValue::U8(create_u8_from_decimal(bytes, syntax)?)
                         }
                         OperandType::U_16 => {
-                            ConstantValue::U16(create_u16_from_decimal(bytes, reader)?)
+                            ConstantValue::U16(create_u16_from_decimal(bytes, syntax)?)
                         }
                         OperandType::U_32 => {
-                            ConstantValue::U32(create_u32_from_decimal(bytes, reader)?)
+                            ConstantValue::U32(create_u32_from_decimal(bytes, syntax)?)
                         }
                         OperandType::U_64 => {
-                            ConstantValue::U64(create_u64_from_decimal(bytes, reader)?)
+                            ConstantValue::U64(create_u64_from_decimal(bytes, syntax)?)
                         }
                         OperandType::U_128 => {
-                            ConstantValue::U128(create_u128_from_decimal(bytes, reader)?)
+                            ConstantValue::U128(create_u128_from_decimal(bytes, syntax)?)
                         }
                         _ => {
                             return Err(CompileError::InvalidTypeBinding(type_id));
                         }
                     }
                 }
-                _ => ConstantValue::I32(create_i32_from_decimal(bytes, reader)?),
+                _ => ConstantValue::I32(create_i32_from_decimal(bytes, syntax)?),
             },
         };
 
@@ -1746,24 +1637,24 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn visit_array_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting array expression");
 
-        let ArrayExpression { elements } = reader.as_component()?;
+        let ArrayExpression { elements } = syntax.as_component()?;
 
-        let mut array_instructions = Instructions::new();
+        let mut array_instructions = self.create_instruction_range();
 
         let array_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
                 self.claim_registers(type_id, register_kind)?
             }
             ExpressionTarget::Any => {
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
                 self.claim_registers(type_id, RegisterKind::Temporary)?
             }
@@ -1786,23 +1677,23 @@ impl<'a> PrototypeEmitter<'a> {
             }
         }
 
-        array_instructions.set_target(Some(array_registers));
+        array_instructions.target_registers = Some(array_registers);
 
         Ok(Emission::Instructions(array_instructions))
     }
 
     fn visit_array_repeat_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting array repeat expression");
 
-        let ArrayRepeatExpression { element, .. } = reader.as_component()?;
+        let ArrayRepeatExpression { element, .. } = syntax.as_component()?;
 
-        let mut array_instructions = Instructions::new();
+        let mut array_instructions = self.create_instruction_range();
 
-        let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+        let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
         let array_length = if let Type::Array { length, .. } = *self.context.types.get_type(type_id)
         {
             length
@@ -1845,23 +1736,25 @@ impl<'a> PrototypeEmitter<'a> {
                     source_register.address(),
                 );
 
-                array_instructions.push(move_instruction);
+                self.emit_instruction(move_instruction, &mut array_instructions);
             }
         }
 
-        array_instructions.set_target(Some(array_registers));
+        array_instructions.target_registers = Some(array_registers);
 
         Ok(Emission::Instructions(array_instructions))
     }
 
     fn visit_index_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting index expression");
 
-        let IndexExpression { collection, index } = reader.as_component()?;
+        let IndexExpression { collection, index } = syntax.as_component()?;
+
+        let mut index_instructions = self.create_instruction_range();
 
         let collection_emission = self.visit_expression(
             collection,
@@ -1941,7 +1834,7 @@ impl<'a> PrototypeEmitter<'a> {
             };
 
             if let Some(mut instructions) = list_instructions {
-                instructions.set_target(Some(element_allocation));
+                instructions.target_registers = Some(element_allocation);
 
                 return Ok(Emission::Instructions(instructions));
             }
@@ -1959,9 +1852,8 @@ impl<'a> PrototypeEmitter<'a> {
         {
             Address::new(MemoryKind::ENCODED, encoded)
         } else {
-            let mut index_instructions_temp = Instructions::new();
             let index_place =
-                self.place_emission(index_emission, &mut index_instructions_temp, &index)?;
+                self.place_emission(index_emission, &mut index_instructions, &index)?;
 
             match index_place {
                 Place::Constant { index, .. } => Address::new(MemoryKind::CONSTANT, index),
@@ -1979,7 +1871,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         let base_index = list_registers.base_index()?;
 
-        let element_type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+        let element_type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
         let destination = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
@@ -1992,12 +1884,6 @@ impl<'a> PrototypeEmitter<'a> {
 
         let destination_register = destination.expect_single()?;
 
-        let mut index_instructions = if let Some(instructions) = list_instructions {
-            instructions
-        } else {
-            Instructions::new()
-        };
-
         let get_instruction = Instruction::get(
             destination_register.index,
             destination_register.operand_type,
@@ -2005,36 +1891,37 @@ impl<'a> PrototypeEmitter<'a> {
             index_address,
         );
 
-        index_instructions.push(get_instruction);
-        index_instructions.set_target(Some(destination));
+        self.emit_instruction(get_instruction, &mut index_instructions);
+
+        index_instructions.target_registers = Some(destination);
 
         Ok(Emission::Instructions(index_instructions))
     }
 
     fn visit_range_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting range expression");
 
-        let RangeExpression { start, end } = reader.as_component()?;
+        let RangeExpression { start, end } = syntax.as_component()?;
+
+        let mut range_instructions = self.create_instruction_range();
 
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
                 self.claim_registers(type_id, register_kind)?
             }
             ExpressionTarget::Any => {
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
                 self.claim_registers(type_id, RegisterKind::Temporary)?
             }
         };
-
-        let mut range_instructions = Instructions::new();
 
         for (field_expression, destination) in
             [start, end].into_iter().zip(&target_registers.claims)
@@ -2053,7 +1940,7 @@ impl<'a> PrototypeEmitter<'a> {
                     Address::new(MemoryKind::ENCODED, encoded),
                 );
 
-                range_instructions.push(move_instruction);
+                self.emit_instruction(move_instruction, &mut range_instructions);
 
                 continue;
             }
@@ -2067,7 +1954,7 @@ impl<'a> PrototypeEmitter<'a> {
                     let move_instruction =
                         Instruction::r#move(destination.index, operand_type, place.address()?);
 
-                    range_instructions.push(move_instruction);
+                    self.emit_instruction(move_instruction, &mut range_instructions);
                 }
                 Place::Registers(allocation) => {
                     for register in &allocation.claims {
@@ -2081,27 +1968,27 @@ impl<'a> PrototypeEmitter<'a> {
                             register.address(),
                         );
 
-                        range_instructions.push(move_instruction);
+                        self.emit_instruction(move_instruction, &mut range_instructions);
                     }
                 }
             }
         }
 
-        range_instructions.set_target(Some(target_registers));
+        range_instructions.target_registers = Some(target_registers);
 
         Ok(Emission::Instructions(range_instructions))
     }
 
     fn visit_path_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting path expression");
 
         let declaration_id = *self
             .context
-            .get_declaration_binding(&(self.code_id, reader.id))?;
+            .get_declaration_binding(&(self.code_id, syntax.id))?;
 
         if let Some(local) = self.locals.get(&declaration_id).cloned() {
             match local {
@@ -2110,7 +1997,7 @@ impl<'a> PrototypeEmitter<'a> {
                 }
                 Local::Place(place) => match target {
                     ExpressionTarget::ClaimedRegister(register_claims) => {
-                        let mut instructions = Instructions::new();
+                        let mut instructions = self.create_instruction_range();
 
                         for register in register_claims.claims {
                             let move_instruction = Instruction::r#move(
@@ -2119,16 +2006,16 @@ impl<'a> PrototypeEmitter<'a> {
                                 place.address()?,
                             );
 
-                            instructions.push(move_instruction);
+                            self.emit_instruction(move_instruction, &mut instructions);
                         }
 
                         return Ok(Emission::Instructions(instructions));
                     }
                     ExpressionTarget::UnclaimedRegister(register_kind) => {
-                        let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                        let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
                         let registers = self.claim_registers(type_id, register_kind)?;
 
-                        let mut instructions = Instructions::new();
+                        let mut instructions = self.create_instruction_range();
 
                         for register in &registers.claims {
                             let move_instruction = Instruction::r#move(
@@ -2137,10 +2024,10 @@ impl<'a> PrototypeEmitter<'a> {
                                 place.address()?,
                             );
 
-                            instructions.push(move_instruction);
+                            self.emit_instruction(move_instruction, &mut instructions);
                         }
 
-                        instructions.set_target(Some(registers));
+                        instructions.target_registers = Some(registers);
 
                         return Ok(Emission::Instructions(instructions));
                     }
@@ -2156,7 +2043,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         match declaration.definition {
             Definition::Function { .. } => {
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
                 let callee_type = *self.context.types.get_type(type_id);
                 let type_arguments =
                     if let Type::FunctionDefinition { type_arguments, .. } = callee_type {
@@ -2187,16 +2074,16 @@ impl<'a> PrototypeEmitter<'a> {
                     } else {
                         let (position, syntax_id) =
                             declaration.syntax.ok_or(CompileError::ExpectedValue {
-                                code_id: reader.code_id(),
-                                syntax_id: reader.id,
+                                code_id: syntax.code_id(),
+                                syntax_id: syntax.id,
                             })?;
                         let tree = self.syntax.get_tree(position.code_id)?;
                         let const_syntax = tree.read_node(syntax_id)?;
-                        let const_reader: ConstItem = const_syntax.as_component()?;
+                        let const_syntax: ConstItem = const_syntax.as_component()?;
                         let value_expression =
-                            const_reader.value.ok_or(CompileError::ExpectedValue {
-                                code_id: reader.code_id(),
-                                syntax_id: reader.id,
+                            const_syntax.value.ok_or(CompileError::ExpectedValue {
+                                code_id: syntax.code_id(),
+                                syntax_id: syntax.id,
                             })?;
 
                         self.context
@@ -2210,8 +2097,8 @@ impl<'a> PrototypeEmitter<'a> {
                             Emission::Value(constant_value) => constant_value,
                             _ => {
                                 return Err(CompileError::ExpectedValue {
-                                    code_id: reader.code_id(),
-                                    syntax_id: reader.id,
+                                    code_id: syntax.code_id(),
+                                    syntax_id: syntax.id,
                                 });
                             }
                         };
@@ -2230,9 +2117,9 @@ impl<'a> PrototypeEmitter<'a> {
                 fields: None,
                 ..
             } => {
-                let mut instructions = Instructions::new();
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
-                let register = match target {
+                let mut instructions = self.create_instruction_range();
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
+                let registers = match target {
                     ExpressionTarget::ClaimedRegister(registers) => registers,
                     ExpressionTarget::UnclaimedRegister(register_kind) => {
                         self.claim_registers(type_id, register_kind)?
@@ -2240,28 +2127,28 @@ impl<'a> PrototypeEmitter<'a> {
                     ExpressionTarget::Any => {
                         self.claim_registers(type_id, RegisterKind::Temporary)?
                     }
-                }
-                .expect_single()?;
+                };
+                let base_register = registers.base()?;
                 let move_instruction = Instruction::r#move(
-                    register.index,
-                    register.operand_type,
+                    base_register.index,
+                    base_register.operand_type,
                     Address::new(MemoryKind::ENCODED, discriminant),
                 );
 
-                instructions.push(move_instruction);
+                self.emit_instruction(move_instruction, &mut instructions);
 
                 Ok(Emission::Instructions(instructions))
             }
             _ => Err(CompileError::ExpectedValue {
-                code_id: reader.code_id(),
-                syntax_id: reader.id,
+                code_id: syntax.code_id(),
+                syntax_id: syntax.id,
             }),
         }
     }
 
     fn visit_struct_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting struct expression");
@@ -2269,12 +2156,14 @@ impl<'a> PrototypeEmitter<'a> {
         let StructExpression {
             path: _,
             fields: struct_fields,
-        } = reader.as_component()?;
+        } = syntax.as_component()?;
         let StructExpressionStructFields {
             name_expression_pairs,
         } = struct_fields.as_component()?;
 
-        let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+        let mut struct_instructions = self.create_instruction_range();
+
+        let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
@@ -2282,8 +2171,6 @@ impl<'a> PrototypeEmitter<'a> {
             }
             ExpressionTarget::Any => self.claim_registers(type_id, RegisterKind::Temporary)?,
         };
-
-        let mut struct_instructions = Instructions::new();
 
         for ((_, field_expression), destination) in
             name_expression_pairs.zip(&target_registers.claims)
@@ -2302,7 +2189,8 @@ impl<'a> PrototypeEmitter<'a> {
                     Address::new(MemoryKind::ENCODED, encoded),
                 );
 
-                struct_instructions.push(move_instruction);
+                self.emit_instruction(move_instruction, &mut struct_instructions);
+
                 continue;
             }
 
@@ -2315,7 +2203,7 @@ impl<'a> PrototypeEmitter<'a> {
                     let move_instruction =
                         Instruction::r#move(destination.index, operand_type, place.address()?);
 
-                    struct_instructions.push(move_instruction);
+                    self.emit_instruction(move_instruction, &mut struct_instructions);
                 }
                 Place::Registers(ref allocation) => {
                     for register in &allocation.claims {
@@ -2325,25 +2213,25 @@ impl<'a> PrototypeEmitter<'a> {
                             register.address(),
                         );
 
-                        struct_instructions.push(move_instruction);
+                        self.emit_instruction(move_instruction, &mut struct_instructions);
                     }
                 }
             }
         }
 
-        struct_instructions.set_target(Some(target_registers));
+        struct_instructions.target_registers = Some(target_registers);
 
         Ok(Emission::Instructions(struct_instructions))
     }
 
     fn visit_grouped_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting grouped expression");
 
-        let GroupedExpression { expression } = reader.as_component()?;
+        let GroupedExpression { expression } = syntax.as_component()?;
 
         if let Some(expression) = expression {
             self.visit_expression(expression, target)
@@ -2354,16 +2242,16 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn visit_block_expression(
         &mut self,
-        reader: SyntaxReader<'_>,
+        syntax: SyntaxReader<'_>,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting block expression");
 
-        let BlockExpression { children } = reader.as_component()?;
+        let BlockExpression { children } = syntax.as_component()?;
 
-        let mut block_instructions = Instructions::new();
+        let mut block_instructions = self.create_instruction_range();
 
-        let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+        let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
@@ -2376,11 +2264,7 @@ impl<'a> PrototypeEmitter<'a> {
         let saved_register_tracker = self.register_tracker;
         let mut last_emission = None;
 
-        self.enter_drop_context();
-
         for (index, child) in children.enumerate() {
-            let is_last = index == child_count - 1;
-
             if child.node.kind.is_statement() {
                 if let Some(instructions) = self.visit_statement(child)? {
                     block_instructions.merge(instructions);
@@ -2389,27 +2273,26 @@ impl<'a> PrototypeEmitter<'a> {
                 continue;
             }
 
-            if !is_last {
-                let expression_emission = self.visit_expression(
+            if index == child_count - 1 {
+                last_emission = Some(self.visit_expression(
                     child,
-                    ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
-                )?;
+                    ExpressionTarget::ClaimedRegister(target_registers),
+                )?);
 
-                if let Emission::Instructions(expression_instructions) = expression_emission {
-                    block_instructions.merge(expression_instructions);
-                }
-
-                continue;
+                break;
             }
 
-            last_emission = Some(
-                self.visit_expression(child, ExpressionTarget::ClaimedRegister(target_registers))?,
-            );
+            let expression_emission = self.visit_expression(
+                child,
+                ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            )?;
 
-            break;
+            if let Emission::Instructions(expression_instructions) = expression_emission {
+                block_instructions.merge(expression_instructions);
+            }
         }
 
-        let mut result_emission = if let Some(last_emission) = last_emission {
+        let result_emission = if let Some(last_emission) = last_emission {
             match last_emission {
                 Emission::Instructions(instructions) => {
                     if block_instructions.is_empty() {
@@ -2425,12 +2308,6 @@ impl<'a> PrototypeEmitter<'a> {
         } else {
             Emission::Instructions(block_instructions)
         };
-
-        if let Emission::Instructions(instructions) = &mut result_emission {
-            self.exit_drop_context(instructions);
-        } else {
-            self.drop_stack.pop();
-        }
 
         self.register_tracker.restore(saved_register_tracker);
 
@@ -2473,7 +2350,7 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn visit_if_expression(
         &mut self,
-        reader: SyntaxReader<'_>,
+        syntax: SyntaxReader<'_>,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting if expression");
@@ -2482,9 +2359,9 @@ impl<'a> PrototypeEmitter<'a> {
             condition,
             then_branch,
             else_branch,
-        } = reader.as_component()?;
+        } = syntax.as_component()?;
 
-        let mut if_instructions = Instructions::new();
+        let mut if_instructions = self.create_instruction_range();
 
         let condition_emission = self.visit_expression(
             condition,
@@ -2496,12 +2373,12 @@ impl<'a> PrototypeEmitter<'a> {
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
                 self.claim_registers(type_id, register_kind)?
             }
             ExpressionTarget::Any => {
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
                 self.claim_registers(type_id, RegisterKind::Temporary)?
             }
@@ -2509,9 +2386,7 @@ impl<'a> PrototypeEmitter<'a> {
         let jump_over_then_id = self.create_jump_id();
         let start_else_anchor_count = self.jump_over_branch_ids.len();
 
-        if_instructions.push_jump_anchor(JumpAnchor::ForwardFromHere {
-            id: jump_over_then_id,
-        });
+        self.jump_forward_from_current_instruction(jump_over_then_id, &mut if_instructions)?;
 
         {
             let saved_register_tracker = self.register_tracker;
@@ -2527,14 +2402,13 @@ impl<'a> PrototypeEmitter<'a> {
                 let jump_over_else_id = self.create_jump_id();
                 self.jump_over_branch_ids.push(jump_over_else_id);
 
-                if_instructions.push_jump_anchor(JumpAnchor::ForwardFromHere {
-                    id: jump_over_else_id,
-                });
-                if_instructions.push_jump_anchor(JumpAnchor::ForwardToNext {
-                    id: jump_over_then_id,
-                });
-
+                self.jump_forward_from_current_instruction(
+                    jump_over_else_id,
+                    &mut if_instructions,
+                )?;
+                self.jump_forward_to_next_instruction(jump_over_then_id)?;
                 self.register_tracker.restore(saved_register_tracker);
+
                 let else_emission = match else_branch.node.kind {
                     SyntaxKind::BlockExpression => self.visit_block_expression(
                         else_branch,
@@ -2557,13 +2431,13 @@ impl<'a> PrototypeEmitter<'a> {
                 self.register_tracker.restore(else_register_tracker);
                 self.register_tracker.max =
                     self.register_tracker.max.max(then_register_tracker.max);
-                if_instructions.set_target(Some(target_registers));
+
+                if_instructions.target_registers = Some(target_registers);
             } else {
                 self.register_tracker.restore(then_register_tracker);
-                if_instructions.push_jump_anchor(JumpAnchor::ForwardToNext {
-                    id: jump_over_then_id,
-                });
-                if_instructions.set_target(Some(target_registers));
+                self.jump_forward_to_next_instruction(jump_over_then_id)?;
+
+                if_instructions.target_registers = Some(target_registers);
             }
         }
 
@@ -2572,7 +2446,7 @@ impl<'a> PrototypeEmitter<'a> {
         for index in start_else_anchor_count..end_else_anchor_count {
             let jump_id = self.jump_over_branch_ids[index];
 
-            if_instructions.push_jump_anchor(JumpAnchor::ForwardToNext { id: jump_id });
+            self.jump_forward_to_next_instruction(jump_id)?;
         }
 
         Ok(Emission::Instructions(if_instructions))
@@ -2580,12 +2454,14 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn visit_math_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting math expression");
 
-        let MathExpression { left, right } = reader.as_component()?;
+        let MathExpression { left, right } = syntax.as_component()?;
+
+        let mut math_instructions = self.create_instruction_range();
 
         let left_emission = self.visit_expression(
             left,
@@ -2599,29 +2475,29 @@ impl<'a> PrototypeEmitter<'a> {
         if let (Emission::Value(left_value), Emission::Value(right_value)) =
             (&left_emission, &right_emission)
         {
-            let combined = match reader.node.kind {
+            let combined = match syntax.node.kind {
                 SyntaxKind::AdditionExpression | SyntaxKind::AdditionAssignmentExpression => {
-                    left_value.add(*right_value, &reader)?
+                    left_value.add(*right_value, &syntax)?
                 }
                 SyntaxKind::SubtractionExpression | SyntaxKind::SubtractionAssignmentExpression => {
-                    left_value.subtract(*right_value, &reader)?
+                    left_value.subtract(*right_value, &syntax)?
                 }
                 SyntaxKind::MultiplicationExpression
                 | SyntaxKind::MultiplicationAssignmentExpression => {
-                    left_value.multiply(*right_value, &reader)?
+                    left_value.multiply(*right_value, &syntax)?
                 }
                 SyntaxKind::DivisionExpression | SyntaxKind::DivisionAssignmentExpression => {
-                    left_value.divide(*right_value, &reader)?
+                    left_value.divide(*right_value, &syntax)?
                 }
                 SyntaxKind::ModuloExpression | SyntaxKind::ModuloAssignmentExpression => {
-                    left_value.modulo(*right_value, &reader)?
+                    left_value.modulo(*right_value, &syntax)?
                 }
                 SyntaxKind::ExponentExpression | SyntaxKind::ExponentAssignmentExpression => {
-                    left_value.exponentiate(*right_value, &reader)?
+                    left_value.exponentiate(*right_value, &syntax)?
                 }
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
-                        found: reader.node.kind,
+                        found: syntax.node.kind,
                     });
                 }
             };
@@ -2629,16 +2505,14 @@ impl<'a> PrototypeEmitter<'a> {
             return self.create_emission_from_value(combined, target);
         }
 
-        let mut math_emission = Instructions::new();
-
         let left_address =
-            self.handle_operand_emission(&mut math_emission, left_emission, &left)?;
+            self.handle_operand_emission(left_emission, &mut math_instructions, &left)?;
         let right_address =
-            self.handle_operand_emission(&mut math_emission, right_emission, &right)?;
+            self.handle_operand_emission(right_emission, &mut math_instructions, &right)?;
 
-        let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+        let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
         let is_assignment = matches!(
-            reader.node.kind,
+            syntax.node.kind,
             SyntaxKind::AdditionAssignmentExpression
                 | SyntaxKind::SubtractionAssignmentExpression
                 | SyntaxKind::MultiplicationAssignmentExpression
@@ -2653,9 +2527,9 @@ impl<'a> PrototypeEmitter<'a> {
                 .first()
                 .copied()
                 .ok_or_else(|| CompileError::CannotApplyOperator {
-                    operator: reader.node.kind,
+                    operator: syntax.node.kind,
                     type_id,
-                    operand_position: reader.position(),
+                    operand_position: syntax.position(),
                 })?;
 
             (left_address.index, operand_type, None)
@@ -2676,7 +2550,7 @@ impl<'a> PrototypeEmitter<'a> {
             )
         };
 
-        let math_instruction = match reader.node.kind {
+        let math_instruction = match syntax.node.kind {
             SyntaxKind::AdditionExpression | SyntaxKind::AdditionAssignmentExpression => {
                 Instruction::add(destination, operand_type, left_address, right_address)
             }
@@ -2698,25 +2572,28 @@ impl<'a> PrototypeEmitter<'a> {
             }
             _ => {
                 return Err(CompileError::UnexpectedSyntax {
-                    found: reader.node.kind,
+                    found: syntax.node.kind,
                 });
             }
         };
 
-        math_emission.push(math_instruction);
-        math_emission.set_target(registers);
+        self.emit_instruction(math_instruction, &mut math_instructions);
 
-        Ok(Emission::Instructions(math_emission))
+        math_instructions.target_registers = registers;
+
+        Ok(Emission::Instructions(math_instructions))
     }
 
     fn visit_comparison_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting comparison expression");
 
-        let ComparisonExpression { left, right } = reader.as_component()?;
+        let ComparisonExpression { left, right } = syntax.as_component()?;
+
+        let mut comparison_instructions = self.create_instruction_range();
 
         let left_emission = self.visit_expression(
             left,
@@ -2730,26 +2607,26 @@ impl<'a> PrototypeEmitter<'a> {
         if let Emission::Value(left_constant) = left_emission
             && let Emission::Value(right_constant) = right_emission
         {
-            let combined = match reader.node.kind {
-                SyntaxKind::EqualExpression => left_constant.equal(right_constant, &reader)?,
+            let combined = match syntax.node.kind {
+                SyntaxKind::EqualExpression => left_constant.equal(right_constant, &syntax)?,
                 SyntaxKind::NotEqualExpression => {
-                    left_constant.not_equal(right_constant, &reader)?
+                    left_constant.not_equal(right_constant, &syntax)?
                 }
                 SyntaxKind::LessThanExpression => {
-                    left_constant.less_than(right_constant, &reader)?
+                    left_constant.less_than(right_constant, &syntax)?
                 }
                 SyntaxKind::GreaterThanExpression => {
-                    left_constant.greater_than(right_constant, &reader)?
+                    left_constant.greater_than(right_constant, &syntax)?
                 }
                 SyntaxKind::LessThanOrEqualExpression => {
-                    left_constant.less_than_or_equal(right_constant, &reader)?
+                    left_constant.less_than_or_equal(right_constant, &syntax)?
                 }
                 SyntaxKind::GreaterThanOrEqualExpression => {
-                    left_constant.greater_than_or_equal(right_constant, &reader)?
+                    left_constant.greater_than_or_equal(right_constant, &syntax)?
                 }
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
-                        found: reader.node.kind,
+                        found: syntax.node.kind,
                     });
                 }
             };
@@ -2757,10 +2634,8 @@ impl<'a> PrototypeEmitter<'a> {
             return self.create_emission_from_value(combined, target);
         }
 
-        let mut comparison_emission = Instructions::new();
-
         let left_address =
-            self.handle_operand_emission(&mut comparison_emission, left_emission, &left)?;
+            self.handle_operand_emission(left_emission, &mut comparison_instructions, &left)?;
         let left_operand_types = self
             .context
             .get_operand_types(*self.context.get_type_binding(&(self.code_id, left.id))?)?;
@@ -2768,15 +2643,15 @@ impl<'a> PrototypeEmitter<'a> {
             left_operand_types[0]
         } else {
             return Err(CompileError::CannotApplyOperator {
-                operator: reader.node.kind,
+                operator: syntax.node.kind,
                 type_id: *self.context.get_type_binding(&(self.code_id, left.id))?,
                 operand_position: left.position(),
             });
         };
         let right_address =
-            self.handle_operand_emission(&mut comparison_emission, right_emission, &right)?;
+            self.handle_operand_emission(right_emission, &mut comparison_instructions, &right)?;
 
-        let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+        let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
@@ -2786,7 +2661,7 @@ impl<'a> PrototypeEmitter<'a> {
         };
         let register = target_registers.expect_single()?;
 
-        let comparison_instruction = match reader.node.kind {
+        let comparison_instruction = match syntax.node.kind {
             SyntaxKind::EqualExpression => {
                 Instruction::equal(true, left_operand_type, left_address, right_address)
             }
@@ -2807,7 +2682,7 @@ impl<'a> PrototypeEmitter<'a> {
             }
             _ => {
                 return Err(CompileError::UnexpectedSyntax {
-                    found: reader.node.kind,
+                    found: syntax.node.kind,
                 });
             }
         };
@@ -2824,22 +2699,25 @@ impl<'a> PrototypeEmitter<'a> {
             Address::new(MemoryKind::ENCODED, true as u16),
         );
 
-        comparison_emission.push(comparison_instruction);
-        comparison_emission.push(load_false_instruction);
-        comparison_emission.push(load_true_instruction);
-        comparison_emission.set_target(Some(target_registers));
+        self.emit_instruction(comparison_instruction, &mut comparison_instructions);
+        self.emit_instruction(load_false_instruction, &mut comparison_instructions);
+        self.emit_instruction(load_true_instruction, &mut comparison_instructions);
 
-        Ok(Emission::Instructions(comparison_emission))
+        comparison_instructions.target_registers = Some(target_registers);
+
+        Ok(Emission::Instructions(comparison_instructions))
     }
 
     fn visit_logic_expression(
         &mut self,
-        reader: SyntaxReader<'_>,
+        syntax: SyntaxReader<'_>,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting logic expression");
 
-        let LogicExpression { left, right } = reader.as_component()?;
+        let LogicExpression { left, right } = syntax.as_component()?;
+
+        let mut logic_instructions = self.create_instruction_range();
 
         let left_emission = self.visit_expression(
             left,
@@ -2853,12 +2731,12 @@ impl<'a> PrototypeEmitter<'a> {
         if let Emission::Value(left_constant) = left_emission
             && let Emission::Value(right_constant) = right_emission
         {
-            let combined = match reader.node.kind {
-                SyntaxKind::AndExpression => left_constant.and(right_constant, &reader)?,
-                SyntaxKind::OrExpression => left_constant.or(right_constant, &reader)?,
+            let combined = match syntax.node.kind {
+                SyntaxKind::AndExpression => left_constant.and(right_constant, &syntax)?,
+                SyntaxKind::OrExpression => left_constant.or(right_constant, &syntax)?,
                 _ => {
                     return Err(CompileError::UnexpectedSyntax {
-                        found: reader.node.kind,
+                        found: syntax.node.kind,
                     });
                 }
             };
@@ -2866,34 +2744,32 @@ impl<'a> PrototypeEmitter<'a> {
             return self.create_emission_from_value(combined, target);
         }
 
-        let mut logic_instructions = Instructions::new();
-
         let left_address =
-            self.handle_operand_emission(&mut logic_instructions, left_emission, &left)?;
+            self.handle_operand_emission(left_emission, &mut logic_instructions, &left)?;
         let right_address =
-            self.handle_operand_emission(&mut logic_instructions, right_emission, &right)?;
+            self.handle_operand_emission(right_emission, &mut logic_instructions, &right)?;
 
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
                 self.claim_registers(type_id, register_kind)?
             }
             ExpressionTarget::Any => {
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
                 self.claim_registers(type_id, RegisterKind::Temporary)?
             }
         };
         let register = target_registers.expect_single()?;
 
-        let test_instruction = match reader.node.kind {
+        let test_instruction = match syntax.node.kind {
             SyntaxKind::AndExpression => Instruction::test(false, left_address, 1),
             SyntaxKind::OrExpression => Instruction::test(true, left_address, 1),
             _ => {
                 return Err(CompileError::UnexpectedSyntax {
-                    found: reader.node.kind,
+                    found: syntax.node.kind,
                 });
             }
         };
@@ -2907,22 +2783,25 @@ impl<'a> PrototypeEmitter<'a> {
         let left_move_instruction =
             Instruction::r#move(register.index, OperandType::BOOLEAN, left_address);
 
-        logic_instructions.push(test_instruction);
-        logic_instructions.push(right_move_instruction);
-        logic_instructions.push(left_move_instruction);
-        logic_instructions.set_target(Some(target_registers));
+        self.emit_instruction(test_instruction, &mut logic_instructions);
+        self.emit_instruction(right_move_instruction, &mut logic_instructions);
+        self.emit_instruction(left_move_instruction, &mut logic_instructions);
+
+        logic_instructions.target_registers = Some(target_registers);
 
         Ok(Emission::Instructions(logic_instructions))
     }
 
     fn visit_negation_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting negation expression");
 
-        let NegationExpression { operand } = reader.as_component()?;
+        let NegationExpression { operand } = syntax.as_component()?;
+
+        let mut negation_instructions = self.create_instruction_range();
 
         let expression_emission = self.visit_expression(
             operand,
@@ -2937,19 +2816,20 @@ impl<'a> PrototypeEmitter<'a> {
             return self.create_emission_from_value(negated, target);
         }
 
-        let mut negation_emission = Instructions::new();
-
-        let operand =
-            self.handle_operand_emission(&mut negation_emission, expression_emission, &operand)?;
+        let operand = self.handle_operand_emission(
+            expression_emission,
+            &mut negation_instructions,
+            &operand,
+        )?;
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
                 self.claim_registers(type_id, register_kind)?
             }
             ExpressionTarget::Any => {
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
                 self.claim_registers(type_id, RegisterKind::Temporary)?
             }
@@ -2959,20 +2839,23 @@ impl<'a> PrototypeEmitter<'a> {
         let negate_instruction =
             Instruction::negate(register.index, register.operand_type, operand);
 
-        negation_emission.push(negate_instruction);
-        negation_emission.set_target(Some(target_registers));
+        self.emit_instruction(negate_instruction, &mut negation_instructions);
 
-        Ok(Emission::Instructions(negation_emission))
+        negation_instructions.target_registers = Some(target_registers);
+
+        Ok(Emission::Instructions(negation_instructions))
     }
 
     fn visit_not_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting not expression");
 
-        let NotExpression { operand } = reader.as_component()?;
+        let NotExpression { operand } = syntax.as_component()?;
+
+        let mut not_instructions = self.create_instruction_range();
 
         let expression_emission = self.visit_expression(
             operand,
@@ -2987,19 +2870,17 @@ impl<'a> PrototypeEmitter<'a> {
             return Ok(Emission::Value(negated));
         }
 
-        let mut negation_emission = Instructions::new();
-
         let operand =
-            self.handle_operand_emission(&mut negation_emission, expression_emission, &operand)?;
+            self.handle_operand_emission(expression_emission, &mut not_instructions, &operand)?;
         let target_registers = match target {
             ExpressionTarget::ClaimedRegister(registers) => registers,
             ExpressionTarget::UnclaimedRegister(register_kind) => {
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
                 self.claim_registers(type_id, register_kind)?
             }
             ExpressionTarget::Any => {
-                let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+                let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
                 self.claim_registers(type_id, RegisterKind::Temporary)?
             }
@@ -3009,22 +2890,25 @@ impl<'a> PrototypeEmitter<'a> {
         let negate_instruction =
             Instruction::negate(register.index, register.operand_type, operand);
 
-        negation_emission.push(negate_instruction);
-        negation_emission.set_target(Some(target_registers));
+        self.emit_instruction(negate_instruction, &mut not_instructions);
 
-        Ok(Emission::Instructions(negation_emission))
+        not_instructions.target_registers = Some(target_registers);
+
+        Ok(Emission::Instructions(not_instructions))
     }
 
     fn visit_while_expression(
         &mut self,
-        reader: SyntaxReader<'_>,
+        syntax: SyntaxReader<'_>,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting while expression");
 
-        let WhileExpression { condition, body } = reader.as_component()?;
+        let WhileExpression { condition, body } = syntax.as_component()?;
 
-        let mut while_instructions = Instructions::new();
+        let mut while_instructions = self.create_instruction_range();
+
+        let loop_start_index = self.instructions.len();
 
         let condition_emission = self.visit_expression(
             condition,
@@ -3041,9 +2925,7 @@ impl<'a> PrototypeEmitter<'a> {
         let jump_forward_id = self.create_jump_id();
         let jump_backward_id = self.create_jump_id();
 
-        while_instructions.push_jump_anchor(JumpAnchor::LoopStartHere {
-            forward_id: jump_forward_id,
-        });
+        self.jump_forward_from_current_instruction(jump_forward_id, &mut while_instructions)?;
 
         let body_emission = self.visit_block_expression(body, target)?;
 
@@ -3051,15 +2933,19 @@ impl<'a> PrototypeEmitter<'a> {
             while_instructions.merge(instructions);
         }
 
-        for break_id in self.jump_over_branch_ids.drain(..) {
-            while_instructions.push_jump_anchor(JumpAnchor::ForwardToNext { id: break_id });
+        self.end_loop_on_next_instruction(
+            loop_start_index,
+            jump_backward_id,
+            &mut while_instructions,
+        )?;
+
+        for break_id in take(&mut self.break_ids) {
+            self.jump_forward_to_next_instruction(break_id)?;
         }
 
-        while_instructions.push_jump_anchor(JumpAnchor::LoopEndOnNext {
-            forward_id: jump_forward_id,
-            backward_id: jump_backward_id,
-        });
-        while_instructions.set_target(None);
+        self.jump_forward_to_next_instruction(jump_forward_id)?;
+
+        while_instructions.target_registers = None;
 
         Ok(Emission::Instructions(while_instructions))
     }
@@ -3071,49 +2957,47 @@ impl<'a> PrototypeEmitter<'a> {
     ) -> Result<Emission, CompileError> {
         trace!("Visiting break expression");
 
+        let mut break_instructions = self.create_instruction_range();
         let break_id = self.create_jump_id();
 
-        self.jump_over_branch_ids.push(break_id);
+        self.break_ids.push(break_id);
+        self.jump_forward_from_current_instruction(break_id, &mut break_instructions)?;
 
-        let mut break_emission = Instructions::new();
-
-        break_emission.push(Instruction::no_op());
-        break_emission.push_jump_anchor(JumpAnchor::ForwardFromHere { id: break_id });
-
-        Ok(Emission::Instructions(break_emission))
+        Ok(Emission::Instructions(break_instructions))
     }
 
     fn visit_call_expression(
         &mut self,
-        reader: SyntaxReader<'_>,
+        syntax: SyntaxReader<'_>,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting call expression");
 
-        let CallExpression { callee, arguments } = reader.as_component()?;
+        let CallExpression { callee, arguments } = syntax.as_component()?;
 
-        let mut call_instructions = Instructions::new();
+        let mut call_instructions = self.create_instruction_range();
 
         let callee_emission = self.visit_expression(
             callee,
             ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
         )?;
         let callee =
-            self.handle_operand_emission(&mut call_instructions, callee_emission, &callee)?;
+            self.handle_operand_emission(callee_emission, &mut call_instructions, &callee)?;
         let arguments_start =
             self.visit_value_arguments(arguments, None, &mut call_instructions)?;
-        let (destination, registers) = self.claim_register_for_target(target, reader)?;
+        let (destination, registers) = self.claim_register_for_target(target, syntax)?;
         let call_instruction = Instruction::call(destination, callee, arguments_start);
 
-        call_instructions.push(call_instruction);
-        call_instructions.set_target(registers);
+        self.emit_instruction(call_instruction, &mut call_instructions);
+
+        call_instructions.target_registers = registers;
 
         Ok(Emission::Instructions(call_instructions))
     }
 
     fn visit_method_call_expression(
         &mut self,
-        reader: SyntaxReader<'_>,
+        syntax: SyntaxReader<'_>,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting method call expression");
@@ -3123,9 +3007,9 @@ impl<'a> PrototypeEmitter<'a> {
             method,
             value_arguments,
             ..
-        } = reader.as_component()?;
+        } = syntax.as_component()?;
 
-        let mut call_instructions = Instructions::new();
+        let mut call_instructions = self.create_instruction_range();
 
         let method_type_id = *self.context.get_type_binding(&(self.code_id, method.id))?;
         let parent_type_id = {
@@ -3175,7 +3059,7 @@ impl<'a> PrototypeEmitter<'a> {
             ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
         )?;
         let parent =
-            self.handle_operand_emission(&mut call_instructions, parent_emission, &method_parent)?;
+            self.handle_operand_emission(parent_emission, &mut call_instructions, &method_parent)?;
 
         let argument_index = if parent.memory == MemoryKind::REGISTER {
             parent.index
@@ -3186,7 +3070,7 @@ impl<'a> PrototypeEmitter<'a> {
                 let move_instruction =
                     Instruction::r#move(register.index, register.operand_type, parent);
 
-                call_instructions.push(move_instruction);
+                self.emit_instruction(move_instruction, &mut call_instructions);
             }
 
             parent_registers.base_index()?
@@ -3200,15 +3084,16 @@ impl<'a> PrototypeEmitter<'a> {
             )?;
         }
 
-        let (destination, registers) = self.claim_register_for_target(target, reader)?;
+        let (destination, registers) = self.claim_register_for_target(target, syntax)?;
         let call_instruction = Instruction::call(
             destination,
             Address::new(MemoryKind::CONSTANT, prototype_id.index()),
             argument_index,
         );
 
-        call_instructions.push(call_instruction);
-        call_instructions.set_target(registers);
+        self.emit_instruction(call_instruction, &mut call_instructions);
+
+        call_instructions.target_registers = registers;
 
         Ok(Emission::Instructions(call_instructions))
     }
@@ -3217,7 +3102,7 @@ impl<'a> PrototypeEmitter<'a> {
         &mut self,
         arguments: SyntaxReader,
         arguments_start: Option<u16>,
-        instructions: &mut Instructions,
+        instructions: &mut InstructionRange,
     ) -> Result<u16, CompileError> {
         trace!("Visiting value arguments");
 
@@ -3230,7 +3115,7 @@ impl<'a> PrototypeEmitter<'a> {
                 ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
             )?;
             let argument_address =
-                self.handle_operand_emission(instructions, argument_emission, &argument)?;
+                self.handle_operand_emission(argument_emission, instructions, &argument)?;
             let argument_type_id = *self
                 .context
                 .get_type_binding(&(self.code_id, argument.id))?;
@@ -3268,7 +3153,7 @@ impl<'a> PrototypeEmitter<'a> {
                 let move_instruction =
                     Instruction::r#move(register.index, register.operand_type, argument_address);
 
-                instructions.push(move_instruction);
+                self.emit_instruction(move_instruction, instructions);
             }
 
             next_offset += argument_width;
@@ -3279,7 +3164,7 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn visit_field_access_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting field access expression");
@@ -3287,7 +3172,7 @@ impl<'a> PrototypeEmitter<'a> {
         let FieldAccessExpression {
             struct_expression,
             field_name,
-        } = reader.as_component()?;
+        } = syntax.as_component()?;
 
         let operand_emission = self.visit_expression(
             struct_expression,
@@ -3297,7 +3182,7 @@ impl<'a> PrototypeEmitter<'a> {
         let struct_registers = match operand_emission {
             Emission::Place(Place::Registers(registers)) => registers,
             emission => {
-                let mut field_access_instructions = Instructions::new();
+                let mut field_access_instructions = self.create_instruction_range();
                 let place = self.place_emission(
                     emission,
                     &mut field_access_instructions,
@@ -3385,7 +3270,7 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn visit_self_expression(
         &mut self,
-        _reader: SyntaxReader,
+        _syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting self expression");
@@ -3399,20 +3284,20 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn visit_reference_expression(
         &mut self,
-        reader: SyntaxReader,
+        syntax: SyntaxReader,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         trace!("Visiting reference expression");
 
-        let ReferenceExpression { operand } = reader.as_component()?;
+        let ReferenceExpression { operand } = syntax.as_component()?;
 
-        let mut reference_instructions = Instructions::new();
+        let mut reference_instructions = self.create_instruction_range();
 
         let operand_emission = self.visit_expression(
             operand,
             ExpressionTarget::UnclaimedRegister(RegisterKind::Scoped),
         )?;
-        let type_id = *self.context.get_type_binding(&(self.code_id, reader.id))?;
+        let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
         let referenced_type_id = if let Type::Reference {
             referenced_type_id, ..
         } = self.context.types.get_type(type_id)
@@ -3432,7 +3317,7 @@ impl<'a> PrototypeEmitter<'a> {
                 let move_instruction =
                     Instruction::r#move(base_index, value.operand_type(), operand_address);
 
-                reference_instructions.push(move_instruction);
+                self.emit_instruction(move_instruction, &mut reference_instructions);
 
                 base_index
             }
@@ -3446,7 +3331,7 @@ impl<'a> PrototypeEmitter<'a> {
                 let move_instruction =
                     Instruction::r#move(base_index, operand_type, operand_address);
 
-                reference_instructions.push(move_instruction);
+                self.emit_instruction(move_instruction, &mut reference_instructions);
 
                 base_index
             }
@@ -3482,14 +3367,15 @@ impl<'a> PrototypeEmitter<'a> {
         let reference_instruction =
             Instruction::reference(destination, start_register, end_register);
 
-        reference_instructions.push(reference_instruction);
-        reference_instructions.set_target(Some(RegisterClaims {
+        self.emit_instruction(reference_instruction, &mut reference_instructions);
+
+        reference_instructions.target_registers = Some(RegisterClaims {
             claims: smallvec![RegisterClaim {
                 index: destination,
                 operand_type: OperandType::POINTER
             }],
             kind: RegisterKind::Scoped,
-        }));
+        });
 
         Ok(Emission::Instructions(reference_instructions))
     }
@@ -3499,7 +3385,7 @@ impl<'a> PrototypeEmitter<'a> {
 pub enum Emission {
     Value(ConstantValue),
     Place(Place),
-    Instructions(Instructions),
+    Instructions(InstructionRange),
     NativeFunction(NativeFunction),
     Never,
     None,
@@ -3512,48 +3398,32 @@ impl From<ConstantValue> for Emission {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct Instructions {
-    instructions: Vec<(Instruction, JumpAnchor::SmallVec)>,
+pub struct InstructionRange {
+    instructions: Range<u32>,
+    drops: Range<u32>,
     target_registers: Option<RegisterClaims>,
-    pending_drops: Vec<u16>,
 }
 
-impl Instructions {
-    fn new() -> Self {
-        Self {
-            instructions: Vec::new(),
-            target_registers: None,
-            pending_drops: Vec::new(),
-        }
-    }
-
+impl InstructionRange {
     fn is_empty(&self) -> bool {
         self.instructions.is_empty()
     }
 
-    fn push(&mut self, instruction: Instruction) {
-        self.instructions.push((instruction, SmallVec::new()));
-    }
+    fn merge(&mut self, other: InstructionRange) {
+        debug_assert_eq!(self.instructions.end, other.instructions.start);
+        debug_assert_eq!(self.drops.end, other.drops.start);
 
-    fn set_target(&mut self, target: Option<RegisterClaims>) {
-        self.target_registers = target;
-    }
-
-    fn push_jump_anchor(&mut self, anchor: JumpAnchor) {
-        if let Some((_, anchors)) = self.instructions.last_mut() {
-            anchors.push(anchor);
-        }
-    }
-
-    fn merge(&mut self, other: Instructions) {
-        self.instructions.extend(other.instructions);
-        self.pending_drops.extend(other.pending_drops);
+        self.instructions.end = other.instructions.end;
+        self.drops.end = other.drops.end;
         self.target_registers = other.target_registers;
     }
 
-    fn extend(&mut self, other: Instructions) -> Option<RegisterClaims> {
-        self.instructions.extend(other.instructions);
-        self.pending_drops.extend(other.pending_drops);
+    fn extend(&mut self, other: InstructionRange) -> Option<RegisterClaims> {
+        debug_assert_eq!(self.instructions.end, other.instructions.start);
+        debug_assert_eq!(self.drops.end, other.drops.start);
+
+        self.instructions.end = other.instructions.end;
+        self.drops.end = other.drops.end;
 
         other.target_registers
     }
@@ -3597,6 +3467,10 @@ pub struct RegisterClaims {
 }
 
 impl RegisterClaims {
+    fn base(&self) -> Result<&RegisterClaim, CompileError> {
+        self.claims.first().ok_or(CompileError::ExpectedAllocation)
+    }
+
     fn base_index(&self) -> Result<u16, CompileError> {
         self.claims
             .first()
@@ -3643,27 +3517,6 @@ enum ExpressionTarget {
     ClaimedRegister(RegisterClaims),
     UnclaimedRegister(RegisterKind),
     Any,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-enum JumpAnchor {
-    ForwardFromHere {
-        id: JumpId,
-    },
-    LoopStartHere {
-        forward_id: JumpId,
-    },
-    LoopEndOnNext {
-        forward_id: JumpId,
-        backward_id: JumpId,
-    },
-    ForwardToNext {
-        id: JumpId,
-    },
-}
-
-impl JumpAnchor {
-    type SmallVec = SmallVec<[JumpAnchor; optimize_inline_capacity::<Self, 0>()]>;
 }
 
 #[derive(Clone, Copy, Debug)]

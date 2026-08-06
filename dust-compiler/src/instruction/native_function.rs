@@ -30,15 +30,15 @@ impl NativeFunction {
         self.0
     }
 
-    pub fn as_str(self) -> &'static str {
+    pub fn name(self) -> &'static str {
         match self {
             Self::NO_OP => "no_op",
-            Self::VEC_WITH_CAPACITY => "vec_with_capacity",
-            Self::VEC_LENGTH => "vec_length",
-            Self::VEC_GET => "vec_get",
-            Self::VEC_INSERT => "vec_insert",
-            Self::VEC_REMOVE => "vec_remove",
-            Self::VEC_CLEAR => "vec_clear",
+            Self::VEC_WITH_CAPACITY => "with_capacity",
+            Self::VEC_LENGTH => "length",
+            Self::VEC_GET => "get",
+            Self::VEC_INSERT => "insert",
+            Self::VEC_REMOVE => "remove",
+            Self::VEC_CLEAR => "clear",
             Self::READ_LINE => "read_line",
             Self::WRITE_LINE => "write_line",
             Self::SPAWN_THREAD => "spawn_thread",
@@ -49,6 +49,6 @@ impl NativeFunction {
 
 impl Display for NativeFunction {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.as_str().fmt(f)
+        self.name().fmt(f)
     }
 }

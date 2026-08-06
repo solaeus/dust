@@ -3,7 +3,6 @@
 mod cli;
 mod commands;
 mod error;
-mod explorer;
 
 use std::{
     fmt,
