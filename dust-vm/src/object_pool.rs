@@ -90,14 +90,6 @@ impl<'a> ObjectPool<'a> {
         pointer
     }
 
-    pub fn get(&self, key: usize) -> Option<&Object> {
-        self.objects.get(key).map(|object| &**object)
-    }
-
-    pub fn get_mut(&mut self, key: usize) -> Option<&mut Object> {
-        self.objects.get_mut(key).map(|object| &mut **object)
-    }
-
     fn sweep(&mut self) {
         self.allocated = 0;
 

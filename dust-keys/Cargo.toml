@@ -1,0 +1,15 @@
+[package]
+name = "dust-keys"
+description = "Macros for generating instruction keys for the Dust VM"
+authors.workspace = true
+license.workspace = true
+readme.workspace = true
+repository.workspace = true
+version.workspace = true
+edition.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+dust-compiler = { path = "../dust-compiler" }

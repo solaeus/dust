@@ -41,12 +41,15 @@ impl Constants {
     }
 
     pub fn get_u64(&self, index: u16) -> Result<u64, ConstantsError> {
-        let payload_range = index as usize..(index + 2) as usize;
-        let payloads = self
+        let low_index = index as usize;
+        let high_index = low_index + 1;
+
+        let high = *self
             .payloads
-            .get(payload_range)
-            .ok_or(ConstantsError::MissingConstant(index))?;
-        let decoded = (payloads[1] as u64) << 32 | (payloads[0] as u64);
+            .get(high_index)
+            .ok_or(ConstantsError::MissingConstant(index))? as u64;
+        let low = self.payloads[low_index] as u64;
+        let decoded = (high << 32) | low;
 
         Ok(decoded)
     }
@@ -120,12 +123,14 @@ impl Constants {
     }
 
     pub fn get_string(&self, index: u16) -> Result<&str, ConstantsError> {
-        let payload = *self
+        let start_index = index as usize;
+        let end_index = start_index + 1;
+
+        let end = *self
             .payloads
-            .get(index as usize)
-            .ok_or(ConstantsError::MissingConstant(index))?;
-        let start = (payload >> 16) as usize;
-        let end = (payload & 0xFFFF) as usize;
+            .get(end_index)
+            .ok_or(ConstantsError::MissingConstant(index))? as usize;
+        let start = self.payloads[start_index] as usize;
 
         self.string_pool
             .get(start..end)
@@ -363,14 +368,13 @@ impl ConstantsBuilder {
             return *id;
         }
 
-        let start = self.string_pool.len() as u16;
+        let start = self.string_pool.len() as u32;
 
         self.string_pool.push_str(str);
 
-        let end = self.string_pool.len() as u16;
-        let payload = ((start as u32) << 16) | (end as u32);
+        let end = self.string_pool.len() as u32;
 
-        self.add_constant([payload], key, OperandType::POINTER)
+        self.add_constant([start, end], key, OperandType::POINTER)
     }
 
     fn add_constant<const COUNT: usize>(

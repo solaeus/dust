@@ -7,13 +7,7 @@ use smallvec::SmallVec;
 
 use crate::optimize_inline_capacity;
 
-/// A small (4-bit) type representation used to encode the types of instruction operands.
-///
-/// `OperandType` represents everything the VM knows about data types. It provides just enough
-/// information to determine how to interpret an instruction's operands at runtime. Some built-in
-/// types are represented as `OperandType::Pointer`, e.g. `Vec` and `String`. Alebraic types use
-/// consecutive registers so struct instances or enum variants can be flattened to
-/// [`OperandType::SmallVec`].
+/// A small (5-bit) type representation used to encode the types of instruction operands.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct OperandType(pub(super) u8);
 
@@ -21,16 +15,16 @@ impl OperandType {
     pub type SmallVec = SmallVec<[Self; optimize_inline_capacity::<Self, 0>()]>;
 
     pub const BOOLEAN: OperandType = Self(0);
-    pub const U_8: OperandType = Self(1);
     pub const I_8: OperandType = Self(2);
-    pub const U_16: OperandType = Self(3);
     pub const I_16: OperandType = Self(4);
-    pub const U_32: OperandType = Self(5);
     pub const I_32: OperandType = Self(6);
-    pub const U_64: OperandType = Self(7);
     pub const I_64: OperandType = Self(8);
-    pub const U_128: OperandType = Self(9);
     pub const I_128: OperandType = Self(10);
+    pub const U_8: OperandType = Self(1);
+    pub const U_16: OperandType = Self(3);
+    pub const U_32: OperandType = Self(5);
+    pub const U_64: OperandType = Self(7);
+    pub const U_128: OperandType = Self(9);
     pub const F_32: OperandType = Self(11);
     pub const F_64: OperandType = Self(12);
     pub const CHARACTER: OperandType = Self(13);

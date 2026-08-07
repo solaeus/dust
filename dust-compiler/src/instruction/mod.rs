@@ -58,20 +58,22 @@ use std::fmt::{self, Debug, Display, Formatter};
 ///
 /// Bits    | Description
 /// ------- | -----------
-/// 0..=4   | Operation
-/// 5..=6   | Unused
-/// 7..=8   | Memory kind for the B field
-/// 9..=10  | Memory kind for the C field
-/// 11..=14 | Operand type
+/// 0..=4   | Operation     ┬─ Operation key
+/// 5..=8   | Operand type  ┘┐
+/// 9..=11  | B memory kind  ├─ Address key
+/// 12..=14 | C memory kind  ┘
+/// 15      | Unused
 /// 16..=31 | A field
 /// 32..=47 | B field
 /// 48..=63 | C field
 ///
-/// - Operation: The opcode of the instruction, which determines how the other fields are interpreted
-/// - Memory kinds: Whether each operand refers to a register, constant or encoded value
-/// - The type of the operand(s)
-/// - A field: Usually the destination register index
-/// - B and C fields: Operands, i.e. indices for registers and constants or encoded values
+/// - Operation: The kind of instruction, which determines how the other fields are interpreted.
+/// - Operand type: The data type of the B/C fields.
+/// - Memory kinds: Where the operands are stored and how they are interpreted.
+/// - A field: Usually the destination register index.
+/// - B and C fields: Operands, i.e. indices for registers and constants or encoded values.
+/// - Keys: The keys are an optimization tool for the VM. They are unique identifiers for combined
+///   fields that can be used as indices for jump tables for branchless dispatch.
 #[derive(Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(C)]
 pub struct Instruction(u64);
@@ -340,19 +342,19 @@ impl Instruction {
     }
 
     pub fn operation(self) -> Operation {
-        Operation(self.0 as u8 & 0x1F)
-    }
-
-    pub fn b_memory(self) -> MemoryKind {
-        MemoryKind(((self.0 >> 7) & 0x3) as u8)
-    }
-
-    pub fn c_memory(self) -> MemoryKind {
-        MemoryKind(((self.0 >> 9) & 0x3) as u8)
+        Operation((self.0 & 0x1F) as u8)
     }
 
     pub fn operand_type(self) -> OperandType {
-        OperandType(((self.0 >> 11) & 0xF) as u8)
+        OperandType(((self.0 >> 5) & 0x0F) as u8)
+    }
+
+    pub fn b_memory(self) -> MemoryKind {
+        MemoryKind(((self.0 >> 9) & 0x07) as u8)
+    }
+
+    pub fn c_memory(self) -> MemoryKind {
+        MemoryKind(((self.0 >> 12) & 0x07) as u8)
     }
 
     pub fn a_field(self) -> u16 {
@@ -381,6 +383,14 @@ impl Instruction {
         }
     }
 
+    pub fn operation_key(self) -> u64 {
+        self.0 & 0x1FF
+    }
+
+    pub fn address_key(self) -> u64 {
+        (self.0 >> 5) & 0x3FF
+    }
+
     pub fn is_coallescible_with_jump(self, forward: bool) -> bool {
         match self.operation() {
             Operation::DROP => true,
@@ -391,7 +401,7 @@ impl Instruction {
                     ..
                 } = Move::from(self);
 
-                jump_distance == 0 || forward == jump_forward
+                jump_distance == 0 || jump_forward == forward
             }
             Operation::TEST => {
                 let Test { jump_distance, .. } = Test::from(self);
@@ -440,16 +450,16 @@ impl Debug for Instruction {
 
 impl Display for Instruction {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}: {}", self.operation(), self.disassembly_info())
+        write!(f, "{} {}", self.operation(), self.disassembly_info())
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct InstructionBuilder {
     operation: Operation,
+    operand_type: OperandType,
     b_memory: MemoryKind,
     c_memory: MemoryKind,
-    operand_type: OperandType,
     a_field: u16,
     b_field: u16,
     c_field: u16,
@@ -459,9 +469,9 @@ impl InstructionBuilder {
     pub fn new(operation: Operation) -> Self {
         Self {
             operation,
+            operand_type: OperandType(0),
             b_memory: MemoryKind(0),
             c_memory: MemoryKind(0),
-            operand_type: OperandType(0),
             a_field: 0,
             b_field: 0,
             c_field: 0,
@@ -521,9 +531,9 @@ impl InstructionBuilder {
     pub fn build(self) -> Instruction {
         let mut bits = self.operation.0 as u64;
 
-        bits |= (self.b_memory.0 as u64) << 7;
-        bits |= (self.c_memory.0 as u64) << 9;
-        bits |= (self.operand_type.0 as u64) << 11;
+        bits |= (self.operand_type.0 as u64) << 5;
+        bits |= (self.b_memory.0 as u64) << 9;
+        bits |= (self.c_memory.0 as u64) << 12;
         bits |= (self.a_field as u64) << 16;
         bits |= (self.b_field as u64) << 32;
         bits |= (self.c_field as u64) << 48;
@@ -536,9 +546,25 @@ impl InstructionBuilder {
 pub struct MemoryKind(u8);
 
 impl MemoryKind {
+    /// Represents the index of a VM register in the current stack frame.
     pub const REGISTER: MemoryKind = MemoryKind(0);
-    pub const CONSTANT: MemoryKind = MemoryKind(1);
-    pub const ENCODED: MemoryKind = MemoryKind(2);
+
+    /// Represents the register index of a VM "thin pointer", i.e. an index to another register in
+    /// or below the current stack frame.
+    pub const REFERENCE: MemoryKind = MemoryKind(1);
+
+    /// Represents the register index of a VM "fat pointer", i.e. an index and a length for a
+    /// section of registers in or below the current stack frame.
+    pub const SLICE: MemoryKind = MemoryKind(2);
+
+    /// Represents the register index of a pointer to a heap object.
+    pub const POINTER: MemoryKind = MemoryKind(3);
+
+    /// Represents the index of a value in the constants table.
+    pub const CONSTANT: MemoryKind = MemoryKind(4);
+
+    /// Represents an encoded value that is stored directly in the instruction.
+    pub const ENCODED: MemoryKind = MemoryKind(5);
 }
 
 impl Display for MemoryKind {
