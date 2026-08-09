@@ -612,6 +612,7 @@ dependencies = [
  "criterion",
  "crossbeam",
  "dust-compiler",
+ "dust-keys",
  "rustc-hash",
  "tracing",
 ]

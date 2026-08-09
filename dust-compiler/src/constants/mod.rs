@@ -374,7 +374,7 @@ impl ConstantsBuilder {
 
         let end = self.string_pool.len() as u32;
 
-        self.add_constant([start, end], key, OperandType::POINTER)
+        self.add_constant([start, end], key, OperandType::HEAP_POINTER)
     }
 
     fn add_constant<const COUNT: usize>(

@@ -358,15 +358,39 @@ impl Instruction {
     }
 
     pub fn a_field(self) -> u16 {
-        ((self.0 >> 16) & 0xFFFF) as u16
+        self.a_field_as_u64() as u16
+    }
+
+    pub fn a_field_as_u64(self) -> u64 {
+        (self.0 >> 16) & 0xFFFF
+    }
+
+    pub fn a_field_as_usize(self) -> usize {
+        self.a_field_as_u64() as usize
     }
 
     pub fn b_field(self) -> u16 {
-        ((self.0 >> 32) & 0xFFFF) as u16
+        self.b_field_as_u64() as u16
+    }
+
+    pub fn b_field_as_u64(self) -> u64 {
+        (self.0 >> 32) & 0xFFFF
+    }
+
+    pub fn b_field_as_usize(self) -> usize {
+        self.b_field_as_u64() as usize
     }
 
     pub fn c_field(self) -> u16 {
-        ((self.0 >> 48) & 0xFFFF) as u16
+        self.c_field_as_u64() as u16
+    }
+
+    pub fn c_field_as_u64(self) -> u64 {
+        (self.0 >> 48) & 0xFFFF
+    }
+
+    pub fn c_field_as_usize(self) -> usize {
+        self.c_field_as_u64() as usize
     }
 
     pub fn b_address(self) -> Address {
@@ -387,7 +411,7 @@ impl Instruction {
         self.0 & 0x1FF
     }
 
-    pub fn address_key(self) -> u64 {
+    pub fn operand_key(self) -> u64 {
         (self.0 >> 5) & 0x3FF
     }
 
@@ -546,25 +570,26 @@ impl InstructionBuilder {
 pub struct MemoryKind(u8);
 
 impl MemoryKind {
+    /// Indicates that the field is unused and should be ignored.
+    pub const EMPTY: MemoryKind = MemoryKind(0);
+
     /// Represents the index of a VM register in the current stack frame.
-    pub const REGISTER: MemoryKind = MemoryKind(0);
+    pub const REGISTER: MemoryKind = MemoryKind(1);
 
-    /// Represents the register index of a VM "thin pointer", i.e. an index to another register in
-    /// or below the current stack frame.
-    pub const REFERENCE: MemoryKind = MemoryKind(1);
+    /// Represents the first of two adjacent registers that are used to store a 64-bit value.
+    pub const DOUBLE_REGISTER: MemoryKind = MemoryKind(2);
 
-    /// Represents the register index of a VM "fat pointer", i.e. an index and a length for a
-    /// section of registers in or below the current stack frame.
-    pub const SLICE: MemoryKind = MemoryKind(2);
+    /// Represents the first of four adjacent registers that are used to store a 128-bit value.
+    pub const QUAD_REGISTER: MemoryKind = MemoryKind(3);
 
-    /// Represents the register index of a pointer to a heap object.
-    pub const POINTER: MemoryKind = MemoryKind(3);
-
-    /// Represents the index of a value in the constants table.
-    pub const CONSTANT: MemoryKind = MemoryKind(4);
+    /// Represents the index of a reference to another register.
+    pub const REFERENCE: MemoryKind = MemoryKind(4);
 
     /// Represents an encoded value that is stored directly in the instruction.
     pub const ENCODED: MemoryKind = MemoryKind(5);
+
+    /// Represents the index of a value in the constants table.
+    pub const CONSTANT: MemoryKind = MemoryKind(6);
 }
 
 impl Display for MemoryKind {

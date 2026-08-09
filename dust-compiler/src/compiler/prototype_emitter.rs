@@ -514,7 +514,7 @@ impl<'a> PrototypeEmitter<'a> {
                 Type::FunctionDefinition { .. } | Type::Closure { .. } | Type::Function { .. } => {
                     OperandType::FUNCTION
                 }
-                Type::Pointer { .. } => OperandType::POINTER,
+                Type::Pointer { .. } => OperandType::HEAP_POINTER,
                 Type::Inferred {
                     resolved_id: Some(resolved_id),
                     ..
@@ -561,16 +561,16 @@ impl<'a> PrototypeEmitter<'a> {
                     let register_index = match kind {
                         RegisterKind::Scoped => prototype_emitter
                             .register_tracker
-                            .allocate_next_local(OperandType::POINTER),
+                            .allocate_next_local(OperandType::HEAP_POINTER),
                         RegisterKind::Temporary => prototype_emitter
                             .register_tracker
-                            .allocate_next_temporary(OperandType::POINTER),
+                            .allocate_next_temporary(OperandType::HEAP_POINTER),
                         RegisterKind::Reserved => prototype_emitter
                             .register_tracker
-                            .allocate_next_reserved(OperandType::POINTER),
+                            .allocate_next_reserved(OperandType::HEAP_POINTER),
                     };
                     registers.push(RegisterClaim {
-                        operand_type: OperandType::POINTER,
+                        operand_type: OperandType::HEAP_POINTER,
                         index: register_index,
                     });
 
@@ -1314,7 +1314,7 @@ impl<'a> PrototypeEmitter<'a> {
                         if element_operand_types.len() == 1 {
                             element_operand_types[0]
                         } else {
-                            OperandType::POINTER
+                            OperandType::HEAP_POINTER
                         }
                     }
                     _ => {
@@ -3356,7 +3356,7 @@ impl<'a> PrototypeEmitter<'a> {
         };
         let destination = self
             .register_tracker
-            .allocate_next_local(OperandType::POINTER);
+            .allocate_next_local(OperandType::HEAP_POINTER);
         let end_register = self
             .context
             .get_operand_types(type_id)?
@@ -3372,7 +3372,7 @@ impl<'a> PrototypeEmitter<'a> {
         reference_instructions.target_registers = Some(RegisterClaims {
             claims: smallvec![RegisterClaim {
                 index: destination,
-                operand_type: OperandType::POINTER
+                operand_type: OperandType::HEAP_POINTER
             }],
             kind: RegisterKind::Scoped,
         });

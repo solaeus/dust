@@ -11,7 +11,7 @@ use crate::{
 
 pub struct Thread {
     program: Arc<Program>,
-    main_prototype_index: usize,
+    main_prototype_index: u32,
 
     call_stack: Vec<CallFrame>,
     register_stack: Vec<Register>,
@@ -22,7 +22,7 @@ pub struct Thread {
 impl Thread {
     pub fn new(
         program: Arc<Program>,
-        main_prototype_index: usize,
+        main_prototype_index: u32,
         message_sender: Arc<Sender<ThreadMessage>>,
     ) -> Self {
         let call_stack_capacity = if program.prototypes().len() == 1 {

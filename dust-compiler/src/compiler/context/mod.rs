@@ -739,7 +739,7 @@ impl Context {
 
                 Ok(operand_types)
             }
-            Type::Pointer { .. } => Ok(smallvec![OperandType::POINTER]),
+            Type::Pointer { .. } => Ok(smallvec![OperandType::HEAP_POINTER]),
             Type::FunctionDefinition { .. } | Type::Closure { .. } | Type::Function { .. } => {
                 Ok(smallvec![OperandType::FUNCTION])
             }
@@ -981,7 +981,7 @@ impl Context {
                 resolved_id: None,
                 ..
             } => Ok(smallvec![OperandType::F_64]),
-            Type::Reference { .. } => Ok(smallvec![OperandType::POINTER]),
+            Type::Reference { .. } => Ok(smallvec![OperandType::HEAP_POINTER]),
             Type::Generic { .. } | Type::Inferred { .. } | Type::Projection { .. } => {
                 Err(CompileError::ExpectedConcreteType)
             }

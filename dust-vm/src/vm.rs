@@ -33,7 +33,7 @@ impl Vm {
     }
 
     pub fn run(self) -> Result<Option<DustValue>, VmError> {
-        let span = span!(Level::INFO, "run");
+        let span = span!(Level::INFO, "vm");
         let _enter = span.enter();
 
         let message_receiver = {
@@ -51,7 +51,7 @@ impl Vm {
             match message_receiver.recv() {
                 Ok(ThreadMessage::SpawnThread {
                     thread_name,
-                    prototype_id: prototype_index,
+                    prototype_index,
                 }) => {
                     info!("Spawning VM thread: {thread_name} with proto_{prototype_index}");
 

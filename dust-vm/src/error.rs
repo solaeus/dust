@@ -1,13 +1,10 @@
 use std::fmt::{self, Display, Formatter};
 
-use crossbeam::channel::SendError;
 use dust_compiler::{
     constants::ConstantsError,
     dust_type::DustType,
     instruction::{MemoryKind, OperandType, Operation},
 };
-
-use crate::thread_pool::ThreadMessage;
 
 #[derive(Debug)]
 pub enum VmError {
@@ -15,7 +12,7 @@ pub enum VmError {
     ConstantList(ConstantsError),
     ChannelError,
     InvalidPrototypeIndex {
-        index: usize,
+        index: u32,
     },
     UnsupportedOperation {
         operation: Operation,
@@ -33,12 +30,16 @@ pub enum VmError {
     InvalidRegisterIndex {
         index: usize,
     },
-    InvalidInstructionPointer {
+    InvalidInstructionDispatch {
         index: usize,
+    },
+    InvalidInstructionPointer {
+        instruction_pointer: u32,
     },
     InvalidCharacter {
         value: u32,
     },
+    InvalidOperandDispatch,
 }
 
 impl From<ConstantsError> for VmError {
@@ -71,11 +72,19 @@ impl Display for VmError {
                 "Invalid return value: register_count={register_count}, expected_type={expected_type:?}"
             ),
             Self::InvalidRegisterIndex { index } => write!(f, "Invalid register index: {index}"),
-            Self::InvalidInstructionPointer { index } => {
+            Self::InvalidInstructionDispatch { index } => {
+                write!(f, "Invalid instruction dispatch: {index}")
+            }
+            Self::InvalidInstructionPointer {
+                instruction_pointer: index,
+            } => {
                 write!(f, "Invalid instruction pointer: {index}")
             }
             Self::InvalidCharacter { value } => {
                 write!(f, "Invalid character bits: {value}")
+            }
+            Self::InvalidOperandDispatch => {
+                write!(f, "Invalid operand dispatch")
             }
         }
     }

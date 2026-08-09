@@ -17,6 +17,7 @@ mimalloc = ["dust-compiler/mimalloc"]
 bumpalo = { version = "3.20.3", features = ["boxed", "collections"] }
 crossbeam = { version = "0.8.4", features = ["crossbeam-channel", "nightly"] }
 dust-compiler = { path = "../dust-compiler" }
+dust-keys = { path = "../dust-keys" }
 rustc-hash = "2.1.3"
 tracing = "0.1.44"
 

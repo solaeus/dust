@@ -58,14 +58,14 @@ impl ThreadSpawner {
         self.threads.is_empty()
     }
 
-    pub fn spawn_thread(&mut self, prototype_id: u16) -> Result<(), VmError> {
+    pub fn spawn_thread(&mut self, prototype_id: u32) -> Result<(), VmError> {
         let message_sender = Arc::clone(&self.message_sender);
         let program = Arc::clone(&self.program);
         let _minimum_object_heap = self.minimum_object_heap;
         let _minimum_object_sweep = self.minimum_object_sweep;
         let join_handle = ThreadBuilder::new()
             .spawn(move || {
-                Thread::new(program, prototype_id as usize, Arc::clone(&message_sender)).run();
+                Thread::new(program, prototype_id, Arc::clone(&message_sender)).run();
             })
             .expect("Failed to spawn thread");
 
@@ -77,7 +77,7 @@ impl ThreadSpawner {
     pub fn spawn_named_thread(
         &mut self,
         thread_name: String,
-        prototype_id: u16,
+        prototype_id: u32,
     ) -> Result<(), VmError> {
         let message_sender = Arc::clone(&self.message_sender);
         let program = Arc::clone(&self.program);
@@ -86,7 +86,7 @@ impl ThreadSpawner {
         let join_handle = ThreadBuilder::new()
             .name(thread_name)
             .spawn(move || {
-                Thread::new(program, prototype_id as usize, Arc::clone(&message_sender)).run();
+                Thread::new(program, prototype_id, Arc::clone(&message_sender)).run();
             })
             .expect("Failed to spawn thread");
 
@@ -108,7 +108,7 @@ impl ThreadSpawner {
 pub enum ThreadMessage {
     SpawnThread {
         thread_name: String,
-        prototype_id: u16,
+        prototype_index: u32,
     },
     ThreadFinished {
         thread_id: ThreadId,
