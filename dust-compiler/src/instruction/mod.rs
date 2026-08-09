@@ -60,7 +60,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 /// ------- | -----------
 /// 0..=4   | Operation     ┬─ Operation key
 /// 5..=8   | Operand type  ┘┐
-/// 9..=11  | B memory kind  ├─ Address key
+/// 9..=11  | B memory kind  ├─ Operand key
 /// 12..=14 | C memory kind  ┘
 /// 15      | Unused
 /// 16..=31 | A field
@@ -89,7 +89,6 @@ impl Instruction {
             operand_type,
             operand,
             jump_distance: 0,
-            jump_forward: false,
         })
     }
 
@@ -97,15 +96,13 @@ impl Instruction {
         destination: u16,
         operand_type: OperandType,
         operand: Address,
-        jump_distance: u16,
-        jump_forward: bool,
+        jump_distance: i16,
     ) -> Instruction {
         Instruction::from(Move {
             destination,
             operand_type,
             operand,
             jump_distance,
-            jump_forward,
         })
     }
 
@@ -419,13 +416,9 @@ impl Instruction {
         match self.operation() {
             Operation::DROP => true,
             Operation::MOVE => {
-                let Move {
-                    jump_distance,
-                    jump_forward,
-                    ..
-                } = Move::from(self);
+                let Move { jump_distance, .. } = Move::from(self);
 
-                jump_distance == 0 || jump_forward == forward
+                jump_distance == 0 || (jump_distance.is_positive() == forward)
             }
             Operation::TEST => {
                 let Test { jump_distance, .. } = Test::from(self);
@@ -634,7 +627,6 @@ mod tests {
                 index: 666,
             },
             777,
-            true,
         )
     }
 

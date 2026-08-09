@@ -1,4 +1,4 @@
-use proc_macro::{TokenStream, TokenTree};
+use proc_macro::{Delimiter, Spacing, TokenStream, TokenTree};
 use std::fmt::Write;
 
 use dust_compiler::instruction::{InstructionBuilder, MemoryKind, OperandType, Operation};
@@ -59,23 +59,32 @@ const MEMORY_KINDS: [(&str, MemoryKind); 7] = [
     ("CONSTANT", MemoryKind::CONSTANT),
 ];
 
-#[proc_macro]
-pub fn create_operation_dispatch(input: TokenStream) -> TokenStream {
-    let mut trees = input.into_iter();
-    let scrutinee = trees
-        .next()
-        .map(|tree| tree.to_string())
-        .unwrap_or_default();
+fn parse_rules(
+    input: TokenStream,
+    arity: usize,
+) -> Result<(String, Vec<(String, String)>), String> {
+    let mut trees = input.into_iter().peekable();
+    let mut scrutinee = String::new();
 
-    trees.next();
+    loop {
+        match trees.next() {
+            Some(TokenTree::Punct(punct)) if punct.as_char() == ',' => break,
+            Some(tree) => scrutinee.push_str(&tree.to_string()),
+            None => return Err("expected a scrutinee expression followed by `,`".to_string()),
+        }
+    }
+
+    if scrutinee.is_empty() {
+        return Err("expected a scrutinee expression before `,`".to_string());
+    }
 
     let mut rules: Vec<(String, String)> = Vec::new();
 
-    'rules: loop {
+    loop {
         let mut patterns = String::new();
         let mut filled = 0;
 
-        while filled < 2 {
+        while filled < arity {
             match trees.next() {
                 Some(TokenTree::Ident(ident)) => {
                     patterns.push_str(&ident.to_string());
@@ -86,173 +95,190 @@ pub fn create_operation_dispatch(input: TokenStream) -> TokenStream {
                     patterns.push_str("* ");
                     filled += 1;
                 }
-                Some(_) => {}
-                None => break 'rules,
-            }
-        }
-
-        trees.next();
-        trees.next();
-
-        let mut path = String::new();
-
-        for tree in trees.by_ref() {
-            match tree {
-                TokenTree::Punct(punct) if punct.as_char() == ',' => break,
-                tree => path.push_str(&tree.to_string()),
-            }
-        }
-
-        rules.push((patterns, path));
-    }
-
-    let mut arms = vec![String::new(); rules.len()];
-
-    for (operation_name, operation) in OPERATIONS {
-        for (operand_type_name, operand_type) in OPERAND_TYPES {
-            let key = InstructionBuilder::new(operation)
-                .operand_type(operand_type)
-                .build()
-                .operation_key();
-
-            for (index, (patterns, _)) in rules.iter().enumerate() {
-                let matched = patterns
-                    .split_whitespace()
-                    .zip([operation_name, operand_type_name])
-                    .all(|(pattern, name)| pattern == "*" || pattern == name);
-
-                if matched {
-                    if !arms[index].is_empty() {
-                        arms[index].push_str(" | ");
+                Some(TokenTree::Punct(punct)) if punct.as_char() == ',' => {}
+                Some(tree) => {
+                    return Err(format!("expected a pattern name or `*`, found `{tree}`"));
+                }
+                None => {
+                    if filled == 0 {
+                        return Ok((scrutinee, rules));
                     }
 
-                    write!(arms[index], "{key}").unwrap();
-
-                    break;
+                    return Err(format!(
+                        "rule `{}` needs {arity} patterns but has {filled}",
+                        patterns.trim()
+                    ));
                 }
             }
         }
+
+        match (trees.next(), trees.next()) {
+            (Some(TokenTree::Punct(equals)), Some(TokenTree::Punct(greater)))
+                if equals.as_char() == '='
+                    && equals.spacing() == Spacing::Joint
+                    && greater.as_char() == '>' => {}
+            _ => {
+                return Err(format!(
+                    "expected `=>` after rule pattern `{}`",
+                    patterns.trim()
+                ));
+            }
+        }
+
+        let path = match trees.next() {
+            Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
+                if matches!(trees.peek(), Some(TokenTree::Punct(punct)) if punct.as_char() == ',') {
+                    trees.next();
+                }
+
+                group.to_string()
+            }
+            Some(first) => {
+                let mut path = first.to_string();
+
+                for tree in trees.by_ref() {
+                    match tree {
+                        TokenTree::Punct(punct) if punct.as_char() == ',' => break,
+                        tree => path.push_str(&tree.to_string()),
+                    }
+                }
+
+                path
+            }
+            None => {
+                return Err(format!(
+                    "expected a handler after `=>` in rule `{}`",
+                    patterns.trim()
+                ));
+            }
+        };
+
+        rules.push((patterns, path));
+    }
+}
+
+fn get_pattern_range<T>(table: &[(&str, T)], pattern: &str) -> (usize, usize) {
+    if pattern == "*" {
+        return (0, table.len());
     }
 
+    match table.iter().position(|(name, _)| *name == pattern) {
+        Some(index) => (index, index + 1),
+        None => (0, 0),
+    }
+}
+
+fn assign_rule(match_arms: &mut [String], assigned_rules: &mut [bool], arm_index: usize, key: u64) {
+    if assigned_rules[key as usize] {
+        return;
+    }
+
+    assigned_rules[key as usize] = true;
+
+    if !match_arms[arm_index].is_empty() {
+        match_arms[arm_index].push_str(" | ");
+    }
+
+    write!(match_arms[arm_index], "{key}").unwrap();
+}
+
+fn expand(scrutinee: &str, rules: &[(String, String)], arms: &[String], key_kind: &str) -> String {
     let mut source = format!("match {scrutinee} {{");
 
     for (index, (patterns, path)) in rules.iter().enumerate() {
         if patterns.split_whitespace().all(|pattern| pattern == "*") {
-            write!(source, "\n    _ => {path},").unwrap();
+            write!(source, "\n    _ => {{ {path} }},").unwrap();
         } else if arms[index].is_empty() {
             return format!(
-                "compile_error!(\"rule `{} => {path}` matches no operation key\")",
+                "compile_error!(\"rule `{} => {path}` matches no {key_kind}\")",
                 patterns.trim()
-            )
-            .parse()
-            .unwrap();
+            );
         } else {
-            write!(source, "\n    {} => {path},", arms[index]).unwrap();
+            write!(source, "\n    {} => {{ {path} }},", arms[index]).unwrap();
         }
     }
 
     source.push_str("\n}");
 
-    source.parse().unwrap()
+    source
 }
 
 #[proc_macro]
-pub fn create_operand_dispatch(input: TokenStream) -> TokenStream {
-    let mut trees = input.into_iter();
-    let scrutinee = trees
-        .next()
-        .map(|tree| tree.to_string())
-        .unwrap_or_default();
+pub fn operation_handler_dispatch(input: TokenStream) -> TokenStream {
+    let (scrutinee, rules) = match parse_rules(input, 2) {
+        Ok(parsed) => parsed,
+        Err(message) => return format!("compile_error!(\"{message}\")").parse().unwrap(),
+    };
+    let mut match_arms = vec![String::new(); rules.len()];
+    let mut assigned_rules = [false; 512];
 
-    trees.next();
-
-    let mut rules: Vec<(String, String)> = Vec::new();
-
-    'rules: loop {
-        let mut patterns = String::new();
-        let mut filled = 0;
-
-        while filled < 3 {
-            match trees.next() {
-                Some(TokenTree::Ident(ident)) => {
-                    patterns.push_str(&ident.to_string());
-                    patterns.push(' ');
-                    filled += 1;
-                }
-                Some(TokenTree::Punct(punct)) if punct.as_char() == '*' => {
-                    patterns.push_str("* ");
-                    filled += 1;
-                }
-                Some(_) => {}
-                None => break 'rules,
-            }
-        }
-
-        trees.next();
-        trees.next();
-
-        let mut path = String::new();
-
-        for tree in trees.by_ref() {
-            match tree {
-                TokenTree::Punct(punct) if punct.as_char() == ',' => break,
-                tree => path.push_str(&tree.to_string()),
-            }
-        }
-
-        rules.push((patterns, path));
-    }
-
-    let mut arms = vec![String::new(); rules.len()];
-
-    for (operand_type_name, operand_type) in OPERAND_TYPES {
-        for (b_memory_name, b_memory) in MEMORY_KINDS {
-            for (c_memory_name, c_memory) in MEMORY_KINDS {
-                let key = InstructionBuilder::new(Operation::NO_OP)
-                    .operand_type(operand_type)
-                    .b_memory(b_memory)
-                    .c_memory(c_memory)
-                    .build()
-                    .operand_key();
-
-                for (index, (patterns, _)) in rules.iter().enumerate() {
-                    let matched = patterns
-                        .split_whitespace()
-                        .zip([operand_type_name, b_memory_name, c_memory_name])
-                        .all(|(pattern, name)| pattern == "*" || pattern == name);
-
-                    if matched {
-                        if !arms[index].is_empty() {
-                            arms[index].push_str(" | ");
-                        }
-
-                        write!(arms[index], "{key}").unwrap();
-
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    let mut source = format!("match {scrutinee} {{");
-
-    for (index, (patterns, path)) in rules.iter().enumerate() {
+    for (rule_index, (patterns, _)) in rules.iter().enumerate() {
         if patterns.split_whitespace().all(|pattern| pattern == "*") {
-            write!(source, "\n    _ => {path},").unwrap();
-        } else if arms[index].is_empty() {
-            return format!(
-                "compile_error!(\"rule `{} => {path}` matches no address key\")",
-                patterns.trim()
-            )
-            .parse()
-            .unwrap();
-        } else {
-            write!(source, "\n    {} => {path},", arms[index]).unwrap();
+            break;
+        }
+
+        let mut words = patterns.split_whitespace();
+        let (operation_start, operation_end) =
+            get_pattern_range(&OPERATIONS, words.next().unwrap());
+        let (operand_type_start, operand_type_end) =
+            get_pattern_range(&OPERAND_TYPES, words.next().unwrap());
+
+        for (_, operation) in &OPERATIONS[operation_start..operation_end] {
+            for (_, operand_type) in &OPERAND_TYPES[operand_type_start..operand_type_end] {
+                let key = InstructionBuilder::new(*operation)
+                    .operand_type(*operand_type)
+                    .build()
+                    .operation_key();
+
+                assign_rule(&mut match_arms, &mut assigned_rules, rule_index, key);
+            }
         }
     }
 
-    source.push_str("\n}");
+    expand(&scrutinee, &rules, &match_arms, "operation key")
+        .parse()
+        .unwrap()
+}
 
-    source.parse().unwrap()
+#[proc_macro]
+pub fn operand_handler_dispatch(input: TokenStream) -> TokenStream {
+    let (scrutinee, rules) = match parse_rules(input, 3) {
+        Ok(parsed) => parsed,
+        Err(message) => return format!("compile_error!(\"{message}\")").parse().unwrap(),
+    };
+    let mut match_arms = vec![String::new(); rules.len()];
+    let mut assigned_rules = [false; 1024];
+
+    for (rule_index, (patterns, _)) in rules.iter().enumerate() {
+        if patterns.split_whitespace().all(|pattern| pattern == "*") {
+            break;
+        }
+
+        let mut words = patterns.split_whitespace();
+        let (operand_type_start, operand_type_end) =
+            get_pattern_range(&OPERAND_TYPES, words.next().unwrap());
+        let (b_memory_start, b_memory_end) =
+            get_pattern_range(&MEMORY_KINDS, words.next().unwrap());
+        let (c_memory_start, c_memory_end) =
+            get_pattern_range(&MEMORY_KINDS, words.next().unwrap());
+
+        for (_, operand_type) in &OPERAND_TYPES[operand_type_start..operand_type_end] {
+            for (_, b_memory) in &MEMORY_KINDS[b_memory_start..b_memory_end] {
+                for (_, c_memory) in &MEMORY_KINDS[c_memory_start..c_memory_end] {
+                    let key = InstructionBuilder::new(Operation::NO_OP)
+                        .operand_type(*operand_type)
+                        .b_memory(*b_memory)
+                        .c_memory(*c_memory)
+                        .build()
+                        .operand_key();
+
+                    assign_rule(&mut match_arms, &mut assigned_rules, rule_index, key);
+                }
+            }
+        }
+    }
+
+    expand(&scrutinee, &rules, &match_arms, "address key")
+        .parse()
+        .unwrap()
 }

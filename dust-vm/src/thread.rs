@@ -46,15 +46,21 @@ impl Thread {
     }
 
     pub fn run(mut self) {
+        let main_return_register_count = self
+            .program
+            .prototypes()
+            .get(self.main_prototype_index as usize)
+            .map_or_default(|prototype| prototype.return_types.len() as u16);
         let starting_call_frame = CallFrame {
             prototype_index: self.main_prototype_index,
             base_register: 0,
+            return_register_count: main_return_register_count,
             instruction_pointer: 0,
         };
 
         self.call_stack.push(starting_call_frame);
 
-        let return_registers = loop {
+        loop {
             let call = match Call::new(
                 self.program.prototypes(),
                 self.program.constants(),
@@ -73,8 +79,18 @@ impl Thread {
             };
 
             match call.run() {
-                Ok(Some(return_registers)) => break return_registers,
                 Ok(None) => {}
+                Ok(Some(final_frame)) => {
+                    self.register_stack
+                        .truncate(final_frame.return_register_count as usize);
+
+                    let _ = self.message_sender.send(ThreadMessage::ThreadFinished {
+                        thread_id: current_id(),
+                        return_registers: self.register_stack,
+                    });
+
+                    return;
+                }
                 Err(error) => {
                     let _ = self.message_sender.send(ThreadMessage::ThreadError {
                         thread_id: current_id(),
@@ -84,11 +100,6 @@ impl Thread {
                     return;
                 }
             }
-        };
-
-        let _ = self.message_sender.send(ThreadMessage::ThreadFinished {
-            thread_id: current_id(),
-            return_registers,
-        });
+        }
     }
 }

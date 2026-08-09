@@ -70,7 +70,7 @@ fn main() -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            let _ = stderr().write_all(error.to_string().as_bytes());
+            eprintln!("{error}");
 
             ExitCode::FAILURE
         }
