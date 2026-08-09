@@ -1,6 +1,6 @@
 [workspace]
-members = ["dust-cli", "dust-compiler", "dust-keys", "dust-vm"]
-defualt-members = ["dust-cli", "dust-compiler", "dust-vm"]
+members = ["dust-cli", "dust-compiler", "dust-vm"]
+default-members = ["dust-cli", "dust-compiler", "dust-vm"]
 resolver = "2"
 
 [workspace.package]

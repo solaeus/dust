@@ -47,6 +47,6 @@ impl Display for Set {
             source,
         } = *self;
 
-        write!(f, "reg_{base}[{index}]: {operand_type} = {source}",)
+        write!(f, "reg_{base}[{index}]: {operand_type} = {source}")
     }
 }

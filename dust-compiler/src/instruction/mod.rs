@@ -2,6 +2,7 @@
 mod add;
 mod call;
 mod call_native;
+pub mod dispatch_keys;
 mod divide;
 mod drop;
 mod equal;
@@ -58,10 +59,10 @@ use std::fmt::{self, Debug, Display, Formatter};
 ///
 /// Bits    | Description
 /// ------- | -----------
-/// 0..=4   | Operation     ┬─ Operation key
-/// 5..=8   | Operand type  ┘┐
-/// 9..=11  | B memory kind  ├─ Operand key
-/// 12..=14 | C memory kind  ┘
+/// 0..=4   | Operation     ┐
+/// 5..=8   | Operand type  ├─ Dispatch key
+/// 9..=11  | B memory kind │
+/// 12..=14 | C memory kind ┘
 /// 15      | Unused
 /// 16..=31 | A field
 /// 32..=47 | B field
@@ -72,8 +73,8 @@ use std::fmt::{self, Debug, Display, Formatter};
 /// - Memory kinds: Where the operands are stored and how they are interpreted.
 /// - A field: Usually the destination register index.
 /// - B and C fields: Operands, i.e. indices for registers and constants or encoded values.
-/// - Keys: The keys are an optimization tool for the VM. They are unique identifiers for combined
-///   fields that can be used as indices for jump tables for branchless dispatch.
+/// - Dispatch key: An optimization tool for the VM. The key is a unique identifier for combined
+///   fields that can be used for branchless dispatch.
 #[derive(Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(C)]
 pub struct Instruction(u64);
@@ -404,12 +405,8 @@ impl Instruction {
         }
     }
 
-    pub fn operation_key(self) -> u64 {
-        self.0 & 0x1FF
-    }
-
-    pub fn operand_key(self) -> u64 {
-        (self.0 >> 5) & 0x3FF
+    pub const fn dispatch_key(self) -> u64 {
+        self.0 & 0x7FFF
     }
 
     pub fn is_coallescible_with_jump(self, forward: bool) -> bool {
@@ -483,7 +480,7 @@ pub struct InstructionBuilder {
 }
 
 impl InstructionBuilder {
-    pub fn new(operation: Operation) -> Self {
+    pub const fn new(operation: Operation) -> Self {
         Self {
             operation,
             operand_type: OperandType(0),
@@ -495,57 +492,57 @@ impl InstructionBuilder {
         }
     }
 
-    pub fn b_memory(mut self, memory: MemoryKind) -> Self {
+    pub const fn b_memory(mut self, memory: MemoryKind) -> Self {
         self.b_memory = memory;
 
         self
     }
 
-    pub fn c_memory(mut self, memory: MemoryKind) -> Self {
+    pub const fn c_memory(mut self, memory: MemoryKind) -> Self {
         self.c_memory = memory;
 
         self
     }
 
-    pub fn operand_type(mut self, operand_type: OperandType) -> Self {
+    pub const fn operand_type(mut self, operand_type: OperandType) -> Self {
         self.operand_type = operand_type;
 
         self
     }
 
-    pub fn a_field(mut self, a_field: u16) -> Self {
+    pub const fn a_field(mut self, a_field: u16) -> Self {
         self.a_field = a_field;
 
         self
     }
 
-    pub fn b_field(mut self, b_field: u16) -> Self {
+    pub const fn b_field(mut self, b_field: u16) -> Self {
         self.b_field = b_field;
 
         self
     }
 
-    pub fn c_field(mut self, c_field: u16) -> Self {
+    pub const fn c_field(mut self, c_field: u16) -> Self {
         self.c_field = c_field;
 
         self
     }
 
-    pub fn b_address(mut self, operand: Address) -> Self {
+    pub const fn b_address(mut self, operand: Address) -> Self {
         self.b_memory = operand.memory;
         self.b_field = operand.index;
 
         self
     }
 
-    pub fn c_address(mut self, operand: Address) -> Self {
+    pub const fn c_address(mut self, operand: Address) -> Self {
         self.c_memory = operand.memory;
         self.c_field = operand.index;
 
         self
     }
 
-    pub fn build(self) -> Instruction {
+    pub const fn build(self) -> Instruction {
         let mut bits = self.operation.0 as u64;
 
         bits |= (self.operand_type.0 as u64) << 5;

@@ -1,5 +1,4 @@
-use dust_compiler::{constants::Constants, instruction::Instruction, prototype::Prototype};
-use dust_keys::{operand_handler_dispatch, operation_handler_dispatch};
+use dust_compiler::{constants::Constants, instruction::dispatch_keys, prototype::Prototype};
 
 use crate::{
     error::VmError,
@@ -47,242 +46,137 @@ impl<'a> Call<'a> {
                 index: self.frame.prototype_index,
             })?;
         let mut instruction_pointer = self.frame.instruction_pointer as usize;
-        let mut operands = Operands::default();
 
         while !self.call_stack.is_empty() {
             let instruction = *prototype.instructions.get(instruction_pointer).ok_or(
-                VmError::InvalidInstructionDispatch {
-                    index: instruction_pointer,
+                VmError::InvalidInstructionPointer {
+                    instruction_pointer,
                 },
             )?;
-            let destination = instruction.a_field_as_usize();
-            let left_index = instruction.b_field_as_u64();
-            let right_index = instruction.c_field_as_u64();
 
-            operand_handler_dispatch!(
-                (instruction.operand_key()),
-                BOOLEAN EMPTY    EMPTY => Call::get_nothing(&mut self, left_index, right_index, &mut operands)?,
-                BOOLEAN REGISTER EMPTY => Call::get_left_register::<bool>(&mut self, right_index, left_index, &mut operands)?,
-                BOOLEAN REGISTER REGISTER => Call::get_registers::<bool>(&mut self, right_index, left_index, &mut operands)?,
-                BOOLEAN ENCODED  EMPTY => Call::get_left_encoded::<bool>(&mut self, right_index, left_index, &mut operands)?,
-                BOOLEAN ENCODED  ENCODED => Call::get_both_encoded::<bool>(&mut self, right_index, left_index, &mut operands)?,
-                I_8     REGISTER EMPTY => Call::get_left_register::<i8>(&mut self, right_index, left_index, &mut operands)?,
-                I_8     REGISTER REGISTER => Call::get_registers::<i8>(&mut self, right_index, left_index, &mut operands)?,
-                I_8     ENCODED  EMPTY => Call::get_left_encoded::<i8>(&mut self, right_index, left_index, &mut operands)?,
-                I_16    REGISTER EMPTY => Call::get_left_register::<i16>(&mut self, right_index, left_index, &mut operands)?,
-                I_16    REGISTER REGISTER => Call::get_registers::<i16>(&mut self, right_index, left_index, &mut operands)?,
-                I_16    ENCODED  EMPTY => Call::get_left_encoded::<i16>(&mut self, right_index, left_index, &mut operands)?,
-                I_32    REGISTER EMPTY => Call::get_left_register::<i32>(&mut self, right_index, left_index, &mut operands)?,
-                I_32    REGISTER REGISTER => Call::get_registers::<i32>(&mut self, right_index, left_index, &mut operands)?,
-                I_32    ENCODED  EMPTY => Call::get_left_encoded::<i32>(&mut self, right_index, left_index, &mut operands)?,
-                I_64    REGISTER EMPTY => Call::get_left_register::<i64>(&mut self, right_index, left_index, &mut operands)?,
-                I_64    REGISTER REGISTER => Call::get_registers::<i64>(&mut self, right_index, left_index, &mut operands)?,
-                I_64    ENCODED  EMPTY => Call::get_left_encoded::<i64>(&mut self, right_index, left_index, &mut operands)?,
-                I_128   REGISTER EMPTY => Call::get_left_register::<i128>(&mut self, right_index, left_index, &mut operands)?,
-                I_128   REGISTER REGISTER => Call::get_registers::<i128>(&mut self, right_index, left_index, &mut operands)?,
-                I_128   ENCODED  EMPTY => Call::get_left_encoded::<i128>(&mut self, right_index, left_index, &mut operands)?,
-                *       *        * => Call::emit_operand_error(&mut self, right_index, left_index, &mut operands)?,
-            );
-            operation_handler_dispatch!(
-                (instruction.operation_key()),
-                MOVE   BOOLEAN => Call::move_boolean(&mut self, destination, &mut operands, &mut instruction_pointer)?,
-                MOVE   I_8 => Call::move_i8(&mut self, destination, &mut operands, &mut instruction_pointer)?,
-                MOVE   I_16 => Call::move_i16(&mut self, destination, &mut operands, &mut instruction_pointer)?,
-                MOVE   I_32 => Call::move_i32(&mut self, destination, &mut operands, &mut instruction_pointer)?,
-                MOVE   I_64 => Call::move_i64(&mut self, destination, &mut operands, &mut instruction_pointer)?,
-                MOVE   I_128 => Call::move_i128(&mut self, destination, &mut operands, &mut instruction_pointer)?,
-                ADD    I_32 => Call::add_i32(&mut self, destination, &mut operands, &mut instruction_pointer)?,
-                RETURN * => Call::r#return(&mut self, destination, &mut operands, &mut instruction_pointer)?,
-                *      * => Call::emit_operation_error(&mut self, destination, &mut operands, &mut instruction_pointer)?,
-            );
+            let a_field = instruction.a_field_as_usize();
+            let b_field = instruction.b_field_as_u64();
+            let c_field = instruction.c_field_as_u64();
+
+            use dispatch_keys::*;
+
+            match instruction.dispatch_key() {
+                MOVE_BOOLEAN_REGISTER => {
+                    let boolean = self.get_register(b_field as usize)?.as_value::<bool>();
+
+                    self.set_register(a_field, boolean)?;
+
+                    instruction_pointer += 1;
+                }
+                MOVE_BOOLEAN_ENCODED => {
+                    let boolean = bool::decode(b_field)?;
+
+                    self.set_register(a_field, boolean)?;
+
+                    instruction_pointer += 1;
+                }
+                MOVE_I32_REGISTER => {
+                    let i32 = self.get_register(b_field as usize)?.as_value::<i32>();
+
+                    self.set_register(a_field, i32)?;
+
+                    instruction_pointer += 1;
+                }
+                MOVE_I32_ENCODED => {
+                    let i32 = i32::decode(b_field)?;
+
+                    self.set_register(a_field, i32)?;
+
+                    instruction_pointer += 1;
+                }
+                GET_BOOLEAN_REGISTER => {
+                    let left_boolean = self.get_register(b_field as usize)?.as_value::<bool>();
+                    let right_index =
+                        self.get_register(c_field as usize)?.as_value::<u32>() as usize;
+                    let right_boolean = self.get_register(right_index)?.as_value::<bool>();
+                    let result = left_boolean && right_boolean;
+
+                    self.set_register(a_field, result)?;
+
+                    instruction_pointer += 1;
+                }
+                SET_BOOLEAN_REGISTER_ENCODED => {
+                    let left_index =
+                        self.get_register(b_field as usize)?.as_value::<u32>() as usize;
+                    let destination = a_field + left_index;
+                    let value = bool::decode(c_field)?;
+
+                    self.set_register(destination, value)?;
+
+                    instruction_pointer += 1;
+                }
+                LESS_I32_REGISTER_ENCODED => {
+                    let left_i32 = self.get_register(b_field as usize)?.as_value::<i32>();
+                    let right_i32 = i32::decode(c_field)?;
+                    let comparator = a_field != 0;
+                    let jump_distance = ((left_i32 < right_i32) == comparator) as usize;
+
+                    instruction_pointer += 1 + jump_distance;
+                }
+                TEST_REGISTER => {
+                    let value = self.get_register(b_field as usize)?.as_value::<bool>();
+                    let jump_distance = value as usize * c_field as usize;
+
+                    instruction_pointer += jump_distance + 1;
+                }
+                ADD_I32_REGISER_REGISTER => {
+                    let left_i32 = self.get_register(b_field as usize)?.as_value::<i32>();
+                    let right_i32 = self.get_register(c_field as usize)?.as_value::<i32>();
+                    let sum = left_i32.saturating_add(right_i32);
+
+                    self.set_register(a_field, sum)?;
+
+                    instruction_pointer += 1;
+                }
+                ADD_I32_REGISTER_ENCODED => {
+                    let left_i32 = self.get_register(b_field as usize)?.as_value::<i32>();
+                    let right_i32 = i32::decode(c_field)?;
+                    let sum = left_i32.saturating_add(right_i32);
+
+                    self.set_register(a_field, sum)?;
+
+                    instruction_pointer += 1;
+                }
+                MULTIPLY_I32_REGISTER_REGISTER => {
+                    let left_i32 = self.get_register(b_field as usize)?.as_value::<i32>();
+                    let right_i32 = self.get_register(c_field as usize)?.as_value::<i32>();
+                    let product = left_i32.saturating_mul(right_i32);
+
+                    self.set_register(a_field, product)?;
+
+                    instruction_pointer += 1;
+                }
+                NEGATE_BOOLEAN_REGISTER => {
+                    let value = self.get_register(b_field as usize)?.as_value::<bool>();
+                    let negated = !value;
+
+                    self.set_register(a_field, negated)?;
+
+                    instruction_pointer += 1;
+                }
+                JUMP_POSTIVE => {
+                    instruction_pointer += a_field + 1;
+                }
+                JUMP_NEGATIVE => {
+                    instruction_pointer -= a_field + 1;
+                }
+                RETURN => {
+                    self.call_stack.pop();
+
+                    instruction_pointer += 1;
+                }
+                _ => {
+                    return Err(VmError::InvalidInstructionDispatch { instruction });
+                }
+            }
         }
 
         Ok(Some(self.frame))
-    }
-
-    fn move_boolean(
-        &mut self,
-        destination: usize,
-        operands: &mut Operands,
-        instruction_pointer: &mut usize,
-    ) -> Result<(), VmError> {
-        let operand = operands.boolean.0;
-
-        self.set_register(destination, Register::new(operand))?;
-
-        *instruction_pointer += 1;
-
-        Ok(())
-    }
-
-    fn move_i8(
-        &mut self,
-        destination: usize,
-        operands: &mut Operands,
-        instruction_pointer: &mut usize,
-    ) -> Result<(), VmError> {
-        let operand = operands.i8.0;
-
-        self.set_register(destination, Register::new(operand))?;
-
-        *instruction_pointer += 1;
-
-        Ok(())
-    }
-
-    fn move_i16(
-        &mut self,
-        destination: usize,
-        operands: &mut Operands,
-        instruction_pointer: &mut usize,
-    ) -> Result<(), VmError> {
-        let operand = operands.i16.0;
-
-        self.set_register(destination, Register::new(operand))?;
-
-        *instruction_pointer += 1;
-
-        Ok(())
-    }
-
-    fn move_i32(
-        &mut self,
-        destination: usize,
-        operands: &mut Operands,
-        instruction_pointer: &mut usize,
-    ) -> Result<(), VmError> {
-        let operand = operands.i32.0;
-
-        self.set_register(destination, Register::new(operand))?;
-
-        *instruction_pointer += 1;
-
-        Ok(())
-    }
-
-    fn move_i64(
-        &mut self,
-        destination: usize,
-        operands: &mut Operands,
-        instruction_pointer: &mut usize,
-    ) -> Result<(), VmError> {
-        let operand = operands.i64.0;
-
-        self.set_i64_to_registers(destination, operand)?;
-
-        *instruction_pointer += 1;
-
-        Ok(())
-    }
-
-    fn move_i128(
-        &mut self,
-        destination: usize,
-        operands: &mut Operands,
-        instruction_pointer: &mut usize,
-    ) -> Result<(), VmError> {
-        let operand = operands.i128.0;
-
-        self.set_i128_to_registers(destination, operand)?;
-
-        *instruction_pointer += 1;
-
-        Ok(())
-    }
-
-    fn add_i32(
-        &mut self,
-        destination: usize,
-        operands: &mut Operands,
-        instruction_pointer: &mut usize,
-    ) -> Result<(), VmError> {
-        let (left, right) = operands.i32;
-        let sum = left.saturating_add(right);
-
-        self.set_register(destination, Register::new(sum))?;
-
-        *instruction_pointer += 1;
-
-        Ok(())
-    }
-
-    fn r#return(
-        &mut self,
-        _destination: usize,
-        _operands: &mut Operands,
-        instruction_pointer: &mut usize,
-    ) -> Result<(), VmError> {
-        self.call_stack.pop();
-
-        *instruction_pointer += 1;
-
-        Ok(())
-    }
-
-    fn get_nothing(
-        &mut self,
-        _left_index: u64,
-        _right_index: u64,
-        _operands: &mut Operands,
-    ) -> Result<(), VmError> {
-        Ok(())
-    }
-
-    fn get_left_register<T: Operand>(
-        &mut self,
-        left_index: u64,
-        _right_index: u64,
-        operands: &mut Operands,
-    ) -> Result<(), VmError> {
-        let register = self.get_register(left_index as usize)?;
-        let operand = T::get_left_operand_mut(operands);
-
-        operand.set_to_register_value(register)?;
-
-        Ok(())
-    }
-
-    fn get_registers<T: Operand>(
-        &mut self,
-        left_index: u64,
-        right_index: u64,
-        operands: &mut Operands,
-    ) -> Result<(), VmError> {
-        let left_register = self.get_register(left_index as usize)?;
-        let right_register = self.get_register(right_index as usize)?;
-
-        let (left_operand, right_operand) = T::get_operands_mut(operands);
-
-        left_operand.set_to_register_value(left_register)?;
-        right_operand.set_to_register_value(right_register)?;
-
-        Ok(())
-    }
-
-    fn get_left_encoded<T: Operand>(
-        &mut self,
-        left_index: u64,
-        _right_index: u64,
-        operands: &mut Operands,
-    ) -> Result<(), VmError> {
-        let operand = T::get_left_operand_mut(operands);
-        operand.set_to_encoded(left_index)?;
-
-        Ok(())
-    }
-
-    fn get_both_encoded<T: Operand>(
-        &mut self,
-        left_index: u64,
-        right_index: u64,
-        operands: &mut Operands,
-    ) -> Result<(), VmError> {
-        let (left_operand, right_operand) = T::get_operands_mut(operands);
-
-        left_operand.set_to_encoded(left_index)?;
-        right_operand.set_to_encoded(right_index)?;
-
-        Ok(())
     }
 
     fn get_register(&self, index: usize) -> Result<&Register, VmError> {
@@ -336,7 +230,7 @@ impl<'a> Call<'a> {
         ))
     }
 
-    fn set_register(&mut self, index: usize, register: Register) -> Result<(), VmError> {
+    fn set_register(&mut self, index: usize, value: impl RegisterValue) -> Result<(), VmError> {
         let absolute_index = self.frame.base_register as usize + index;
 
         if absolute_index >= self.register_stack.len() {
@@ -345,7 +239,7 @@ impl<'a> Call<'a> {
             });
         }
 
-        self.register_stack[absolute_index] = register;
+        self.register_stack[absolute_index] = Register::new(value);
 
         Ok(())
     }
@@ -393,24 +287,6 @@ impl<'a> Call<'a> {
 
         Ok(())
     }
-
-    fn emit_operand_error(
-        &mut self,
-        _left_index: u64,
-        _right_index: u64,
-        _operands: &mut Operands,
-    ) -> Result<(), VmError> {
-        Err(VmError::InvalidOperandDispatch)
-    }
-
-    fn emit_operation_error(
-        &mut self,
-        _destination: usize,
-        _operands: &mut Operands,
-        _instruction_pointer: &mut usize,
-    ) -> Result<(), VmError> {
-        Err(VmError::InvalidOperationDispatch)
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -421,206 +297,18 @@ pub struct CallFrame {
     pub instruction_pointer: u32,
 }
 
-#[derive(Debug, Default)]
-struct Operands {
-    boolean: (bool, bool),
-    i8: (i8, i8),
-    i16: (i16, i16),
-    i32: (i32, i32),
-    i64: (i64, i64),
-    i128: (i128, i128),
-    u8: (u8, u8),
-    u16: (u16, u16),
-    u32: (u32, u32),
-    u64: (u64, u64),
-    u128: (u128, u128),
-    f32: (f32, f32),
-    f64: (f64, f64),
-    character: (char, char),
-    function: (u32, u32),
-    heap_pointer: (*const u8, *const u8),
+trait Encoded: Sized {
+    fn decode(index: u64) -> Result<Self, VmError>;
 }
 
-trait Operand {
-    fn get_left_operand_mut(operands: &mut Operands) -> &mut Self;
-
-    fn get_operands_mut(operands: &mut Operands) -> (&mut Self, &mut Self);
-
-    fn set_to_encoded(&mut self, _index: u64) -> Result<(), VmError> {
-        Err(VmError::InvalidOperandDispatch)
-    }
-
-    fn set_to_register_value(&mut self, _register: &Register) -> Result<(), VmError> {
-        Err(VmError::InvalidOperandDispatch)
-    }
-
-    fn get_from_double_registers(
-        _low: &Register,
-        _high: &Register,
-        _operands: &mut Operands,
-    ) -> Result<(), VmError> {
-        Err(VmError::InvalidOperandDispatch)
-    }
-
-    fn get_from_quad_registers(
-        _low: &Register,
-        _low_mid: &Register,
-        _high_mid: &Register,
-        _high: &Register,
-        _operands: &mut Operands,
-    ) -> Result<(), VmError> {
-        Err(VmError::InvalidOperandDispatch)
+impl Encoded for bool {
+    fn decode(index: u64) -> Result<Self, VmError> {
+        Ok(index != 0)
     }
 }
 
-impl Operand for bool {
-    fn get_left_operand_mut(operands: &mut Operands) -> &mut Self {
-        &mut operands.boolean.0
-    }
-
-    fn get_operands_mut(operands: &mut Operands) -> (&mut Self, &mut Self) {
-        (&mut operands.boolean.0, &mut operands.boolean.1)
-    }
-
-    fn set_to_encoded(&mut self, index: u64) -> Result<(), VmError> {
-        *self = index != 0;
-
-        Ok(())
-    }
-
-    fn set_to_register_value(&mut self, register: &Register) -> Result<(), VmError> {
-        *self = register.as_value::<bool>();
-
-        Ok(())
-    }
-}
-
-impl Operand for i8 {
-    fn get_left_operand_mut(operands: &mut Operands) -> &mut Self {
-        &mut operands.i8.0
-    }
-
-    fn get_operands_mut(operands: &mut Operands) -> (&mut Self, &mut Self) {
-        (&mut operands.i8.0, &mut operands.i8.1)
-    }
-
-    fn set_to_encoded(&mut self, index: u64) -> Result<(), VmError> {
-        *self = index as i8;
-
-        Ok(())
-    }
-
-    fn set_to_register_value(&mut self, register: &Register) -> Result<(), VmError> {
-        *self = register.as_value::<i8>();
-
-        Ok(())
-    }
-}
-
-impl Operand for i16 {
-    fn get_left_operand_mut(operands: &mut Operands) -> &mut Self {
-        &mut operands.i16.0
-    }
-
-    fn get_operands_mut(operands: &mut Operands) -> (&mut Self, &mut Self) {
-        (&mut operands.i16.0, &mut operands.i16.1)
-    }
-
-    fn set_to_encoded(&mut self, index: u64) -> Result<(), VmError> {
-        *self = index as i16;
-
-        Ok(())
-    }
-
-    fn set_to_register_value(&mut self, register: &Register) -> Result<(), VmError> {
-        *self = register.as_value::<i16>();
-
-        Ok(())
-    }
-}
-
-impl Operand for i32 {
-    fn get_left_operand_mut(operands: &mut Operands) -> &mut Self {
-        &mut operands.i32.0
-    }
-
-    fn get_operands_mut(operands: &mut Operands) -> (&mut Self, &mut Self) {
-        (&mut operands.i32.0, &mut operands.i32.1)
-    }
-
-    fn set_to_encoded(&mut self, index: u64) -> Result<(), VmError> {
-        *self = index as i32;
-
-        Ok(())
-    }
-
-    fn set_to_register_value(&mut self, register: &Register) -> Result<(), VmError> {
-        *self = register.as_value::<i32>();
-
-        Ok(())
-    }
-}
-
-impl Operand for i64 {
-    fn get_left_operand_mut(operands: &mut Operands) -> &mut Self {
-        &mut operands.i64.0
-    }
-
-    fn get_operands_mut(operands: &mut Operands) -> (&mut Self, &mut Self) {
-        (&mut operands.i64.0, &mut operands.i64.1)
-    }
-
-    fn set_to_encoded(&mut self, index: u64) -> Result<(), VmError> {
-        *self = index as i64;
-
-        Ok(())
-    }
-
-    fn get_from_double_registers(
-        low: &Register,
-        high: &Register,
-        operands: &mut Operands,
-    ) -> Result<(), VmError> {
-        let low_value = low.as_value::<u32>() as u64;
-        let high_value = high.as_value::<u32>() as u64;
-
-        operands.i64.0 = ((high_value << 32) | low_value) as i64;
-
-        Ok(())
-    }
-}
-
-impl Operand for i128 {
-    fn get_left_operand_mut(operands: &mut Operands) -> &mut Self {
-        &mut operands.i128.0
-    }
-
-    fn get_operands_mut(operands: &mut Operands) -> (&mut Self, &mut Self) {
-        (&mut operands.i128.0, &mut operands.i128.1)
-    }
-
-    fn set_to_encoded(&mut self, index: u64) -> Result<(), VmError> {
-        *self = index as i128;
-
-        Ok(())
-    }
-
-    fn get_from_quad_registers(
-        low: &Register,
-        low_mid: &Register,
-        high_mid: &Register,
-        high: &Register,
-        operands: &mut Operands,
-    ) -> Result<(), VmError> {
-        let low_value = low.as_value::<u32>() as u128;
-        let low_mid_value = low_mid.as_value::<u32>() as u128;
-        let high_mid_value = high_mid.as_value::<u32>() as u128;
-        let high_value = high.as_value::<u32>() as u128;
-
-        operands.i128.0 =
-            ((high_value << 96) | (high_mid_value << 64) | (low_mid_value << 32) | low_value)
-                as i128;
-
-        Ok(())
+impl Encoded for i32 {
+    fn decode(index: u64) -> Result<Self, VmError> {
+        Ok(index as i32)
     }
 }
