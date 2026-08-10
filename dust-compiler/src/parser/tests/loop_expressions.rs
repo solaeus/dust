@@ -32,7 +32,7 @@ fn while_expression() {
 
 #[test]
 fn break_empty() {
-    let (syntax_tree, errors) = parse(function_wrapper!( "while true { break; }" ));
+    let (syntax_tree, errors) = parse(function_wrapper!("while true { break; }"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -54,7 +54,7 @@ fn break_empty() {
 
 #[test]
 fn break_with_value() {
-    let (syntax_tree, errors) = parse(function_wrapper!( "while true { break 42; }" ));
+    let (syntax_tree, errors) = parse(function_wrapper!("while true { break 42; }"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

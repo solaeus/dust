@@ -90,6 +90,7 @@ impl Instruction {
             operand_type,
             operand,
             jump_distance: 0,
+            jump_forward: true,
         })
     }
 
@@ -97,13 +98,15 @@ impl Instruction {
         destination: u16,
         operand_type: OperandType,
         operand: Address,
-        jump_distance: i16,
+        jump_distance: u16,
+        jump_forward: bool,
     ) -> Instruction {
         Instruction::from(Move {
             destination,
             operand_type,
             operand,
             jump_distance,
+            jump_forward,
         })
     }
 
@@ -413,9 +416,13 @@ impl Instruction {
         match self.operation() {
             Operation::DROP => true,
             Operation::MOVE => {
-                let Move { jump_distance, .. } = Move::from(self);
+                let Move {
+                    jump_distance,
+                    jump_forward,
+                    ..
+                } = Move::from(self);
 
-                jump_distance == 0 || (jump_distance.is_positive() == forward)
+                jump_distance == 0 || (jump_forward == forward)
             }
             Operation::TEST => {
                 let Test { jump_distance, .. } = Test::from(self);
@@ -624,6 +631,7 @@ mod tests {
                 index: 666,
             },
             777,
+            true,
         )
     }
 

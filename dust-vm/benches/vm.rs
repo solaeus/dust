@@ -1,18 +1,21 @@
-#![expect(clippy::disallowed_methods)]
+use std::{fmt::Write, hint::black_box, sync::Arc};
 
-use std::{fmt::Write, hint::black_box};
-
-use criterion::{Criterion, Throughput, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use dust_compiler::{
     compiler::Compiler,
+    dust_value::DustValue,
+    program::Program,
     source::{Code, Source},
 };
+use dust_vm::{Vm, VmConfig};
 
-fn create_source() -> Vec<u8> {
+const SIEVE_COUNT: usize = 1000;
+
+fn create_source() -> String {
     let mut source = String::with_capacity(1024 * 100);
     let mut count = 0;
 
-    while source.len() < 1024 * 100 {
+    while count < SIEVE_COUNT {
         let _ = write!(
             &mut source,
             "
@@ -62,26 +65,37 @@ fn eratosthenes_sieve_{}() -> i32 {{
 
     source.push_str("42\n}\n");
 
-    source.into_bytes()
+    source
 }
 
-fn compiler_bench(content: &[u8]) {
-    let mut source = Source::new();
+fn vm_bench(program: Arc<Program>) {
+    let vm = Vm::new(
+        program,
+        VmConfig {
+            minimum_object_heap: 0,
+            minimum_object_sweep: 0,
+        },
+    );
+    let return_value = vm.run().unwrap().unwrap();
 
-    source.add_code(Code::unvalidated("eratosthenes_sieve.ds", content));
-
-    Compiler::new(source)
-        .compile("eratosthenes_sieve".to_string())
-        .unwrap();
+    assert_eq!(return_value, DustValue::I32(42));
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let mut group = c.benchmark_group("compiler");
-    let source = create_source();
+    let mut group = c.benchmark_group("vm");
 
-    group.throughput(Throughput::Bytes(source.len() as u64));
-    group.bench_function("lots_of_sieves", |b| {
-        b.iter_with_large_drop(|| compiler_bench(black_box(&source)))
+    let mut source = Source::new();
+    let content = create_source();
+    let name = format!("{SIEVE_COUNT}_sieves");
+
+    source.add_code(Code::validated(&name, &content));
+
+    let compiler = Compiler::new(source);
+    let program = compiler.compile(name.clone()).unwrap();
+    let program = Arc::new(program);
+
+    group.bench_function(name, |b| {
+        b.iter(|| vm_bench(black_box(Arc::clone(&program))));
     });
 }
 

@@ -66,37 +66,44 @@ impl<'a> Call<'a> {
 
                     self.set_register(a_field, boolean)?;
 
-                    instruction_pointer += 1;
+                    instruction_pointer += c_field as usize + 1;
                 }
                 MOVE_BOOLEAN_ENCODED => {
                     let boolean = bool::decode(b_field)?;
 
                     self.set_register(a_field, boolean)?;
 
-                    instruction_pointer += 1;
+                    instruction_pointer += c_field as usize + 1;
                 }
                 MOVE_I32_REGISTER => {
                     let i32 = self.get_register(b_field as usize)?.as_value::<i32>();
 
                     self.set_register(a_field, i32)?;
 
-                    instruction_pointer += 1;
+                    instruction_pointer += c_field as usize + 1;
+                }
+                MOVE_I32_REGISTER_BACKWARD => {
+                    let i32 = self.get_register(b_field as usize)?.as_value::<i32>();
+
+                    self.set_register(a_field, i32)?;
+
+                    instruction_pointer -= c_field as usize + 1;
                 }
                 MOVE_I32_ENCODED => {
                     let i32 = i32::decode(b_field)?;
 
                     self.set_register(a_field, i32)?;
 
-                    instruction_pointer += 1;
+                    instruction_pointer += c_field as usize + 1;
                 }
                 GET_BOOLEAN_REGISTER => {
-                    let left_boolean = self.get_register(b_field as usize)?.as_value::<bool>();
-                    let right_index =
-                        self.get_register(c_field as usize)?.as_value::<u32>() as usize;
-                    let right_boolean = self.get_register(right_index)?.as_value::<bool>();
-                    let result = left_boolean && right_boolean;
+                    let base_register = b_field as usize;
+                    let offset = self.get_register(c_field as usize)?.as_bits() as usize;
+                    let source_start = base_register + offset;
+                    let source_end = source_start + 1;
 
-                    self.set_register(a_field, result)?;
+                    self.register_stack
+                        .copy_within(source_start..source_end, a_field);
 
                     instruction_pointer += 1;
                 }
@@ -116,11 +123,21 @@ impl<'a> Call<'a> {
                     let comparator = a_field != 0;
                     let jump_distance = ((left_i32 < right_i32) == comparator) as usize;
 
-                    instruction_pointer += 1 + jump_distance;
+                    instruction_pointer += jump_distance + 1;
                 }
                 TEST_REGISTER => {
                     let value = self.get_register(b_field as usize)?.as_value::<bool>();
-                    let jump_distance = value as usize * c_field as usize;
+                    let comparator = a_field != 0;
+                    let should_jump = !(value && comparator);
+                    let jump_distance = c_field as usize * should_jump as usize;
+
+                    instruction_pointer += jump_distance + 1;
+                }
+                TEST_ENCODED => {
+                    let value = bool::decode(b_field)?;
+                    let comparator = a_field != 0;
+                    let should_jump = !(value && comparator);
+                    let jump_distance = c_field as usize * should_jump as usize;
 
                     instruction_pointer += jump_distance + 1;
                 }
@@ -159,16 +176,14 @@ impl<'a> Call<'a> {
 
                     instruction_pointer += 1;
                 }
-                JUMP_POSTIVE => {
+                JUMP_FORWARD => {
                     instruction_pointer += a_field + 1;
                 }
-                JUMP_NEGATIVE => {
+                JUMP_BACKWARD => {
                     instruction_pointer -= a_field + 1;
                 }
                 RETURN => {
                     self.call_stack.pop();
-
-                    instruction_pointer += 1;
                 }
                 _ => {
                     return Err(VmError::InvalidInstructionDispatch { instruction });

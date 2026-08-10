@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use dust_compiler::compiler::Compiler;
 use dust_vm::{Vm, VmConfig};
 
@@ -13,7 +15,7 @@ pub fn run<'src>(commmand: RunCommand) -> Result<(), Error<'src>> {
     let name = get_name(name, &input);
     let source = build_source(input)?;
     let program = Compiler::new(source).compile(name)?;
-    let vm = Vm::new(program, VmConfig::default());
+    let vm = Vm::new(Arc::new(program), VmConfig::default());
 
     match vm.run() {
         Ok(Some(return_value)) => {

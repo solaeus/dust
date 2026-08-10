@@ -243,8 +243,8 @@ impl<'a> PrototypeEmitter<'a> {
                         operand_type,
                         operand,
                         jump_distance: move_jump_distance,
+                        jump_forward,
                     } = Move::from(*instruction);
-                    let base_distance = base_distance as i16;
 
                     if move_jump_distance == 0 {
                         *instruction = Instruction::move_with_jump(
@@ -252,8 +252,9 @@ impl<'a> PrototypeEmitter<'a> {
                             operand_type,
                             operand,
                             base_distance,
+                            true,
                         );
-                    } else if move_jump_distance.is_positive() == forward {
+                    } else if jump_forward == forward {
                         let total_distance = base_distance + move_jump_distance;
 
                         *instruction = Instruction::move_with_jump(
@@ -261,6 +262,7 @@ impl<'a> PrototypeEmitter<'a> {
                             operand_type,
                             operand,
                             total_distance,
+                            forward,
                         );
                     }
                 }
@@ -890,7 +892,7 @@ impl<'a> PrototypeEmitter<'a> {
                         {
                             let first_move_instruction = self.instructions[length - 2];
                             let operand = Move::from(first_move_instruction).operand;
-                            let new_test_instruction = Instruction::test(comparator, operand, 1);
+                            let new_test_instruction = Instruction::test(comparator, operand, 0);
 
                             self.discard_instructions(3, target_instructions);
                             self.emit_instruction(new_test_instruction, target_instructions);
@@ -913,7 +915,7 @@ impl<'a> PrototypeEmitter<'a> {
                                     position: condition.position(),
                                 });
                             };
-                            let test_instruction = Instruction::test(comparator, operand, 1);
+                            let test_instruction = Instruction::test(comparator, operand, 0);
 
                             self.emit_instruction(test_instruction, target_instructions);
                         }
@@ -932,7 +934,7 @@ impl<'a> PrototypeEmitter<'a> {
                             position: condition.position(),
                         });
                     };
-                    let test_instruction = Instruction::test(comparator, operand, 1);
+                    let test_instruction = Instruction::test(comparator, operand, 0);
 
                     self.emit_instruction(test_instruction, target_instructions);
                 }
@@ -2689,6 +2691,7 @@ impl<'a> PrototypeEmitter<'a> {
             OperandType::BOOLEAN,
             Address::new(MemoryKind::ENCODED, false as u16),
             1,
+            true,
         );
         let load_true_instruction = Instruction::r#move(
             register.index,
@@ -2770,8 +2773,13 @@ impl<'a> PrototypeEmitter<'a> {
                 });
             }
         };
-        let right_move_instruction =
-            Instruction::move_with_jump(register.index, OperandType::BOOLEAN, right_address, 1);
+        let right_move_instruction = Instruction::move_with_jump(
+            register.index,
+            OperandType::BOOLEAN,
+            right_address,
+            1,
+            true,
+        );
         let left_move_instruction =
             Instruction::r#move(register.index, OperandType::BOOLEAN, left_address);
 

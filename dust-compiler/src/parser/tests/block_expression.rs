@@ -89,7 +89,7 @@ fn expression() {
 
 #[test]
 fn mixed() {
-    let (syntax_tree, errors) = parse(function_wrapper!( "{ fn foo() {} let x = 42; x + y }" ));
+    let (syntax_tree, errors) = parse(function_wrapper!("{ fn foo() {} let x = 42; x + y }"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

@@ -10,7 +10,7 @@ use crate::{
 
 #[test]
 fn r#if() {
-    let (syntax_tree, errors) = parse(function_wrapper!( "if condition { x + y }" ));
+    let (syntax_tree, errors) = parse(function_wrapper!("if condition { x + y }"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -35,7 +35,7 @@ fn r#if() {
 
 #[test]
 fn if_else() {
-    let (syntax_tree, errors) = parse(function_wrapper!( "if condition { x + y } else { x - y }" ));
+    let (syntax_tree, errors) = parse(function_wrapper!("if condition { x + y } else { x - y }"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(
@@ -70,7 +70,9 @@ fn if_else() {
 
 #[test]
 fn if_else_if() {
-    let (syntax_tree, errors) = parse(function_wrapper!( "if left { x + y } else if right { x - y } else { x * y }" ));
+    let (syntax_tree, errors) = parse(function_wrapper!(
+        "if left { x + y } else if right { x - y } else { x * y }"
+    ));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

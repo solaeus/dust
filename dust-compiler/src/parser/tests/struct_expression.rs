@@ -29,7 +29,7 @@ fn empty() {
 
 #[test]
 fn named_fields() {
-    let (syntax_tree, errors) = parse(function_wrapper!( "Foo { x: 42, y: 666 }" ));
+    let (syntax_tree, errors) = parse(function_wrapper!("Foo { x: 42, y: 666 }"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

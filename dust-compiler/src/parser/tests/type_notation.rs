@@ -1,6 +1,4 @@
-use crate::{
-    parser::parse,
-};
+use crate::parser::parse;
 
 #[test]
 fn type_notations() {

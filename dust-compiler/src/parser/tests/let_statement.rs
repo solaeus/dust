@@ -70,7 +70,7 @@ fn let_mut_statement() {
 
 #[test]
 fn let_mut_statement_with_type() {
-    let (syntax_tree, errors) = parse(function_wrapper!( "let mut x: i64 = 42;" ));
+    let (syntax_tree, errors) = parse(function_wrapper!("let mut x: i64 = 42;"));
 
     assert!(errors.is_empty(), "{errors:#?}");
     assert_eq!(

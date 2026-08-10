@@ -19,9 +19,7 @@ pub struct Vm {
 }
 
 impl Vm {
-    pub fn new(program: Program, config: VmConfig) -> Self {
-        let program = Arc::new(program);
-
+    pub fn new(program: Arc<Program>, config: VmConfig) -> Self {
         Self {
             program: Arc::clone(&program),
             thread_pool: ThreadPool::new(
