@@ -5,6 +5,7 @@ use dust_compiler::program::Program;
 
 use crate::{
     call::{Call, CallFrame},
+    error::VmError,
     register::Register,
     thread_pool::ThreadMessage,
 };
@@ -46,15 +47,27 @@ impl Thread {
     }
 
     pub fn run(mut self) {
-        let main_return_register_count = self
+        let main_prototype = match self
             .program
             .prototypes()
             .get(self.main_prototype_index as usize)
-            .map_or_default(|prototype| prototype.return_types.len() as u16);
+            .ok_or_else(|| {
+                let error = VmError::InvalidPrototypeIndex {
+                    index: self.main_prototype_index,
+                };
+                let _ = self.message_sender.send(ThreadMessage::ThreadError {
+                    thread_id: current_id(),
+                    error,
+                });
+            }) {
+            Ok(prototype) => prototype,
+            Err(()) => return,
+        };
         let starting_call_frame = CallFrame {
             prototype_index: self.main_prototype_index,
             base_register: 0,
-            return_register_count: main_return_register_count,
+            register_count: main_prototype.register_count,
+            return_register_count: main_prototype.return_types.len() as u16,
             instruction_pointer: 0,
         };
 
@@ -81,12 +94,15 @@ impl Thread {
             match call.run() {
                 Ok(None) => {}
                 Ok(Some(final_frame)) => {
-                    self.register_stack
-                        .truncate(final_frame.return_register_count as usize);
+                    let return_registers_end = (final_frame.base_register as usize)
+                        + (final_frame.return_register_count as usize);
+                    let return_registers = self.register_stack
+                        [final_frame.base_register as usize..return_registers_end]
+                        .to_vec();
 
                     let _ = self.message_sender.send(ThreadMessage::ThreadFinished {
                         thread_id: current_id(),
-                        return_registers: self.register_stack,
+                        return_registers,
                     });
 
                     return;

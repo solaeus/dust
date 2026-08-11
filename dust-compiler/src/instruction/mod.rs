@@ -573,28 +573,24 @@ impl MemoryKind {
     /// Represents the index of a VM register in the current stack frame.
     pub const REGISTER: MemoryKind = MemoryKind(1);
 
-    /// Represents the first of two adjacent registers that are used to store a 64-bit value.
-    pub const DOUBLE_REGISTER: MemoryKind = MemoryKind(2);
-
-    /// Represents the first of four adjacent registers that are used to store a 128-bit value.
-    pub const QUAD_REGISTER: MemoryKind = MemoryKind(3);
-
     /// Represents the index of a reference to another register.
-    pub const REFERENCE: MemoryKind = MemoryKind(4);
+    pub const REFERENCE: MemoryKind = MemoryKind(2);
 
     /// Represents an encoded value that is stored directly in the instruction.
-    pub const ENCODED: MemoryKind = MemoryKind(5);
+    pub const ENCODED: MemoryKind = MemoryKind(3);
 
     /// Represents the index of a value in the constants table.
-    pub const CONSTANT: MemoryKind = MemoryKind(6);
+    pub const CONSTANT: MemoryKind = MemoryKind(4);
 }
 
 impl Display for MemoryKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
+            Self::EMPTY => write!(f, "empty"),
             Self::REGISTER => write!(f, "reg"),
-            Self::CONSTANT => write!(f, "const"),
+            Self::REFERENCE => write!(f, "ref"),
             Self::ENCODED => write!(f, "enc"),
+            Self::CONSTANT => write!(f, "const"),
             _ => write!(f, "invalid"),
         }
     }

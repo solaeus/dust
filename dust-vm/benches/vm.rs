@@ -9,10 +9,10 @@ use dust_compiler::{
 };
 use dust_vm::{Vm, VmConfig};
 
-const SIEVE_COUNT: usize = 1000;
+const SIEVE_COUNT: usize = 500;
 
 fn create_source() -> String {
-    let mut source = String::with_capacity(1024 * 100);
+    let mut source = String::new();
     let mut count = 0;
 
     while count < SIEVE_COUNT {

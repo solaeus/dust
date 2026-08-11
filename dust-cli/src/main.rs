@@ -6,7 +6,7 @@ mod error;
 
 use std::{
     fmt,
-    io::{self, Read, Write, stderr},
+    io::{self, Read},
     process::ExitCode,
     time::Instant,
 };

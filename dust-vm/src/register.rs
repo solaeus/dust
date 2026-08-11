@@ -1,6 +1,6 @@
 use crate::error::VmError;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(C)]
 pub struct Register(u32);
 

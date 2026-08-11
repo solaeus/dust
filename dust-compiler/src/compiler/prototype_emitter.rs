@@ -135,7 +135,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         prototype_emitter.locals.insert(
             declaration_id,
-            Local::Place(Place::Constant {
+            Local::Place(Place::Encoded {
                 operand_type: OperandType::FUNCTION,
                 index: prototype_id.index(),
             }),
@@ -2983,9 +2983,9 @@ impl<'a> PrototypeEmitter<'a> {
         )?;
         let callee =
             self.handle_operand_emission(callee_emission, &mut call_instructions, &callee)?;
-        let arguments_start =
-            self.visit_value_arguments(arguments, None, &mut call_instructions)?;
         let (destination, registers) = self.claim_register_for_target(target, syntax)?;
+        let arguments_start =
+            self.visit_value_arguments(arguments, destination, &mut call_instructions)?;
         let call_instruction = Instruction::call(destination, callee, arguments_start);
 
         self.emit_instruction(call_instruction, &mut call_instructions);
@@ -3060,26 +3060,21 @@ impl<'a> PrototypeEmitter<'a> {
         )?;
         let parent =
             self.handle_operand_emission(parent_emission, &mut call_instructions, &method_parent)?;
+        let parent_registers = self.claim_registers(parent_type_id, RegisterKind::Temporary)?;
 
-        let argument_index = if parent.memory == MemoryKind::REGISTER {
-            parent.index
-        } else {
-            let parent_registers = self.claim_registers(parent_type_id, RegisterKind::Temporary)?;
+        for register in &parent_registers.claims {
+            let move_instruction =
+                Instruction::r#move(register.index, register.operand_type, parent);
 
-            for register in &parent_registers.claims {
-                let move_instruction =
-                    Instruction::r#move(register.index, register.operand_type, parent);
+            self.emit_instruction(move_instruction, &mut call_instructions);
+        }
 
-                self.emit_instruction(move_instruction, &mut call_instructions);
-            }
-
-            parent_registers.base_index()?
-        };
+        let arguments_start_register = parent_registers.base_index()?;
 
         if let Some(value_arguments) = value_arguments {
             self.visit_value_arguments(
                 value_arguments,
-                Some(argument_index),
+                arguments_start_register,
                 &mut call_instructions,
             )?;
         }
@@ -3088,7 +3083,7 @@ impl<'a> PrototypeEmitter<'a> {
         let call_instruction = Instruction::call(
             destination,
             Address::new(MemoryKind::CONSTANT, prototype_id.index()),
-            argument_index,
+            arguments_start_register,
         );
 
         self.emit_instruction(call_instruction, &mut call_instructions);
@@ -3101,13 +3096,12 @@ impl<'a> PrototypeEmitter<'a> {
     fn visit_value_arguments(
         &mut self,
         arguments: SyntaxReader,
-        arguments_start: Option<u16>,
+        arguments_start: u16,
         instructions: &mut InstructionRange,
     ) -> Result<u16, CompileError> {
         trace!("Visiting value arguments");
 
-        let mut arguments_start = arguments_start.unwrap_or(u16::MAX);
-        let mut next_offset = 0;
+        let mut next_argument_offset = 0;
 
         for argument in arguments.children() {
             let argument_emission = self.visit_expression(
@@ -3120,43 +3114,38 @@ impl<'a> PrototypeEmitter<'a> {
                 .context
                 .get_type_binding(&(self.code_id, argument.id))?;
             let argument_operand_types = self.context.get_operand_types(argument_type_id)?;
-            let argument_width = argument_operand_types
-                .iter()
-                .map(|operand_type| operand_type.register_width().as_u16())
-                .sum::<u16>();
+            let argument_start_register = arguments_start + next_argument_offset;
 
-            if arguments_start == u16::MAX && argument_address.memory == MemoryKind::REGISTER {
-                arguments_start = argument_address.index;
-                next_offset += argument_width;
-
-                continue;
-            }
-
-            let already_in_register = arguments_start != u16::MAX
-                && argument_address.memory == MemoryKind::REGISTER
-                && argument_address.index == arguments_start + next_offset;
-
-            if already_in_register {
-                next_offset += argument_width;
+            if argument_address.memory == MemoryKind::REGISTER
+                && argument_address.index == argument_start_register
+            {
+                next_argument_offset += argument_operand_types
+                    .iter()
+                    .map(|operand_type| operand_type.register_width().as_u16())
+                    .sum::<u16>();
 
                 continue;
             }
 
-            let argument_allocation =
-                self.claim_registers(argument_type_id, RegisterKind::Temporary)?;
+            let mut value_offset = 0;
 
-            if arguments_start == u16::MAX {
-                arguments_start = argument_allocation.base_index()?;
-            }
-
-            for register in argument_allocation.claims {
-                let move_instruction =
-                    Instruction::r#move(register.index, register.operand_type, argument_address);
+            for operand_type in argument_operand_types {
+                let value_address = Address::new(
+                    argument_address.memory,
+                    argument_address.index + value_offset,
+                );
+                let move_instruction = Instruction::r#move(
+                    argument_start_register + value_offset,
+                    operand_type,
+                    value_address,
+                );
 
                 self.emit_instruction(move_instruction, instructions);
+
+                value_offset += operand_type.register_width().as_u16();
             }
 
-            next_offset += argument_width;
+            next_argument_offset += value_offset;
         }
 
         Ok(arguments_start)
