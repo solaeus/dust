@@ -3,6 +3,7 @@ use dust_compiler::{
     instruction::{Instruction, dispatch_keys},
     prototype::Prototype,
 };
+use tracing::trace;
 
 use crate::{
     error::VmError,
@@ -69,6 +70,9 @@ impl<'a> Call<'a> {
             let a_field = instruction.a_field() as usize;
             let b_field = instruction.b_field();
             let c_field = instruction.c_field();
+
+            #[cfg(debug_assertions)]
+            trace!("IP: {} | {instruction}", self.instruction_pointer);
 
             use dispatch_keys::*;
 
