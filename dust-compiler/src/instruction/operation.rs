@@ -17,36 +17,33 @@ impl Operation {
 
     // Comparison binary operations (with control flow)
     pub const EQUAL: Operation = Operation(6);
-    pub const NOT_EQUAL: Operation = Operation(7);
-    pub const GREATER: Operation = Operation(8);
-    pub const GREATER_EQUAL: Operation = Operation(9);
-    pub const LESS: Operation = Operation(10);
-    pub const LESS_EQUAL: Operation = Operation(11);
+    pub const LESS: Operation = Operation(7);
+    pub const LESS_EQUAL: Operation = Operation(8);
 
     // Logical AND/OR (with control flow)
-    pub const TEST: Operation = Operation(12);
+    pub const TEST: Operation = Operation(9);
 
     // Logical NOT and negation
-    pub const NEGATE: Operation = Operation(13);
+    pub const NEGATE: Operation = Operation(10);
 
     // Arithmetic operations
-    pub const ADD: Operation = Operation(14);
-    pub const SUBTRACT: Operation = Operation(15);
-    pub const MULTIPLY: Operation = Operation(16);
-    pub const DIVIDE: Operation = Operation(17);
-    pub const MODULO: Operation = Operation(18);
-    pub const EXPONENT: Operation = Operation(19);
+    pub const ADD: Operation = Operation(11);
+    pub const SUBTRACT: Operation = Operation(12);
+    pub const MULTIPLY: Operation = Operation(13);
+    pub const DIVIDE: Operation = Operation(14);
+    pub const MODULO: Operation = Operation(15);
+    pub const EXPONENT: Operation = Operation(16);
 
     // Function calls
-    pub const CALL: Operation = Operation(20);
-    pub const CALL_NATIVE: Operation = Operation(21);
+    pub const CALL: Operation = Operation(17);
+    pub const CALL_NATIVE: Operation = Operation(18);
 
     // Control flow
-    pub const JUMP: Operation = Operation(22);
-    pub const RETURN: Operation = Operation(23);
+    pub const JUMP: Operation = Operation(19);
+    pub const RETURN: Operation = Operation(20);
 
     // Type conversion
-    pub const CONVERT: Operation = Operation(24);
+    pub const CONVERT: Operation = Operation(21);
 }
 
 impl Operation {

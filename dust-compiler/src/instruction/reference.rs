@@ -11,9 +11,9 @@ pub struct Reference {
 impl From<Instruction> for Reference {
     fn from(instruction: Instruction) -> Self {
         Reference {
-            destination: instruction.a_field(),
-            start_register: instruction.b_field(),
-            end_register: instruction.c_field(),
+            destination: instruction.a_field() as u16,
+            start_register: instruction.b_field() as u16,
+            end_register: instruction.c_field() as u16,
         }
     }
 }

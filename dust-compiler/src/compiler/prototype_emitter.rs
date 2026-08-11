@@ -514,7 +514,7 @@ impl<'a> PrototypeEmitter<'a> {
                 Type::FunctionDefinition { .. } | Type::Closure { .. } | Type::Function { .. } => {
                     OperandType::FUNCTION
                 }
-                Type::Pointer { .. } => OperandType::HEAP_POINTER,
+                Type::Pointer => OperandType::HEAP_POINTER,
                 Type::Inferred {
                     resolved_id: Some(resolved_id),
                     ..
@@ -797,7 +797,7 @@ impl<'a> PrototypeEmitter<'a> {
                     self.emit_instruction(move_instruction, &mut instructions);
                 }
 
-                instructions.target_registers = Some(source_registers);
+                instructions.target_registers = Some(target_registers);
 
                 Ok(Emission::Instructions(instructions))
             }

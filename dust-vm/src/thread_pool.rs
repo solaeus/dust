@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex, MutexGuard},
-    thread::{Builder as ThreadBuilder, JoinHandle, ThreadId, current_id as current_thread_id},
+    thread::{Builder as ThreadBuilder, JoinHandle, ThreadId},
 };
 
 use crossbeam::channel::{self, Receiver, Sender};

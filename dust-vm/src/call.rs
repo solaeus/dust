@@ -1,4 +1,8 @@
-use dust_compiler::{constants::Constants, instruction::dispatch_keys, prototype::Prototype};
+use dust_compiler::{
+    constants::Constants,
+    instruction::{Instruction, dispatch_keys},
+    prototype::Prototype,
+};
 
 use crate::{
     error::VmError,
@@ -14,7 +18,11 @@ pub struct Call<'a> {
 
     constants: &'a Constants,
 
+    instructions: &'a [Instruction],
+
     base_register: usize,
+
+    instruction_pointer: usize,
 }
 
 impl<'a> Call<'a> {
@@ -23,241 +31,153 @@ impl<'a> Call<'a> {
         constants: &'a Constants,
         register_stack: &'a mut Vec<Register>,
         call_stack: &'a mut Vec<CallFrame>,
+        main_prototype_index: u32,
     ) -> Result<Self, VmError> {
+        let main_prototype = prototypes.get(main_prototype_index as usize).ok_or(
+            VmError::InvalidPrototypeIndex {
+                index: main_prototype_index,
+            },
+        )?;
+        let starting_call_frame = CallFrame {
+            prototype_index: main_prototype_index,
+            base_register: 0,
+            register_count: main_prototype.register_count,
+            return_register_count: main_prototype.return_types.len() as u16,
+            instruction_pointer: 0,
+        };
+
+        call_stack.push(starting_call_frame);
+
         Ok(Self {
             prototypes,
             register_stack,
             constants,
             call_stack,
             base_register: 0,
+            instruction_pointer: 0,
+            instructions: &main_prototype.instructions,
         })
     }
 
     pub fn run(mut self) -> Result<Option<CallFrame>, VmError> {
-        let mut current_frame = *self.call_stack.last().ok_or(VmError::CallStackUnderflow)?;
-
-        self.base_register = current_frame.base_register as usize;
-
-        let mut current_prototype = self
-            .prototypes
-            .get(current_frame.prototype_index as usize)
-            .ok_or(VmError::InvalidPrototypeIndex {
-                index: current_frame.prototype_index,
-            })?;
-        let mut instruction_pointer = current_frame.instruction_pointer as usize;
-
         while !self.call_stack.is_empty() {
-            let instruction = *current_prototype
-                .instructions
-                .get(instruction_pointer)
-                .ok_or(VmError::InvalidInstructionPointer {
-                    instruction_pointer,
-                })?;
-            let a_field = instruction.a_field_as_usize();
-            let b_field = instruction.b_field_as_u64();
-            let c_field = instruction.c_field_as_u64();
+            let instruction = self.instructions.get(self.instruction_pointer).ok_or(
+                VmError::InvalidInstructionPointer {
+                    instruction_pointer: self.instruction_pointer,
+                },
+            )?;
+            let a_field = instruction.a_field() as usize;
+            let b_field = instruction.b_field();
+            let c_field = instruction.c_field();
 
             use dispatch_keys::*;
 
             match instruction.dispatch_key() {
-                MOVE_BOOLEAN_REGISTER => {
-                    let boolean = self.get_register(b_field as usize)?.as_value::<bool>();
-
-                    self.set_register(a_field, boolean)?;
-
-                    instruction_pointer += c_field as usize + 1;
+                MOVE_BOOLEAN_REGISTER | MOVE_I32_REGISTER => {
+                    self.copy_register_to_register(a_field, b_field as usize);
+                    self.jump_forward(c_field as usize);
                 }
                 MOVE_BOOLEAN_ENCODED => {
-                    let boolean = bool::decode(b_field)?;
-
-                    self.set_register(a_field, boolean)?;
-
-                    instruction_pointer += c_field as usize + 1;
-                }
-                MOVE_I32_REGISTER => {
-                    let i32 = self.get_register(b_field as usize)?.as_value::<i32>();
-
-                    self.set_register(a_field, i32)?;
-
-                    instruction_pointer += c_field as usize + 1;
+                    self.set_register(a_field, bool::decode(b_field)?)?;
+                    self.jump_forward(c_field as usize);
                 }
                 MOVE_I32_REGISTER_BACKWARD => {
-                    let i32 = self.get_register(b_field as usize)?.as_value::<i32>();
-
-                    self.set_register(a_field, i32)?;
-
-                    instruction_pointer -= c_field as usize + 1;
+                    self.copy_register_to_register(a_field, b_field as usize);
+                    self.jump_backward(c_field as usize);
                 }
                 MOVE_I32_ENCODED => {
-                    let i32 = i32::decode(b_field)?;
-
-                    self.set_register(a_field, i32)?;
-
-                    instruction_pointer += c_field as usize + 1;
+                    self.set_register(a_field, i32::decode(b_field)?)?;
+                    self.jump_forward(c_field as usize);
                 }
                 MOVE_FUNCTION_ENCODED => {
-                    let prototype_index = b_field as u32;
-
-                    self.set_register(a_field, prototype_index)?;
-
-                    instruction_pointer += c_field as usize + 1;
+                    self.set_register(a_field, b_field as u32)?;
+                    self.jump_forward(c_field as usize);
                 }
                 GET_BOOLEAN_REGISTER => {
-                    let destination = self.base_register + a_field as usize;
-                    let base_register = self.base_register + b_field as usize;
-                    let offset = self.get_register(c_field as usize)?.as_bits() as usize;
-                    let source_start = base_register + offset;
-                    let source_end = source_start + 1;
+                    let operand_offset = self.get_register(c_field as usize)?.as_bits() as usize;
 
-                    self.register_stack
-                        .copy_within(source_start..source_end, destination);
-
-                    instruction_pointer += 1;
+                    self.copy_register_to_register(a_field, b_field as usize + operand_offset);
+                    self.go_forward();
                 }
                 SET_BOOLEAN_REGISTER_ENCODED => {
-                    let left_index =
+                    let destination_offset =
                         self.get_register(b_field as usize)?.as_value::<u32>() as usize;
-                    let destination = a_field + left_index;
-                    let value = bool::decode(c_field)?;
 
-                    self.set_register(destination, value)?;
-
-                    instruction_pointer += 1;
+                    self.set_register(a_field + destination_offset, bool::decode(c_field)?)?;
+                    self.go_forward();
                 }
                 LESS_I32_REGISTER_ENCODED => {
                     let left_i32 = self.get_register(b_field as usize)?.as_value::<i32>();
                     let right_i32 = i32::decode(c_field)?;
-                    let comparator = a_field != 0;
-                    let jump_distance = ((left_i32 < right_i32) == comparator) as usize;
+                    let should_skip = self.less_with_comparator(left_i32, right_i32, a_field);
 
-                    instruction_pointer += jump_distance + 1;
+                    self.jump_forward(should_skip as usize);
                 }
                 LESS_EQUAL_REGISTER_ENCODED => {
                     let left_i32 = self.get_register(b_field as usize)?.as_value::<i32>();
                     let right_i32 = i32::decode(c_field)?;
-                    let comparator = a_field != 0;
-                    let jump_distance = ((left_i32 <= right_i32) == comparator) as usize;
+                    let should_skip = self.less_equal_with_comparator(left_i32, right_i32, a_field);
 
-                    instruction_pointer += jump_distance + 1;
+                    self.jump_forward(should_skip as usize);
                 }
                 TEST_REGISTER => {
                     let value = self.get_register(b_field as usize)?.as_value::<bool>();
-                    let comparator = a_field != 0;
-                    let should_jump = !(value && comparator);
-                    let jump_distance = c_field as usize * should_jump as usize;
+                    let should_skip = self.test_with_comparator(value, a_field);
 
-                    instruction_pointer += jump_distance + 1;
+                    self.jump_forward(should_skip as usize);
                 }
                 TEST_ENCODED => {
                     let value = bool::decode(b_field)?;
-                    let comparator = a_field != 0;
-                    let should_jump = !(value && comparator);
-                    let jump_distance = c_field as usize * should_jump as usize;
+                    let should_skip = self.test_with_comparator(value, a_field);
 
-                    instruction_pointer += jump_distance + 1;
+                    self.jump_forward(should_skip as usize);
                 }
                 ADD_I32_REGISER_REGISTER => {
-                    let left_i32 = self.get_register(b_field as usize)?.as_value::<i32>();
-                    let right_i32 = self.get_register(c_field as usize)?.as_value::<i32>();
-                    let sum = left_i32.saturating_add(right_i32);
+                    let sum = self.add_registers::<i32>(b_field as usize, c_field as usize)?;
 
                     self.set_register(a_field, sum)?;
-
-                    instruction_pointer += 1;
+                    self.go_forward();
                 }
                 ADD_I32_REGISTER_ENCODED => {
-                    let left_i32 = self.get_register(b_field as usize)?.as_value::<i32>();
-                    let right_i32 = i32::decode(c_field)?;
-                    let sum = left_i32.saturating_add(right_i32);
+                    let sum = self.add_register_to_encoded::<i32>(b_field as usize, c_field)?;
 
                     self.set_register(a_field, sum)?;
-
-                    instruction_pointer += 1;
+                    self.go_forward();
                 }
                 SUBTRACT_I32_REGISTER_ENCODED => {
-                    let left_i32 = self.get_register(b_field as usize)?.as_value::<i32>();
-                    let right_i32 = i32::decode(c_field)?;
-                    let difference = left_i32.saturating_sub(right_i32);
+                    let difference =
+                        self.subtract_encoded_from_register::<i32>(b_field as usize, c_field)?;
 
                     self.set_register(a_field, difference)?;
-
-                    instruction_pointer += 1;
+                    self.go_forward();
                 }
                 MULTIPLY_I32_REGISTER_REGISTER => {
-                    let left_i32 = self.get_register(b_field as usize)?.as_value::<i32>();
-                    let right_i32 = self.get_register(c_field as usize)?.as_value::<i32>();
-                    let product = left_i32.saturating_mul(right_i32);
+                    let product =
+                        self.multiply_registers::<i32>(b_field as usize, c_field as usize)?;
 
                     self.set_register(a_field, product)?;
-
-                    instruction_pointer += 1;
+                    self.go_forward();
                 }
                 NEGATE_BOOLEAN_REGISTER => {
-                    let value = self.get_register(b_field as usize)?.as_value::<bool>();
-                    let negated = !value;
+                    let negated = self.negate_register::<bool>(b_field as usize)?;
 
                     self.set_register(a_field, negated)?;
-
-                    instruction_pointer += 1;
+                    self.go_forward();
                 }
                 CALL_REGISTER => {
-                    let next_prototype_index = self.get_register(b_field as usize)?.as_bits();
-                    let next_prototype = self.prototypes.get(next_prototype_index as usize).ok_or(
-                        VmError::InvalidPrototypeIndex {
-                            index: b_field as u32,
-                        },
-                    )?;
-                    let next_frame = CallFrame {
-                        prototype_index: next_prototype_index,
-                        base_register: self.base_register as u32 + c_field as u32,
-                        register_count: next_prototype.register_count,
-                        return_register_count: next_prototype.return_types.len() as u16,
-                        instruction_pointer: 0,
-                    };
-                    let current_frame_mut = self
-                        .call_stack
-                        .last_mut()
-                        .ok_or(VmError::CallStackUnderflow)?;
-                    current_frame_mut.instruction_pointer = instruction_pointer as u32 + 1;
+                    let next_prototype_index =
+                        self.get_register(b_field as usize)?.as_bits() as usize;
 
-                    self.call_stack.push(next_frame);
-
-                    current_frame = next_frame;
-                    current_prototype = next_prototype;
-                    instruction_pointer = 0;
-                    self.base_register = current_frame.base_register as usize;
+                    self.call(next_prototype_index, c_field as usize)?;
                 }
                 CALL_ENCODED => {
-                    let next_prototype = self.prototypes.get(b_field as usize).ok_or(
-                        VmError::InvalidPrototypeIndex {
-                            index: b_field as u32,
-                        },
-                    )?;
-                    let next_frame = CallFrame {
-                        prototype_index: b_field as u32,
-                        base_register: self.base_register as u32 + c_field as u32,
-                        register_count: next_prototype.register_count,
-                        return_register_count: next_prototype.return_types.len() as u16,
-                        instruction_pointer: 0,
-                    };
-                    let current_frame_mut = self
-                        .call_stack
-                        .last_mut()
-                        .ok_or(VmError::CallStackUnderflow)?;
-                    current_frame_mut.instruction_pointer = instruction_pointer as u32 + 1;
-
-                    self.call_stack.push(next_frame);
-
-                    current_frame = next_frame;
-                    current_prototype = next_prototype;
-                    instruction_pointer = 0;
-                    self.base_register = current_frame.base_register as usize;
+                    self.call(b_field as usize, c_field as usize)?;
                 }
                 JUMP_FORWARD => {
-                    instruction_pointer += a_field + 1;
+                    self.jump_forward(a_field);
                 }
                 JUMP_BACKWARD => {
-                    instruction_pointer -= a_field + 1;
+                    self.jump_backward(a_field);
                 }
                 RETURN => {
                     if self.call_stack.len() == 1 {
@@ -274,18 +194,149 @@ impl<'a> Call<'a> {
                         index: next_frame.prototype_index,
                     })?;
 
-                    current_frame = next_frame;
-                    current_prototype = next_prototype;
-                    instruction_pointer = current_frame.instruction_pointer as usize;
-                    self.base_register = current_frame.base_register as usize;
+                    self.instructions = &next_prototype.instructions;
+                    self.instruction_pointer = next_frame.instruction_pointer as usize;
+                    self.base_register = next_frame.base_register as usize;
                 }
                 _ => {
-                    return Err(VmError::InvalidInstructionDispatch { instruction });
+                    return Err(VmError::InvalidInstructionDispatch {
+                        instruction: *instruction,
+                    });
                 }
             }
         }
 
         Ok(self.call_stack.pop())
+    }
+
+    fn equal_with_comparator<T: PartialEq>(
+        &mut self,
+        left: T,
+        right: T,
+        comparator: usize,
+    ) -> bool {
+        (left == right) == (comparator != 0)
+    }
+
+    fn less_with_comparator<T: Ord>(&mut self, left: T, right: T, comparator: usize) -> bool {
+        (left < right) == (comparator != 0)
+    }
+
+    fn less_equal_with_comparator<T: Ord>(&mut self, left: T, right: T, comparator: usize) -> bool {
+        (left <= right) == (comparator != 0)
+    }
+
+    fn test_with_comparator(&mut self, value: bool, comparator: usize) -> bool {
+        !(value && (comparator != 0))
+    }
+
+    fn add_registers<T: RegisterValue + Numeric>(
+        &mut self,
+        left: usize,
+        right: usize,
+    ) -> Result<T, VmError> {
+        let left_value = self.get_register(left)?.as_value::<T>();
+        let right_value = self.get_register(right)?.as_value::<T>();
+
+        Ok(left_value.sum(right_value))
+    }
+
+    fn add_register_to_encoded<T: RegisterValue + Encoded + Numeric>(
+        &mut self,
+        left: usize,
+        right: u64,
+    ) -> Result<T, VmError> {
+        let left_value = self.get_register(left)?.as_value::<T>();
+        let right_value = T::decode(right)?;
+
+        Ok(left_value.sum(right_value))
+    }
+
+    fn subtract_registers<T: RegisterValue + Numeric>(
+        &mut self,
+        left: usize,
+        right: usize,
+    ) -> Result<T, VmError> {
+        let left_value = self.get_register(left)?.as_value::<T>();
+        let right_value = self.get_register(right)?.as_value::<T>();
+
+        Ok(left_value.subtract(right_value))
+    }
+
+    fn subtract_encoded_from_register<T: RegisterValue + Encoded + Numeric>(
+        &mut self,
+        left: usize,
+        right: u64,
+    ) -> Result<T, VmError> {
+        let left_value = self.get_register(left)?.as_value::<T>();
+        let right_value = T::decode(right)?;
+
+        Ok(left_value.subtract(right_value))
+    }
+
+    fn multiply_registers<T: RegisterValue + Numeric>(
+        &mut self,
+        left: usize,
+        right: usize,
+    ) -> Result<T, VmError> {
+        let left_value = self.get_register(left)?.as_value::<T>();
+        let right_value = self.get_register(right)?.as_value::<T>();
+
+        Ok(left_value.multiply(right_value))
+    }
+
+    fn negate_register<T: RegisterValue + Negate>(&mut self, index: usize) -> Result<T, VmError> {
+        let value = self.get_register(index)?.as_value::<T>();
+
+        Ok(value.negate())
+    }
+
+    fn call(&mut self, prototype_index: usize, register_offset: usize) -> Result<(), VmError> {
+        self.call_stack
+            .last_mut()
+            .ok_or(VmError::CallStackUnderflow)?
+            .instruction_pointer = self.instruction_pointer as u32 + 1;
+
+        let next_prototype =
+            self.prototypes
+                .get(prototype_index)
+                .ok_or(VmError::InvalidPrototypeIndex {
+                    index: prototype_index as u32,
+                })?;
+        let next_frame = CallFrame {
+            prototype_index: prototype_index as u32,
+            base_register: (self.base_register + register_offset) as u32,
+            register_count: next_prototype.register_count,
+            return_register_count: next_prototype.return_types.len() as u16,
+            instruction_pointer: 0,
+        };
+
+        self.call_stack.push(next_frame);
+
+        self.base_register = next_frame.base_register as usize;
+        self.instructions = &next_prototype.instructions;
+        self.instruction_pointer = 0;
+
+        Ok(())
+    }
+
+    fn go_forward(&mut self) {
+        self.instruction_pointer += 1;
+    }
+
+    fn jump_forward(&mut self, distance: usize) {
+        self.instruction_pointer += distance + 1;
+    }
+
+    fn jump_backward(&mut self, distance: usize) {
+        self.instruction_pointer -= distance + 1;
+    }
+
+    fn copy_register_to_register(&mut self, destination: usize, operand: usize) {
+        let destination = self.base_register + destination;
+        let operand = self.base_register + operand;
+
+        self.register_stack[destination] = self.register_stack[operand];
     }
 
     fn get_register(&self, index: usize) -> Result<&Register, VmError> {
@@ -420,5 +471,35 @@ impl Encoded for bool {
 impl Encoded for i32 {
     fn decode(index: u64) -> Result<Self, VmError> {
         Ok(index as i32)
+    }
+}
+
+trait Numeric {
+    fn sum(self, other: Self) -> Self;
+    fn subtract(self, other: Self) -> Self;
+    fn multiply(self, other: Self) -> Self;
+}
+
+impl Numeric for i32 {
+    fn sum(self, other: Self) -> Self {
+        self.saturating_add(other)
+    }
+
+    fn subtract(self, other: Self) -> Self {
+        self.saturating_sub(other)
+    }
+
+    fn multiply(self, other: Self) -> Self {
+        self.saturating_mul(other)
+    }
+}
+
+trait Negate {
+    fn negate(self) -> Self;
+}
+
+impl Negate for bool {
+    fn negate(self) -> Self {
+        !self
     }
 }

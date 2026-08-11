@@ -15,10 +15,10 @@ pub struct Move {
 impl From<Instruction> for Move {
     fn from(instruction: Instruction) -> Self {
         Move {
-            destination: instruction.a_field(),
+            destination: instruction.a_field() as u16,
             operand_type: instruction.operand_type(),
             operand: instruction.b_address(),
-            jump_distance: instruction.c_field(),
+            jump_distance: instruction.c_field() as u16,
             jump_forward: instruction.c_memory().0 != 0,
         }
     }

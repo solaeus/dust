@@ -11,7 +11,7 @@ pub struct Negate {
 impl From<Instruction> for Negate {
     fn from(instruction: Instruction) -> Self {
         Negate {
-            destination: instruction.a_field(),
+            destination: instruction.a_field() as u16,
             operand_type: instruction.operand_type(),
             operand: instruction.b_address(),
         }

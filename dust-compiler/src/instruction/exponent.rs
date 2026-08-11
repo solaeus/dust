@@ -12,7 +12,7 @@ pub struct Exponent {
 impl From<Instruction> for Exponent {
     fn from(instruction: Instruction) -> Self {
         Exponent {
-            destination: instruction.a_field(),
+            destination: instruction.a_field() as u16,
             operand_type: instruction.operand_type(),
             base_address: instruction.b_address(),
             exponent_address: instruction.c_address(),

@@ -12,7 +12,7 @@ pub struct Subtract {
 impl From<Instruction> for Subtract {
     fn from(instruction: Instruction) -> Self {
         Subtract {
-            destination: instruction.a_field(),
+            destination: instruction.a_field() as u16,
             operand_type: instruction.operand_type(),
             left_address: instruction.b_address(),
             right_address: instruction.c_address(),

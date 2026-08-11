@@ -358,53 +358,29 @@ impl Instruction {
         MemoryKind(((self.0 >> 12) & 0x07) as u8)
     }
 
-    pub fn a_field(self) -> u16 {
-        self.a_field_as_u64() as u16
-    }
-
-    pub fn a_field_as_u64(self) -> u64 {
+    pub fn a_field(self) -> u64 {
         (self.0 >> 16) & 0xFFFF
     }
 
-    pub fn a_field_as_usize(self) -> usize {
-        self.a_field_as_u64() as usize
-    }
-
-    pub fn b_field(self) -> u16 {
-        self.b_field_as_u64() as u16
-    }
-
-    pub fn b_field_as_u64(self) -> u64 {
+    pub fn b_field(self) -> u64 {
         (self.0 >> 32) & 0xFFFF
     }
 
-    pub fn b_field_as_usize(self) -> usize {
-        self.b_field_as_u64() as usize
-    }
-
-    pub fn c_field(self) -> u16 {
-        self.c_field_as_u64() as u16
-    }
-
-    pub fn c_field_as_u64(self) -> u64 {
+    pub fn c_field(self) -> u64 {
         (self.0 >> 48) & 0xFFFF
-    }
-
-    pub fn c_field_as_usize(self) -> usize {
-        self.c_field_as_u64() as usize
     }
 
     pub fn b_address(self) -> Address {
         Address {
             memory: self.b_memory(),
-            index: self.b_field(),
+            index: self.b_field() as u16,
         }
     }
 
     pub fn c_address(self) -> Address {
         Address {
             memory: self.c_memory(),
-            index: self.c_field(),
+            index: self.c_field() as u16,
         }
     }
 

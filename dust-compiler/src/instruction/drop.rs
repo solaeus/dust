@@ -10,8 +10,8 @@ pub struct Drop {
 impl From<Instruction> for Drop {
     fn from(instruction: Instruction) -> Self {
         Self {
-            start_register: instruction.a_field(),
-            end_register: instruction.b_field(),
+            start_register: instruction.a_field() as u16,
+            end_register: instruction.b_field() as u16,
         }
     }
 }

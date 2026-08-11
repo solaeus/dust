@@ -12,7 +12,7 @@ pub struct Set {
 impl From<Instruction> for Set {
     fn from(instruction: Instruction) -> Self {
         Set {
-            base: instruction.a_field(),
+            base: instruction.a_field() as u16,
             operand_type: instruction.operand_type(),
             index: instruction.b_address(),
             source: instruction.c_address(),

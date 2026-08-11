@@ -5,7 +5,6 @@ use dust_compiler::program::Program;
 
 use crate::{
     call::{Call, CallFrame},
-    error::VmError,
     register::Register,
     thread_pool::ThreadMessage,
 };
@@ -47,38 +46,13 @@ impl Thread {
     }
 
     pub fn run(mut self) {
-        let main_prototype = match self
-            .program
-            .prototypes()
-            .get(self.main_prototype_index as usize)
-            .ok_or_else(|| {
-                let error = VmError::InvalidPrototypeIndex {
-                    index: self.main_prototype_index,
-                };
-                let _ = self.message_sender.send(ThreadMessage::ThreadError {
-                    thread_id: current_id(),
-                    error,
-                });
-            }) {
-            Ok(prototype) => prototype,
-            Err(()) => return,
-        };
-        let starting_call_frame = CallFrame {
-            prototype_index: self.main_prototype_index,
-            base_register: 0,
-            register_count: main_prototype.register_count,
-            return_register_count: main_prototype.return_types.len() as u16,
-            instruction_pointer: 0,
-        };
-
-        self.call_stack.push(starting_call_frame);
-
         loop {
             let call = match Call::new(
                 self.program.prototypes(),
                 self.program.constants(),
                 &mut self.register_stack,
                 &mut self.call_stack,
+                self.main_prototype_index,
             ) {
                 Ok(call) => call,
                 Err(error) => {

@@ -12,10 +12,10 @@ pub struct Jump {
 impl From<Instruction> for Jump {
     fn from(instruction: Instruction) -> Self {
         Jump {
-            offset: instruction.a_field(),
+            offset: instruction.a_field() as u16,
             is_positive: instruction.b_memory().0 != 0,
-            drop_register_start: instruction.b_field(),
-            drop_list_end: instruction.c_field(),
+            drop_register_start: instruction.b_field() as u16,
+            drop_list_end: instruction.c_field() as u16,
         }
     }
 }

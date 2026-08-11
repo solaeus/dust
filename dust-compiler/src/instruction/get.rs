@@ -12,9 +12,9 @@ pub struct Get {
 impl From<Instruction> for Get {
     fn from(instruction: Instruction) -> Self {
         Get {
-            destination: instruction.a_field(),
+            destination: instruction.a_field() as u16,
             operand_type: instruction.operand_type(),
-            base_register: instruction.b_field(),
+            base_register: instruction.b_field() as u16,
             index: instruction.c_address(),
         }
     }

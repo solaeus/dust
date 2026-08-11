@@ -13,7 +13,7 @@ impl From<Instruction> for Test {
         Test {
             comparator: instruction.a_field() != 0,
             operand: instruction.b_address(),
-            jump_distance: instruction.c_field(),
+            jump_distance: instruction.c_field() as u16,
         }
     }
 }

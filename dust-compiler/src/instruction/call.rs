@@ -11,9 +11,9 @@ pub struct Call {
 impl From<Instruction> for Call {
     fn from(instruction: Instruction) -> Self {
         Call {
-            destination: instruction.a_field(),
+            destination: instruction.a_field() as u16,
             callee: instruction.b_address(),
-            arguments_start: instruction.c_field(),
+            arguments_start: instruction.c_field() as u16,
         }
     }
 }
