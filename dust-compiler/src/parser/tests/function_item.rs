@@ -31,14 +31,16 @@ fn value_parameters() {
     assert_eq!(
         syntax_tree.sort_nodes(),
         [
-            Root.with_single_child(Span::new(0, 26), SyntaxId(8)),
+            Root.with_single_child(Span::new(0, 26), SyntaxId(10)),
             FunctionItem
-                .with_children(Span::new(0, 26), SyntaxChildren::new(4, 7))
+                .with_children(Span::new(0, 26), SyntaxChildren::new(0, 3))
                 .with_flags(SyntaxFlags::VALUE_PARAMETERS),
             SimplePath.empty(Span::new(3, 6)),
-            ValueParameters.with_children(Span::new(6, 23), SyntaxChildren::new(0, 4)),
+            ValueParameters.with_binary_children(Span::new(6, 23), SyntaxId(4), SyntaxId(7)),
+            ValueParameter.with_binary_children(Span::new(7, 13), SyntaxId(2), SyntaxId(3)),
             SimplePath.empty(Span::new(7, 8)),
             I64Type.empty(Span::new(10, 13)),
+            ValueParameter.with_binary_children(Span::new(15, 22), SyntaxId(5), SyntaxId(6)),
             SimplePath.empty(Span::new(15, 16)),
             BooleanType.empty(Span::new(18, 22)),
             BlockExpression.empty(Span::new(24, 26)),
@@ -98,9 +100,9 @@ fn mixed() {
     assert_eq!(
         syntax_tree.sort_nodes(),
         [
-            Root.with_single_child(Span::new(0, 35), SyntaxId(19)),
+            Root.with_single_child(Span::new(0, 35), SyntaxId(21)),
             FunctionItem
-                .with_children(Span::new(0, 35), SyntaxChildren::new(7, 12))
+                .with_children(Span::new(0, 35), SyntaxChildren::new(3, 8))
                 .with_flags(
                     SyntaxFlags::TYPE_PARAMETERS
                         .and(SyntaxFlags::VALUE_PARAMETERS)
@@ -114,14 +116,16 @@ fn mixed() {
             SimplePath.empty(Span::new(10, 11)),
             TypeParameter.with_single_child(Span::new(13, 14), SyntaxId(6)),
             SimplePath.empty(Span::new(13, 14)),
-            ValueParameters.with_children(Span::new(15, 27), SyntaxChildren::new(3, 7)),
+            ValueParameters.with_binary_children(Span::new(15, 27), SyntaxId(12), SyntaxId(16)),
+            ValueParameter.with_binary_children(Span::new(16, 20), SyntaxId(9), SyntaxId(11)),
             SimplePath.empty(Span::new(16, 17)),
             TypePath.with_single_child(Span::new(19, 20), SyntaxId(10)),
             PathSegment.empty(Span::new(19, 20)),
+            ValueParameter.with_binary_children(Span::new(22, 26), SyntaxId(13), SyntaxId(15)),
             SimplePath.empty(Span::new(22, 23)),
-            TypePath.with_single_child(Span::new(25, 26), SyntaxId(13)),
+            TypePath.with_single_child(Span::new(25, 26), SyntaxId(14)),
             PathSegment.empty(Span::new(25, 26)),
-            TypePath.with_single_child(Span::new(31, 32), SyntaxId(16)),
+            TypePath.with_single_child(Span::new(31, 32), SyntaxId(18)),
             PathSegment.empty(Span::new(31, 32)),
             BlockExpression.empty(Span::new(33, 35)),
         ]

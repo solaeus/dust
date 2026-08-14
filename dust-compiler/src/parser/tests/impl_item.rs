@@ -32,16 +32,18 @@ fn with_function() {
     assert_eq!(
         syntax_tree.sort_nodes(),
         [
-            Root.with_single_child(Span::new(0, 28), SyntaxId(8)),
-            ImplItem.with_binary_children(Span::new(0, 28), SyntaxId(2), SyntaxId(7)),
+            Root.with_single_child(Span::new(0, 28), SyntaxId(10)),
+            ImplItem.with_binary_children(Span::new(0, 28), SyntaxId(2), SyntaxId(9)),
             TypePath.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
-            ImplBody.with_single_child(Span::new(9, 28), SyntaxId(6)),
+            ImplBody.with_single_child(Span::new(9, 28), SyntaxId(8)),
             FunctionItem
                 .with_children(Span::new(11, 26), SyntaxChildren::new(0, 3))
                 .with_flags(SyntaxFlags::VALUE_PARAMETERS),
             SimplePath.empty(Span::new(14, 17)),
-            ValueParameters.empty(Span::new(17, 23)),
+            ValueParameters.with_single_child(Span::new(17, 23), SyntaxId(5)),
+            ValueParameter.with_single_child(Span::new(18, 22), SyntaxId(4)),
+            SelfParameter.empty(Span::new(18, 22)),
             BlockExpression.empty(Span::new(24, 26)),
         ]
     );
@@ -55,16 +57,18 @@ fn with_pub_function() {
     assert_eq!(
         syntax_tree.sort_nodes(),
         [
-            Root.with_single_child(Span::new(0, 32), SyntaxId(8)),
-            ImplItem.with_binary_children(Span::new(0, 32), SyntaxId(2), SyntaxId(7)),
+            Root.with_single_child(Span::new(0, 32), SyntaxId(10)),
+            ImplItem.with_binary_children(Span::new(0, 32), SyntaxId(2), SyntaxId(9)),
             TypePath.with_single_child(Span::new(5, 8), SyntaxId(1)),
             PathSegment.empty(Span::new(5, 8)),
-            ImplBody.with_single_child(Span::new(9, 32), SyntaxId(6)),
+            ImplBody.with_single_child(Span::new(9, 32), SyntaxId(8)),
             FunctionItem
                 .with_children(Span::new(15, 30), SyntaxChildren::new(0, 3))
                 .with_flags(SyntaxFlags::PUBLIC.and(SyntaxFlags::VALUE_PARAMETERS)),
             SimplePath.empty(Span::new(18, 21)),
-            ValueParameters.empty(Span::new(21, 27)),
+            ValueParameters.with_single_child(Span::new(21, 27), SyntaxId(5)),
+            ValueParameter.with_single_child(Span::new(22, 26), SyntaxId(4)),
+            SelfParameter.empty(Span::new(22, 26)),
             BlockExpression.empty(Span::new(28, 30)),
         ]
     );
