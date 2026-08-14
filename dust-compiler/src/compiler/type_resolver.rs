@@ -1122,10 +1122,12 @@ impl<'a> TypeResolver<'a> {
             self.context
                 .get_signature(declaration_id, type_arguments, None)?;
 
-        for (argument, expected_type_id) in arguments.children().zip(value_parameter_type_ids) {
-            let actual_type_id = self.visit_expression(argument)?;
+        if let Some(arguments) = arguments {
+            for (argument, expected_type_id) in arguments.children().zip(value_parameter_type_ids) {
+                let actual_type_id = self.visit_expression(argument)?;
 
-            self.unify_types(expected_type_id, Some(argument), actual_type_id, argument)?;
+                self.unify_types(expected_type_id, Some(argument), actual_type_id, argument)?;
+            }
         }
 
         self.context

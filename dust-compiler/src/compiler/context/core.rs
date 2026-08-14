@@ -1,10 +1,4 @@
-use crate::{
-    compiler::context::{
-        Context, Declaration, DeclarationId, Definition, ScopeId, SymbolId, Type, TypeId,
-        VariantKind, scopes::Barrier, types::TypeMembers,
-    },
-    instruction::NativeFunction,
-};
+use crate::compiler::context::{Context, Definition, ScopeId, Type, VariantKind, scopes::Barrier};
 
 pub fn add_core(context: &mut Context) {
     let core_scope_id = context.scopes.enter_scope(Barrier::Module, None);

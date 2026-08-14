@@ -10,21 +10,18 @@ use crate::{
     build_source,
     cli::{CompileCommand, CompileOutput},
     error::Error,
-    get_name,
 };
 
 pub fn compile<'src>(command: CompileCommand) -> Result<(), Error<'src>> {
     let CompileCommand {
         global: _,
-        name,
         input,
         output,
     } = command;
 
-    let name = get_name(name, &input);
     let source = build_source(input)?;
     let compiler = Compiler::new(source);
-    let program = compiler.compile(name)?;
+    let program = compiler.compile()?;
 
     match output {
         CompileOutput::Debug => println!("{program:#?}"),

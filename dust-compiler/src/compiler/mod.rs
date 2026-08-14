@@ -9,13 +9,15 @@ mod value_creation;
 #[cfg(test)]
 pub(crate) mod tests;
 
-use smallvec::SmallVec;
-use tracing::{Level, span};
-
 use crate::{
     compiler::{
-        context::{Context, declarations::Definition, scopes::Barrier, types::TypeId},
-        declaration_resolver::DeclarationResolver,
+        context::{
+            Context,
+            declarations::{CrateKind, Declaration, DeclarationId, Definition, ModuleKind},
+            scopes::{Barrier, BarrierTracker, ScopeId},
+            types::TypeId,
+        },
+        declaration_resolver::{DeclarationResolver, WorklistEntry},
         error::CompileError,
         prototype_emitter::PrototypeEmitter,
         prototypes::{PrototypeId, Prototypes},
@@ -38,6 +40,7 @@ pub struct Compiler<'src> {
     constants: ConstantsBuilder,
     context: Context,
     prototypes: Prototypes,
+    errors: Vec<ErrorKind>,
 }
 
 impl<'src> Compiler<'src> {
@@ -47,22 +50,31 @@ impl<'src> Compiler<'src> {
             source,
             constants: ConstantsBuilder::new(),
             context: Context::new(),
-            prototypes: Prototypes::default(),
+            prototypes: Prototypes::new(),
+            errors: Vec::new(),
         }
     }
 
-    pub fn compile(mut self, program_name: String) -> Result<Program, Error<'src>> {
+    pub fn compile(mut self) -> Result<Program, Error<'src>> {
         match self.compile_inner() {
             Ok(return_type) => {
                 let (constants, _) = self.constants.build();
                 let prototypes = self.prototypes.into_prototypes();
-                let program = Program::new(program_name, return_type, constants, prototypes);
+                let program = Program::new(
+                    self.source.into_program_name(),
+                    return_type,
+                    constants,
+                    prototypes,
+                );
 
                 Ok(program)
             }
-            Err(errors) => {
-                let context = ErrorContext::Full(self.source, self.syntax, Box::new(self.context));
-                let errors = Error::new(errors, context);
+            Err(error) => {
+                self.errors.push(error);
+
+                let error_context =
+                    ErrorContext::Full(self.source, self.syntax, Box::new(self.context));
+                let errors = Error::new(self.errors, error_context);
 
                 Err(errors)
             }
@@ -71,13 +83,12 @@ impl<'src> Compiler<'src> {
 
     pub fn compile_with_extras(
         mut self,
-        program_name: String,
     ) -> Result<(Program, Source<'src>, Syntax, Vec<OperandType>), Error<'src>> {
         match self.compile_inner() {
             Ok(return_type) => {
                 let (constants, constant_tags) = self.constants.build();
                 let program = Program::new(
-                    program_name,
+                    self.source.program_name().clone(),
                     return_type,
                     constants,
                     self.prototypes.into_prototypes(),
@@ -85,151 +96,205 @@ impl<'src> Compiler<'src> {
 
                 Ok((program, self.source, self.syntax, constant_tags))
             }
-            Err(errors) => {
-                let errors = Error::new(
-                    errors,
-                    ErrorContext::Full(self.source, self.syntax, Box::new(self.context)),
-                );
+            Err(error) => {
+                self.errors.push(error);
+
+                let error_context =
+                    ErrorContext::Full(self.source, self.syntax, Box::new(self.context));
+                let errors = Error::new(self.errors, error_context);
 
                 Err(errors)
             }
         }
     }
 
-    fn compile_inner(&mut self) -> Result<DustType, Vec<ErrorKind>> {
-        let mut errors = Vec::new();
+    fn compile_inner(&mut self) -> Result<DustType, ErrorKind> {
+        let program_symbol_id = self.context.symbols.add_symbol(self.source.program_name());
+        let program_scope_id = self.context.scopes.enter_scope(Barrier::Module, None);
 
-        macro_rules! unwrap_or_return {
-            ($result: expr) => {
-                match $result {
-                    Ok(value) => value,
-                    Err(error) => {
-                        errors.push(error.into());
-
-                        return Err(errors);
-                    }
-                }
-            };
-        }
-
-        let crate_scope_id = {
-            let span = span!(Level::INFO, "parse/declare");
-            let _enter = span.enter();
-
-            let main_code = self.source.get_code(CodeId::MAIN).content_as_bytes();
-            let main_parser = Parser::new(CodeId::MAIN, Lexer::unvalidated(main_code), &mut errors);
-            let main_syntax_tree = main_parser.parse();
-            let mut new_trees = Vec::new();
-
-            self.source.set_utf8_validated(CodeId::MAIN);
-            self.syntax.add_tree(main_syntax_tree);
-
-            let main_file_root = unwrap_or_return!(
-                self.syntax
-                    .get_tree(CodeId::MAIN)
-                    .and_then(|tree| tree.read_root())
-            );
-
-            let crate_scope_id = self.context.scopes.enter_scope(Barrier::Module, None);
-            let declaration_resolver = DeclarationResolver::new(
-                CodeId::MAIN,
-                &mut self.source,
-                &mut self.context,
-                &mut new_trees,
-                &mut errors,
-                crate_scope_id,
-            );
-
-            declaration_resolver.visit_root(main_file_root);
-            self.context.scopes.exit_scope(crate_scope_id);
-
-            for tree in new_trees {
-                self.syntax.add_tree(tree);
-            }
-
-            crate_scope_id
-        };
-
-        if !errors.is_empty() {
-            return Err(errors);
-        }
+        self.context.declarations.add_declaration(Declaration {
+            symbol_id: program_symbol_id,
+            scope_id: program_scope_id,
+            definition: Definition::Crate {
+                kind: CrateKind::Program,
+                inner_scope_id: program_scope_id,
+            },
+            syntax: None,
+        });
 
         let main_symbol_id = self.context.symbols.add_symbol("main");
-        let main_declaration_id = match self
+        let main_module_declaration_id = self.context.declarations.reserve_declaration_id(
+            main_symbol_id,
+            program_scope_id,
+            None,
+        );
+
+        let mut declaration_worklist = Vec::new();
+        let mut forward_references = Vec::new();
+
+        let main_module_scope_id = self.declare_file_module(
+            CodeId::MAIN,
+            main_module_declaration_id,
+            program_scope_id,
+            false,
+            &mut declaration_worklist,
+            &mut forward_references,
+        )?;
+
+        let mut worklist_index = 0;
+
+        while worklist_index < declaration_worklist.len() {
+            let WorklistEntry {
+                module_code_id,
+                module_declaration_id,
+                parent_scope_id,
+                public,
+            } = declaration_worklist[worklist_index];
+
+            worklist_index += 1;
+
+            self.declare_file_module(
+                module_code_id,
+                module_declaration_id,
+                parent_scope_id,
+                public,
+                &mut declaration_worklist,
+                &mut forward_references,
+            )?;
+        }
+
+        let main_function_declaration_id = *self
             .context
             .declarations
-            .find_declaration_id(main_symbol_id, crate_scope_id)
-        {
-            Some(declaration) => *declaration,
-            None => {
-                errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
+            .find_declaration_id(main_symbol_id, main_module_scope_id)
+            .ok_or(ErrorKind::Compile(CompileError::ExpectedMainFunction))?;
 
-                return Err(errors);
-            }
-        };
-        let main_prototype_id = self
-            .prototypes
-            .monomorphize_function_to_prototype(main_declaration_id, SmallVec::new());
+        self.prototypes
+            .monomorphize_main_prototype(main_function_declaration_id);
 
-        debug_assert_eq!(main_prototype_id, PrototypeId::MAIN);
-
-        let mut main_return_type_id = None;
+        let main_return_type_id = self.compile_prototype(PrototypeId::MAIN)?;
 
         while let Some(prototype_id) = self.prototypes.pop_from_compilation_stack() {
-            let type_id = match self.compile_loop(prototype_id, &mut errors) {
-                Ok(type_id) => type_id,
-                Err(()) => return Err(errors),
-            };
-
-            if prototype_id == PrototypeId::MAIN {
-                let inferred_type_id =
-                    unwrap_or_return!(self.context.get_inferred_type_id(type_id));
-
-                main_return_type_id = Some(inferred_type_id);
-            }
+            self.compile_prototype(prototype_id)?;
         }
 
-        let concrete_main_return_type_id = match main_return_type_id {
-            Some(type_id) => type_id,
-            None => {
-                errors.push(ErrorKind::Compile(CompileError::ExpectedMainFunction));
+        let main_function_return_type = self.context.get_external_type(main_return_type_id)?;
 
-                return Err(errors);
-            }
-        };
-
-        let main_function_return_type =
-            unwrap_or_return!(self.context.get_external_type(concrete_main_return_type_id));
-
-        if errors.is_empty() {
-            Ok(main_function_return_type)
-        } else {
-            Err(errors)
-        }
+        Ok(main_function_return_type)
     }
 
-    fn compile_loop(
+    fn declare_file_module(
         &mut self,
-        prototype_id: PrototypeId,
-        errors: &mut Vec<ErrorKind>,
-    ) -> Result<TypeId, ()> {
-        macro_rules! unwrap_or_return {
-            ($result: expr) => {
-                match $result {
-                    Ok(value) => value,
-                    Err(error) => {
-                        errors.push(error.into());
+        module_code_id: CodeId,
+        module_declaration_id: DeclarationId,
+        parent_scope_id: ScopeId,
+        public: bool,
+        worklist: &mut Vec<WorklistEntry>,
+        forward_references: &mut Vec<DeclarationId>,
+    ) -> Result<ScopeId, ErrorKind> {
+        let source_code = self.source.get_code(module_code_id);
+        let lexer = if source_code.utf8_validated() {
+            Lexer::validated(source_code.content_as_str())
+        } else {
+            Lexer::unvalidated(source_code.content_as_bytes())
+        };
+        let parser = Parser::new(module_code_id, lexer, &mut self.errors);
+        let syntax_tree = parser.parse();
 
-                        return Err(());
+        self.source.set_utf8_validated(module_code_id);
+        self.syntax.add_tree(syntax_tree);
+
+        let module_scope_id = self
+            .context
+            .scopes
+            .enter_scope(Barrier::Module, Some(parent_scope_id));
+
+        self.context.declarations.set_reserved_declaration(
+            module_declaration_id,
+            Definition::Module {
+                public,
+                kind: ModuleKind::File {
+                    code_id: module_code_id,
+                },
+                inner_scope_id: module_scope_id,
+            },
+        );
+
+        let declaration_resolver = DeclarationResolver::new(
+            module_code_id,
+            &mut self.source,
+            &mut self.context,
+            worklist,
+            forward_references,
+            &mut self.errors,
+            module_scope_id,
+        );
+        let module_root = self
+            .syntax
+            .get_tree(module_code_id)
+            .and_then(|tree| tree.read_root())?;
+
+        declaration_resolver.visit_root(module_root)?;
+        self.context.scopes.exit_scope(module_scope_id);
+
+        for forward_reference_id in forward_references.drain(..) {
+            let forward_reference = *self
+                .context
+                .declarations
+                .get_declaration(forward_reference_id);
+
+            let resolved_declaration_id = {
+                let mut crossed_barriers = BarrierTracker::default();
+                let mut current_scope_id = forward_reference.scope_id;
+
+                loop {
+                    if let Some(declaration_id) = self
+                        .context
+                        .declarations
+                        .find_declaration_id(forward_reference.symbol_id, current_scope_id)
+                        .copied()
+                    {
+                        let declaration = self.context.declarations.get_declaration(declaration_id);
+
+                        if crossed_barriers.should_block(&declaration.definition) {
+                            return Err(ErrorKind::Compile(CompileError::Undeclared {
+                                symbol_id: forward_reference.symbol_id,
+                                usage_position: forward_reference
+                                    .syntax
+                                    .ok_or(CompileError::MissingSyntax(declaration_id))?
+                                    .0,
+                            }));
+                        }
+
+                        break declaration_id;
                     }
+
+                    let scope = self.context.scopes.get_scope(current_scope_id);
+                    current_scope_id = if let Some(parent) = scope.parent {
+                        parent
+                    } else {
+                        return Err(ErrorKind::Compile(CompileError::Undeclared {
+                            symbol_id: forward_reference.symbol_id,
+                            usage_position: forward_reference
+                                .syntax
+                                .ok_or(CompileError::MissingSyntax(forward_reference_id))?
+                                .0,
+                        }));
+                    };
+
+                    crossed_barriers.add(scope.barrier);
                 }
             };
+
+            self.context
+                .declarations
+                .resolve_forward_reference(forward_reference_id, resolved_declaration_id);
         }
 
-        if !errors.is_empty() {
-            return Err(());
-        }
+        Ok(module_scope_id)
+    }
 
+    fn compile_prototype(&mut self, prototype_id: PrototypeId) -> Result<TypeId, ErrorKind> {
         let (declaration_id, mut type_arguments) = self
             .prototypes
             .get_monomorphized_function(prototype_id)
@@ -242,41 +307,38 @@ impl<'src> Compiler<'src> {
             ..
         } = declaration.definition
         else {
-            errors.push(ErrorKind::Compile(
+            return Err(ErrorKind::Compile(
                 CompileError::ExpectedFunctionDefinition(declaration_id),
             ));
-
-            return Err(());
         };
-        let (position, syntax_id) = unwrap_or_return!(declaration.syntax.ok_or(
-            ErrorKind::Compile(CompileError::ExpectedSyntax {
-                expected: &[SyntaxKind::BlockExpression],
-            })
-        ));
-        let function_syntax = unwrap_or_return!(
-            self.syntax
-                .get_tree(position.code_id)
-                .and_then(|tree| tree.read_node(syntax_id))
-        );
-        let FunctionItem {
-            body,
-            value_parameters,
-            ..
-        } = unwrap_or_return!(function_syntax.as_component());
-        let body =
-            unwrap_or_return!(body.ok_or(ErrorKind::Compile(CompileError::ExpectedSyntax {
-                expected: &[SyntaxKind::BlockExpression],
-            })));
-        let (position, _syntax_id) = unwrap_or_return!(declaration.syntax.ok_or(
-            ErrorKind::Compile(CompileError::ExpectedSyntax {
-                expected: &[SyntaxKind::BlockExpression],
-            })
-        ));
+        let (position, syntax_id) =
+            declaration
+                .syntax
+                .ok_or(ErrorKind::Compile(CompileError::ExpectedSyntax {
+                    expected: &[SyntaxKind::BlockExpression],
+                }))?;
 
-        let type_parameter_ids = unwrap_or_return!(
-            self.context
-                .get_type_parameter_ids(parent_impl_or_trait, type_parameters)
-        );
+        let function_syntax = self
+            .syntax
+            .get_tree(position.code_id)
+            .and_then(|tree| tree.read_node(syntax_id))?;
+        let FunctionItem {
+            value_parameters,
+            body,
+            ..
+        } = function_syntax.as_component()?;
+        let body = body.ok_or(ErrorKind::Compile(CompileError::ExpectedSyntax {
+            expected: &[SyntaxKind::BlockExpression],
+        }))?;
+        let (position, _syntax_id) =
+            declaration
+                .syntax
+                .ok_or(ErrorKind::Compile(CompileError::ExpectedSyntax {
+                    expected: &[SyntaxKind::BlockExpression],
+                }))?;
+        let type_parameter_ids = self
+            .context
+            .get_type_parameter_ids(parent_impl_or_trait, type_parameters)?;
 
         while type_arguments.len() < type_parameter_ids.len() {
             let inferred_type_id = self.context.types.create_inferred_type(None);
@@ -289,44 +351,37 @@ impl<'src> Compiler<'src> {
             .type_parameter_map
             .extend(type_parameter_ids.into_iter().zip(type_arguments));
 
-        {
-            let span = span!(Level::INFO, "type_resolve");
-            let _enter = span.enter();
+        let mut type_resolver = TypeResolver::new(
+            &mut self.context,
+            &self.source,
+            position.code_id,
+            &mut self.errors,
+        );
 
-            let mut type_resolver =
-                TypeResolver::new(&mut self.context, &self.source, position.code_id, errors);
+        type_resolver.visit_function_body(body, return_type_id)?;
 
-            unwrap_or_return!(type_resolver.visit_function_body(body, return_type_id));
-        }
+        let mut prototype_emitter = PrototypeEmitter::new(
+            declaration_id,
+            prototype_id,
+            return_type_id,
+            value_parameters,
+            position.code_id,
+            (
+                &self.source,
+                &self.syntax,
+                &mut self.constants,
+                &mut self.context,
+                &mut self.prototypes,
+            ),
+        )?;
 
-        {
-            let span = span!(Level::INFO, "emit");
-            let _enter = span.enter();
+        prototype_emitter.visit_function_body(body)?;
 
-            let mut prototype_emitter = unwrap_or_return!(PrototypeEmitter::new(
-                declaration_id,
-                prototype_id,
-                return_type_id,
-                value_parameters,
-                position.code_id,
-                (
-                    &self.source,
-                    &self.syntax,
-                    &mut self.constants,
-                    &mut self.context,
-                    &mut self.prototypes,
-                ),
-            ));
+        let prototype = prototype_emitter.finish()?;
 
-            unwrap_or_return!(prototype_emitter.visit_function_body(body));
+        self.prototypes.set_prototype(prototype_id, prototype);
 
-            let prototype = unwrap_or_return!(prototype_emitter.finish());
-
-            self.prototypes.set_prototype(prototype_id, prototype);
-        }
-
-        let resolved_return_type_id =
-            unwrap_or_return!(self.context.get_inferred_type_id(return_type_id));
+        let resolved_return_type_id = self.context.get_inferred_type_id(return_type_id)?;
 
         Ok(resolved_return_type_id)
     }

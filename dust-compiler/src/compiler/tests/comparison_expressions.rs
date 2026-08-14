@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::DustType,
-    instruction::{Address, Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, Memory, OperandType},
     prototype::Prototype,
 };
 
@@ -14,7 +14,7 @@ fn equal() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -33,7 +33,7 @@ fn not_equal() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -52,7 +52,7 @@ fn less_than() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -71,7 +71,7 @@ fn less_than_or_equal() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -90,7 +90,7 @@ fn greater_than() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -109,7 +109,7 @@ fn greater_than_or_equal() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -128,7 +128,7 @@ fn float_comparison() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -153,11 +153,11 @@ fn runtime_less_than() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::r#move(1, OperandType::I_32, Address::new(MemoryKind::ENCODED, 2)),
-                    Instruction::less(true, OperandType::I_32, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::REGISTER, 1)),
-                    Instruction::move_with_jump(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 0), 1, true),
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::I_32, Address::new(Memory::ENCODED, 1)),
+                    Instruction::r#move(1, OperandType::I_32, Address::new(Memory::ENCODED, 2)),
+                    Instruction::less(true, OperandType::I_32, Address::new(Memory::REGISTER, 0), Address::new(Memory::REGISTER, 1)),
+                    Instruction::move_with_jump(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 0), 1, true),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -182,11 +182,11 @@ fn runtime_equal() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, 42)),
-                    Instruction::r#move(1, OperandType::I_32, Address::new(MemoryKind::ENCODED, 42)),
-                    Instruction::equal(true, OperandType::I_32, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::REGISTER, 1)),
-                    Instruction::move_with_jump(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 0), 1, true),
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::I_32, Address::new(Memory::ENCODED, 42)),
+                    Instruction::r#move(1, OperandType::I_32, Address::new(Memory::ENCODED, 42)),
+                    Instruction::equal(true, OperandType::I_32, Address::new(Memory::REGISTER, 0), Address::new(Memory::REGISTER, 1)),
+                    Instruction::move_with_jump(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 0), 1, true),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -211,11 +211,11 @@ fn runtime_less_than_or_equal() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::r#move(1, OperandType::I_32, Address::new(MemoryKind::ENCODED, 2)),
-                    Instruction::less_equal(true, OperandType::I_32, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::REGISTER, 1)),
-                    Instruction::move_with_jump(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 0), 1, true),
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::I_32, Address::new(Memory::ENCODED, 1)),
+                    Instruction::r#move(1, OperandType::I_32, Address::new(Memory::ENCODED, 2)),
+                    Instruction::less_equal(true, OperandType::I_32, Address::new(Memory::REGISTER, 0), Address::new(Memory::REGISTER, 1)),
+                    Instruction::move_with_jump(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 0), 1, true),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],

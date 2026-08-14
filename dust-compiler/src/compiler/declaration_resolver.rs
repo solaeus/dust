@@ -4,16 +4,14 @@ use crate::{
     compiler::{
         context::{
             Context,
-            declarations::{DeclarationId, Definition, ModuleKind, VariantKind},
-            scopes::{Barrier, BarrierTracker, ScopeId},
+            declarations::{DeclarationId, Definition, FunctionKind, ModuleKind, VariantKind},
+            scopes::{Barrier, ScopeId},
             types::{Type, TypeId, TypeMembers},
         },
         error::CompileError,
         value_creation::create_usize_from_decimal,
     },
     error::ErrorKind,
-    lexer::Lexer,
-    parser::Parser,
     source::{Code, CodeId, Position, Source},
     syntax::{
         components::{
@@ -25,12 +23,11 @@ use crate::{
             MethodCallExpression, ModItem, NamedFields, NegationExpression, NotExpression,
             PathSegment, RangeExpression, ReferenceExpression, ReferenceType, Root,
             StructExpression, StructExpressionStructFields, StructItem, SyntaxComponent, TraitItem,
-            TupleFields, TupleType, TypeItem, TypeParameter, UseItem, ValueParameters,
-            WhileExpression,
+            TupleFields, TupleType, TypeItem, TypeParameter, UseItem, ValueParameter,
+            ValueParameters, WhileExpression,
         },
         node::{SyntaxFlags, SyntaxKind},
         reader::SyntaxReader,
-        tree::SyntaxTree,
     },
 };
 
@@ -43,9 +40,9 @@ pub struct DeclarationResolver<'a, 'src> {
 
     errors: &'a mut Vec<ErrorKind>,
 
-    new_trees: &'a mut Vec<SyntaxTree>,
+    worklist: &'a mut Vec<WorklistEntry>,
 
-    forward_references: Vec<DeclarationId>,
+    forward_references: &'a mut Vec<DeclarationId>,
 
     current_scope_id: ScopeId,
 
@@ -57,7 +54,8 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
         code_id: CodeId,
         source: &'a mut Source<'src>,
         context: &'a mut Context,
-        new_trees: &'a mut Vec<SyntaxTree>,
+        worklist: &'a mut Vec<WorklistEntry>,
+        forward_references: &'a mut Vec<DeclarationId>,
         errors: &'a mut Vec<ErrorKind>,
         starting_scope_id: ScopeId,
     ) -> Self {
@@ -65,24 +63,16 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
             code_id,
             source,
             context,
-            new_trees,
+            worklist,
             errors,
-            forward_references: Vec::new(),
+            forward_references,
             current_scope_id: starting_scope_id,
             outer: OuterDeclaration::Other,
         }
     }
 
-    pub fn visit_root(mut self, reader: SyntaxReader) {
-        let Root { items } = match reader.as_component::<Root>() {
-            Ok(root) => root,
-            Err(error) => {
-                self.errors
-                    .push(ErrorKind::Compile(CompileError::Syntax(error)));
-
-                return;
-            }
-        };
+    pub fn visit_root(mut self, reader: SyntaxReader) -> Result<(), ErrorKind> {
+        let Root { items } = reader.as_component()?;
 
         for item in items.children() {
             match self.visit_item(item) {
@@ -91,59 +81,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
             }
         }
 
-        for forward_reference_id in self.forward_references.drain(..) {
-            let forward_reference = *self
-                .context
-                .declarations
-                .get_declaration(forward_reference_id);
-
-            let resolved_declaration_id = {
-                let mut crossed_barriers = BarrierTracker::default();
-                let mut current_scope_id = forward_reference.scope_id;
-
-                loop {
-                    if let Some(declaration_id) = self
-                        .context
-                        .declarations
-                        .find_declaration_id(forward_reference.symbol_id, current_scope_id)
-                        .copied()
-                    {
-                        let declaration = self.context.declarations.get_declaration(declaration_id);
-
-                        if crossed_barriers.should_block(&declaration.definition) {
-                            self.errors
-                                .push(ErrorKind::Compile(CompileError::Undeclared {
-                                    symbol_id: forward_reference.symbol_id,
-                                    usage_position: forward_reference.syntax.unwrap().0,
-                                }));
-
-                            return;
-                        }
-
-                        break declaration_id;
-                    }
-
-                    let scope = self.context.scopes.get_scope(current_scope_id);
-                    current_scope_id = if let Some(parent) = scope.parent {
-                        parent
-                    } else {
-                        self.errors
-                            .push(ErrorKind::Compile(CompileError::Undeclared {
-                                symbol_id: forward_reference.symbol_id,
-                                usage_position: forward_reference.syntax.unwrap().0,
-                            }));
-
-                        return;
-                    };
-
-                    crossed_barriers.add(scope.barrier);
-                }
-            };
-
-            self.context
-                .declarations
-                .resolve_forward_reference(forward_reference_id, resolved_declaration_id);
-        }
+        Ok(())
     }
 
     fn enter_scope(&mut self, barrier: Barrier) {
@@ -189,7 +127,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
         let module_name_str = self.source.get_content(name.position())?;
         let module_symbol_id = self.context.symbols.add_symbol(module_name_str);
 
-        let module_declaration_id = self.context.reserve_declaration_id(
+        let module_declaration_id = self.context.reserve_scoped_declaration_id(
             module_symbol_id,
             Some((name.position(), reader.id)),
             self.current_scope_id,
@@ -216,7 +154,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                 Definition::Module {
                     public,
                     kind: ModuleKind::Inline,
-                    inner_scope_id: Some(inner_scope_id),
+                    inner_scope_id,
                 },
             );
         } else {
@@ -233,35 +171,12 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
             let module_file = Code::file(module_path)?;
             let module_code_id = self.source.add_code(module_file);
 
-            let module_lexer =
-                Lexer::unvalidated(self.source.get_code(module_code_id).content_as_bytes());
-            let module_parser = Parser::new(module_code_id, module_lexer, self.errors);
-            let module_syntax_tree = module_parser.parse();
-
-            self.source.set_utf8_validated(module_code_id);
-            self.enter_scope(Barrier::Module);
-
-            let inner_scope_id = self.current_scope_id;
-            let module_resolver = DeclarationResolver::new(
+            self.worklist.push(WorklistEntry {
                 module_code_id,
-                self.source,
-                self.context,
-                self.new_trees,
-                self.errors,
-                inner_scope_id,
-            );
-
-            module_resolver.visit_root(module_syntax_tree.read_root()?);
-            self.new_trees.push(module_syntax_tree);
-            self.exit_scope();
-            self.context.declarations.set_reserved_declaration(
                 module_declaration_id,
-                Definition::Module {
-                    public,
-                    kind: ModuleKind::Inline,
-                    inner_scope_id: Some(inner_scope_id),
-                },
-            );
+                parent_scope_id: self.current_scope_id,
+                public,
+            });
         }
 
         Ok(())
@@ -308,7 +223,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
             current_span = segment.node.span;
         }
 
-        let use_declaration_id = self.context.add_declaration(
+        let use_declaration_id = self.context.add_scoped_declaration(
             current_symbol_id,
             Definition::Use {
                 public,
@@ -337,7 +252,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
 
         let function_name_str = self.source.get_content(name.position())?;
         let function_symbol_id = self.context.symbols.add_symbol(function_name_str);
-        let function_declaration_id = self.context.reserve_declaration_id(
+        let function_declaration_id = self.context.reserve_scoped_declaration_id(
             function_symbol_id,
             Some((reader.position(), reader.id)),
             self.current_scope_id,
@@ -350,59 +265,76 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
         } else {
             None
         };
-        let value_parameters_scope_id = if let Some(value_parameters) = value_parameters {
-            let ValueParameters { name_type_pairs } = value_parameters.as_component()?;
+        let (value_parameters_scope_id, function_kind) = if let Some(value_parameters) =
+            value_parameters
+        {
+            let ValueParameters { parameters } = value_parameters.as_component()?;
+            let mut function_kind = FunctionKind::Function;
 
             self.enter_scope(Barrier::Members);
 
-            if value_parameters
-                .node
-                .flags
-                .get_flag(SyntaxFlags::SELF_VALUE)
-            {
-                let OuterDeclaration::Impl {
-                    self_declaration_id,
-                    self_type_id,
-                    ..
-                } = self.outer
-                else {
-                    return Err(CompileError::InvalidContext);
-                };
+            for parameter in parameters {
+                match parameter.as_component()? {
+                    ValueParameter::SelfParameter(self_parameter) => {
+                        function_kind = FunctionKind::Method;
 
-                self.context.add_declaration_binding(
-                    self.code_id,
-                    value_parameters.id,
-                    self_declaration_id,
-                );
-                self.context
-                    .add_type_binding(self.code_id, value_parameters.id, self_type_id);
+                        let OuterDeclaration::Impl {
+                            self_declaration_id,
+                            self_type_id,
+                            ..
+                        } = self.outer
+                        else {
+                            return Err(CompileError::SelfTypeOutsideOfImpl {
+                                position: value_parameters.position(),
+                            });
+                        };
+                        let self_type_id =
+                            if self_parameter.node.kind == SyntaxKind::SelfReferenceParameter {
+                                self.context.types.add_type(Type::Reference {
+                                    referenced_type_id: self_type_id,
+                                })
+                            } else {
+                                self_type_id
+                            };
+
+                        self.context.add_declaration_binding(
+                            self.code_id,
+                            self_parameter.id,
+                            self_declaration_id,
+                        );
+                        self.context.add_type_binding(
+                            self.code_id,
+                            self_parameter.id,
+                            self_type_id,
+                        );
+                    }
+                    ValueParameter::Named {
+                        name,
+                        type_notation,
+                    } => {
+                        let name_str = self.source.get_content(name.position())?;
+                        let symbol_id = self.context.symbols.add_symbol(name_str);
+                        let type_id = self.visit_type(type_notation)?;
+                        let declaration_id = self.context.add_scoped_declaration(
+                            symbol_id,
+                            Definition::Local {
+                                mutable: false,
+                                shadowed: None,
+                                type_id,
+                            },
+                            Some((name.position(), name.id)),
+                            self.current_scope_id,
+                        );
+
+                        self.context
+                            .add_declaration_binding(self.code_id, name.id, declaration_id);
+                    }
+                }
             }
 
-            for (parameter_name, parameter_type) in name_type_pairs {
-                let parameter_name_str = self.source.get_content(parameter_name.position())?;
-                let parameter_symbol_id = self.context.symbols.add_symbol(parameter_name_str);
-                let parameter_type_id = self.visit_type(parameter_type)?;
-                let parameter_declaration_id = self.context.add_declaration(
-                    parameter_symbol_id,
-                    Definition::Local {
-                        mutable: false,
-                        shadowed: None,
-                        type_id: parameter_type_id,
-                    },
-                    Some((parameter_name.position(), parameter_name.id)),
-                    self.current_scope_id,
-                );
-
-                self.context.add_declaration_binding(
-                    self.code_id,
-                    parameter_name.id,
-                    parameter_declaration_id,
-                );
-            }
-
-            Some(self.current_scope_id)
+            (Some(self.current_scope_id), function_kind)
         } else {
-            None
+            (None, FunctionKind::Function)
         };
         let return_type_id = if let Some(return_type) = return_type {
             self.visit_type(return_type)?
@@ -447,6 +379,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
         self.context.declarations.set_reserved_declaration(
             function_declaration_id,
             Definition::Function {
+                kind: function_kind,
                 public,
                 parent_impl_or_trait: parent_declaration_id,
                 type_parameters: type_parameters_scope_id,
@@ -471,7 +404,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
 
         let struct_name_str = self.source.get_content(name.position())?;
         let struct_symbol_id = self.context.symbols.add_symbol(struct_name_str);
-        let struct_declaration_id = self.context.reserve_declaration_id(
+        let struct_declaration_id = self.context.reserve_scoped_declaration_id(
             struct_symbol_id,
             Some((reader.position(), reader.id)),
             self.current_scope_id,
@@ -496,7 +429,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                         let field_symbol_id = self.context.symbols.add_index_symbol(index as u32);
                         let field_type_id = self.visit_type(field_type)?;
 
-                        self.context.add_declaration(
+                        self.context.add_scoped_declaration(
                             field_symbol_id,
                             Definition::Field {
                                 public,
@@ -516,7 +449,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                         let field_name_str = self.source.get_content(field_name.position())?;
                         let field_symbol_id = self.context.symbols.add_symbol(field_name_str);
                         let field_type_id = self.visit_type(field_type)?;
-                        let field_declaration_id = self.context.add_declaration(
+                        let field_declaration_id = self.context.add_scoped_declaration(
                             field_symbol_id,
                             Definition::Field {
                                 public,
@@ -575,7 +508,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
 
         let enum_name_str = self.source.get_content(name.position())?;
         let enum_symbol_id = self.context.symbols.add_symbol(enum_name_str);
-        let enum_declaration_id = self.context.reserve_declaration_id(
+        let enum_declaration_id = self.context.reserve_scoped_declaration_id(
             enum_symbol_id,
             Some((reader.position(), reader.id)),
             self.current_scope_id,
@@ -644,7 +577,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                 None
             };
 
-            let type_parameter_declaration_id = self.context.add_declaration(
+            let type_parameter_declaration_id = self.context.add_scoped_declaration(
                 type_parameter_symbol_id,
                 Definition::TypeParameter {
                     is_self: false,
@@ -676,7 +609,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
 
                 let variant_name_str = self.source.get_content(name.position())?;
                 let variant_symbol_id = self.context.symbols.add_symbol(variant_name_str);
-                let variant_declaration_id = self.context.add_declaration(
+                let variant_declaration_id = self.context.add_scoped_declaration(
                     variant_symbol_id,
                     Definition::Variant {
                         discriminant,
@@ -699,7 +632,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
 
                 let variant_name_str = self.source.get_content(name.position())?;
                 let variant_symbol_id = self.context.symbols.add_symbol(variant_name_str);
-                let variant_declaration_id = self.context.reserve_declaration_id(
+                let variant_declaration_id = self.context.reserve_scoped_declaration_id(
                     variant_symbol_id,
                     Some((reader.position(), reader.id)),
                     self.current_scope_id,
@@ -710,7 +643,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                 for (index, field_type) in types.enumerate() {
                     let symbol_id = self.context.symbols.add_index_symbol(index as u32);
                     let type_id = self.visit_type(field_type)?;
-                    self.context.add_declaration(
+                    self.context.add_scoped_declaration(
                         symbol_id,
                         Definition::Field {
                             public: false,
@@ -745,7 +678,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
 
                 let variant_name_str = self.source.get_content(name.position())?;
                 let variant_symbol_id = self.context.symbols.add_symbol(variant_name_str);
-                let variant_declaration_id = self.context.reserve_declaration_id(
+                let variant_declaration_id = self.context.reserve_scoped_declaration_id(
                     variant_symbol_id,
                     Some((name.position(), name.id)),
                     self.current_scope_id,
@@ -757,7 +690,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                     let field_name_str = self.source.get_content(field_name.position())?;
                     let field_symbol_id = self.context.symbols.add_symbol(field_name_str);
                     let field_type_id = self.visit_type(field_type)?;
-                    self.context.add_declaration(
+                    self.context.add_scoped_declaration(
                         field_symbol_id,
                         Definition::Field {
                             public: false,
@@ -809,7 +742,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
         let const_name_str = self.source.get_content(name.position())?;
         let const_symbol_id = self.context.symbols.add_symbol(const_name_str);
         let const_type_id = self.visit_type(type_notation)?;
-        let const_declaration_id = self.context.add_declaration(
+        let const_declaration_id = self.context.add_scoped_declaration(
             const_symbol_id,
             Definition::Constant {
                 public,
@@ -854,7 +787,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
 
         let type_alias_name_str = self.source.get_content(name.position())?;
         let type_alias_symbol_id = self.context.symbols.add_symbol(type_alias_name_str);
-        let type_alias_declaration_id = self.context.add_declaration(
+        let type_alias_declaration_id = self.context.add_scoped_declaration(
             type_alias_symbol_id,
             Definition::TypeAlias {
                 public,
@@ -888,7 +821,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
             .context
             .symbols
             .add_impl_symbol(self_name_str, reader.position());
-        let impl_declaration_id = self.context.reserve_declaration_id(
+        let impl_declaration_id = self.context.reserve_scoped_declaration_id(
             impl_symbol_id,
             Some((reader.position(), reader.id)),
             self.current_scope_id,
@@ -967,7 +900,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                     let aliased_type_id = self.visit_type(aliased_type)?;
                     let type_name_str = self.source.get_content(name.position())?;
                     let type_symbol_id = self.context.symbols.add_symbol(type_name_str);
-                    let type_declaration_id = self.context.add_declaration(
+                    let type_declaration_id = self.context.add_scoped_declaration(
                         type_symbol_id,
                         Definition::InherentAssociatedType {
                             public,
@@ -1058,7 +991,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
 
         let trait_name_str = self.source.get_content(name.position())?;
         let trait_symbol_id = self.context.symbols.add_symbol(trait_name_str);
-        let trait_declaration_id = self.context.reserve_declaration_id(
+        let trait_declaration_id = self.context.reserve_scoped_declaration_id(
             trait_symbol_id,
             Some((reader.position(), reader.id)),
             self.current_scope_id,
@@ -1121,7 +1054,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                         .transpose()?;
                     let type_name_str = self.source.get_content(name.position())?;
                     let type_symbol_id = self.context.symbols.add_symbol(type_name_str);
-                    let type_declaration_id = self.context.add_declaration(
+                    let type_declaration_id = self.context.add_scoped_declaration(
                         type_symbol_id,
                         Definition::TraitAssociatedType {
                             public,
@@ -1154,7 +1087,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
                     let const_name_str = self.source.get_content(name.position())?;
                     let const_symbol_id = self.context.symbols.add_symbol(const_name_str);
                     let const_type_id = self.visit_type(type_notation)?;
-                    let const_declaration_id = self.context.add_declaration(
+                    let const_declaration_id = self.context.add_scoped_declaration(
                         const_symbol_id,
                         Definition::InherentAssociatedConstant {
                             public: false,
@@ -1244,7 +1177,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
             .declarations
             .find_declaration_id(local_symbol_id, self.current_scope_id)
             .copied();
-        let declaration_id = self.context.add_declaration(
+        let declaration_id = self.context.add_scoped_declaration(
             local_symbol_id,
             Definition::Local {
                 mutable,
@@ -1582,8 +1515,10 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
         self.context
             .add_declaration_binding(self.code_id, reader.id, callee_declaration_id);
 
-        for argument in arguments.children() {
-            self.visit_expression(argument)?;
+        if let Some(arguments) = arguments {
+            for argument in arguments.children() {
+                self.visit_expression(argument)?;
+            }
         }
 
         Ok(())
@@ -1825,7 +1760,7 @@ impl<'a, 'src> DeclarationResolver<'a, 'src> {
         {
             declaration_id
         } else {
-            let declaration_id = self.context.add_declaration(
+            let declaration_id = self.context.add_scoped_declaration(
                 first_symbol_id,
                 Definition::ForwardReference { resolved: None },
                 Some((first_segment.position(), first_segment.id)),
@@ -1934,4 +1869,11 @@ enum OuterDeclaration {
         trait_declaration_id: DeclarationId,
         supertraits_scope_id: Option<ScopeId>,
     },
+}
+
+pub struct WorklistEntry {
+    pub module_code_id: CodeId,
+    pub module_declaration_id: DeclarationId,
+    pub parent_scope_id: ScopeId,
+    pub public: bool,
 }

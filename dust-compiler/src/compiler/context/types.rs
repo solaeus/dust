@@ -203,7 +203,7 @@ impl Default for Types {
 pub struct TypeId(u32);
 
 impl TypeId {
-    pub type SmallVec = SmallVec<[Self; optimize_inline_capacity::<Self, 0>()]>;
+    pub type SmallVec = SmallVec<[Self; optimize_inline_capacity::<Self, 4>()]>;
 
     pub const UNIT: Self = TypeId(0);
     pub const BOOLEAN: Self = TypeId(1);

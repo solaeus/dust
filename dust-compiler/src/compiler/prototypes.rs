@@ -2,13 +2,14 @@ use std::fmt::{self, Display, Formatter};
 
 use indexmap::IndexSet;
 use rustc_hash::FxBuildHasher;
+use smallvec::SmallVec;
 
 use crate::{
     compiler::context::{declarations::DeclarationId, types::TypeId},
     prototype::Prototype,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Prototypes {
     prototypes: Vec<Prototype>,
     compilation_stack: Vec<PrototypeId>,
@@ -16,8 +17,32 @@ pub struct Prototypes {
 }
 
 impl Prototypes {
+    pub fn new() -> Self {
+        Self {
+            prototypes: vec![Prototype::placeholder()],
+            compilation_stack: Vec::new(),
+            monomorphization_cache: IndexSet::default(),
+        }
+    }
+
     pub fn into_prototypes(self) -> Vec<Prototype> {
         self.prototypes
+    }
+
+    pub fn monomorphize_main_prototype(&mut self, declaration_id: DeclarationId) {
+        debug_assert!(self.monomorphization_cache.is_empty());
+        debug_assert!(self.compilation_stack.is_empty());
+
+        self.monomorphization_cache
+            .insert((declaration_id, SmallVec::new()));
+    }
+
+    pub fn set_main_prototype(&mut self, prototype: Prototype) {
+        let id = PrototypeId::MAIN;
+
+        debug_assert_eq!(self.prototypes[id.index as usize], Prototype::placeholder());
+
+        self.prototypes[0] = prototype;
     }
 
     pub fn pop_from_compilation_stack(&mut self) -> Option<PrototypeId> {
@@ -62,6 +87,12 @@ impl Prototypes {
 
             prototype_id
         }
+    }
+}
+
+impl Default for Prototypes {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

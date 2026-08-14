@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::DustType,
-    instruction::{Address, Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, Memory, OperandType},
     prototype::Prototype,
 };
 
@@ -14,7 +14,7 @@ fn negation_integer() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 65494)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 65494)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -33,7 +33,7 @@ fn negation_float() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::F_64, Address::new(MemoryKind::CONSTANT, 0)),
+                    Instruction::r#move(0, OperandType::F_64, Address::new(Memory::CONSTANT, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::F_64],
@@ -52,7 +52,7 @@ fn not_true() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -71,7 +71,7 @@ fn not_false() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -95,8 +95,8 @@ fn runtime_negation() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 42)),
-                    Instruction::negate(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 42)),
+                    Instruction::negate(0, OperandType::I_64, Address::new(Memory::REGISTER, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -120,8 +120,8 @@ fn runtime_not() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::negate(0, OperandType::BOOLEAN, Address::new(MemoryKind::REGISTER, 0)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
+                    Instruction::negate(0, OperandType::BOOLEAN, Address::new(Memory::REGISTER, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],

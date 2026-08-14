@@ -154,6 +154,11 @@ pub struct Declaration {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Definition {
+    Crate {
+        kind: CrateKind,
+        inner_scope_id: ScopeId,
+    },
+
     /// A `mod` item, which can contain other declarations, either inline or in another file.
     ///
     /// - `mod foo { mod bar { ... } }`
@@ -161,7 +166,7 @@ pub enum Definition {
     Module {
         public: bool,
         kind: ModuleKind,
-        inner_scope_id: Option<ScopeId>,
+        inner_scope_id: ScopeId,
     },
 
     /// A `use` item, which imports an item or enum variant to its scope. When public, it also
@@ -179,6 +184,7 @@ pub enum Definition {
     /// - `fn yo() { ... }`
     /// - `fn foo<T>(x: T) -> T { ... }`
     Function {
+        kind: FunctionKind,
         public: bool,
         parent_impl_or_trait: Option<DeclarationId>,
         type_parameters: Option<ScopeId>,
@@ -195,21 +201,6 @@ pub enum Definition {
         mutable: bool,
         shadowed: Option<DeclarationId>,
         type_id: TypeId,
-    },
-
-    /// Definition of a function declared within the context (not by the user) that stores its
-    /// type, allowing it to be used like any other function declaration.
-    ///
-    /// Native functions include:
-    ///
-    /// - `core::io::print_line`
-    /// - `core::vec::Vec::with_capacity`
-    /// - `core::string::String::join`
-    NativeFunction {
-        function: NativeFunction,
-        type_parameters: Option<ScopeId>,
-        value_parameters: TypeMembers,
-        return_type_id: TypeId,
     },
 
     /// Definition of a declared product type. A struct type definition can be instantiated as
@@ -347,6 +338,19 @@ pub enum Definition {
 
     /// Used when reserving a declaration ID.
     Placeholder,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum CrateKind {
+    Program,
+    Library,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum FunctionKind {
+    Function,
+    Method,
+    Native(NativeFunction),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -84,14 +84,14 @@ fn vm_bench(program: Arc<Program>) {
 fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("vm");
 
-    let mut source = Source::new();
+    let mut source = Source::new("bench".to_string());
     let content = create_source();
-    let name = format!("{SIEVE_COUNT}_sieves");
+    let name = format!("{SIEVE_COUNT}_sieves.ds");
 
     source.add_code(Code::validated(&name, &content));
 
     let compiler = Compiler::new(source);
-    let program = compiler.compile(name.clone()).unwrap();
+    let program = compiler.compile().unwrap();
     let program = Arc::new(program);
 
     group.bench_function(name, |b| {

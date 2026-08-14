@@ -3,18 +3,13 @@ use std::sync::Arc;
 use dust_compiler::compiler::Compiler;
 use dust_vm::{Vm, VmConfig};
 
-use crate::{build_source, cli::RunCommand, error::Error, get_name};
+use crate::{build_source, cli::RunCommand, error::Error};
 
 pub fn run<'src>(commmand: RunCommand) -> Result<(), Error<'src>> {
-    let RunCommand {
-        global: _,
-        input,
-        name,
-    } = commmand;
+    let RunCommand { global: _, input } = commmand;
 
-    let name = get_name(name, &input);
     let source = build_source(input)?;
-    let program = Compiler::new(source).compile(name)?;
+    let program = Compiler::new(source).compile()?;
     let vm = Vm::new(Arc::new(program), VmConfig::default());
 
     match vm.run() {

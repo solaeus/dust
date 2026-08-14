@@ -8,15 +8,18 @@ use dust_compiler::{
     source::{Code, Source},
 };
 
-fn create_source() -> Vec<u8> {
-    let mut source = String::with_capacity(1024 * 100);
+const SIEVE_COUNTS: [usize; 3] = [10, 100, 1000];
+
+fn create_source(sieve_count: usize) -> Vec<u8> {
+    let mut source = String::new();
+
     let mut count = 0;
 
-    while source.len() < 1024 * 100 {
+    while count < sieve_count {
         let _ = write!(
             &mut source,
             "
-fn eratosthenes_sieve_{}() -> i32 {{
+fn eratosthenes_sieve_{count}() -> i32 {{
     let target = 50;
     let mut is_composite = [false; 50];
     let mut factor = 2;
@@ -47,8 +50,7 @@ fn eratosthenes_sieve_{}() -> i32 {{
 
     count
 }}
-        ",
-            count
+        "
         );
 
         count += 1;
@@ -56,7 +58,7 @@ fn eratosthenes_sieve_{}() -> i32 {{
 
     source.push_str("fn main() -> i32 {\n");
 
-    for i in 0..count {
+    for i in 0..sieve_count {
         let _ = writeln!(&mut source, "eratosthenes_sieve_{}();", i);
     }
 
@@ -66,23 +68,24 @@ fn eratosthenes_sieve_{}() -> i32 {{
 }
 
 fn compiler_bench(content: &[u8]) {
-    let mut source = Source::new();
+    let mut source = Source::new("bench".to_string());
 
     source.add_code(Code::unvalidated("eratosthenes_sieve.ds", content));
 
-    Compiler::new(source)
-        .compile("eratosthenes_sieve".to_string())
-        .unwrap();
+    Compiler::new(source).compile().unwrap();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("compiler");
-    let source = create_source();
 
-    group.throughput(Throughput::Bytes(source.len() as u64));
-    group.bench_function("lots_of_sieves", |b| {
-        b.iter_with_large_drop(|| compiler_bench(black_box(&source)))
-    });
+    for count in SIEVE_COUNTS {
+        let source = create_source(count);
+
+        group.throughput(Throughput::Bytes(source.len() as u64));
+        group.bench_function(format!("{count}_sieves"), |b| {
+            b.iter_with_large_drop(|| compiler_bench(black_box(&source)))
+        });
+    }
 }
 
 criterion_group!(benches, criterion_benchmark);

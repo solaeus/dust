@@ -115,58 +115,60 @@ pub enum CompileError {
     SelfTypeOutsideOfImpl {
         position: Position,
     },
+    UnexpectedSyntax {
+        found: SyntaxKind,
+    },
 
     // Internal errors
-    Source(SourceError),
-    Syntax(SyntaxError),
+    CannotPlaceEncodedValue {
+        code_id: CodeId,
+        syntax_id: SyntaxId,
+    },
     ConstantList(ConstantsError),
-    ExpectedTypeDeclaration(DeclarationId),
-    InvalidRegisterAllocation,
+    ExpectedAlgebraicType(TypeId),
+    ExpectedAlgebraicTypeDefinition(DeclarationId),
+    ExpectedAllocation,
+    ExpectedArrayType(TypeId),
+    ExpectedConcreteType,
+    ExpectedConstantDefinition(DeclarationId),
+    ExpectedEncodedValue {
+        found: ConstantValue,
+    },
+    ExpectedFieldDefinition(DeclarationId),
+    ExpectedFunctionDefinition(DeclarationId),
+    ExpectedFunctionDefinitionType(TypeId),
+    ExpectedImplementationDefinition(DeclarationId),
+    ExpectedInferredType(TypeId),
+    ExpectedInstruction,
     ExpectedJumpPlacement(JumpId),
+    ExpectedLocalDefinition(DeclarationId),
+    ExpectedReferenceType(TypeId),
+    ExpectedScopeId(DeclarationId),
+    ExpectedStructDefinition(DeclarationId),
+    ExpectedSyntax {
+        expected: &'static [SyntaxKind],
+    },
+    ExpectedTypeDeclaration(DeclarationId),
+    ExpectedVariantDefinition(DeclarationId),
+    InvalidContext,
+    InvalidEmission,
+    InvalidRegisterAllocation,
+    InvalidTypeBinding(TypeId),
     MissingDeclarationBinding {
         code_id: CodeId,
         syntax_id: SyntaxId,
     },
-    MissingTypeMember(u32),
+    MissingSyntax(DeclarationId),
+    MissingTypeArgument(DeclarationId),
     MissingTypeBinding {
         code_id: CodeId,
         syntax_id: SyntaxId,
     },
-    ExpectedFunctionDefinition(DeclarationId),
-    ExpectedAlgebraicTypeDefinition(DeclarationId),
-    MissingTypeArgument(DeclarationId),
-    ExpectedConcreteType,
-    ExpectedFieldDefinition(DeclarationId),
-    ExpectedAllocation,
-    InvalidTypeBinding(TypeId),
-    ExpectedConstantDefinition(DeclarationId),
-    ExpectedArrayType(TypeId),
-    InvalidEmission,
-    UnexpectedSyntax {
-        found: SyntaxKind,
-    },
-    ExpectedLocalDefinition(DeclarationId),
-    ExpectedVariantDefinition(DeclarationId),
-    ExpectedStructDefinition(DeclarationId),
+    MissingTypeMember(u32),
     ScopeStackUnderflow,
-    ExpectedSyntax {
-        expected: &'static [SyntaxKind],
-    },
-    ExpectedAlgebraicType(TypeId),
-    ExpectedEncodedValue {
-        found: ConstantValue,
-    },
-    InvalidContext,
-    ExpectedFunctionDefinitionType(TypeId),
-    ExpectedInferredType(TypeId),
+    Source(SourceError),
+    Syntax(SyntaxError),
     UnexpectedType(TypeId),
-    ExpectedImplementationDefinition(DeclarationId),
-    CannotPlaceEncodedValue {
-        code_id: CodeId,
-        syntax_id: crate::syntax::SyntaxId,
-    },
-    ExpectedReferenceType(TypeId),
-    ExpectedInstruction,
 }
 
 impl From<SyntaxError> for CompileError {
@@ -765,7 +767,9 @@ impl<'a> DustError<'a> for CompileError {
             | CompileError::ExpectedImplementationDefinition(_)
             | CompileError::CannotPlaceEncodedValue { .. }
             | CompileError::ExpectedReferenceType(_)
-            | CompileError::ExpectedInstruction => {
+            | CompileError::ExpectedInstruction
+            | CompileError::ExpectedScopeId { .. }
+            | CompileError::MissingSyntax(_) => {
                 self.add_internal_report(groups);
             }
         }

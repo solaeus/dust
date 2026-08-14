@@ -111,7 +111,7 @@ impl<'a> SyntaxComponent<'a> for FunctionItem<'a> {
 }
 
 pub struct ValueParameters<'a> {
-    pub name_type_pairs: SyntaxPairIterator<'a>,
+    pub parameters: SyntaxIterator<'a>,
 }
 
 impl<'a> SyntaxComponent<'a> for ValueParameters<'a> {
@@ -119,8 +119,33 @@ impl<'a> SyntaxComponent<'a> for ValueParameters<'a> {
         debug_assert_eq!(reader.node.kind, SyntaxKind::ValueParameters);
 
         Ok(Self {
-            name_type_pairs: reader.child_pairs(),
+            parameters: reader.children(),
         })
+    }
+}
+
+pub enum ValueParameter<'a> {
+    SelfParameter(SyntaxReader<'a>),
+    Named {
+        name: SyntaxReader<'a>,
+        type_notation: SyntaxReader<'a>,
+    },
+}
+
+impl<'a> SyntaxComponent<'a> for ValueParameter<'a> {
+    fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
+        debug_assert_eq!(reader.node.kind, SyntaxKind::ValueParameter);
+
+        if reader.child_count() == 1 {
+            Ok(Self::SelfParameter(reader.single_child()?))
+        } else {
+            let (name, type_notation) = reader.binary_children()?;
+
+            Ok(Self::Named {
+                name,
+                type_notation,
+            })
+        }
     }
 }
 
@@ -542,16 +567,26 @@ impl<'a> SyntaxComponent<'a> for WhileExpression<'a> {
 
 pub struct CallExpression<'a> {
     pub callee: SyntaxReader<'a>,
-    pub arguments: SyntaxReader<'a>,
+    pub arguments: Option<SyntaxReader<'a>>,
 }
 
 impl<'a> SyntaxComponent<'a> for CallExpression<'a> {
     fn from_reader(reader: &'a SyntaxReader<'a>) -> Result<Self, SyntaxError> {
         debug_assert_eq!(reader.node.kind, SyntaxKind::CallExpression);
 
-        let (callee, arguments) = reader.binary_children()?;
+        if reader.child_count() == 1 {
+            Ok(Self {
+                callee: reader.single_child()?,
+                arguments: None,
+            })
+        } else {
+            let (callee, arguments) = reader.binary_children()?;
 
-        Ok(Self { callee, arguments })
+            Ok(Self {
+                callee,
+                arguments: Some(arguments),
+            })
+        }
     }
 }
 

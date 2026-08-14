@@ -144,7 +144,7 @@ impl<'a> SyntaxReader<'a> {
         buffer.push_str(connector);
         buffer.push_str(self.node.kind.as_str());
 
-        if let Some(info) = self.node.flags.info_display(self.node.kind) {
+        if let Some(info) = self.node.flags.info(self.node.kind) {
             buffer.push_str(" (");
             buffer.push_str(info);
             buffer.push(')');

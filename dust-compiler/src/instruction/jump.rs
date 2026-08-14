@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use crate::instruction::{Instruction, InstructionBuilder, MemoryKind, Operation};
+use crate::instruction::{Instruction, InstructionBuilder, Memory, Operation};
 
 pub struct Jump {
     pub offset: u16,
@@ -31,7 +31,7 @@ impl From<Jump> for Instruction {
 
         InstructionBuilder::new(Operation::JUMP)
             .a_field(offset)
-            .b_memory(MemoryKind(is_positive as u8))
+            .b_memory(Memory(is_positive as u8))
             .b_field(drop_register_start)
             .c_field(drop_list_end)
             .build()

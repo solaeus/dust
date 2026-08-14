@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::DustType,
-    instruction::{Address, Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, Memory, OperandType},
     prototype::Prototype,
 };
 
@@ -14,7 +14,7 @@ fn boolean() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, true as u16)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, true as u16)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -33,7 +33,7 @@ fn i8() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_8, Address::new( MemoryKind::ENCODED, (-42_i16) as u16)),
+                    Instruction::r#move(0, OperandType::I_8, Address::new( Memory::ENCODED, (-42_i16) as u16)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_8],
@@ -52,7 +52,7 @@ fn i16() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_16, Address::new(MemoryKind::ENCODED, (-42_i16) as u16)),
+                    Instruction::r#move(0, OperandType::I_16, Address::new(Memory::ENCODED, (-42_i16) as u16)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_16],
@@ -71,7 +71,7 @@ fn i32() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, (-42_i32) as u16)),
+                    Instruction::r#move(0, OperandType::I_32, Address::new(Memory::ENCODED, (-42_i32) as u16)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_32],
@@ -90,7 +90,7 @@ fn i64_encodable() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 42)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -109,7 +109,7 @@ fn i64_not_encodable() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::CONSTANT, 0)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::CONSTANT, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -128,7 +128,7 @@ fn i128_encodable() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_128, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#move(0, OperandType::I_128, Address::new(Memory::ENCODED, 42)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_128],
@@ -147,7 +147,7 @@ fn i128_not_encodable() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_128, Address::new(MemoryKind::CONSTANT, 0)),
+                    Instruction::r#move(0, OperandType::I_128, Address::new(Memory::CONSTANT, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_128],
@@ -166,7 +166,7 @@ fn u8() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::U_8, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#move(0, OperandType::U_8, Address::new(Memory::ENCODED, 42)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::U_8],
@@ -185,7 +185,7 @@ fn u16() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::U_16, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#move(0, OperandType::U_16, Address::new(Memory::ENCODED, 42)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::U_16],
@@ -204,7 +204,7 @@ fn u32() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::U_32, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#move(0, OperandType::U_32, Address::new(Memory::ENCODED, 42)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::U_32],
@@ -223,7 +223,7 @@ fn u64_encodable() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::U_64, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#move(0, OperandType::U_64, Address::new(Memory::ENCODED, 42)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::U_64],
@@ -242,7 +242,7 @@ fn u64_not_encodable() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::U_64, Address::new(MemoryKind::CONSTANT, 0)),
+                    Instruction::r#move(0, OperandType::U_64, Address::new(Memory::CONSTANT, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::U_64],
@@ -261,7 +261,7 @@ fn u128_encodable() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::U_128, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#move(0, OperandType::U_128, Address::new(Memory::ENCODED, 42)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::U_128],
@@ -280,7 +280,7 @@ fn u128_not_encodable() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::U_128, Address::new(MemoryKind::CONSTANT, 0)),
+                    Instruction::r#move(0, OperandType::U_128, Address::new(Memory::CONSTANT, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::U_128],
@@ -299,7 +299,7 @@ fn f32_encodable() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::F_32, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::r#move(0, OperandType::F_32, Address::new(Memory::ENCODED, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::F_32],
@@ -318,7 +318,7 @@ fn f32_not_encodable() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::F_32, Address::new(MemoryKind::CONSTANT, 0)),
+                    Instruction::r#move(0, OperandType::F_32, Address::new(Memory::CONSTANT, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::F_32],
@@ -337,7 +337,7 @@ fn f64_encodable() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::F_64, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::r#move(0, OperandType::F_64, Address::new(Memory::ENCODED, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::F_64],
@@ -356,7 +356,7 @@ fn f64_not_encodable() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::F_64, Address::new(MemoryKind::CONSTANT, 0)),
+                    Instruction::r#move(0, OperandType::F_64, Address::new(Memory::CONSTANT, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::F_64],
@@ -375,7 +375,7 @@ fn character_encodable() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::CHARACTER, Address::new(MemoryKind::ENCODED, 'q' as u16)),
+                    Instruction::r#move(0, OperandType::CHARACTER, Address::new(Memory::ENCODED, 'q' as u16)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::CHARACTER],
@@ -394,7 +394,7 @@ fn character_not_encodable() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::CHARACTER, Address::new(MemoryKind::CONSTANT, 0)),
+                    Instruction::r#move(0, OperandType::CHARACTER, Address::new(Memory::CONSTANT, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::CHARACTER],

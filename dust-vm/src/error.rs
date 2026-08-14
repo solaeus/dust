@@ -3,7 +3,7 @@ use std::fmt::{self, Display, Formatter};
 use dust_compiler::{
     constants::ConstantsError,
     dust_type::DustType,
-    instruction::{Instruction, MemoryKind, OperandType, Operation},
+    instruction::{Instruction, Memory, OperandType, Operation},
 };
 
 #[derive(Debug)]
@@ -18,7 +18,7 @@ pub enum VmError {
         operation: Operation,
     },
     UnsupportedMemoryKind {
-        memory: MemoryKind,
+        memory: Memory,
     },
     UnsupportedOperandType {
         operand_type: OperandType,

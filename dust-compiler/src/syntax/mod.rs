@@ -6,7 +6,7 @@ pub mod tree;
 
 use serde::{Deserialize, Serialize};
 
-use crate::source::CodeId;
+use crate::{source::CodeId, syntax::reader::SyntaxReader};
 
 use error::SyntaxError;
 use tree::SyntaxTree;
@@ -52,6 +52,10 @@ impl Syntax {
         self.trees
             .get(index)
             .ok_or(SyntaxError::MissingTree(code_id))
+    }
+
+    pub fn read_root<'a>(&'a self, code_id: CodeId) -> Result<SyntaxReader<'a>, SyntaxError> {
+        self.get_tree(code_id)?.read_root()
     }
 }
 

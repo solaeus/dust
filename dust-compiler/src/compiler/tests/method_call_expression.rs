@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::DustType,
-    instruction::{Address, Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, Memory, OperandType},
     prototype::Prototype,
 };
 
@@ -25,8 +25,8 @@ fn method_call() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 42)),
-                    Instruction::call(0, Address::new(MemoryKind::CONSTANT, 1), 0),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 42)),
+                    Instruction::call(0, Address::new(Memory::CONSTANT, 1), 0),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -64,8 +64,8 @@ fn method_call_runtime() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 42)),
-                    Instruction::call(0, Address::new(MemoryKind::CONSTANT, 1), 0),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 42)),
+                    Instruction::call(0, Address::new(Memory::CONSTANT, 1), 0),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],

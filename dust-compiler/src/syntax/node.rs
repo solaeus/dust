@@ -122,17 +122,22 @@ pub enum SyntaxKind {
     ModuleBody,
     ImplBody,
     TraitBody,
+
+    TypeParameters,
+    TypeParameter,
+    TypeArguments,
+    ValueParameters,
+    ValueParameter,
+    SelfParameter,
+    SelfReferenceParameter,
     ValueArguments,
 
-    ValueParameters,
-    TypeParameters,
-    TypeArguments,
     TraitBounds,
-    EnumVariants,
-    TypeParameter,
+
     WhereClause,
     WherePredicate,
 
+    EnumVariants,
     EnumUnitVariant,
     EnumTupleFieldsVariant,
     EnumNamedFieldsVariant,
@@ -390,6 +395,8 @@ impl SyntaxKind {
             SyntaxKind::ReferenceType => "reference type",
             SyntaxKind::ReturnExpression => "return expression",
             SyntaxKind::Root => "root",
+            SyntaxKind::SelfParameter => "self parameter",
+            SyntaxKind::SelfReferenceParameter => "self reference parameter",
             SyntaxKind::SelfType => "self type",
             SyntaxKind::SimplePath => "simple path",
             SyntaxKind::StringExpression => "string expression",
@@ -422,6 +429,7 @@ impl SyntaxKind {
             SyntaxKind::UseItem => "use item",
             SyntaxKind::ValueArguments => "value arguments",
             SyntaxKind::ValueParameters => "value parameters",
+            SyntaxKind::ValueParameter => "value parameter",
             SyntaxKind::FunctionTypeValueParameterTypes => "function type value parameter types",
             SyntaxKind::WhileExpression => "while loop expression",
             SyntaxKind::WhereClause => "where clause",
@@ -486,43 +494,40 @@ pub enum SyntaxChildrenKind {
 pub struct SyntaxFlags(u8);
 
 impl SyntaxFlags {
-    // Info flags
     pub const PUBLIC: Self = Self(1);
     pub const MUTABLE: Self = Self(1);
-    pub const SELF_VALUE: Self = Self(1);
     pub const TRUE: Self = Self(1);
 
-    // Children flags
     pub const TYPE_PARAMETERS: Self = Self(2);
     pub const TYPE_ARGUMENTS: Self = Self(2);
+
     pub const VALUE_PARAMETERS: Self = Self(4);
     pub const VALUE_ARGUMENTS: Self = Self(4);
+
     pub const RETURN_TYPE: Self = Self(8);
     pub const SUPERTRAITS: Self = Self(8);
     pub const TYPE_NAME: Self = Self(8);
     pub const FIELDS: Self = Self(8);
+
     pub const TRAIT_TYPE_ARGUMENTS: Self = Self(16);
+
     pub const WHERE_CLAUSE: Self = Self(32);
 
     const _RESERVED: [Self; 2] = [Self(64), Self(128)];
 
-    pub fn new(flags: u8) -> Self {
-        Self(flags)
-    }
-
-    pub fn and(self, other: Self) -> Self {
+    pub const fn and(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
 
-    pub fn set_flag(&mut self, flag: SyntaxFlags) {
+    pub const fn set_flag(&mut self, flag: SyntaxFlags) {
         self.0 |= flag.0;
     }
 
-    pub fn get_flag(&self, flag: SyntaxFlags) -> bool {
+    pub const fn get_flag(&self, flag: SyntaxFlags) -> bool {
         (self.0 & flag.0) != 0
     }
 
-    pub fn info_display(&self, kind: SyntaxKind) -> Option<&'static str> {
+    pub fn info(&self, kind: SyntaxKind) -> Option<&'static str> {
         match kind {
             SyntaxKind::ModItem
             | SyntaxKind::UseItem
@@ -536,9 +541,6 @@ impl SyntaxFlags {
                 Some("public")
             }
             SyntaxKind::LetStatement if self.get_flag(SyntaxFlags::MUTABLE) => Some("mutable"),
-            SyntaxKind::ValueParameters if self.get_flag(SyntaxFlags::SELF_VALUE) => {
-                Some("with self")
-            }
             SyntaxKind::BooleanExpression => {
                 if self.get_flag(SyntaxFlags::TRUE) {
                     Some("true")

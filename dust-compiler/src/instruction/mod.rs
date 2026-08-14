@@ -350,12 +350,12 @@ impl Instruction {
         OperandType(((self.0 >> 5) & 0x0F) as u8)
     }
 
-    pub fn b_memory(self) -> MemoryKind {
-        MemoryKind(((self.0 >> 9) & 0x07) as u8)
+    pub fn b_memory(self) -> Memory {
+        Memory(((self.0 >> 9) & 0x07) as u8)
     }
 
-    pub fn c_memory(self) -> MemoryKind {
-        MemoryKind(((self.0 >> 12) & 0x07) as u8)
+    pub fn c_memory(self) -> Memory {
+        Memory(((self.0 >> 12) & 0x07) as u8)
     }
 
     pub fn a_field(self) -> u64 {
@@ -455,8 +455,8 @@ impl Display for Instruction {
 pub struct InstructionBuilder {
     operation: Operation,
     operand_type: OperandType,
-    b_memory: MemoryKind,
-    c_memory: MemoryKind,
+    b_memory: Memory,
+    c_memory: Memory,
     a_field: u16,
     b_field: u16,
     c_field: u16,
@@ -467,21 +467,21 @@ impl InstructionBuilder {
         Self {
             operation,
             operand_type: OperandType(0),
-            b_memory: MemoryKind(0),
-            c_memory: MemoryKind(0),
+            b_memory: Memory(0),
+            c_memory: Memory(0),
             a_field: 0,
             b_field: 0,
             c_field: 0,
         }
     }
 
-    pub const fn b_memory(mut self, memory: MemoryKind) -> Self {
+    pub const fn b_memory(mut self, memory: Memory) -> Self {
         self.b_memory = memory;
 
         self
     }
 
-    pub const fn c_memory(mut self, memory: MemoryKind) -> Self {
+    pub const fn c_memory(mut self, memory: Memory) -> Self {
         self.c_memory = memory;
 
         self
@@ -540,26 +540,26 @@ impl InstructionBuilder {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct MemoryKind(u8);
+pub struct Memory(u8);
 
-impl MemoryKind {
+impl Memory {
     /// Indicates that the field is unused and should be ignored.
-    pub const EMPTY: MemoryKind = MemoryKind(0);
+    pub const EMPTY: Memory = Memory(0);
 
     /// Represents the index of a VM register in the current stack frame.
-    pub const REGISTER: MemoryKind = MemoryKind(1);
+    pub const REGISTER: Memory = Memory(1);
 
     /// Represents the index of a reference to another register.
-    pub const REFERENCE: MemoryKind = MemoryKind(2);
+    pub const REFERENCE: Memory = Memory(2);
 
     /// Represents an encoded value that is stored directly in the instruction.
-    pub const ENCODED: MemoryKind = MemoryKind(3);
+    pub const ENCODED: Memory = Memory(3);
 
     /// Represents the index of a value in the constants table.
-    pub const CONSTANT: MemoryKind = MemoryKind(4);
+    pub const CONSTANT: Memory = Memory(4);
 }
 
-impl Display for MemoryKind {
+impl Display for Memory {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match *self {
             Self::EMPTY => write!(f, "empty"),
@@ -574,12 +574,12 @@ impl Display for MemoryKind {
 
 #[derive(Clone, Copy, Debug)]
 pub struct Address {
-    pub memory: MemoryKind,
+    pub memory: Memory,
     pub index: u16,
 }
 
 impl Address {
-    pub fn new(memory: MemoryKind, index: u16) -> Self {
+    pub fn new(memory: Memory, index: u16) -> Self {
         Self { memory, index }
     }
 }
@@ -599,7 +599,7 @@ mod tests {
             42,
             OperandType::U_128,
             Address {
-                memory: MemoryKind::CONSTANT,
+                memory: Memory::CONSTANT,
                 index: 666,
             },
             777,
@@ -625,7 +625,7 @@ mod tests {
     fn decode_b_memory() {
         let instruction = create_instruction();
 
-        assert_eq!(instruction.b_memory(), MemoryKind::CONSTANT);
+        assert_eq!(instruction.b_memory(), Memory::CONSTANT);
     }
 
     #[test]
@@ -634,16 +634,16 @@ mod tests {
             42,
             OperandType::F_64,
             Address {
-                memory: MemoryKind::CONSTANT,
+                memory: Memory::CONSTANT,
                 index: 1,
             },
             Address {
-                memory: MemoryKind::CONSTANT,
+                memory: Memory::CONSTANT,
                 index: 2,
             },
         );
 
-        assert_eq!(instruction.c_memory(), MemoryKind::CONSTANT);
+        assert_eq!(instruction.c_memory(), Memory::CONSTANT);
     }
 
     #[test]

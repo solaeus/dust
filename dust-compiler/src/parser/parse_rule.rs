@@ -139,7 +139,7 @@ impl From<TokenKind> for ParseRule<'_> {
             },
             TokenKind::Dot => ParseRule {
                 prefix: Parser::parse_unexpected,
-                infix: Some(Parser::parse_infix_dot),
+                infix: Some(Parser::parse_infix_dot_operator),
                 precedence: Precedence::CallOrIndex,
                 associativity: Associativity::Left,
             },

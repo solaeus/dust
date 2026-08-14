@@ -137,15 +137,12 @@ pub struct CompileCommand {
     pub input: InputOptions,
 
     #[arg(short, long)]
-    pub name: Option<String>,
-
-    #[arg(short, long)]
     #[arg(value_enum, default_value = "debug")]
     pub output: CompileOutput,
 }
 
 impl CompileCommand {
-    pub fn fill_arguments(mut self, global: GlobalOptions, input: InputOptions) -> Self {
+    pub fn join(mut self, global: GlobalOptions, input: InputOptions) -> Self {
         self.global = self.global.join(global);
         self.input = self.input.join(input);
 
@@ -173,15 +170,12 @@ pub struct RunCommand {
     #[command(flatten)]
     pub global: GlobalOptions,
 
-    #[arg(short, long)]
-    pub name: Option<String>,
-
     #[command(flatten)]
     pub input: InputOptions,
 }
 
 impl RunCommand {
-    pub fn fill_arguments(mut self, global: GlobalOptions, input: InputOptions) -> Self {
+    pub fn join(mut self, global: GlobalOptions, input: InputOptions) -> Self {
         self.global = self.global.join(global);
         self.input = self.input.join(input);
 
@@ -199,7 +193,7 @@ pub struct InitCommand {
 }
 
 impl InitCommand {
-    pub fn fill_arguments(mut self, global: GlobalOptions, input: InputOptions) -> Self {
+    pub fn join(mut self, global: GlobalOptions, input: InputOptions) -> Self {
         self.global = self.global.join(global);
         self.path = self.path.or(input.path);
 

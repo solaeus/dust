@@ -2,7 +2,7 @@ use std::{collections::HashMap, mem::take, range::Range};
 
 use rustc_hash::FxBuildHasher;
 use smallvec::{SmallVec, smallvec};
-use tracing::trace;
+use tracing::{error, trace};
 
 use crate::{
     compiler::{
@@ -26,7 +26,7 @@ use crate::{
     },
     constants::{ConstantsBuilder, value::ConstantValue},
     instruction::{
-        Address, Drop, Instruction, MemoryKind, Move, NativeFunction, OperandType, Operation, Test,
+        Address, Drop, Instruction, Memory, Move, NativeFunction, OperandType, Operation, Test,
     },
     optimize_inline_capacity,
     prototype::Prototype,
@@ -39,7 +39,7 @@ use crate::{
             FieldAccessExpression, GroupedExpression, IfExpression, IndexExpression, LetStatement,
             LogicExpression, MathExpression, MethodCallExpression, NegationExpression,
             NotExpression, RangeExpression, ReferenceExpression, StructExpression,
-            StructExpressionStructFields, ValueParameters, WhileExpression,
+            StructExpressionStructFields, ValueParameter, ValueParameters, WhileExpression,
         },
         node::{SyntaxFlags, SyntaxKind},
         reader::SyntaxReader,
@@ -62,7 +62,7 @@ pub struct PrototypeEmitter<'a> {
 
     argument_count: u16,
 
-    self_registers: Option<RegisterClaims>,
+    self_registers: Option<RegisterClaim>,
 
     return_type_id: TypeId,
 
@@ -142,43 +142,43 @@ impl<'a> PrototypeEmitter<'a> {
         );
 
         if let Some(value_parameters) = value_parameters {
-            let ValueParameters { name_type_pairs } = value_parameters.as_component()?;
+            let ValueParameters { parameters } = value_parameters.as_component()?;
 
-            if value_parameters
-                .node
-                .flags
-                .get_flag(SyntaxFlags::SELF_VALUE)
-            {
-                let self_type_id = *prototype_emitter
-                    .context
-                    .get_type_binding(&(value_parameters.code_id(), value_parameters.id))?;
-                let concrete_self_type_id = prototype_emitter
-                    .context
-                    .get_inferred_type_id(self_type_id)?;
-                let self_registers = prototype_emitter
-                    .claim_registers(concrete_self_type_id, RegisterKind::Reserved)?;
+            for parameter in parameters {
+                match parameter.as_component()? {
+                    ValueParameter::SelfParameter(self_node) => {
+                        let self_type_id = *prototype_emitter
+                            .context
+                            .get_type_binding(&(self_node.code_id(), self_node.id))?;
+                        let concrete_self_type_id = prototype_emitter
+                            .context
+                            .get_inferred_type_id(self_type_id)?;
+                        let self_registers = prototype_emitter
+                            .claim_registers(concrete_self_type_id, ClaimKind::Reserved)?;
 
-                prototype_emitter.self_registers = Some(self_registers);
-            }
+                        prototype_emitter.self_registers = Some(self_registers);
+                    }
+                    ValueParameter::Named { name, .. } => {
+                        let declaration_id = *prototype_emitter
+                            .context
+                            .get_declaration_binding(&(name.code_id(), name.id))?;
+                        let declaration = prototype_emitter
+                            .context
+                            .declarations
+                            .get_declaration(declaration_id);
+                        let Definition::Local { type_id, .. } = declaration.definition else {
+                            return Err(CompileError::ExpectedLocalDefinition(declaration_id));
+                        };
+                        let concrete_type_id =
+                            prototype_emitter.context.get_inferred_type_id(type_id)?;
+                        let allocation = prototype_emitter
+                            .claim_registers(concrete_type_id, ClaimKind::Reserved)?;
 
-            for (parameter_name, _) in name_type_pairs {
-                let declaration_id = *prototype_emitter
-                    .context
-                    .get_declaration_binding(&(parameter_name.code_id(), parameter_name.id))?;
-                let declaration = prototype_emitter
-                    .context
-                    .declarations
-                    .get_declaration(declaration_id);
-                let Definition::Local { type_id, .. } = declaration.definition else {
-                    return Err(CompileError::ExpectedLocalDefinition(declaration_id));
-                };
-                let concrete_type_id = prototype_emitter.context.get_inferred_type_id(type_id)?;
-                let allocation =
-                    prototype_emitter.claim_registers(concrete_type_id, RegisterKind::Reserved)?;
-
-                prototype_emitter
-                    .locals
-                    .insert(declaration_id, Local::Place(Place::Registers(allocation)));
+                        prototype_emitter
+                            .locals
+                            .insert(declaration_id, Local::Place(Place::Registers(allocation)));
+                    }
+                }
             }
         }
 
@@ -297,7 +297,7 @@ impl<'a> PrototypeEmitter<'a> {
 
             if index == child_count - 1 {
                 let return_registers =
-                    self.claim_registers(self.return_type_id, RegisterKind::Reserved)?;
+                    self.claim_registers(self.return_type_id, ClaimKind::Reserved)?;
                 let return_expression_emission = self.visit_expression(
                     child,
                     ExpressionTarget::ClaimedRegister(return_registers.clone()),
@@ -440,208 +440,190 @@ impl<'a> PrototypeEmitter<'a> {
     fn claim_registers(
         &mut self,
         type_id: TypeId,
-        kind: RegisterKind,
-    ) -> Result<RegisterClaims, CompileError> {
-        fn collect_registers(
-            type_id: TypeId,
-            kind: RegisterKind,
-            registers: &mut RegisterClaim::SmallVec,
-            prototype_emitter: &mut PrototypeEmitter,
-        ) -> Result<(), CompileError> {
-            let type_node = prototype_emitter.context.types.get_type(type_id);
-
-            let operand_type = match type_node {
-                Type::Never => return Ok(()),
-                Type::Boolean => OperandType::BOOLEAN,
-                Type::SignedInteger(SignedIntegerType::I8) => OperandType::I_8,
-                Type::SignedInteger(SignedIntegerType::I16) => OperandType::I_16,
-                Type::SignedInteger(SignedIntegerType::I32) => OperandType::I_32,
-                Type::SignedInteger(SignedIntegerType::I64) => OperandType::I_64,
-                Type::SignedInteger(SignedIntegerType::I128) => OperandType::I_128,
-                Type::SignedInteger(SignedIntegerType::ISize) => {
-                    #[cfg(target_pointer_width = "64")]
-                    {
-                        OperandType::I_64
-                    }
-
-                    #[cfg(target_pointer_width = "32")]
-                    {
-                        (OperandType::I_32, RegisterWidth::Single)
-                    }
-                }
-                Type::UnsignedInteger(UnsignedIntegerType::U8) => OperandType::U_8,
-                Type::UnsignedInteger(UnsignedIntegerType::U16) => OperandType::U_16,
-                Type::UnsignedInteger(UnsignedIntegerType::U32) => OperandType::U_32,
-                Type::UnsignedInteger(UnsignedIntegerType::U64) => OperandType::U_64,
-                Type::UnsignedInteger(UnsignedIntegerType::U128) => OperandType::U_128,
-                Type::UnsignedInteger(UnsignedIntegerType::USize) => {
-                    #[cfg(target_pointer_width = "64")]
-                    {
-                        OperandType::U_64
-                    }
-
-                    #[cfg(target_pointer_width = "32")]
-                    {
-                        OperandType::U_32
-                    }
-                }
-                Type::Float(FloatType::F32) => OperandType::F_32,
-                Type::Float(FloatType::F64) => OperandType::F_64,
-                Type::Character => OperandType::CHARACTER,
-                Type::Tuple { element_types } => {
-                    for index in element_types.as_usize_range() {
-                        let element_type =
-                            *prototype_emitter.context.types.get_type_member(index)?;
-
-                        collect_registers(element_type, kind, registers, prototype_emitter)?;
-                    }
-
-                    return Ok(());
-                }
-                Type::Array {
-                    element_type_id,
-                    length,
-                } => {
-                    let element_type_id = *element_type_id;
-                    let length = *length;
-
-                    for _ in 0..length {
-                        collect_registers(element_type_id, kind, registers, prototype_emitter)?;
-                    }
-
-                    return Ok(());
-                }
-                Type::FunctionDefinition { .. } | Type::Closure { .. } | Type::Function { .. } => {
-                    OperandType::FUNCTION
-                }
-                Type::Pointer => OperandType::HEAP_POINTER,
-                Type::Inferred {
-                    resolved_id: Some(resolved_id),
-                    ..
-                } => {
-                    collect_registers(*resolved_id, kind, registers, prototype_emitter)?;
-
-                    return Ok(());
-                }
-                Type::Algebraic { .. } => {
-                    let operand_types = prototype_emitter.context.get_operand_types(type_id)?;
-
-                    for operand_type in operand_types {
-                        let next_register_index = match kind {
-                            RegisterKind::Scoped => prototype_emitter
-                                .register_tracker
-                                .allocate_next_local(operand_type),
-                            RegisterKind::Temporary => prototype_emitter
-                                .register_tracker
-                                .allocate_next_temporary(operand_type),
-                            RegisterKind::Reserved => prototype_emitter
-                                .register_tracker
-                                .allocate_next_reserved(operand_type),
-                        };
-
-                        registers.push(RegisterClaim {
-                            operand_type,
-                            index: next_register_index,
-                        });
-                    }
-
-                    return Ok(());
-                }
-                Type::Inferred {
-                    constraint: Some(InferredTypeConstraint::Integer),
-                    resolved_id: None,
-                    ..
-                } => OperandType::I_32,
-                Type::Inferred {
-                    constraint: Some(InferredTypeConstraint::Float),
-                    resolved_id: None,
-                    ..
-                } => OperandType::F_64,
-                Type::Reference { .. } => {
-                    let register_index = match kind {
-                        RegisterKind::Scoped => prototype_emitter
-                            .register_tracker
-                            .allocate_next_local(OperandType::HEAP_POINTER),
-                        RegisterKind::Temporary => prototype_emitter
-                            .register_tracker
-                            .allocate_next_temporary(OperandType::HEAP_POINTER),
-                        RegisterKind::Reserved => prototype_emitter
-                            .register_tracker
-                            .allocate_next_reserved(OperandType::HEAP_POINTER),
-                    };
-                    registers.push(RegisterClaim {
-                        operand_type: OperandType::HEAP_POINTER,
-                        index: register_index,
-                    });
-
-                    return Ok(());
-                }
-                Type::Inferred { .. } | Type::Generic { .. } | Type::Projection { .. } => {
-                    return Err(CompileError::CannotInferType { type_id });
-                }
-            };
-
-            let next_register_index = match kind {
-                RegisterKind::Scoped => prototype_emitter
-                    .register_tracker
-                    .allocate_next_local(operand_type),
-                RegisterKind::Temporary => prototype_emitter
-                    .register_tracker
-                    .allocate_next_temporary(operand_type),
-                RegisterKind::Reserved => prototype_emitter
-                    .register_tracker
-                    .allocate_next_reserved(operand_type),
-            };
-
-            registers.push(RegisterClaim {
-                operand_type,
-                index: next_register_index,
-            });
-
-            Ok(())
-        }
-
+        kind: ClaimKind,
+    ) -> Result<RegisterClaim, CompileError> {
         let mut registers = SmallVec::new();
 
-        collect_registers(type_id, kind, &mut registers, self)?;
+        self.collect_registers(type_id, kind, &mut registers)?;
 
-        Ok(RegisterClaims {
-            claims: registers,
+        Ok(RegisterClaim {
+            ranges: registers,
             kind,
         })
+    }
+
+    fn collect_registers(
+        &mut self,
+        type_id: TypeId,
+        kind: ClaimKind,
+        registers: &mut RegisterRange::SmallVec,
+    ) -> Result<(), CompileError> {
+        let type_node = self.context.types.get_type(type_id);
+
+        let operand_type = match type_node {
+            Type::Never => return Ok(()),
+            Type::Boolean => OperandType::BOOLEAN,
+            Type::SignedInteger(SignedIntegerType::I8) => OperandType::I_8,
+            Type::SignedInteger(SignedIntegerType::I16) => OperandType::I_16,
+            Type::SignedInteger(SignedIntegerType::I32) => OperandType::I_32,
+            Type::SignedInteger(SignedIntegerType::I64) => OperandType::I_64,
+            Type::SignedInteger(SignedIntegerType::I128) => OperandType::I_128,
+            Type::SignedInteger(SignedIntegerType::ISize) => {
+                #[cfg(target_pointer_width = "64")]
+                {
+                    OperandType::I_64
+                }
+
+                #[cfg(target_pointer_width = "32")]
+                {
+                    (OperandType::I_32, RegisterWidth::Single)
+                }
+            }
+            Type::UnsignedInteger(UnsignedIntegerType::U8) => OperandType::U_8,
+            Type::UnsignedInteger(UnsignedIntegerType::U16) => OperandType::U_16,
+            Type::UnsignedInteger(UnsignedIntegerType::U32) => OperandType::U_32,
+            Type::UnsignedInteger(UnsignedIntegerType::U64) => OperandType::U_64,
+            Type::UnsignedInteger(UnsignedIntegerType::U128) => OperandType::U_128,
+            Type::UnsignedInteger(UnsignedIntegerType::USize) => {
+                #[cfg(target_pointer_width = "64")]
+                {
+                    OperandType::U_64
+                }
+
+                #[cfg(target_pointer_width = "32")]
+                {
+                    OperandType::U_32
+                }
+            }
+            Type::Float(FloatType::F32) => OperandType::F_32,
+            Type::Float(FloatType::F64) => OperandType::F_64,
+            Type::Character => OperandType::CHARACTER,
+            Type::Tuple { element_types } => {
+                for index in element_types.as_usize_range() {
+                    let element_type = *self.context.types.get_type_member(index)?;
+
+                    self.collect_registers(element_type, kind, registers)?;
+                }
+
+                return Ok(());
+            }
+            Type::Array {
+                element_type_id,
+                length,
+            } => {
+                let element_type_id = *element_type_id;
+                let length = *length;
+
+                for _ in 0..length {
+                    self.collect_registers(element_type_id, kind, registers)?;
+                }
+
+                return Ok(());
+            }
+            Type::FunctionDefinition { .. } | Type::Closure { .. } | Type::Function { .. } => {
+                OperandType::FUNCTION
+            }
+            Type::Pointer => OperandType::HEAP_POINTER,
+            Type::Inferred {
+                resolved_id: Some(resolved_id),
+                ..
+            } => {
+                self.collect_registers(*resolved_id, kind, registers)?;
+
+                return Ok(());
+            }
+            Type::Algebraic { .. } => {
+                let operand_types = self.context.get_operand_types(type_id)?;
+
+                for operand_type in operand_types {
+                    let next_register_index = match kind {
+                        ClaimKind::Scoped => self.register_tracker.next_local(operand_type),
+                        ClaimKind::Temporary => self.register_tracker.next_temporary(operand_type),
+                        ClaimKind::Reserved => self.register_tracker.next_reserved(operand_type),
+                        ClaimKind::TailCallArgument => {
+                            self.register_tracker.next_tail_call_argument(operand_type)
+                        }
+                    };
+
+                    registers.push(RegisterRange {
+                        operand_type,
+                        index: next_register_index,
+                    });
+                }
+
+                return Ok(());
+            }
+            Type::Inferred {
+                constraint: Some(InferredTypeConstraint::Integer),
+                resolved_id: None,
+                ..
+            } => OperandType::I_32,
+            Type::Inferred {
+                constraint: Some(InferredTypeConstraint::Float),
+                resolved_id: None,
+                ..
+            } => OperandType::F_64,
+            Type::Reference { .. } => {
+                let register_index = match kind {
+                    ClaimKind::Scoped => {
+                        self.register_tracker.next_local(OperandType::HEAP_POINTER)
+                    }
+                    ClaimKind::Temporary => self
+                        .register_tracker
+                        .next_temporary(OperandType::HEAP_POINTER),
+                    ClaimKind::Reserved => self
+                        .register_tracker
+                        .next_reserved(OperandType::HEAP_POINTER),
+                    ClaimKind::TailCallArgument => self
+                        .register_tracker
+                        .next_tail_call_argument(OperandType::HEAP_POINTER),
+                };
+
+                registers.push(RegisterRange {
+                    operand_type: OperandType::HEAP_POINTER,
+                    index: register_index,
+                });
+
+                return Ok(());
+            }
+            Type::Inferred { .. } | Type::Generic { .. } | Type::Projection { .. } => {
+                return Err(CompileError::CannotInferType { type_id });
+            }
+        };
+
+        let next_register_index = match kind {
+            ClaimKind::Scoped => self.register_tracker.next_local(operand_type),
+            ClaimKind::Temporary => self.register_tracker.next_temporary(operand_type),
+            ClaimKind::Reserved => self.register_tracker.next_reserved(operand_type),
+            ClaimKind::TailCallArgument => {
+                self.register_tracker.next_tail_call_argument(operand_type)
+            }
+        };
+
+        registers.push(RegisterRange {
+            operand_type,
+            index: next_register_index,
+        });
+
+        Ok(())
     }
 
     fn claim_register_for_target(
         &mut self,
         target: ExpressionTarget,
         syntax: SyntaxReader,
-    ) -> Result<(u16, Option<RegisterClaims>), CompileError> {
+    ) -> Result<RegisterClaim, CompileError> {
         match target {
-            ExpressionTarget::ClaimedRegister(register_claims) => Ok((
-                register_claims.expect_single()?.index,
-                Some(register_claims),
-            )),
+            ExpressionTarget::ClaimedRegister(register_claim) => Ok(register_claim),
             ExpressionTarget::UnclaimedRegister(register_kind) => {
                 let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
-                if matches!(type_id, TypeId::UNIT | TypeId::NEVER) {
-                    Ok((u16::MAX, None))
-                } else {
-                    let register_claims = self.claim_registers(type_id, register_kind)?;
-
-                    Ok((register_claims.base_index()?, Some(register_claims)))
-                }
+                self.claim_registers(type_id, register_kind)
             }
             ExpressionTarget::Any => {
                 let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
-                if matches!(type_id, TypeId::UNIT | TypeId::NEVER) {
-                    Ok((u16::MAX, None))
-                } else {
-                    let register_claims = self.claim_registers(type_id, RegisterKind::Temporary)?;
-
-                    Ok((register_claims.base_index()?, Some(register_claims)))
-                }
+                self.claim_registers(type_id, ClaimKind::Temporary)
             }
         }
     }
@@ -649,50 +631,50 @@ impl<'a> PrototypeEmitter<'a> {
     fn materialize_value(&mut self, value: ConstantValue) -> Result<Address, CompileError> {
         if let Some(encoded) = value.to_encoded_u16() {
             return Ok(Address {
-                memory: MemoryKind::ENCODED,
+                memory: Memory::ENCODED,
                 index: encoded,
             });
         }
 
         match value {
             ConstantValue::I32(integer) => Ok(Address {
-                memory: MemoryKind::CONSTANT,
+                memory: Memory::CONSTANT,
                 index: self.constants.add_i32(integer).inner(),
             }),
             ConstantValue::I64(integer) => Ok(Address {
-                memory: MemoryKind::CONSTANT,
+                memory: Memory::CONSTANT,
                 index: self.constants.add_i64(integer).inner(),
             }),
             ConstantValue::I128(integer) => Ok(Address {
-                memory: MemoryKind::CONSTANT,
+                memory: Memory::CONSTANT,
                 index: self.constants.add_i128(integer).inner(),
             }),
             ConstantValue::U32(integer) => Ok(Address {
-                memory: MemoryKind::CONSTANT,
+                memory: Memory::CONSTANT,
                 index: self.constants.add_u32(integer).inner(),
             }),
             ConstantValue::U64(integer) => Ok(Address {
-                memory: MemoryKind::CONSTANT,
+                memory: Memory::CONSTANT,
                 index: self.constants.add_u64(integer).inner(),
             }),
             ConstantValue::U128(integer) => Ok(Address {
-                memory: MemoryKind::CONSTANT,
+                memory: Memory::CONSTANT,
                 index: self.constants.add_u128(integer).inner(),
             }),
             ConstantValue::F32(float) => Ok(Address {
-                memory: MemoryKind::CONSTANT,
+                memory: Memory::CONSTANT,
                 index: self.constants.add_f32(float).inner(),
             }),
             ConstantValue::F64(float) => Ok(Address {
-                memory: MemoryKind::CONSTANT,
+                memory: Memory::CONSTANT,
                 index: self.constants.add_f64(float).inner(),
             }),
             ConstantValue::Character(character) => Ok(Address {
-                memory: MemoryKind::CONSTANT,
+                memory: Memory::CONSTANT,
                 index: self.constants.add_character(character).inner(),
             }),
             ConstantValue::Function { prototype_id, .. } => Ok(Address {
-                memory: MemoryKind::ENCODED,
+                memory: Memory::ENCODED,
                 index: prototype_id.index(),
             }),
             _ => Err(CompileError::ExpectedEncodedValue { found: value }),
@@ -710,11 +692,11 @@ impl<'a> PrototypeEmitter<'a> {
                 let operand = self.materialize_value(constant)?;
 
                 match operand.memory {
-                    MemoryKind::ENCODED => Ok(Place::Encoded {
+                    Memory::ENCODED => Ok(Place::Encoded {
                         index: operand.index,
                         operand_type: constant.operand_type(),
                     }),
-                    MemoryKind::CONSTANT => Ok(Place::Constant {
+                    Memory::CONSTANT => Ok(Place::Constant {
                         index: operand.index,
                         operand_type: constant.operand_type(),
                     }),
@@ -772,13 +754,13 @@ impl<'a> PrototypeEmitter<'a> {
 
     fn create_emission_from_registers(
         &mut self,
-        source_registers: RegisterClaims,
+        source_registers: RegisterClaim,
         target: ExpressionTarget,
     ) -> Result<Emission, CompileError> {
         match target {
             ExpressionTarget::ClaimedRegister(target_registers) => {
-                if source_registers.claims.len() == target_registers.claims.len()
-                    && source_registers.claims[0].index == target_registers.claims[0].index
+                if source_registers.ranges.len() == target_registers.ranges.len()
+                    && source_registers.ranges[0].index == target_registers.ranges[0].index
                 {
                     return Ok(Emission::Place(Place::Registers(source_registers)));
                 }
@@ -786,12 +768,12 @@ impl<'a> PrototypeEmitter<'a> {
                 let mut instructions = self.create_instruction_range();
 
                 for (destination, operand) in
-                    target_registers.claims.iter().zip(&source_registers.claims)
+                    target_registers.ranges.iter().zip(&source_registers.ranges)
                 {
                     let move_instruction = Instruction::r#move(
                         destination.index,
                         operand.operand_type,
-                        Address::new(MemoryKind::REGISTER, operand.index),
+                        Address::new(Memory::REGISTER, operand.index),
                     );
 
                     self.emit_instruction(move_instruction, &mut instructions);
@@ -819,7 +801,7 @@ impl<'a> PrototypeEmitter<'a> {
 
                 match &instructions.target_registers {
                     Some(allocation) => Ok(Address {
-                        memory: MemoryKind::REGISTER,
+                        memory: Memory::REGISTER,
                         index: allocation.base_index()?,
                     }),
                     None => Err(CompileError::ExpectedValue {
@@ -847,7 +829,7 @@ impl<'a> PrototypeEmitter<'a> {
     ) -> Result<(), CompileError> {
         match emission {
             Emission::Value(ConstantValue::Boolean(boolean)) => {
-                let operand = Address::new(MemoryKind::ENCODED, boolean as u16);
+                let operand = Address::new(Memory::ENCODED, boolean as u16);
                 let test_instruction = Instruction::test(comparator, operand, 0);
 
                 self.emit_instruction(test_instruction, target_instructions);
@@ -856,14 +838,14 @@ impl<'a> PrototypeEmitter<'a> {
             }
             Emission::Place(Place::Constant { index, .. }) => {
                 let test_instruction =
-                    Instruction::test(comparator, Address::new(MemoryKind::CONSTANT, index), 0);
+                    Instruction::test(comparator, Address::new(Memory::CONSTANT, index), 0);
 
                 self.emit_instruction(test_instruction, target_instructions);
 
                 Ok(())
             }
-            Emission::Place(Place::Registers(allocation)) if allocation.claims.len() == 1 => {
-                let operand = Address::new(MemoryKind::REGISTER, allocation.base_index()?);
+            Emission::Place(Place::Registers(allocation)) if allocation.ranges.len() == 1 => {
+                let operand = Address::new(Memory::REGISTER, allocation.base_index()?);
                 let test_instruction = Instruction::test(comparator, operand, 0);
 
                 self.emit_instruction(test_instruction, target_instructions);
@@ -903,9 +885,9 @@ impl<'a> PrototypeEmitter<'a> {
                         }
                         _ => {
                             let operand = if let Some(allocation) = &target_registers
-                                && allocation.claims.len() == 1
+                                && allocation.ranges.len() == 1
                             {
-                                Address::new(MemoryKind::REGISTER, allocation.claims[0].index)
+                                Address::new(Memory::REGISTER, allocation.ranges[0].index)
                             } else {
                                 return Err(CompileError::ExpectedBooleanExpression {
                                     found: *self
@@ -922,9 +904,9 @@ impl<'a> PrototypeEmitter<'a> {
                     }
                 } else {
                     let operand = if let Some(allocation) = &target_registers
-                        && allocation.claims.len() == 1
+                        && allocation.ranges.len() == 1
                     {
-                        Address::new(MemoryKind::REGISTER, allocation.claims[0].index)
+                        Address::new(Memory::REGISTER, allocation.ranges[0].index)
                     } else {
                         return Err(CompileError::ExpectedBooleanExpression {
                             found: *self
@@ -974,7 +956,7 @@ impl<'a> PrototypeEmitter<'a> {
         &mut self,
         instructions: &mut InstructionRange,
         expression_emission: Emission,
-        registers: RegisterClaims,
+        registers: RegisterClaim,
         syntax: &SyntaxReader,
     ) -> Result<(), CompileError> {
         match expression_emission {
@@ -991,14 +973,14 @@ impl<'a> PrototypeEmitter<'a> {
                 Ok(())
             }
             Emission::Place(Place::Registers(emission_registers)) => {
-                if emission_registers.kind != RegisterKind::Reserved {
+                if emission_registers.kind != ClaimKind::Reserved {
                     self.emit_instruction(Instruction::r#return(), instructions);
 
                     return Ok(());
                 }
 
                 for (emission_register, target_register) in
-                    emission_registers.claims.into_iter().zip(registers.claims)
+                    emission_registers.ranges.into_iter().zip(registers.ranges)
                 {
                     if emission_register.index == target_register.index {
                         continue;
@@ -1144,7 +1126,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         let expression_emission = self.visit_expression(
             value,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
 
         let declaration_id = *self
@@ -1182,11 +1164,11 @@ impl<'a> PrototypeEmitter<'a> {
             let type_id = *self
                 .context
                 .get_type_binding(&(self.code_id, expression.id))?;
-            let registers = self.claim_registers(type_id, RegisterKind::Scoped)?;
+            let registers = self.claim_registers(type_id, ClaimKind::Scoped)?;
 
             ExpressionTarget::ClaimedRegister(registers)
         } else {
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Scoped)
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Scoped)
         };
         let emission = self.visit_expression(expression, expression_target)?;
 
@@ -1271,15 +1253,15 @@ impl<'a> PrototypeEmitter<'a> {
 
                 let collection_emission = self.visit_expression(
                     collection,
-                    ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+                    ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
                 )?;
                 let index_emission = self.visit_expression(
                     index,
-                    ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+                    ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
                 )?;
                 let source_emission = self.visit_expression(
                     source,
-                    ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+                    ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
                 )?;
 
                 let collection_place = self.place_emission(
@@ -1339,7 +1321,7 @@ impl<'a> PrototypeEmitter<'a> {
             _ => {
                 let target_emission = self.visit_expression(
                     target,
-                    ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+                    ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
                 )?;
 
                 match target_emission {
@@ -1378,7 +1360,7 @@ impl<'a> PrototypeEmitter<'a> {
                 place @ Place::Constant { operand_type, .. }
                 | place @ Place::Encoded { operand_type, .. },
             ) => {
-                for destination in target_registers.claims {
+                for destination in target_registers.ranges {
                     let move_instruction =
                         Instruction::r#move(destination.index, operand_type, place.address()?);
 
@@ -1387,14 +1369,14 @@ impl<'a> PrototypeEmitter<'a> {
             }
             Emission::Place(Place::Registers(operand_allocation)) => {
                 for (destination, operand) in target_registers
-                    .claims
+                    .ranges
                     .into_iter()
-                    .zip(operand_allocation.claims)
+                    .zip(operand_allocation.ranges)
                 {
                     let move_instruction = Instruction::r#move(
                         destination.index,
                         operand.operand_type,
-                        Address::new(MemoryKind::REGISTER, operand.index),
+                        Address::new(Memory::REGISTER, operand.index),
                     );
 
                     self.emit_instruction(move_instruction, &mut assignment_instructions)
@@ -1430,7 +1412,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         let expression_emission = self.visit_expression(
             expression,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
 
         if let Emission::Instructions(mut instructions_emission) = expression_emission {
@@ -1656,17 +1638,17 @@ impl<'a> PrototypeEmitter<'a> {
             ExpressionTarget::Any => {
                 let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
-                self.claim_registers(type_id, RegisterKind::Temporary)?
+                self.claim_registers(type_id, ClaimKind::Temporary)?
             }
         };
-        let registers_per_element = array_registers.claims.len() / elements.len();
+        let registers_per_element = array_registers.ranges.len() / elements.len();
 
         for (index, element) in elements.into_iter().enumerate() {
             let register_start = index * registers_per_element;
             let register_end = register_start + registers_per_element;
 
-            let element_target = ExpressionTarget::ClaimedRegister(RegisterClaims {
-                claims: array_registers.claims[register_start..register_end].into(),
+            let element_target = ExpressionTarget::ClaimedRegister(RegisterClaim {
+                ranges: array_registers.ranges[register_start..register_end].into(),
                 kind: array_registers.kind,
             });
             let element_emission = self.visit_expression(element, element_target)?;
@@ -1705,11 +1687,11 @@ impl<'a> PrototypeEmitter<'a> {
             ExpressionTarget::UnclaimedRegister(register_kind) => {
                 self.claim_registers(type_id, register_kind)?
             }
-            ExpressionTarget::Any => self.claim_registers(type_id, RegisterKind::Temporary)?,
+            ExpressionTarget::Any => self.claim_registers(type_id, ClaimKind::Temporary)?,
         };
-        let registers_per_element = array_registers.claims.len() / array_length;
-        let first_element_target = ExpressionTarget::ClaimedRegister(RegisterClaims {
-            claims: array_registers.claims[0..registers_per_element].into(),
+        let registers_per_element = array_registers.ranges.len() / array_length;
+        let first_element_target = ExpressionTarget::ClaimedRegister(RegisterClaim {
+            ranges: array_registers.ranges[0..registers_per_element].into(),
             kind: array_registers.kind,
         });
 
@@ -1720,12 +1702,12 @@ impl<'a> PrototypeEmitter<'a> {
             _ => return Err(CompileError::InvalidEmission),
         }
 
-        let first_element_registers = &array_registers.claims[0..registers_per_element];
+        let first_element_registers = &array_registers.ranges[0..registers_per_element];
 
         for index in 1..array_length {
             let register_start = index * registers_per_element;
             let register_end = register_start + registers_per_element;
-            let element_registers = &array_registers.claims[register_start..register_end];
+            let element_registers = &array_registers.ranges[register_start..register_end];
 
             for (source_register, destination_register) in
                 first_element_registers.iter().zip(element_registers)
@@ -1758,7 +1740,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         let collection_emission = self.visit_expression(
             collection,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
 
         let (list_registers, list_instructions) =
@@ -1821,16 +1803,16 @@ impl<'a> PrototypeEmitter<'a> {
             let register_offset = constant_index * element_register_count;
 
             let element_registers = list_registers
-                .claims
+                .ranges
                 .iter()
                 .skip(register_offset)
                 .take(element_register_count)
                 .copied()
-                .collect::<RegisterClaim::SmallVec>();
+                .collect::<RegisterRange::SmallVec>();
 
-            let element_allocation = RegisterClaims {
-                claims: element_registers,
-                kind: RegisterKind::Scoped,
+            let element_allocation = RegisterClaim {
+                ranges: element_registers,
+                kind: ClaimKind::Scoped,
             };
 
             if let Some(mut instructions) = list_instructions {
@@ -1844,21 +1826,21 @@ impl<'a> PrototypeEmitter<'a> {
 
         let index_emission = self.visit_expression(
             index,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
 
         let index_address = if let Emission::Value(constant) = &index_emission
             && let Some(encoded) = constant.to_encoded_u16()
         {
-            Address::new(MemoryKind::ENCODED, encoded)
+            Address::new(Memory::ENCODED, encoded)
         } else {
             let index_place =
                 self.place_emission(index_emission, &mut index_instructions, &index)?;
 
             match index_place {
-                Place::Constant { index, .. } => Address::new(MemoryKind::CONSTANT, index),
-                Place::Registers(allocation) if allocation.claims.len() == 1 => {
-                    Address::new(MemoryKind::REGISTER, allocation.claims[0].index)
+                Place::Constant { index, .. } => Address::new(Memory::CONSTANT, index),
+                Place::Registers(allocation) if allocation.ranges.len() == 1 => {
+                    Address::new(Memory::REGISTER, allocation.ranges[0].index)
                 }
                 _ => {
                     return Err(CompileError::ExpectedIntegerIndex {
@@ -1877,9 +1859,7 @@ impl<'a> PrototypeEmitter<'a> {
             ExpressionTarget::UnclaimedRegister(register_kind) => {
                 self.claim_registers(element_type_id, register_kind)?
             }
-            ExpressionTarget::Any => {
-                self.claim_registers(element_type_id, RegisterKind::Temporary)?
-            }
+            ExpressionTarget::Any => self.claim_registers(element_type_id, ClaimKind::Temporary)?,
         };
 
         let destination_register = destination.expect_single()?;
@@ -1919,16 +1899,16 @@ impl<'a> PrototypeEmitter<'a> {
             ExpressionTarget::Any => {
                 let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
-                self.claim_registers(type_id, RegisterKind::Temporary)?
+                self.claim_registers(type_id, ClaimKind::Temporary)?
             }
         };
 
         for (field_expression, destination) in
-            [start, end].into_iter().zip(&target_registers.claims)
+            [start, end].into_iter().zip(&target_registers.ranges)
         {
             let field_emission = self.visit_expression(
                 field_expression,
-                ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+                ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
             )?;
 
             if let Emission::Value(constant) = &field_emission
@@ -1937,7 +1917,7 @@ impl<'a> PrototypeEmitter<'a> {
                 let move_instruction = Instruction::r#move(
                     destination.index,
                     constant.operand_type(),
-                    Address::new(MemoryKind::ENCODED, encoded),
+                    Address::new(Memory::ENCODED, encoded),
                 );
 
                 self.emit_instruction(move_instruction, &mut range_instructions);
@@ -1957,7 +1937,7 @@ impl<'a> PrototypeEmitter<'a> {
                     self.emit_instruction(move_instruction, &mut range_instructions);
                 }
                 Place::Registers(allocation) => {
-                    for register in &allocation.claims {
+                    for register in &allocation.ranges {
                         if register.index == destination.index {
                             continue;
                         }
@@ -1999,7 +1979,7 @@ impl<'a> PrototypeEmitter<'a> {
                     ExpressionTarget::ClaimedRegister(register_claims) => {
                         let mut instructions = self.create_instruction_range();
 
-                        for register in register_claims.claims {
+                        for register in register_claims.ranges {
                             let move_instruction = Instruction::r#move(
                                 register.index,
                                 register.operand_type,
@@ -2017,7 +1997,7 @@ impl<'a> PrototypeEmitter<'a> {
 
                         let mut instructions = self.create_instruction_range();
 
-                        for register in &registers.claims {
+                        for register in &registers.ranges {
                             let move_instruction = Instruction::r#move(
                                 register.index,
                                 register.operand_type,
@@ -2091,7 +2071,7 @@ impl<'a> PrototypeEmitter<'a> {
 
                         let expression_emission = self.visit_expression(
                             value_expression,
-                            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+                            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
                         )?;
                         let constant_value = match expression_emission {
                             Emission::Value(constant_value) => constant_value,
@@ -2124,15 +2104,13 @@ impl<'a> PrototypeEmitter<'a> {
                     ExpressionTarget::UnclaimedRegister(register_kind) => {
                         self.claim_registers(type_id, register_kind)?
                     }
-                    ExpressionTarget::Any => {
-                        self.claim_registers(type_id, RegisterKind::Temporary)?
-                    }
+                    ExpressionTarget::Any => self.claim_registers(type_id, ClaimKind::Temporary)?,
                 };
                 let base_register = registers.base()?;
                 let move_instruction = Instruction::r#move(
                     base_register.index,
                     base_register.operand_type,
-                    Address::new(MemoryKind::ENCODED, discriminant),
+                    Address::new(Memory::ENCODED, discriminant),
                 );
 
                 self.emit_instruction(move_instruction, &mut instructions);
@@ -2169,15 +2147,15 @@ impl<'a> PrototypeEmitter<'a> {
             ExpressionTarget::UnclaimedRegister(register_kind) => {
                 self.claim_registers(type_id, register_kind)?
             }
-            ExpressionTarget::Any => self.claim_registers(type_id, RegisterKind::Temporary)?,
+            ExpressionTarget::Any => self.claim_registers(type_id, ClaimKind::Temporary)?,
         };
 
         for ((_, field_expression), destination) in
-            name_expression_pairs.zip(&target_registers.claims)
+            name_expression_pairs.zip(&target_registers.ranges)
         {
             let field_emission = self.visit_expression(
                 field_expression,
-                ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+                ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
             )?;
 
             if let Emission::Value(constant) = &field_emission
@@ -2186,7 +2164,7 @@ impl<'a> PrototypeEmitter<'a> {
                 let move_instruction = Instruction::r#move(
                     destination.index,
                     constant.operand_type(),
-                    Address::new(MemoryKind::ENCODED, encoded),
+                    Address::new(Memory::ENCODED, encoded),
                 );
 
                 self.emit_instruction(move_instruction, &mut struct_instructions);
@@ -2206,7 +2184,7 @@ impl<'a> PrototypeEmitter<'a> {
                     self.emit_instruction(move_instruction, &mut struct_instructions);
                 }
                 Place::Registers(ref allocation) => {
-                    for register in &allocation.claims {
+                    for register in &allocation.ranges {
                         let move_instruction = Instruction::r#move(
                             destination.index,
                             register.operand_type,
@@ -2257,7 +2235,7 @@ impl<'a> PrototypeEmitter<'a> {
             ExpressionTarget::UnclaimedRegister(register_kind) => {
                 self.claim_registers(type_id, register_kind)?
             }
-            ExpressionTarget::Any => self.claim_registers(type_id, RegisterKind::Temporary)?,
+            ExpressionTarget::Any => self.claim_registers(type_id, ClaimKind::Temporary)?,
         };
 
         let child_count = children.len();
@@ -2284,7 +2262,7 @@ impl<'a> PrototypeEmitter<'a> {
 
             let expression_emission = self.visit_expression(
                 child,
-                ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+                ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
             )?;
 
             if let Emission::Instructions(expression_instructions) = expression_emission {
@@ -2318,13 +2296,13 @@ impl<'a> PrototypeEmitter<'a> {
         };
 
         if let Some(target_allocation) = target_allocation
-            && let Some(last_register) = target_allocation.claims.last()
+            && let Some(last_register) = target_allocation.ranges.last()
         {
             let target_end =
                 last_register.index + last_register.operand_type.register_width().as_u16();
 
             match target_allocation.kind {
-                RegisterKind::Scoped => {
+                ClaimKind::Scoped => {
                     self.register_tracker.next_local =
                         self.register_tracker.next_local.max(target_end);
                     self.register_tracker.next_temporary = self
@@ -2332,14 +2310,15 @@ impl<'a> PrototypeEmitter<'a> {
                         .next_temporary
                         .max(self.register_tracker.next_local);
                 }
-                RegisterKind::Temporary => {
+                ClaimKind::Temporary => {
                     self.register_tracker.next_temporary =
                         self.register_tracker.next_temporary.max(target_end);
                 }
-                RegisterKind::Reserved => {
+                ClaimKind::Reserved => {
                     self.register_tracker.next_reserved =
                         self.register_tracker.next_reserved.max(target_end);
                 }
+                ClaimKind::TailCallArgument => {}
             }
 
             self.register_tracker.max = self.register_tracker.max.max(target_end);
@@ -2365,7 +2344,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         let condition_emission = self.visit_expression(
             condition,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
 
         self.handle_condition_emission(&mut if_instructions, condition_emission, &condition, true)?;
@@ -2380,7 +2359,7 @@ impl<'a> PrototypeEmitter<'a> {
             ExpressionTarget::Any => {
                 let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
-                self.claim_registers(type_id, RegisterKind::Temporary)?
+                self.claim_registers(type_id, ClaimKind::Temporary)?
             }
         };
         let jump_over_then_id = self.create_jump_id();
@@ -2465,11 +2444,11 @@ impl<'a> PrototypeEmitter<'a> {
 
         let left_emission = self.visit_expression(
             left,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
         let right_emission = self.visit_expression(
             right,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
 
         if let (Emission::Value(left_value), Emission::Value(right_value)) =
@@ -2539,7 +2518,7 @@ impl<'a> PrototypeEmitter<'a> {
                 ExpressionTarget::UnclaimedRegister(register_kind) => {
                     self.claim_registers(type_id, register_kind)?
                 }
-                ExpressionTarget::Any => self.claim_registers(type_id, RegisterKind::Temporary)?,
+                ExpressionTarget::Any => self.claim_registers(type_id, ClaimKind::Temporary)?,
             };
             let register = target_registers.expect_single()?;
 
@@ -2597,11 +2576,11 @@ impl<'a> PrototypeEmitter<'a> {
 
         let left_emission = self.visit_expression(
             left,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
         let right_emission = self.visit_expression(
             right,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
 
         if let Emission::Value(left_constant) = left_emission
@@ -2657,7 +2636,7 @@ impl<'a> PrototypeEmitter<'a> {
             ExpressionTarget::UnclaimedRegister(register_kind) => {
                 self.claim_registers(type_id, register_kind)?
             }
-            ExpressionTarget::Any => self.claim_registers(type_id, RegisterKind::Temporary)?,
+            ExpressionTarget::Any => self.claim_registers(type_id, ClaimKind::Temporary)?,
         };
         let register = target_registers.expect_single()?;
 
@@ -2689,14 +2668,14 @@ impl<'a> PrototypeEmitter<'a> {
         let load_false_instruction = Instruction::move_with_jump(
             register.index,
             OperandType::BOOLEAN,
-            Address::new(MemoryKind::ENCODED, false as u16),
+            Address::new(Memory::ENCODED, false as u16),
             1,
             true,
         );
         let load_true_instruction = Instruction::r#move(
             register.index,
             OperandType::BOOLEAN,
-            Address::new(MemoryKind::ENCODED, true as u16),
+            Address::new(Memory::ENCODED, true as u16),
         );
 
         self.emit_instruction(comparison_instruction, &mut comparison_instructions);
@@ -2721,11 +2700,11 @@ impl<'a> PrototypeEmitter<'a> {
 
         let left_emission = self.visit_expression(
             left,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
         let right_emission = self.visit_expression(
             right,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
 
         if let Emission::Value(left_constant) = left_emission
@@ -2759,7 +2738,7 @@ impl<'a> PrototypeEmitter<'a> {
             ExpressionTarget::Any => {
                 let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
-                self.claim_registers(type_id, RegisterKind::Temporary)?
+                self.claim_registers(type_id, ClaimKind::Temporary)?
             }
         };
         let register = target_registers.expect_single()?;
@@ -2805,7 +2784,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         let expression_emission = self.visit_expression(
             operand,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
 
         if let Emission::Value(constant) = &expression_emission
@@ -2831,7 +2810,7 @@ impl<'a> PrototypeEmitter<'a> {
             ExpressionTarget::Any => {
                 let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
-                self.claim_registers(type_id, RegisterKind::Temporary)?
+                self.claim_registers(type_id, ClaimKind::Temporary)?
             }
         };
         let register = target_registers.expect_single()?;
@@ -2859,7 +2838,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         let expression_emission = self.visit_expression(
             operand,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
 
         if let Emission::Value(constant) = &expression_emission
@@ -2882,7 +2861,7 @@ impl<'a> PrototypeEmitter<'a> {
             ExpressionTarget::Any => {
                 let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
 
-                self.claim_registers(type_id, RegisterKind::Temporary)?
+                self.claim_registers(type_id, ClaimKind::Temporary)?
             }
         };
         let register = target_registers.expect_single()?;
@@ -2912,7 +2891,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         let condition_emission = self.visit_expression(
             condition,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
 
         self.handle_condition_emission(
@@ -2979,18 +2958,28 @@ impl<'a> PrototypeEmitter<'a> {
 
         let callee_emission = self.visit_expression(
             callee,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
         let callee =
             self.handle_operand_emission(callee_emission, &mut call_instructions, &callee)?;
-        let (destination, registers) = self.claim_register_for_target(target, syntax)?;
-        let arguments_start =
-            self.visit_value_arguments(arguments, destination, &mut call_instructions)?;
+        let registers = self.claim_register_for_target(target, syntax)?;
+        let destination = registers.base_index()?;
+        let arguments_start = if let Some(arguments) = arguments {
+            let argument_register_kind = if registers.kind == ClaimKind::Reserved {
+                ClaimKind::TailCallArgument
+            } else {
+                ClaimKind::Temporary
+            };
+
+            self.visit_value_arguments(arguments, &mut call_instructions, argument_register_kind)?
+        } else {
+            u16::MAX
+        };
         let call_instruction = Instruction::call(destination, callee, arguments_start);
 
         self.emit_instruction(call_instruction, &mut call_instructions);
 
-        call_instructions.target_registers = registers;
+        call_instructions.target_registers = Some(registers);
 
         Ok(Emission::Instructions(call_instructions))
     }
@@ -3045,8 +3034,8 @@ impl<'a> PrototypeEmitter<'a> {
         }
 
         for index in type_arguments.as_usize_range() {
-            let raw_type_argument_id = *self.context.types.get_type_member(index)?;
-            let type_argument_id = self.context.get_inferred_type_id(raw_type_argument_id)?;
+            let raw_type_id = *self.context.types.get_type_member(index)?;
+            let type_argument_id = self.context.get_inferred_type_id(raw_type_id)?;
 
             type_argument_ids.push(type_argument_id);
         }
@@ -3054,41 +3043,54 @@ impl<'a> PrototypeEmitter<'a> {
         let prototype_id = self
             .prototypes
             .monomorphize_function_to_prototype(method_declaration_id, type_argument_ids);
+        let registers = self.claim_register_for_target(target, syntax)?;
+        let destination = registers.base_index()?;
+
         let parent_emission = self.visit_expression(
             method_parent,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
-        let parent =
+        let parent_address =
             self.handle_operand_emission(parent_emission, &mut call_instructions, &method_parent)?;
-        let parent_registers = self.claim_registers(parent_type_id, RegisterKind::Temporary)?;
+        let parent_operand_types = self.context.get_operand_types(parent_type_id)?;
+        let mut parent_offset = 0;
 
-        for register in &parent_registers.claims {
-            let move_instruction =
-                Instruction::r#move(register.index, register.operand_type, parent);
+        if !matches!(parent_address.memory, Memory::REGISTER | Memory::REFERENCE) {
+            for operand_type in parent_operand_types {
+                let value_address =
+                    Address::new(parent_address.memory, parent_address.index + parent_offset);
+                let move_instruction =
+                    Instruction::r#move(destination + parent_offset, operand_type, value_address);
 
-            self.emit_instruction(move_instruction, &mut call_instructions);
+                self.emit_instruction(move_instruction, &mut call_instructions);
+
+                parent_offset += operand_type.register_width().as_u16();
+            }
         }
 
-        let arguments_start_register = parent_registers.base_index()?;
-
         if let Some(value_arguments) = value_arguments {
+            let argument_register_kind = if registers.kind == ClaimKind::Reserved {
+                ClaimKind::TailCallArgument
+            } else {
+                ClaimKind::Temporary
+            };
+
             self.visit_value_arguments(
                 value_arguments,
-                arguments_start_register,
                 &mut call_instructions,
+                argument_register_kind,
             )?;
         }
 
-        let (destination, registers) = self.claim_register_for_target(target, syntax)?;
         let call_instruction = Instruction::call(
             destination,
-            Address::new(MemoryKind::CONSTANT, prototype_id.index()),
-            arguments_start_register,
+            Address::new(Memory::CONSTANT, prototype_id.index()),
+            destination,
         );
 
         self.emit_instruction(call_instruction, &mut call_instructions);
 
-        call_instructions.target_registers = registers;
+        call_instructions.target_registers = Some(registers);
 
         Ok(Emission::Instructions(call_instructions))
     }
@@ -3096,59 +3098,38 @@ impl<'a> PrototypeEmitter<'a> {
     fn visit_value_arguments(
         &mut self,
         arguments: SyntaxReader,
-        arguments_start: u16,
         instructions: &mut InstructionRange,
+        register_kind: ClaimKind,
     ) -> Result<u16, CompileError> {
         trace!("Visiting value arguments");
 
-        let mut next_argument_offset = 0;
+        let mut argument_register_claim = RegisterClaim {
+            ranges: RegisterRange::SmallVec::new(),
+            kind: ClaimKind::Temporary,
+        };
 
         for argument in arguments.children() {
-            let argument_emission = self.visit_expression(
-                argument,
-                ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
-            )?;
-            let argument_address =
-                self.handle_operand_emission(argument_emission, instructions, &argument)?;
-            let argument_type_id = *self
+            let type_id = *self
                 .context
                 .get_type_binding(&(self.code_id, argument.id))?;
-            let argument_operand_types = self.context.get_operand_types(argument_type_id)?;
-            let argument_start_register = arguments_start + next_argument_offset;
 
-            if argument_address.memory == MemoryKind::REGISTER
-                && argument_address.index == argument_start_register
-            {
-                next_argument_offset += argument_operand_types
-                    .iter()
-                    .map(|operand_type| operand_type.register_width().as_u16())
-                    .sum::<u16>();
-
-                continue;
-            }
-
-            let mut value_offset = 0;
-
-            for operand_type in argument_operand_types {
-                let value_address = Address::new(
-                    argument_address.memory,
-                    argument_address.index + value_offset,
-                );
-                let move_instruction = Instruction::r#move(
-                    argument_start_register + value_offset,
-                    operand_type,
-                    value_address,
-                );
-
-                self.emit_instruction(move_instruction, instructions);
-
-                value_offset += operand_type.register_width().as_u16();
-            }
-
-            next_argument_offset += value_offset;
+            self.collect_registers(type_id, register_kind, &mut argument_register_claim.ranges)?;
         }
 
-        Ok(arguments_start)
+        let base_index = argument_register_claim.base_index()?;
+
+        for (argument, register_range) in arguments.children().zip(argument_register_claim.ranges) {
+            let argument_emission = self.visit_expression(
+                argument,
+                ExpressionTarget::ClaimedRegister(RegisterClaim {
+                    ranges: smallvec![register_range],
+                    kind: ClaimKind::Temporary,
+                }),
+            )?;
+            self.handle_operand_emission(argument_emission, instructions, &argument)?;
+        }
+
+        Ok(base_index)
     }
 
     fn visit_field_access_expression(
@@ -3165,7 +3146,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         let operand_emission = self.visit_expression(
             struct_expression,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Temporary),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Temporary),
         )?;
 
         let struct_registers = match operand_emission {
@@ -3240,12 +3221,12 @@ impl<'a> PrototypeEmitter<'a> {
             }
         }
 
-        let field_register = struct_registers.claims.get(register_offset);
+        let field_register = struct_registers.ranges.get(register_offset);
 
         match field_register {
             Some(register) => self.create_emission_from_registers(
-                RegisterClaims {
-                    claims: smallvec![*register],
+                RegisterClaim {
+                    ranges: smallvec![*register],
                     kind: struct_registers.kind,
                 },
                 target,
@@ -3284,7 +3265,7 @@ impl<'a> PrototypeEmitter<'a> {
 
         let operand_emission = self.visit_expression(
             operand,
-            ExpressionTarget::UnclaimedRegister(RegisterKind::Scoped),
+            ExpressionTarget::UnclaimedRegister(ClaimKind::Scoped),
         )?;
         let type_id = *self.context.get_type_binding(&(self.code_id, syntax.id))?;
         let referenced_type_id = if let Type::Reference {
@@ -3299,7 +3280,7 @@ impl<'a> PrototypeEmitter<'a> {
             Emission::Value(value) => {
                 let register = match target {
                     ExpressionTarget::ClaimedRegister(register_claims) => register_claims,
-                    _ => self.claim_registers(referenced_type_id, RegisterKind::Scoped)?,
+                    _ => self.claim_registers(referenced_type_id, ClaimKind::Scoped)?,
                 };
                 let base_index = register.base_index()?;
                 let operand_address = self.materialize_value(value)?;
@@ -3314,9 +3295,9 @@ impl<'a> PrototypeEmitter<'a> {
                 index,
                 operand_type,
             }) => {
-                let register = self.claim_registers(referenced_type_id, RegisterKind::Scoped)?;
+                let register = self.claim_registers(referenced_type_id, ClaimKind::Scoped)?;
                 let base_index = register.base_index()?;
-                let operand_address = Address::new(MemoryKind::CONSTANT, index);
+                let operand_address = Address::new(Memory::CONSTANT, index);
                 let move_instruction =
                     Instruction::r#move(base_index, operand_type, operand_address);
 
@@ -3343,9 +3324,7 @@ impl<'a> PrototypeEmitter<'a> {
                 });
             }
         };
-        let destination = self
-            .register_tracker
-            .allocate_next_local(OperandType::HEAP_POINTER);
+        let destination = self.register_tracker.next_local(OperandType::HEAP_POINTER);
         let end_register = self
             .context
             .get_operand_types(type_id)?
@@ -3358,12 +3337,12 @@ impl<'a> PrototypeEmitter<'a> {
 
         self.emit_instruction(reference_instruction, &mut reference_instructions);
 
-        reference_instructions.target_registers = Some(RegisterClaims {
-            claims: smallvec![RegisterClaim {
+        reference_instructions.target_registers = Some(RegisterClaim {
+            ranges: smallvec![RegisterRange {
                 index: destination,
                 operand_type: OperandType::HEAP_POINTER
             }],
-            kind: RegisterKind::Scoped,
+            kind: ClaimKind::Scoped,
         });
 
         Ok(Emission::Instructions(reference_instructions))
@@ -3390,7 +3369,7 @@ impl From<ConstantValue> for Emission {
 pub struct InstructionRange {
     instructions: Range<u32>,
     drops: Range<u32>,
-    target_registers: Option<RegisterClaims>,
+    target_registers: Option<RegisterClaim>,
 }
 
 impl InstructionRange {
@@ -3407,7 +3386,7 @@ impl InstructionRange {
         self.target_registers = other.target_registers;
     }
 
-    fn extend(&mut self, other: InstructionRange) -> Option<RegisterClaims> {
+    fn extend(&mut self, other: InstructionRange) -> Option<RegisterClaim> {
         debug_assert_eq!(self.instructions.end, other.instructions.start);
         debug_assert_eq!(self.drops.end, other.drops.start);
 
@@ -3428,17 +3407,17 @@ pub enum Place {
         index: u16,
         operand_type: OperandType,
     },
-    Registers(RegisterClaims),
+    Registers(RegisterClaim),
 }
 
 impl Place {
     fn address(&self) -> Result<Address, CompileError> {
         match self {
-            Place::Constant { index, .. } => Ok(Address::new(MemoryKind::CONSTANT, *index)),
-            Place::Encoded { index, .. } => Ok(Address::new(MemoryKind::ENCODED, *index)),
+            Place::Constant { index, .. } => Ok(Address::new(Memory::CONSTANT, *index)),
+            Place::Encoded { index, .. } => Ok(Address::new(Memory::ENCODED, *index)),
             Place::Registers(registers) => registers
                 .base_index()
-                .map(|index| Address::new(MemoryKind::REGISTER, index)),
+                .map(|index| Address::new(Memory::REGISTER, index)),
         }
     }
 }
@@ -3450,26 +3429,26 @@ pub enum Local {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RegisterClaims {
-    claims: RegisterClaim::SmallVec,
-    kind: RegisterKind,
+pub struct RegisterClaim {
+    ranges: RegisterRange::SmallVec,
+    kind: ClaimKind,
 }
 
-impl RegisterClaims {
-    fn base(&self) -> Result<&RegisterClaim, CompileError> {
-        self.claims.first().ok_or(CompileError::ExpectedAllocation)
+impl RegisterClaim {
+    fn base(&self) -> Result<&RegisterRange, CompileError> {
+        self.ranges.first().ok_or(CompileError::ExpectedAllocation)
     }
 
     fn base_index(&self) -> Result<u16, CompileError> {
-        self.claims
+        self.ranges
             .first()
-            .map(|claim| claim.index)
+            .map(|range| range.index)
             .ok_or(CompileError::ExpectedAllocation)
     }
 
-    fn expect_single(&self) -> Result<RegisterClaim, CompileError> {
-        if self.claims.len() == 1 {
-            Ok(self.claims[0])
+    fn expect_single(&self) -> Result<RegisterRange, CompileError> {
+        if self.ranges.len() == 1 {
+            Ok(self.ranges[0])
         } else {
             Err(CompileError::InvalidRegisterAllocation)
         }
@@ -3477,12 +3456,12 @@ impl RegisterClaims {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct RegisterClaim {
+pub struct RegisterRange {
     index: u16,
     operand_type: OperandType,
 }
 
-impl RegisterClaim {
+impl RegisterRange {
     type SmallVec = SmallVec<[Self; optimize_inline_capacity::<Self, 4>()]>;
 
     fn end(&self) -> u16 {
@@ -3490,21 +3469,22 @@ impl RegisterClaim {
     }
 
     fn address(self) -> Address {
-        Address::new(MemoryKind::REGISTER, self.index)
+        Address::new(Memory::REGISTER, self.index)
     }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum RegisterKind {
+enum ClaimKind {
     Scoped,
     Temporary,
     Reserved,
+    TailCallArgument,
 }
 
 #[derive(Debug)]
 enum ExpressionTarget {
-    ClaimedRegister(RegisterClaims),
-    UnclaimedRegister(RegisterKind),
+    ClaimedRegister(RegisterClaim),
+    UnclaimedRegister(ClaimKind),
     Any,
 }
 
@@ -3522,24 +3502,27 @@ pub struct JumpId(u16);
 #[derive(Clone, Copy, Debug)]
 struct RegisterTracker {
     reserved: u16,
+    max: u16,
 
     next_local: u16,
     next_temporary: u16,
     next_reserved: u16,
 
-    max: u16,
+    next_tail_call_argument: u16,
 }
 
 impl RegisterTracker {
     fn new(argument_count: u16, return_count: u16) -> Self {
         let reserved = argument_count.max(return_count);
+        let next_local = if argument_count > 0 { reserved } else { 0 };
 
         Self {
             reserved,
-            next_local: argument_count,
+            max: reserved,
+            next_local,
             next_temporary: argument_count,
             next_reserved: 0,
-            max: reserved,
+            next_tail_call_argument: 0,
         }
     }
 
@@ -3550,7 +3533,7 @@ impl RegisterTracker {
         self.next_reserved = other.next_reserved;
     }
 
-    fn allocate_next_local(&mut self, operand_type: OperandType) -> u16 {
+    fn next_local(&mut self, operand_type: OperandType) -> u16 {
         let next = self.next_local;
         self.next_local += operand_type.register_width().as_u16();
         self.next_temporary = self.next_temporary.max(self.next_local);
@@ -3559,7 +3542,7 @@ impl RegisterTracker {
         next
     }
 
-    fn allocate_next_temporary(&mut self, operand_type: OperandType) -> u16 {
+    fn next_temporary(&mut self, operand_type: OperandType) -> u16 {
         let next = self.next_temporary;
         self.next_temporary += operand_type.register_width().as_u16();
         self.max = self.max.max(self.next_temporary);
@@ -3567,16 +3550,26 @@ impl RegisterTracker {
         next
     }
 
-    fn allocate_next_reserved(&mut self, operand_type: OperandType) -> u16 {
+    fn next_reserved(&mut self, operand_type: OperandType) -> u16 {
         let next = self.next_reserved;
         self.next_reserved += operand_type.register_width().as_u16();
+
+        debug_assert!(self.next_reserved <= self.reserved);
 
         next
     }
 
-    fn deallocate(&mut self, allocation: &RegisterClaims) {
+    fn next_tail_call_argument(&mut self, operand_type: OperandType) -> u16 {
+        let next = self.next_tail_call_argument;
+        self.next_tail_call_argument += operand_type.register_width().as_u16();
+        self.max = self.max.max(self.next_tail_call_argument);
+
+        next
+    }
+
+    fn deallocate(&mut self, allocation: &RegisterClaim) {
         let (Some(first_claim), Some(last_claim)) =
-            (allocation.claims.first(), allocation.claims.last())
+            (allocation.ranges.first(), allocation.ranges.last())
         else {
             return;
         };
@@ -3586,14 +3579,21 @@ impl RegisterTracker {
         }
 
         match allocation.kind {
-            RegisterKind::Scoped => {
+            ClaimKind::Scoped => {
                 self.next_local = self.next_local.min(last_claim.index);
             }
-            RegisterKind::Temporary => {
+            ClaimKind::Temporary => {
                 self.next_temporary = self.next_temporary.min(last_claim.index);
             }
-            RegisterKind::Reserved => {
+            ClaimKind::Reserved => {
                 self.next_reserved = 0;
+            }
+            ClaimKind::TailCallArgument => {
+                if cfg!(debug_assertions) {
+                    panic!("Cannot deallocate tail call argument registers");
+                } else {
+                    error!("Cannot deallocate tail call argument registers");
+                }
             }
         }
     }

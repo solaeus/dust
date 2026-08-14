@@ -813,17 +813,45 @@ impl<'a> Parser<'a> {
         let start = self.previous_token.span.start();
 
         let children_start = self.child_buffer.len();
-        let mut value_parameters_flags = SyntaxFlags::default();
 
-        if self.allow(TokenKind::SelfValue) {
+        let reference = self.allow(TokenKind::Ampersand);
+        let self_value = if reference {
+            self.expect(TokenKind::SelfValue)?;
+
+            true
+        } else {
+            self.allow(TokenKind::SelfValue)
+        };
+
+        if self_value {
+            let self_parameter_node = if reference {
+                SyntaxKind::SelfReferenceParameter
+                    .empty(Span::new(start, self.previous_token.span.end()))
+            } else {
+                SyntaxKind::SelfParameter.empty(self.previous_token.span)
+            };
+            let self_parameter_id = self.tree.add_node(self_parameter_node);
+
+            self.child_buffer.push(self_parameter_id);
+
+            let value_parameter_node = self.create_node(
+                SyntaxKind::ValueParameter,
+                SyntaxFlags::default(),
+                self_parameter_node.span,
+                children_start,
+            );
+            let value_parameter_id = self.tree.add_node(value_parameter_node);
+
+            self.child_buffer.push(value_parameter_id);
+
             if self.current_token.kind != TokenKind::RightParenthesis {
                 self.expect(TokenKind::Comma)?;
             }
-
-            value_parameters_flags.set_flag(SyntaxFlags::SELF_VALUE);
         }
 
         while !self.allow(TokenKind::RightParenthesis) {
+            let parameter_children_start = self.child_buffer.len();
+
             let parameter_path_node = self.expect_simple_path()?;
             let parameter_path_id = self.tree.add_node(parameter_path_node);
 
@@ -834,6 +862,19 @@ impl<'a> Parser<'a> {
 
             self.child_buffer.push(parameter_path_id);
             self.child_buffer.push(parameter_type_id);
+
+            let value_parameter_node = self.create_node(
+                SyntaxKind::ValueParameter,
+                SyntaxFlags::default(),
+                Span::new(
+                    parameter_path_node.span.start(),
+                    parameter_type_node_id.span.end(),
+                ),
+                parameter_children_start,
+            );
+            let value_parameter_id = self.tree.add_node(value_parameter_node);
+
+            self.child_buffer.push(value_parameter_id);
 
             match self.current_token.kind {
                 TokenKind::Comma => self.advance(),
@@ -848,12 +889,10 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let has_no_children = self.child_buffer.len() == children_start;
-
-        if value_parameters_flags.get_flag(SyntaxFlags::SELF_VALUE) || !has_no_children {
+        if self.child_buffer.len() > children_start {
             Ok(Some(self.create_node(
                 SyntaxKind::ValueParameters,
-                value_parameters_flags,
+                SyntaxFlags::default(),
                 Span::new(start, self.previous_token.span.end()),
                 children_start,
             )))
@@ -1941,7 +1980,7 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn parse_infix_dot(&mut self, left: SyntaxNode) -> Result<SyntaxNode, ParseError> {
+    fn parse_infix_dot_operator(&mut self, left: SyntaxNode) -> Result<SyntaxNode, ParseError> {
         let start = left.span.start();
         let left_id = self.tree.add_node(left);
 
@@ -2063,12 +2102,16 @@ impl<'a> Parser<'a> {
 
         let end = self.previous_token.span.end();
 
-        Ok(Some(self.create_node(
-            SyntaxKind::ValueArguments,
-            SyntaxFlags::default(),
-            Span::new(start, end),
-            children_start,
-        )))
+        if self.child_buffer.len() > children_start {
+            Ok(Some(self.create_node(
+                SyntaxKind::ValueArguments,
+                SyntaxFlags::default(),
+                Span::new(start, end),
+                children_start,
+            )))
+        } else {
+            Ok(None)
+        }
     }
 
     fn expect_simple_path(&mut self) -> Result<SyntaxNode, ParseError> {

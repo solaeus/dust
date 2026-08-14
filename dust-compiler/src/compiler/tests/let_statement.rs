@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::DustType,
-    instruction::{Address, Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, Memory, OperandType},
     prototype::Prototype,
 };
 
@@ -19,7 +19,7 @@ fn constant() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::U_8, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#move(0, OperandType::U_8, Address::new(Memory::ENCODED, 42)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::U_8],
@@ -44,7 +44,7 @@ fn shadowed() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::U_8, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#move(0, OperandType::U_8, Address::new(Memory::ENCODED, 42)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::U_8],
@@ -69,8 +69,8 @@ fn mutable() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::U_8, Address::new(MemoryKind::ENCODED, 41)),
-                    Instruction::add(0, OperandType::U_8, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::U_8, Address::new(Memory::ENCODED, 41)),
+                    Instruction::add(0, OperandType::U_8, Address::new(Memory::REGISTER, 0), Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::U_8],

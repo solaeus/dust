@@ -5,6 +5,7 @@ use dust_compiler::program::Program;
 
 use crate::{
     call::{Call, CallFrame},
+    error::VmError,
     register::Register,
     thread_pool::ThreadMessage,
 };
@@ -33,7 +34,7 @@ impl Thread {
         let register_count = if program.prototypes().len() == 1 {
             program.prototypes()[0].register_count as usize
         } else {
-            1024
+            (program.prototypes()[0].register_count as usize).max(256)
         };
 
         Thread {
@@ -46,49 +47,51 @@ impl Thread {
     }
 
     pub fn run(mut self) {
-        loop {
-            let call = match Call::new(
-                self.program.prototypes(),
-                self.program.constants(),
-                &mut self.register_stack,
-                &mut self.call_stack,
-                self.main_prototype_index,
-            ) {
-                Ok(call) => call,
-                Err(error) => {
-                    let _ = self.message_sender.send(ThreadMessage::ThreadError {
-                        thread_id: current_id(),
-                        error,
-                    });
+        let call = match Call::new(
+            self.program.prototypes(),
+            self.program.constants(),
+            &mut self.register_stack,
+            &mut self.call_stack,
+            self.main_prototype_index,
+        ) {
+            Ok(call) => call,
+            Err(error) => {
+                let _ = self.message_sender.send(ThreadMessage::ThreadError {
+                    thread_id: current_id(),
+                    error,
+                });
 
-                    return;
-                }
-            };
+                return;
+            }
+        };
 
-            match call.run() {
-                Ok(None) => {}
-                Ok(Some(final_frame)) => {
-                    let return_registers_end = (final_frame.base_register as usize)
-                        + (final_frame.return_register_count as usize);
-                    let return_registers = self.register_stack
-                        [final_frame.base_register as usize..return_registers_end]
-                        .to_vec();
+        match call.run() {
+            Ok(()) => {
+                let base_frame = match self.call_stack.pop() {
+                    Some(frame) => frame,
+                    None => {
+                        let _ = self.message_sender.send(ThreadMessage::ThreadError {
+                            thread_id: current_id(),
+                            error: VmError::CallStackUnderflow,
+                        });
 
-                    let _ = self.message_sender.send(ThreadMessage::ThreadFinished {
-                        thread_id: current_id(),
-                        return_registers,
-                    });
+                        return;
+                    }
+                };
 
-                    return;
-                }
-                Err(error) => {
-                    let _ = self.message_sender.send(ThreadMessage::ThreadError {
-                        thread_id: current_id(),
-                        error,
-                    });
+                self.register_stack
+                    .truncate(base_frame.register_count as usize);
 
-                    return;
-                }
+                let _ = self.message_sender.send(ThreadMessage::ThreadFinished {
+                    thread_id: current_id(),
+                    return_registers: self.register_stack,
+                });
+            }
+            Err(error) => {
+                let _ = self.message_sender.send(ThreadMessage::ThreadError {
+                    thread_id: current_id(),
+                    error,
+                });
             }
         }
     }

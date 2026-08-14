@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::DustType,
-    instruction::{Address, Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, Memory, OperandType},
     prototype::Prototype,
 };
 
@@ -14,9 +14,9 @@ fn if_branch() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::test(true, Address::new(MemoryKind::ENCODED, 1), 1),
-                    Instruction::move_with_jump(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 1), 1, true),
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::test(true, Address::new(Memory::ENCODED, 1), 1),
+                    Instruction::move_with_jump(0, OperandType::I_64, Address::new(Memory::ENCODED, 1), 1, true),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -35,9 +35,9 @@ fn if_else_branch() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::test(true, Address::new(MemoryKind::ENCODED, 1), 1),
-                    Instruction::move_with_jump(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1), 1, true),
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::test(true, Address::new(Memory::ENCODED, 1), 1),
+                    Instruction::move_with_jump(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1), 1, true),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -61,14 +61,14 @@ fn if_else_if_else() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_32, Address::new(MemoryKind::ENCODED, 2)),
-                    Instruction::equal(true, OperandType::I_32, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::I_32, Address::new(Memory::ENCODED, 2)),
+                    Instruction::equal(true, OperandType::I_32, Address::new(Memory::REGISTER, 0), Address::new(Memory::ENCODED, 1)),
                     Instruction::jump(1, true),
-                    Instruction::move_with_jump(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 10), 4, true),
-                    Instruction::equal(true, OperandType::I_32, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 2)),
+                    Instruction::move_with_jump(0, OperandType::I_64, Address::new(Memory::ENCODED, 10), 4, true),
+                    Instruction::equal(true, OperandType::I_32, Address::new(Memory::REGISTER, 0), Address::new(Memory::ENCODED, 2)),
                     Instruction::jump(1, true),
-                    Instruction::move_with_jump(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 20), 1, true),
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 30)),
+                    Instruction::move_with_jump(0, OperandType::I_64, Address::new(Memory::ENCODED, 20), 1, true),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 30)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -92,10 +92,10 @@ fn if_with_runtime_condition() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::test(true, Address::new(MemoryKind::REGISTER, 0), 1),
-                    Instruction::move_with_jump(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 1), 1, true),
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
+                    Instruction::test(true, Address::new(Memory::REGISTER, 0), 1),
+                    Instruction::move_with_jump(0, OperandType::I_64, Address::new(Memory::ENCODED, 1), 1, true),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],

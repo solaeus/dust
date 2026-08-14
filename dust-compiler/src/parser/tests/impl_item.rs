@@ -41,9 +41,7 @@ fn with_function() {
                 .with_children(Span::new(11, 26), SyntaxChildren::new(0, 3))
                 .with_flags(SyntaxFlags::VALUE_PARAMETERS),
             SimplePath.empty(Span::new(14, 17)),
-            ValueParameters
-                .empty(Span::new(17, 23))
-                .with_flags(SyntaxFlags::SELF_VALUE),
+            ValueParameters.empty(Span::new(17, 23)),
             BlockExpression.empty(Span::new(24, 26)),
         ]
     );
@@ -66,9 +64,7 @@ fn with_pub_function() {
                 .with_children(Span::new(15, 30), SyntaxChildren::new(0, 3))
                 .with_flags(SyntaxFlags::PUBLIC.and(SyntaxFlags::VALUE_PARAMETERS)),
             SimplePath.empty(Span::new(18, 21)),
-            ValueParameters
-                .empty(Span::new(21, 27))
-                .with_flags(SyntaxFlags::SELF_VALUE),
+            ValueParameters.empty(Span::new(21, 27)),
             BlockExpression.empty(Span::new(28, 30)),
         ]
     );

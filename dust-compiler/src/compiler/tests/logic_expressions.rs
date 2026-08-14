@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::DustType,
-    instruction::{Address, Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, Memory, OperandType},
     prototype::Prototype,
 };
 
@@ -14,7 +14,7 @@ fn and() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -33,7 +33,7 @@ fn or() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -58,11 +58,11 @@ fn runtime_and() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::r#move(1, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 0)),
-                    Instruction::test(false, Address::new(MemoryKind::REGISTER, 0), 1),
-                    Instruction::move_with_jump(0, OperandType::BOOLEAN, Address::new(MemoryKind::REGISTER, 1), 1, true),
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::REGISTER, 0)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
+                    Instruction::r#move(1, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 0)),
+                    Instruction::test(false, Address::new(Memory::REGISTER, 0), 1),
+                    Instruction::move_with_jump(0, OperandType::BOOLEAN, Address::new(Memory::REGISTER, 1), 1, true),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::REGISTER, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],
@@ -87,11 +87,11 @@ fn runtime_or() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 0)),
-                    Instruction::r#move(1, OperandType::BOOLEAN, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::test(true, Address::new(MemoryKind::REGISTER, 0), 1),
-                    Instruction::move_with_jump(0, OperandType::BOOLEAN, Address::new(MemoryKind::REGISTER, 1), 1, true),
-                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(MemoryKind::REGISTER, 0)),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 0)),
+                    Instruction::r#move(1, OperandType::BOOLEAN, Address::new(Memory::ENCODED, 1)),
+                    Instruction::test(true, Address::new(Memory::REGISTER, 0), 1),
+                    Instruction::move_with_jump(0, OperandType::BOOLEAN, Address::new(Memory::REGISTER, 1), 1, true),
+                    Instruction::r#move(0, OperandType::BOOLEAN, Address::new(Memory::REGISTER, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::BOOLEAN],

@@ -28,13 +28,11 @@ macro_rules! assert_program_eq {
             source::{Code, Source},
         };
 
-        let mut source = Source::new();
+        let mut source = Source::new("test_program".to_string());
 
         source.add_code(Code::validated("test", $code));
 
-        let program = Compiler::new(source)
-            .compile("test_program".to_string())
-            .unwrap();
+        let program = Compiler::new(source).compile().unwrap();
 
         assert_eq!(program.prototypes(), &$prototypes);
         assert_eq!(program.return_type(), &$return_type);

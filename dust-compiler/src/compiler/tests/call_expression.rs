@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::DustType,
-    instruction::{Address, Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, Memory, OperandType},
     prototype::Prototype,
 };
 
@@ -17,7 +17,7 @@ fn call_no_arguments() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::call(0, Address::new(MemoryKind::ENCODED, 1), u16::MAX),
+                    Instruction::call(0, Address::new(Memory::ENCODED, 1), u16::MAX),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -26,7 +26,7 @@ fn call_no_arguments() {
             },
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -48,8 +48,8 @@ fn call_one_argument() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 21)),
-                    Instruction::call(0, Address::new(MemoryKind::ENCODED, 1), 0),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 21)),
+                    Instruction::call(0, Address::new(Memory::ENCODED, 1), 0),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -58,7 +58,7 @@ fn call_one_argument() {
             },
             Prototype {
                 instructions: vec![
-                    Instruction::multiply(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 2)),
+                    Instruction::multiply(0, OperandType::I_64, Address::new(Memory::REGISTER, 0), Address::new(Memory::ENCODED, 2)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -80,9 +80,9 @@ fn call_two_arguments() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 10)),
-                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 20)),
-                    Instruction::call(0, Address::new(MemoryKind::ENCODED, 1), 0),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 10)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(Memory::ENCODED, 20)),
+                    Instruction::call(0, Address::new(Memory::ENCODED, 1), 0),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -91,7 +91,7 @@ fn call_two_arguments() {
             },
             Prototype {
                 instructions: vec![
-                    Instruction::add(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::REGISTER, 2)),
+                    Instruction::add(0, OperandType::I_64, Address::new(Memory::REGISTER, 0), Address::new(Memory::REGISTER, 2)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -117,9 +117,9 @@ fn call_with_runtime_arguments() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 10)),
-                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 20)),
-                    Instruction::call(0, Address::new(MemoryKind::ENCODED, 1), 0),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 10)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(Memory::ENCODED, 20)),
+                    Instruction::call(0, Address::new(Memory::ENCODED, 1), 0),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -128,7 +128,7 @@ fn call_with_runtime_arguments() {
             },
             Prototype {
                 instructions: vec![
-                    Instruction::add(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::REGISTER, 2)),
+                    Instruction::add(0, OperandType::I_64, Address::new(Memory::REGISTER, 0), Address::new(Memory::REGISTER, 2)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],

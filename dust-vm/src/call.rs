@@ -11,7 +11,7 @@ use crate::{
 };
 
 pub struct Call<'a> {
-    prototypes: &'a [Prototype],
+    prototypes: &'a Vec<Prototype>,
 
     register_stack: &'a mut Vec<Register>,
 
@@ -19,7 +19,7 @@ pub struct Call<'a> {
 
     constants: &'a Constants,
 
-    instructions: &'a [Instruction],
+    instructions: &'a Vec<Instruction>,
 
     base_register: usize,
 
@@ -28,7 +28,7 @@ pub struct Call<'a> {
 
 impl<'a> Call<'a> {
     pub fn new(
-        prototypes: &'a [Prototype],
+        prototypes: &'a Vec<Prototype>,
         constants: &'a Constants,
         register_stack: &'a mut Vec<Register>,
         call_stack: &'a mut Vec<CallFrame>,
@@ -60,7 +60,7 @@ impl<'a> Call<'a> {
         })
     }
 
-    pub fn run(mut self) -> Result<Option<CallFrame>, VmError> {
+    pub fn run(mut self) -> Result<(), VmError> {
         while !self.call_stack.is_empty() {
             let instruction = self.instructions.get(self.instruction_pointer).ok_or(
                 VmError::InvalidInstructionPointer {
@@ -184,7 +184,7 @@ impl<'a> Call<'a> {
                     self.jump_backward(a_field);
                 }
                 RETURN => {
-                    if self.call_stack.len() == 1 {
+                    if self.call_stack.len() <= 1 {
                         break;
                     }
 
@@ -210,7 +210,7 @@ impl<'a> Call<'a> {
             }
         }
 
-        Ok(self.call_stack.pop())
+        Ok(())
     }
 
     fn equal_with_comparator<T: PartialEq>(
@@ -398,7 +398,7 @@ impl<'a> Call<'a> {
         let absolute_index = self.base_register + index;
 
         if absolute_index >= self.register_stack.len() {
-            let new_size = self.register_stack.len() * 2;
+            let new_size = (self.register_stack.len() * 2).max((absolute_index + 1) * 2);
 
             self.register_stack.resize(new_size, Register::default());
         }

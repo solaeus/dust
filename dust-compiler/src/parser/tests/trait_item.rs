@@ -155,9 +155,7 @@ fn with_method_signature() {
                 .with_binary_children(Span::new(12, 25), SyntaxId(2), SyntaxId(3))
                 .with_flags(SyntaxFlags::VALUE_PARAMETERS),
             SimplePath.empty(Span::new(15, 18)),
-            ValueParameters
-                .empty(Span::new(18, 24))
-                .with_flags(SyntaxFlags::SELF_VALUE),
+            ValueParameters.empty(Span::new(18, 24)),
         ]
     );
 }
@@ -178,9 +176,7 @@ fn with_default_method() {
                 .with_children(Span::new(12, 27), SyntaxChildren::new(0, 3))
                 .with_flags(SyntaxFlags::VALUE_PARAMETERS),
             SimplePath.empty(Span::new(15, 18)),
-            ValueParameters
-                .empty(Span::new(18, 24))
-                .with_flags(SyntaxFlags::SELF_VALUE),
+            ValueParameters.empty(Span::new(18, 24)),
             BlockExpression.empty(Span::new(25, 27)),
         ]
     );
@@ -202,9 +198,7 @@ fn with_method_signature_and_return_type() {
                 .with_children(Span::new(12, 32), SyntaxChildren::new(0, 3))
                 .with_flags(SyntaxFlags::VALUE_PARAMETERS.and(SyntaxFlags::RETURN_TYPE)),
             SimplePath.empty(Span::new(15, 18)),
-            ValueParameters
-                .empty(Span::new(18, 24))
-                .with_flags(SyntaxFlags::SELF_VALUE),
+            ValueParameters.empty(Span::new(18, 24)),
             I64Type.empty(Span::new(28, 31)),
         ]
     );

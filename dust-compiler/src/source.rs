@@ -15,18 +15,31 @@ use crate::error::DustError;
 
 #[derive(Debug, Clone)]
 pub struct Source<'src> {
+    program_name: String,
     code: Vec<Code<'src>>,
 }
 
 impl<'src> Source<'src> {
-    pub fn new() -> Self {
-        Self { code: Vec::new() }
+    pub fn new(program_name: String) -> Self {
+        Self {
+            program_name,
+            code: Vec::new(),
+        }
     }
 
-    pub fn with_capacity(capacity: usize) -> Self {
+    pub fn with_capacity(program_name: String, capacity: usize) -> Self {
         Self {
+            program_name,
             code: Vec::with_capacity(capacity),
         }
+    }
+
+    pub fn into_program_name(self) -> String {
+        self.program_name
+    }
+
+    pub fn program_name(&self) -> &String {
+        &self.program_name
     }
 
     pub fn file_count(&self) -> usize {
@@ -75,12 +88,6 @@ impl<'src> Source<'src> {
             .iter_mut()
             .enumerate()
             .map(|(index, file)| (CodeId(index as u32), file))
-    }
-}
-
-impl Default for Source<'_> {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -289,17 +296,17 @@ impl Debug for CodeInner<'_> {
             Self::File { path, content } => f
                 .debug_struct("File")
                 .field("path", path)
-                .field("content", &String::from_utf8_lossy(content))
+                .field("content", &format!("{} bytes", content.len()))
                 .finish(),
             Self::Borrowed { name, content } => f
                 .debug_struct("Borrowed")
                 .field("name", name)
-                .field("content", &String::from_utf8_lossy(content))
+                .field("content", &format!("{} bytes", content.len()))
                 .finish(),
             Self::Owned { name, content } => f
                 .debug_struct("Owned")
                 .field("name", name)
-                .field("content", &String::from_utf8_lossy(content))
+                .field("content", &format!("{} bytes", content.len()))
                 .finish(),
         }
     }
@@ -373,13 +380,6 @@ impl Span {
 
     pub fn length(&self) -> u32 {
         self.1 - self.0
-    }
-
-    pub fn join(self, other: &Span) -> Span {
-        let new_start = self.0.min(other.0);
-        let new_end = self.1.max(other.1).max(new_start);
-
-        Span(new_start, new_end)
     }
 
     pub fn shrink(self, offset: u32) -> Span {

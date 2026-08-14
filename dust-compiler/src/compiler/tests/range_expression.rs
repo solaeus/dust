@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::{DustStructType, DustStructTypeFields, DustType},
-    instruction::{Address, Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, Memory, OperandType},
     prototype::Prototype,
 };
 
@@ -14,8 +14,8 @@ fn exclusive_range() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 0)),
-                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 10)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 0)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(Memory::ENCODED, 10)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64, OperandType::I_64],
@@ -40,8 +40,8 @@ fn inclusive_range() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 0)),
-                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 10)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 0)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(Memory::ENCODED, 10)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64, OperandType::I_64],
@@ -72,8 +72,8 @@ fn runtime_range() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 5)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 1)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(Memory::ENCODED, 5)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64, OperandType::I_64],

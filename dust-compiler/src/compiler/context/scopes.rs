@@ -1,5 +1,3 @@
-use std::num::NonZeroU32;
-
 use crate::compiler::context::declarations::{DeclarationId, Definition};
 
 #[derive(Debug, Default)]
@@ -67,11 +65,10 @@ impl Scopes {
 
     #[cfg(test)]
     pub fn iter(&self) -> impl Iterator<Item = (ScopeId, &Scope)> + '_ {
-        self.scopes.iter().enumerate().map(|(index, scope)| {
-            let id = ScopeId::from_index(index);
-
-            (id, scope)
-        })
+        self.scopes
+            .iter()
+            .enumerate()
+            .map(|(index, scope)| (ScopeId::from_index(index), scope))
     }
 }
 
@@ -80,6 +77,21 @@ pub struct Scope {
     pub barrier: Barrier,
     pub parent: Option<ScopeId>,
     members_range: (u32, u32),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ScopeId(u32);
+
+impl ScopeId {
+    pub const CORE: Self = ScopeId(0);
+
+    fn from_index(index: usize) -> Self {
+        ScopeId(index as u32)
+    }
+
+    fn index(self) -> usize {
+        self.0 as usize
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -94,7 +106,7 @@ pub enum Barrier {
 }
 
 impl Barrier {
-    pub fn is_barrier(self, definition: &Definition) -> bool {
+    pub fn blocks(self, definition: &Definition) -> bool {
         matches!(
             (self, definition),
             (
@@ -117,12 +129,13 @@ pub struct BarrierTracker {
 
 impl BarrierTracker {
     pub fn should_block(&mut self, definition: &Definition) -> bool {
-        if (self.item || self.associated || self.constant)
+        let block_variable = (self.item || self.associated || self.constant)
             && matches!(
                 definition,
                 Definition::Local { .. } | Definition::Field { .. }
-            )
-        {
+            );
+
+        if block_variable {
             return true;
         }
 
@@ -136,21 +149,5 @@ impl BarrierTracker {
             Barrier::Constant => self.constant = true,
             _ => {}
         }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ScopeId(NonZeroU32);
-
-impl ScopeId {
-    #[expect(clippy::disallowed_methods)]
-    pub const CORE: Self = ScopeId(NonZeroU32::new(1).unwrap());
-
-    fn from_index(index: usize) -> Self {
-        ScopeId(unsafe { NonZeroU32::new_unchecked((index + 1) as u32) })
-    }
-
-    fn index(self) -> usize {
-        (self.0.get() - 1) as usize
     }
 }

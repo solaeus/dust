@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::{DustStructTypeFields, DustType},
-    instruction::{Address, Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, Memory, OperandType},
     prototype::Prototype,
 };
 
@@ -17,7 +17,7 @@ fn const_reference() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 42)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -39,7 +39,7 @@ fn enum_variant_unit() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::U_16, Address::new(MemoryKind::ENCODED, 0)),
+                    Instruction::r#move(0, OperandType::U_16, Address::new(Memory::ENCODED, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::U_16],

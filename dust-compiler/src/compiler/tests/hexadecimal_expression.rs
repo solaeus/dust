@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::DustType,
-    instruction::{Address, Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, Memory, OperandType},
     prototype::Prototype,
 };
 
@@ -14,7 +14,7 @@ fn hexadecimal_literal() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::U_8, Address::new(MemoryKind::ENCODED, 42)),
+                    Instruction::r#move(0, OperandType::U_8, Address::new(Memory::ENCODED, 42)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::U_8],

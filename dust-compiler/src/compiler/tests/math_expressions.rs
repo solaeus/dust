@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::DustType,
-    instruction::{Address, Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, Memory, OperandType},
     prototype::Prototype,
 };
 
@@ -14,7 +14,7 @@ fn addition() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address { memory: MemoryKind::ENCODED, index: 3 }),
+                    Instruction::r#move(0, OperandType::I_64, Address { memory: Memory::ENCODED, index: 3 }),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -33,7 +33,7 @@ fn subtraction() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 2)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 2)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -52,7 +52,7 @@ fn multiplication() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 6)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 6)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -71,7 +71,7 @@ fn division() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 3)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 3)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -90,7 +90,7 @@ fn modulo() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -109,7 +109,7 @@ fn exponent() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 8)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 8)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -134,8 +134,8 @@ fn addition_assignment() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::add(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 2)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 1)),
+                    Instruction::add(0, OperandType::I_64, Address::new(Memory::REGISTER, 0), Address::new(Memory::ENCODED, 2)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -160,8 +160,8 @@ fn subtraction_assignment() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 3)),
-                    Instruction::subtract(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 1)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 3)),
+                    Instruction::subtract(0, OperandType::I_64, Address::new(Memory::REGISTER, 0), Address::new(Memory::ENCODED, 1)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -186,8 +186,8 @@ fn multiplication_assignment() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 2)),
-                    Instruction::multiply(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 3)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 2)),
+                    Instruction::multiply(0, OperandType::I_64, Address::new(Memory::REGISTER, 0), Address::new(Memory::ENCODED, 3)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -212,8 +212,8 @@ fn division_assignment() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 6)),
-                    Instruction::divide(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 2)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 6)),
+                    Instruction::divide(0, OperandType::I_64, Address::new(Memory::REGISTER, 0), Address::new(Memory::ENCODED, 2)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -238,8 +238,8 @@ fn modulo_assignment() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 7)),
-                    Instruction::modulo(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 3)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 7)),
+                    Instruction::modulo(0, OperandType::I_64, Address::new(Memory::REGISTER, 0), Address::new(Memory::ENCODED, 3)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -264,8 +264,8 @@ fn exponent_assignment() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 2)),
-                    Instruction::power(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::ENCODED, 3)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 2)),
+                    Instruction::power(0, OperandType::I_64, Address::new(Memory::REGISTER, 0), Address::new(Memory::ENCODED, 3)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -290,9 +290,9 @@ fn runtime_addition() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 2)),
-                    Instruction::add(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::REGISTER, 2)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 1)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(Memory::ENCODED, 2)),
+                    Instruction::add(0, OperandType::I_64, Address::new(Memory::REGISTER, 0), Address::new(Memory::REGISTER, 2)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -317,9 +317,9 @@ fn runtime_multiplication() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 3)),
-                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 4)),
-                    Instruction::multiply(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::REGISTER, 2)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 3)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(Memory::ENCODED, 4)),
+                    Instruction::multiply(0, OperandType::I_64, Address::new(Memory::REGISTER, 0), Address::new(Memory::REGISTER, 2)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -345,9 +345,9 @@ fn runtime_addition_assignment() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 2)),
-                    Instruction::add(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::REGISTER, 2)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 1)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(Memory::ENCODED, 2)),
+                    Instruction::add(0, OperandType::I_64, Address::new(Memory::REGISTER, 0), Address::new(Memory::REGISTER, 2)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -372,9 +372,9 @@ fn runtime_float_math() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::F_64, Address::new(MemoryKind::CONSTANT, 0)),
-                    Instruction::r#move(2, OperandType::F_64, Address::new(MemoryKind::CONSTANT, 2)),
-                    Instruction::add(0, OperandType::F_64, Address::new(MemoryKind::REGISTER, 0), Address::new(MemoryKind::REGISTER, 2)),
+                    Instruction::r#move(0, OperandType::F_64, Address::new(Memory::CONSTANT, 0)),
+                    Instruction::r#move(2, OperandType::F_64, Address::new(Memory::CONSTANT, 2)),
+                    Instruction::add(0, OperandType::F_64, Address::new(Memory::REGISTER, 0), Address::new(Memory::REGISTER, 2)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::F_64],

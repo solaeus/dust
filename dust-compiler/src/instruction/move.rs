@@ -1,7 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 
 use crate::instruction::{
-    Address, Instruction, InstructionBuilder, MemoryKind, OperandType, Operation,
+    Address, Instruction, InstructionBuilder, Memory, OperandType, Operation,
 };
 
 pub struct Move {
@@ -39,7 +39,7 @@ impl From<Move> for Instruction {
             .a_field(destination)
             .b_address(operand)
             .c_field(jump_distance)
-            .c_memory(MemoryKind(jump_forward as u8))
+            .c_memory(Memory(jump_forward as u8))
             .build()
     }
 }

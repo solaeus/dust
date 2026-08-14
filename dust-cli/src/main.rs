@@ -37,34 +37,18 @@ fn main() -> ExitCode {
 
     let result = match command {
         Some(Command::Run(mut command)) => {
-            command = command.fill_arguments(global, input);
+            command = command.join(global, input);
 
             run(command)
         }
         None => {
-            let command = RunCommand {
-                global,
-                name: None,
-                input,
-            };
+            let command = RunCommand { global, input };
 
             run(command)
         }
-        Some(Command::Parse(mut command)) => {
-            command = command.join(global, input);
-
-            parse(command)
-        }
-        Some(Command::Compile(mut command)) => {
-            command = command.fill_arguments(global, input);
-
-            compile(command)
-        }
-        Some(Command::Init(mut command)) => {
-            command = command.fill_arguments(global, input);
-
-            init(command)
-        }
+        Some(Command::Parse(command)) => parse(command.join(global, input)),
+        Some(Command::Compile(command)) => compile(command.join(global, input)),
+        Some(Command::Init(command)) => init(command.join(global, input)),
     };
 
     match result {
@@ -75,21 +59,6 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
-}
-
-fn get_name(name_option: Option<String>, input: &InputOptions) -> String {
-    name_option.unwrap_or_else(|| {
-        if let Some(file_name) = input
-            .path
-            .as_ref()
-            .and_then(|path| path.file_name())
-            .map(|name| name.to_string_lossy().to_string())
-        {
-            file_name
-        } else {
-            "dust_program".to_string()
-        }
-    })
 }
 
 fn handle_logging(level: Option<LevelFilter>, start_time: Instant) {
@@ -162,20 +131,20 @@ fn build_source<'src>(
         path,
     }: InputOptions,
 ) -> Result<Source<'src>, Error<'src>> {
-    let mut source = Source::new();
+    let mut source = Source::new("dust_cli".to_string());
 
     if let Some(input) = eval {
-        let eval_program = format!("fn main<T>() -> T {{\n    {input}\n}}");
+        let program_string = format!("fn main<T>() -> T {{\n    {input}\n}}");
 
-        source.add_code(Code::validated_owned("cli_input", eval_program));
+        source.add_code(Code::validated_owned("input.ds", program_string));
     } else if let Some(input) = eval_full {
-        source.add_code(Code::validated_owned("cli_input", input));
+        source.add_code(Code::validated_owned("input.ds", input));
     } else if stdin {
         let mut buffer = Vec::new();
 
         io::stdin().read_to_end(&mut buffer)?;
 
-        source.add_code(Code::unvalidated_owned("stdin", buffer));
+        source.add_code(Code::unvalidated_owned("stdin.ds", buffer));
     } else if let Some(path) = path
         && path.is_file()
     {

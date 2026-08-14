@@ -85,7 +85,20 @@ impl Context {
             })
     }
 
-    pub fn add_declaration(
+    pub fn add_type_binding(&mut self, code_id: CodeId, syntax_id: SyntaxId, type_id: TypeId) {
+        self.type_bindings.insert((code_id, syntax_id), type_id);
+    }
+
+    pub fn get_type_binding(&self, ids: &(CodeId, SyntaxId)) -> Result<&TypeId, CompileError> {
+        self.type_bindings
+            .get(ids)
+            .ok_or(CompileError::MissingTypeBinding {
+                code_id: ids.0,
+                syntax_id: ids.1,
+            })
+    }
+
+    pub fn add_scoped_declaration(
         &mut self,
         symbol_id: SymbolId,
         definition: Definition,
@@ -104,7 +117,7 @@ impl Context {
         declaration_id
     }
 
-    pub fn reserve_declaration_id(
+    pub fn reserve_scoped_declaration_id(
         &mut self,
         symbol_id: SymbolId,
         syntax: Option<(Position, SyntaxId)>,
@@ -117,19 +130,6 @@ impl Context {
         self.scopes.add_to_current_scope(declaration_id);
 
         declaration_id
-    }
-
-    pub fn add_type_binding(&mut self, code_id: CodeId, syntax_id: SyntaxId, type_id: TypeId) {
-        self.type_bindings.insert((code_id, syntax_id), type_id);
-    }
-
-    pub fn get_type_binding(&self, ids: &(CodeId, SyntaxId)) -> Result<&TypeId, CompileError> {
-        self.type_bindings
-            .get(ids)
-            .ok_or(CompileError::MissingTypeBinding {
-                code_id: ids.0,
-                syntax_id: ids.1,
-            })
     }
 
     pub fn add_constant_item_value(&mut self, declaration_id: DeclarationId, value: ConstantValue) {
@@ -440,10 +440,7 @@ impl Context {
     ) -> Result<DeclarationId, CompileError> {
         let parent_declaration = self.declarations.get_declaration(parent_declaration_id);
         let primary_member_scope_id = match parent_declaration.definition {
-            Definition::Module {
-                inner_scope_id: Some(inner_scope_id),
-                ..
-            }
+            Definition::Module { inner_scope_id, .. }
             | Definition::StructType {
                 fields: Some(inner_scope_id),
                 ..
@@ -1729,9 +1726,6 @@ impl Context {
                             value_parameters,
                             return_type: return_dust_type,
                         })))
-                    }
-                    Definition::NativeFunction { .. } => {
-                        todo!()
                     }
                     _ => Err(CompileError::ExpectedFunctionDefinition(*declaration_id)),
                 }

@@ -3,7 +3,7 @@ use smallvec::smallvec;
 use crate::{
     assert_program_eq,
     dust_type::DustType,
-    instruction::{Address, Instruction, MemoryKind, OperandType},
+    instruction::{Address, Instruction, Memory, OperandType},
     prototype::Prototype,
 };
 
@@ -14,9 +14,9 @@ fn array_literal() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 2)),
-                    Instruction::r#move(4, OperandType::I_64, Address::new(MemoryKind::ENCODED, 3)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 1)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(Memory::ENCODED, 2)),
+                    Instruction::r#move(4, OperandType::I_64, Address::new(Memory::ENCODED, 3)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64, OperandType::I_64, OperandType::I_64],
@@ -35,9 +35,9 @@ fn array_repeat() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 0)),
-                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0)),
-                    Instruction::r#move(4, OperandType::I_64, Address::new(MemoryKind::REGISTER, 0)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 0)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(Memory::REGISTER, 0)),
+                    Instruction::r#move(4, OperandType::I_64, Address::new(Memory::REGISTER, 0)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64, OperandType::I_64, OperandType::I_64],
@@ -61,10 +61,10 @@ fn index_expression() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 10)),
-                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 20)),
-                    Instruction::r#move(4, OperandType::I_64, Address::new(MemoryKind::ENCODED, 30)),
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::REGISTER, 2)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 10)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(Memory::ENCODED, 20)),
+                    Instruction::r#move(4, OperandType::I_64, Address::new(Memory::ENCODED, 30)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::REGISTER, 2)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
@@ -89,11 +89,11 @@ fn index_with_runtime_index() {
         prototypes: [
             Prototype {
                 instructions: vec![
-                    Instruction::r#move(0, OperandType::I_64, Address::new(MemoryKind::ENCODED, 10)),
-                    Instruction::r#move(2, OperandType::I_64, Address::new(MemoryKind::ENCODED, 20)),
-                    Instruction::r#move(4, OperandType::I_64, Address::new(MemoryKind::ENCODED, 30)),
-                    Instruction::r#move(6, OperandType::I_32, Address::new(MemoryKind::ENCODED, 1)),
-                    Instruction::get(0, OperandType::I_64, 0, Address::new(MemoryKind::REGISTER, 6)),
+                    Instruction::r#move(0, OperandType::I_64, Address::new(Memory::ENCODED, 10)),
+                    Instruction::r#move(2, OperandType::I_64, Address::new(Memory::ENCODED, 20)),
+                    Instruction::r#move(4, OperandType::I_64, Address::new(Memory::ENCODED, 30)),
+                    Instruction::r#move(6, OperandType::I_32, Address::new(Memory::ENCODED, 1)),
+                    Instruction::get(0, OperandType::I_64, 0, Address::new(Memory::REGISTER, 6)),
                     Instruction::r#return(),
                 ],
                 return_types: smallvec![OperandType::I_64],
